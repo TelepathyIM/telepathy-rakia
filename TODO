@@ -1,0 +1,163 @@
+===============================================================
+TODO / telepathy-sofiasip
+===============================================================
+
+Feature Roadmap 
+---------------
+
+- re-registration on network change detection
+- re-offer media streams on network change detection (handover)
+
+Critical todo items
+-------------------
+
+- when making outbound sessions with multiple media, only 
+  first media is succesfully set to playing state
+    - signals are emitted correctly, but they do not seem to have
+      the correct effect
+- DONE: (works for me) segfault handling an offer that has fewer media
+  than locally available (audio offer, when audio+video locally available)
+
+Account settings
+----------------
+
+- note: requires modifications to data/sofiasip.manager, sip-connection.c
+  as well as to sip-connection-manager.c
+- ability to toggle whether to modify local contact (discover binding)
+    - whether to use rport and/or STUN and re-register with the updated
+      contact
+- additional set of username, realm and password for authentication
+    - to authenticate to PSTN gateways, etc where registrations credentials
+      are not sufficient
+    - also needed if the service provider uses a separate username 
+      for authentication (different from user part of the public SIP address)
+- ability to disable known difficult-to-implement features
+    - early media with PRACK
+- ability to disable use of outbound proxy
+    - any use cases for this?
+    - see sip-connection.c:sip_connection_connect()
+
+Connection management
+---------------------
+
+- implement Connection.AdvertiseCapabilities()
+- check if we already have a connection to a requested account
+
+Media sessions
+--------------
+
+- if multiple network interfaces are present, the wrong IP address
+  may be offered in a c= SDP media line.
+- prevent an endless authentication loop when the server responds
+  with 401 or 407 repeatedly.
+- verify correct operation with 100rel/PRACK
+- verify correct operation with a remote node utilizing 
+  early media
+- implement code for removing group members
+    - see sip-media-channel.c:priv_media_channel_remove_member()
+- implement StreamHandler.CodecChoice()
+
+Presence and messaging
+-----------------------
+
+- check that content type of receivng messages is "text/plain" before
+  forwarding; or parse the MIME payload and try to find a "text/plain" part
+- send back an error code for unsupported message body types
+- make sure that body character sets other than ASCII and UTF-8 are supported
+  or at least detected
+- implement Connection.Interface.Presense.AddStatus()
+- implement Connection.Interface.Presense.SetStatus()
+- implement Connection.Interface.Presense.RemoveStatus()
+- implement Connection.Interface.Presense.ClearStatus()
+- implement Connection.Interface.Presense.GetStatuses()
+- implement Connection.Interface.Presense.RequestContactInfo()
+- implement Connection.Interface.Presense.SetLastActivityTime()
+- ConnectionInterfacePresence; RequestPresence:
+    - Response to SUBSCRIBE initiated by nua_glib_subscribe() emits a signal
+      subscribe-answered from nua_glib but there is no signal for
+      telepathy-sofiasip client, i.e. client cannot be informed if subscribe was
+      successful.
+
+Test programs
+-------------
+
+- tp_caller is an ugly hack, major refactoring needed
+- unit tests for basic functionality (creation and removal of
+  conn.mgr etc objects, registration, calling to itself, etc)
+
+Plugin interface
+----------------
+
+- mechanism to dynamically load handlers for new types of 
+  channels, and/or new types of connections
+
+General
+-------
+
+- various XXX items in the source codes (a generic todo item)
+    - status 2006-11-26: 37 XXXs 
+    - status 2006-12-04: 36 XXXs 
+    - status 2006-12-05: 24 XXXs 
+    - status 2006-12-15: 20 XXXs 
+    - status 2006-12-18: 19 XXXs
+
+Past todo items
+---------------
+
+- DONE: un-REGISTER does not exit
+- DONE: unsuccessful REGISTER not handled correctly
+- DONE: 3rd message (sent or recvd) causes "Permission denied" because of bad handle code
+- DONE: 'message-sent' emitted after 200 OK
+- DONE: 'send-error' emitted if message delivery failed
+- DONE: "Permission denied" shown when starting a chat by updating tp-sofiasip dbus API
+- DONE: various XXX-SIPify items (code copied from telepathy-gabble but not yet 
+  converted to SIP) items around the codebase
+- DONE: all places marked with "#if 0" should be resolved
+- DONE: upgrade to tp-0.13 interfaces
+    - VoipEngine -> StreamEngine
+    - remaining FooHandle -> Foohandles changes
+- DONE: move from nua_glib to nua
+    - better API for extensions (new methods, custom headers, nua
+      identity, different presence usage scenarios, etc, etc)
+    - less maintenance (nua_glib+nua vs nua)...?
+- DONE: BYE is not correcly sent when Dbus connection dies
+    - it tries to send it, but process exits before BYE is completed
+    - segfault due to invalid handle
+        - 0x0804b8ab in cb_status_changed (conn=0x8082c38, data=0x2) at sip-connection-manager.c:70
+        - 70 g_hash_table_remove (connman->priv->connections, conn);
+- DONE: update handles code to use gheap.h (and not use quarks)
+- DONE: verify session cleanup (make a test case that repeatedly
+  creates and destroys media sessions)
+- DONE: test that signaling for local alerts works
+- DONE: the conn.mgr should parse the SDP and create a matching number 
+  of sip-media-stream instance (otherwise we get an assert 
+  from sip-media-session:sip_media_session_set_remote_info())
+- DONE: currently in auto-answer mode, should wait until client 
+  modifies the local_pending_members set
+- DONE: correct handling incomning call hold
+    - verified with 0.3.5 (remote client N80ie)
+- DONE: call that fails with a 404 response is not properly handled
+    - channel disconnected but no proper error given to the UI
+- DONE: add an option to stream-engine interface to select non-jingle mode
+  of operation
+- DONE: specifying keepalive method
+- DONE: setting to override first-hop transport selection
+    - "transport", with possible settings of "udp", "tcp", "tcp/tls", "auto"
+    - "proxy" setting has been replaced by "transport", "proxy-host", "port"
+- DONE: specifying keepalive method frequency
+- DONE: rename "contact" to "bind-url"
+    -> removed contact altogether, instead use "address", "proxy" and
+       "registrar" to determine the set of required transports and 
+       local sockets to activate
+- READY: account settings 
+    - ability to set all key connection parameters
+- READY: solid registrations
+    - login and logout initiated by TP UIs 
+    - ability to support multiple accounts 
+- READY: inbound and outbound audio calls
+    - interoperability with PSTN gateways and SIP compliant clients
+- READY: sending and receiving instant messages (SIP MESSAGE)
+- READY: outbound and inbound audio/video calls
+- READY: basic SIP presence (avail/not-avail)
+    - not real presence
+  

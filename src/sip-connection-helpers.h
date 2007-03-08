@@ -1,0 +1,77 @@
+/*
+ * sip-connection-helpers.h - Helper routines used by SIPConnection
+ * Copyright (C) 2005 Collabora Ltd.
+ * Copyright (C) 2005-2006 Nokia Corporation
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+#ifndef __SIP_CONNECTION_HELPERS_H__
+#define __SIP_CONNECTION_HELPERS_H__
+
+#include <glib-object.h>
+
+/* note: As one Sofia-SIP NUA instance is created per SIP connection,
+ *       SIPConnection is used as the primary context pointer. See
+ *       {top}/docs/design.txt for further information.
+ *       
+ *       Each NUA handle is mapped 1:1 to a Telepathy handle (guint). 
+ *       The handles are stored as pointer values and have to be
+ *       properly casted before use with GPOINTER_TO_UINT() and
+ *       GUINT_TO_POINTER().
+ */
+
+struct SIPConnection;
+struct SIPConnectionManager;
+
+#define NUA_MAGIC_T      SIPConnection 
+#define SU_ROOT_MAGIC_T  SIPConnectionManager
+#define SU_TIMER_ARG_T   SIPConnection
+#define NUA_HMAGIC_T     gpointer
+
+#include <sofia-sip/nua.h>
+#include <sofia-sip/su.h>
+#include <sofia-sip/sl_utils.h>
+#include <sofia-sip/su_glib.h>
+#include <sofia-sip/tport_tag.h>
+
+#include "sip-media-channel.h"
+#include "sip-text-channel.h"
+#include "sip-connection.h"
+#include <telepathy-glib/handle.h>
+
+
+G_BEGIN_DECLS
+
+/***********************************************************************
+ * Functions for accessing Sofia-SIP interface handles
+ ***********************************************************************/
+
+nua_t *sip_conn_sofia_nua (SIPConnection *conn);
+su_home_t *sip_conn_sofia_home (SIPConnection *conn);
+
+nua_handle_t *sip_conn_create_register_handle (nua_t *nua, su_home_t *home, const char *address, TpHandle handle);
+nua_handle_t *sip_conn_create_request_handle (nua_t *nua, su_home_t *home, const char *address, TpHandle handle);
+
+/***********************************************************************
+ * Functions for managing NUA outbound/keepalive parameters
+ ***********************************************************************/
+
+void sip_conn_update_nua_outbound (SIPConnection *conn);
+void sip_conn_update_nua_keepalive_interval (SIPConnection *conn);
+void sip_conn_update_nua_contact_features (SIPConnection *conn);
+
+G_END_DECLS
+
+#endif /* #ifndef __SIP_CONNECTION_HELPERS_H__*/

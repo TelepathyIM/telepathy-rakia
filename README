@@ -1,0 +1,56 @@
+===============================================================
+README / telepathy-sofiasip
+===============================================================
+
+Building
+--------
+
+When building from the devel tree (you need automake-1.9):
+
+sh> gtkdocize # (optional)
+sh> autoreconf -i
+
+And then continue with the normal:
+
+sh> ./configure
+sh> make
+
+If using gtkdoc, a second 'make' is needed as the 1st will fail due 
+to a bug in gtkdoc.
+
+Running 
+-------
+
+Set the "SOFIASIP_PERSIST" environment variable to prevent the connection 
+manager from exiting after all connections have been disconnected. This
+option is only available if telepathy-sofiasip was configured with
+the "--enable-debug" option.
+
+Comments on IETF ICE compliance
+------------------------------
+
+Telepathy frameworks streamed media support was first implemented for
+Jabber/Jingle ICE-RTP profile. Using the same interface for SIP based
+media session setup creates some challenges (most urgent first):
+
+Spec issues
+~~~~~~~~~~~
+
+- some differences in terms: IETF-ICE has component (candidate-id) and transport
+  identifiers (tid) and a session-level password (ice-pwd), which are similar but 
+  not equivalent to Telepathy transport properties 'user' and 'pass'
+- the candidate-id values should be random with length of at least 
+  four characters
+- libjingle does not support multiple components (like one for RTP and one
+  for RTCP) per candidate
+
+Implementation issues
+~~~~~~~~~~~~~~~~~~~~~ 
+
+- open: to talk with non-ICE compliant SIP endpoints, libjingle has to
+  support bypassing connectivity checks for the default candidate - can
+  this be done?
+- currently libjingle does not emit NativeCandidatePrepared, making it 
+  more difficult to decide when to send all local candidates (whether to
+  wait until one of each type of candidates is generated, or some fixed
+  time interval?)

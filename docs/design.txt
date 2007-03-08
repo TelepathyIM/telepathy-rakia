@@ -1,0 +1,83 @@
+title: Design notes for Telepathy-SIP
+version: 20061215-6
+
+General
+-------
+
+Telepathy-sofiasip is a SIP connection manager for the Telepathy framework. 
+The code is based on the Jabber/XMPP connection manager 
+implementation (telepathy-gabble).
+
+Testing
+-------
+
+For testing basic functionality, use the 'tests/tp_caller' app that
+comes with the package.
+
+Use of Sofia-SIP
+----------------
+
+Telepathy-sofiasip originally used the Sofia-SIP "NuaGlib" API, but
+was ported to directly use the "NUA" API to get more direct access
+to the low-level interfaces provided by Sofia-SIP.
+
+There are two different architectural approaches how Sofia-SIP 
+could be used:
+
+ 1) One NUA instance, with one set of operating system level
+    sockets for SIP signaling, is created by the connection
+    manager object.
+ 2) A separate NUA instance is created for each connection
+    to the network.
+
+The current implementation follows (2), but switching to (1) should
+be considered once the multiple identities support in sofia-sip
+matures.
+
+Outbound calls
+--------------
+
+- client requests a channel with type of "StreamedMedia" with remote URI XXX
+  using the RequestChannel method (if:org.freedesktop.Telepathy.Connection)
+    - SIPMediaChannel (sipchan) and SIPMediaSession (sipsess) objects are created
+    - 'sipsess' emits NewSessionHandler
+    - SIPConnection emits NewChannel
+- application requests media streams with "RequestStreams"
+    - SIPMediaStream (sipstream) objects are created
+    - emit sipsess.NewStreamHandler() signal for each stream
+    - emit sipsess.StreamAdded() signal for each stream
+- client creates a StreamEngine (e) and passes the new channel object (c)
+  to it with e.HandleChannel(c)
+    - stream engine connects to the SIPMediaChannel and issues c.GetSessionHandlers()
+    - StreamEngine will connect to signals emitted by the channel object
+    - StreamEngine will call SipMediaSession.Ready() to complete the setup
+- StreamEngine launches local candidate/codec discovery
+- once the local candidate/codecs are found
+     - note: unlike in Jingle, the candidates are sent in one go, 
+       not one candidate at a time
+     - thus in the SIP implementation, we have to have a separate logic
+       to decide when to send our offer/answer
+     - the offer/answer logic depends on the status of all the streams,
+       and only once valid SDP description is available for all of them,
+       an offer/answer can be sent (see sip_media_session.c:priv_offer_answer_step())
+
+Incoming calls
+--------------
+
+- the SIP stack delivers the 'nua_i_invite' signal which is handled in 
+  sip-connection-sofia.c:priv_i_invite()
+- SIPConnection will create the media channel objects and start setting 
+  up them for a session as done for outbound calls (see above) 
+
+Mapping sessions and streams to SIP
+-----------------------------------
+
+- basis for handling sessions and streams is defined in RFC3264,
+  with examples given in RFC4317
+- telepathy-sofiasip has to keep track of all stream added to 
+  a session (removed streams have to be kept around in the signaling,
+  marked as not-used with zero as the port number)
+- the SIPMediaSession object maintains an array of SIPMediaStream
+  objects
+    - note that disabled, or streams with unknown media type,
+      are stored as NULL pointers to the array
