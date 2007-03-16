@@ -418,7 +418,7 @@ static void priv_r_message(int status, char const *phrase, nua_t *nua,
   channel = sip_text_factory_lookup_channel (priv->text_factory, handle);
 
   if (channel && status >= 200)
-    sip_text_channel_message_emit(nh, channel, status);
+    sip_text_channel_emit_message_status(channel, nh, status);
 }
 
 

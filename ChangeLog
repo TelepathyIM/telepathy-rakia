@@ -1,3 +1,12 @@
+2007-03-15  Mikhail Zabaluev  <mikhail.zabaluev@nokia.com>
+
+	* src/sip-connection-sofia.c: (priv_r_message):
+	* src/sip-text-channel.h:
+	* src/sip-text-channel.c: (sip_text_channel_emit_message_status):
+	Changed sip_text_channel_message_emit() to have a cleaner name and
+	parameter sequence. More elaborate mapping of SIP response codes
+	to TpChannelTextSendError values.
+
 2007-03-14  Mikhail Zabaluev  <mikhail.zabaluev@nokia.com>
 
 	* src/sip-connection-sofia.c: (priv_disconnect),

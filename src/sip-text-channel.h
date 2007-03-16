@@ -54,7 +54,9 @@ GType sip_text_channel_get_type(void);
   (G_TYPE_INSTANCE_GET_CLASS ((obj), SIP_TYPE_TEXT_CHANNEL, SIPTextChannelClass))
 
 
-void sip_text_channel_message_emit(nua_handle_t *nh, SIPTextChannel *obj, int status);
+void sip_text_channel_emit_message_status(SIPTextChannel *obj,
+                                          nua_handle_t *nh,
+                                          int status);
 
 void sip_text_channel_receive(SIPTextChannel *obj, TpHandle sender,
     const char *display_name, const char *url,

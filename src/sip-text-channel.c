@@ -661,8 +661,10 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
   tp_svc_channel_type_text_return_from_send (context);
 }
 
-
-void sip_text_channel_message_emit(nua_handle_t *nh, SIPTextChannel *obj, int status)
+void
+sip_text_channel_emit_message_status(SIPTextChannel *obj,
+                                     nua_handle_t *nh,
+                                     int status)
 {
   SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (obj);
   SIPTextPendingMessage *msg;
@@ -692,15 +694,48 @@ void sip_text_channel_message_emit(nua_handle_t *nh, SIPTextChannel *obj, int st
         msg->timestamp, msg->type, msg->text);
     return;
   }
-  else if (status >= 400 && status < 500) {
-    send_error = TP_CHANNEL_TEXT_SEND_ERROR_INVALID_CONTACT;
-  }
   else {
-    send_error = TP_CHANNEL_TEXT_SEND_ERROR_UNKNOWN;
-  }
+    switch (status)
+      {
+      case 401:
+      case 403:
+      case 407:
+      case 603:
+	send_error = TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED;
+	break;
+      case 404:
+      case 484:
+      case 485:
+      case 604:
+	send_error = TP_CHANNEL_TEXT_SEND_ERROR_INVALID_CONTACT;
+	break;
+      case 405:
+      case 406:
+      case 415:
+      case 416:
+      case 488:
+      case 501:
+      case 505:
+      case 606:
+	send_error = TP_CHANNEL_TEXT_SEND_ERROR_NOT_IMPLEMENTED;
+	break;
+      case 410:
+	send_error = TP_CHANNEL_TEXT_SEND_ERROR_INVALID_CONTACT /* TP_CHANNEL_TEXT_SEND_ERROR_OFFLINE? */;
+	break;
+      case 413:
+      case 414:
+      case 513:
+	send_error = TP_CHANNEL_TEXT_SEND_ERROR_TOO_LONG;
+	break;
+      default:
+	send_error = TP_CHANNEL_TEXT_SEND_ERROR_UNKNOWN;
+      }
 
-  tp_svc_channel_type_text_emit_send_error ((TpSvcChannelTypeText *)obj,
-      send_error, msg->timestamp, msg->type, msg->text);  
+    g_debug ("emitting send error %d %s", (int)send_error, msg->text);
+
+    tp_svc_channel_type_text_emit_send_error ((TpSvcChannelTypeText *)obj,
+	send_error, msg->timestamp, msg->type, msg->text);  
+  }
 
   g_queue_remove(priv->messages_to_be_acknowledged, msg);
   _sip_text_pending_free(msg);
