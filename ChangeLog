@@ -1,4 +1,19 @@
-2007-03-08  Robert McQueen  <robert.mcqueen@collabora.collabora
+2007-03-14  Mikhail Zabaluev  <mikhail.zabaluev@nokia.com>
+
+	* src/sip-connection-manager.c:
+	(sip_connection_manager_new_connection):
+	* src/sip-connection-private.h:
+	* src/sip-connection.c: (sip_connection_set_property),
+	(sip_connection_class_init):
+	Implemented properties "extra-auth-user", "extra-auth-password".
+	* src/sip-connection-sofia.c: (priv_authenticate),
+	(priv_handle_auth_register), (priv_handle_auth_extra),
+	(priv_r_invite), (priv_r_register), (priv_r_message):
+	Separated authentication for REGISTER and other requests, the latter
+	using new extra auth properties.
+	Cleaned up the authentication code, fixed a memory leak.
+
+2007-03-08  Robert McQueen  <robert.mcqueen@collabora.co.uk>
 
 	* client/, generate/: Delete defunct directories.
 	* configure.ac, Makefile.am: Update in light of deleted directories.

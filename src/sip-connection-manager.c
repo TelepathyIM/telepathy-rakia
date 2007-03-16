@@ -459,6 +459,11 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
   keepalive_mechanism = priv_parse_keepalive (params->keepalive_mechanism);
   g_object_set (connection, "keepalive-mechanism", keepalive_mechanism, NULL);
 
+  SET_PROPERTY_IF_PARAM_SET ("extra-auth-user", SIP_CONN_PARAM_EXTRA_AUTH_USER,
+      params->extra_auth_user);
+  SET_PROPERTY_IF_PARAM_SET ("extra-auth-password", SIP_CONN_PARAM_EXTRA_AUTH_PASSWORD,
+      params->extra_auth_password);
+
   return connection;
 }
 

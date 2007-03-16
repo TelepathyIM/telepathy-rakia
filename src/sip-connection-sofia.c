@@ -38,31 +38,21 @@
 #define DEBUG_FLAG SIP_DEBUG_CONNECTION
 #include "debug.h"
 
-/**
- * Handles authentication challenge for operation 'op'.
- */
-static void priv_handle_auth (SIPConnection *self, nua_handle_t *nh, sip_t const *sip, tagi_t *tags)
+
+static void priv_authenticate (nua_handle_t *nh,
+                               const sip_t *sip,
+                               const char *user,
+                               const char *password)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   sip_www_authenticate_t const *wa = sip->sip_www_authenticate;
   sip_proxy_authenticate_t const *pa = sip->sip_proxy_authenticate;
-  sip_from_t const *sipfrom = sip->sip_from, *sipto = sip->sip_to;
   const char *realm = NULL;
   const char *method = NULL;
 
-  /* use the userpart in "From" header */
-  const char *user = (sipfrom && sipfrom->a_url && sipfrom->a_url->url_user) ? sipfrom->a_url->url_user : NULL;
-
-  /* alternatively use the userpart in "To" header */
-  if (user == NULL)
-    user = (sipto && sipto->a_url && sipto->a_url->url_user) ? sipto->a_url->url_user : NULL;
-
   DEBUG("enter");
 
-  tl_gets(tags, 
-          SIPTAG_WWW_AUTHENTICATE_REF(wa),
-          SIPTAG_PROXY_AUTHENTICATE_REF(pa),
-          TAG_NULL());
+  if (password == NULL)
+    password = "";
 
   /* step: figure out the realm of the challenge */
   if (wa) {
@@ -73,25 +63,77 @@ static void priv_handle_auth (SIPConnection *self, nua_handle_t *nh, sip_t const
     realm = msg_params_find(pa->au_params, "realm=");  
     method = pa->au_scheme;
   }
-  
+
   /* step: if all info is available, add an authorization response */
   if (user && realm && method) {
-    GString *tmp = g_string_new(NULL);
+    gchar *auth;
 
     if (realm[0] == '"')
-      g_string_printf(tmp, "%s:%s:%s:%s", 
-		      method, realm, user, priv->password);
+      auth = g_strdup_printf ("%s:%s:%s:%s", 
+			      method, realm, user, password);
     else
-      g_string_printf(tmp, "%s:\"%s\":%s:%s", 
-		      method, realm, user, priv->password);
-
+      auth = g_strdup_printf ("%s:\"%s\":%s:%s", 
+			      method, realm, user, password);
 
     g_message ("sofiasip: %s authenticating user='%s' realm='%s' nh='%p'",
 	       wa ? "server" : "proxy", user, realm, nh);
 
-    nua_authenticate(nh, NUTAG_AUTH(tmp->str), TAG_END());
+    nua_authenticate(nh, NUTAG_AUTH(auth), TAG_END());
 
+    g_free (auth);
+
+  } else {
+    g_warning ("sofiasip: authentication data are incomplete, skipping");
   }
+}
+
+/**
+ * Handles authentication challenge for REGISTER operations.
+ */
+static void priv_handle_auth_register (SIPConnection *self,
+                                       nua_handle_t *nh,
+                                       const sip_t *sip)
+{
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+  sip_from_t const *sipfrom = sip->sip_from;
+  sip_from_t const *sipto = sip->sip_to;
+  const char *user =  NULL;
+
+  /* use the userpart in "From" header */
+  if (sipfrom && sipfrom->a_url)
+    user = sipfrom->a_url->url_user;
+
+  /* alternatively use the userpart in "To" header */
+  if (!user && sipto && sipto->a_url)
+    user = sipto->a_url->url_user;
+
+  if (!user)
+    {
+      g_warning ("could not determine user name for registration");
+      return;
+    }
+
+  priv_authenticate (nh, sip, user, priv->password);
+}
+
+/**
+ * Handles authentication challenges for non-REGISTER operations.
+ */
+static void priv_handle_auth_extra (SIPConnection *self,
+                                    nua_handle_t *nh,
+                                    const sip_t *sip)
+{
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+
+  /* XXX: no security checks are made on the origin of the challenge.
+   * Sending a digest of the single password to anybody who asks for it
+   * is a mild security risk. Exposing the single username to an unintended
+   * recipient may be an even bigger issue. */
+  /* Shall we gleefully substitute the registration password and username
+   * if the extra credentials are not given? */
+
+  priv_authenticate (nh, sip,
+                     priv->extra_auth_user, priv->extra_auth_password);
 }
 
 static void
@@ -129,7 +171,7 @@ static void priv_r_invite(int status, char const *phrase,
    
   if (status >= 300) {
     if (status == 401 || status == 407) {
-      priv_handle_auth (self, nh, sip, tags);
+      priv_handle_auth_extra (self, nh, sip);
     } else {
       /* redirects (3xx responses) are not handled properly */
       /* smcv-FIXME: need to work out which channel we're dealing with here */
@@ -160,7 +202,7 @@ priv_r_register (int status,
   }
 
   if (status == 401 || status == 407) {
-    priv_handle_auth (self, nh, sip, tags);
+    priv_handle_auth_register (self, nh, sip);
   }
   else if (status == 403) {
     g_message ("sofiasip: REGISTER failed, wrong credentials, disconnecting.");
@@ -339,6 +381,12 @@ static void priv_r_message(int status, char const *phrase, nua_t *nua,
 
   g_message("sofiasip: nua_r_message: %03d %s", status, phrase);
 
+  if (status == 401 || status == 407)
+    {
+      priv_handle_auth_extra (self, nh, sip);
+      return;
+    }
+
   if (!priv_parse_sip_to(sip, home, &to_str, &to_url_str))
     return;
 
@@ -349,11 +397,8 @@ static void priv_r_message(int status, char const *phrase, nua_t *nua,
   handle = priv_parse_handle (self, nh, handle, to_url_str);
   channel = sip_text_factory_lookup_channel (priv->text_factory, handle);
 
-  if (!channel || (status < 200))
-    return;
-  else {
+  if (channel && status >= 200)
     sip_text_channel_message_emit(nh, channel, status);
-  }
 }
 
 

@@ -54,6 +54,8 @@ struct _SIPConnectionPrivate
   gint keepalive_interval;
   gchar *http_proxy;
   gchar *stun_server;
+  gchar *extra_auth_user;
+  gchar *extra_auth_password;
   gboolean discover_binding;
 };
 

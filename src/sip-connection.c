@@ -87,6 +87,8 @@ enum
   PROP_DISCOVER_BINDING,   /**< enable discovery of public binding */
   PROP_STUN_SERVER,        /**< STUN server address (if not set, derived
 			        from public SIP address */
+  PROP_EXTRA_AUTH_USER,	   /**< User name to use for extra authentication challenges */
+  PROP_EXTRA_AUTH_PASSWORD,/**< Password to use for extra authentication challenges */
   PROP_SOFIA_ROOT,         /**< Event root pointer from the Sofia-SIP stack */
   LAST_PROPERTY
 };
@@ -282,6 +284,16 @@ sip_connection_set_property (GObject      *object,
       nua_set_params(priv->sofia_nua, STUNTAG_SERVER(priv->stun_server), TAG_END());
     break;
   }
+  case PROP_EXTRA_AUTH_USER: {
+    g_free((gpointer)priv->extra_auth_user);
+    priv->extra_auth_user =  g_value_dup_string (value);
+    break;
+  }
+  case PROP_EXTRA_AUTH_PASSWORD: {
+    g_free((gpointer)priv->extra_auth_password);
+    priv->extra_auth_password =  g_value_dup_string (value);
+    break;
+  }
   case PROP_SOFIA_ROOT: {
     priv->sofia_root = g_value_get_pointer (value);
     break;
@@ -464,6 +476,20 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                     TRUE, /*default value*/
                                     G_PARAM_READWRITE);
   INST_PROP(PROP_DISCOVER_BINDING);
+
+  param_spec = g_param_spec_string("extra-auth-user",
+                                   "Extra auth username",
+                                   "Username to use for extra authentication challenges",
+                                   NULL, /*default value*/
+                                   G_PARAM_READWRITE);
+  INST_PROP(PROP_EXTRA_AUTH_USER);
+
+  param_spec = g_param_spec_string("extra-auth-password",
+                                   "Extra auth password",
+                                   "Password to use for extra authentication challenges",
+                                   NULL, /*default value*/
+                                   G_PARAM_READWRITE);
+  INST_PROP(PROP_EXTRA_AUTH_PASSWORD);
 
   param_spec = g_param_spec_string("stun-server",
                                    "STUN server address",
