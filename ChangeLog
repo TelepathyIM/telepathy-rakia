@@ -1,5 +1,16 @@
 2007-03-14  Mikhail Zabaluev  <mikhail.zabaluev@nokia.com>
 
+	* src/sip-connection-sofia.c: (priv_disconnect),
+	(priv_authenticate), (priv_handle_auth_register),
+	(priv_handle_auth_extra), (priv_r_invite), (priv_r_register),
+	(priv_r_message):
+	More graceful handling of missing auth credentials, still has issues
+	with the stack.
+	* src/sip-media-channel.c: (sip_media_channel_peer_error):
+	Added more status codes to the unimplemented auth error reporting case.
+
+2007-03-14  Mikhail Zabaluev  <mikhail.zabaluev@nokia.com>
+
 	* src/sip-connection-manager.c:
 	(sip_connection_manager_new_connection):
 	* src/sip-connection-private.h:

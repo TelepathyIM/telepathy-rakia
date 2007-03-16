@@ -38,11 +38,26 @@
 #define DEBUG_FLAG SIP_DEBUG_CONNECTION
 #include "debug.h"
 
+static void
+priv_disconnect (SIPConnection *self, TpConnectionStatusReason reason)
+{
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+  TpBaseConnection *base = (TpBaseConnection *)self;
 
-static void priv_authenticate (nua_handle_t *nh,
-                               const sip_t *sip,
-                               const char *user,
-                               const char *password)
+  tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
+      reason);
+  if (priv->register_op != NULL)
+    {
+      nua_handle_destroy (priv->register_op);
+      priv->register_op = NULL;
+    }
+}
+
+static gboolean
+priv_authenticate (nua_handle_t *nh,
+                   const sip_t *sip,
+                   const char *user,
+                   const char *password)
 {
   sip_www_authenticate_t const *wa = sip->sip_www_authenticate;
   sip_proxy_authenticate_t const *pa = sip->sip_proxy_authenticate;
@@ -82,17 +97,20 @@ static void priv_authenticate (nua_handle_t *nh,
 
     g_free (auth);
 
+    return TRUE;
   } else {
-    g_warning ("sofiasip: authentication data are incomplete, skipping");
+    g_warning ("sofiasip: authentication data are incomplete");
+    return FALSE;
   }
 }
 
 /**
  * Handles authentication challenge for REGISTER operations.
  */
-static void priv_handle_auth_register (SIPConnection *self,
-                                       nua_handle_t *nh,
-                                       const sip_t *sip)
+static gboolean
+priv_handle_auth_register (SIPConnection *self,
+                           nua_handle_t *nh,
+                           const sip_t *sip)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   sip_from_t const *sipfrom = sip->sip_from;
@@ -110,20 +128,26 @@ static void priv_handle_auth_register (SIPConnection *self,
   if (!user)
     {
       g_warning ("could not determine user name for registration");
-      return;
+      return FALSE;
     }
 
-  priv_authenticate (nh, sip, user, priv->password);
+  return priv_authenticate (nh, sip, user, priv->password);
 }
 
 /**
  * Handles authentication challenges for non-REGISTER operations.
  */
-static void priv_handle_auth_extra (SIPConnection *self,
-                                    nua_handle_t *nh,
-                                    const sip_t *sip)
+static gboolean
+priv_handle_auth_extra (SIPConnection *self,
+                        nua_handle_t *nh,
+                        const sip_t *sip)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+
+  if (priv->extra_auth_user == NULL) {
+    g_message ("no credentials for non-REGISTER authentication");
+    return FALSE;
+  }
 
   /* XXX: no security checks are made on the origin of the challenge.
    * Sending a digest of the single password to anybody who asks for it
@@ -132,8 +156,8 @@ static void priv_handle_auth_extra (SIPConnection *self,
   /* Shall we gleefully substitute the registration password and username
    * if the extra credentials are not given? */
 
-  priv_authenticate (nh, sip,
-                     priv->extra_auth_user, priv->extra_auth_password);
+  return priv_authenticate (nh, sip,
+                            priv->extra_auth_user, priv->extra_auth_password);
 }
 
 static void
@@ -171,12 +195,13 @@ static void priv_r_invite(int status, char const *phrase,
    
   if (status >= 300) {
     if (status == 401 || status == 407) {
-      priv_handle_auth_extra (self, nh, sip);
-    } else {
-      /* redirects (3xx responses) are not handled properly */
-      /* smcv-FIXME: need to work out which channel we're dealing with here */
-      priv_emit_remote_error (self, nh, GPOINTER_TO_UINT(hmagic), status, phrase);
+      if (priv_handle_auth_extra (self, nh, sip))
+        return;
     }
+
+    /* redirects (3xx responses) are not handled properly */
+    /* smcv-FIXME: need to work out which channel we're dealing with here */
+    priv_emit_remote_error (self, nh, GPOINTER_TO_UINT(hmagic), status, phrase);
   }
 }
 
@@ -202,21 +227,18 @@ priv_r_register (int status,
   }
 
   if (status == 401 || status == 407) {
-    priv_handle_auth_register (self, nh, sip);
+    if (!priv_handle_auth_register (self, nh, sip)) {
+      g_message ("sofiasip: REGISTER failed, insufficient/wrong credentials, disconnecting.");
+      priv_disconnect (self, TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
+    }
   }
   else if (status == 403) {
     g_message ("sofiasip: REGISTER failed, wrong credentials, disconnecting.");
-    tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
-        TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
-    nua_handle_destroy (priv->register_op);
-    priv->register_op = NULL;
+    priv_disconnect (self, TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
   }
   else if (status >= 300) {
     g_message ("sofiasip: REGISTER failed, disconnecting.");
-    tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
-        TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
-    nua_handle_destroy (priv->register_op);
-    priv->register_op = NULL;
+    priv_disconnect (self, TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
   }
   else if (status == 200) {
     g_message ("sofiasip: succesfully registered %s to network", priv->address);
@@ -382,10 +404,8 @@ static void priv_r_message(int status, char const *phrase, nua_t *nua,
   g_message("sofiasip: nua_r_message: %03d %s", status, phrase);
 
   if (status == 401 || status == 407)
-    {
-      priv_handle_auth_extra (self, nh, sip);
+    if (priv_handle_auth_extra (self, nh, sip))
       return;
-    }
 
   if (!priv_parse_sip_to(sip, home, &to_str, &to_url_str))
     return;

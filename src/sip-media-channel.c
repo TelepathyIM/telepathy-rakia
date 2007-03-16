@@ -955,7 +955,9 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_NONE;
       break;
     /*
+    case 401:
     case 403:
+    case 407:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_?;
       break;
     */
