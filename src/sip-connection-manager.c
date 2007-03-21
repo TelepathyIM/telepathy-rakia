@@ -152,10 +152,9 @@ static const TpCMParamSpec sip_params[] = {
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT,
       GUINT_TO_POINTER(SIP_DEFAULT_STUN_PORT),
       G_STRUCT_OFFSET (SIPConnParams, stun_port) },
-    /* Not used */
+    /* Extra authentication */
     { "extra-auth-user", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (SIPConnParams, extra_auth_user) },
-    /* Not used */
     { "extra-auth-password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (SIPConnParams, extra_auth_password) },
     /* Not used */
