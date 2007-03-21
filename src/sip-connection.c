@@ -390,6 +390,10 @@ sip_connection_get_property (GObject      *object,
     g_value_set_string (value, priv->stun_server);
     break;
   }
+  case PROP_STUN_PORT: {
+    g_value_set_uint (value, priv->stun_port);
+    break;
+  }
   case PROP_SOFIA_ROOT: {
     g_value_set_pointer (value, priv->sofia_root);
     break;
