@@ -147,9 +147,10 @@ static const TpCMParamSpec sip_params[] = {
     /* STUN server */
     { "stun-server", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (SIPConnParams, stun_server) },
-    /* Not used, presumably the normal STUN port is hardcoded elsewhere */
+    /* STUN port */
     { "stun-port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT,
-      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(3478),
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT,
+      GUINT_TO_POINTER(SIP_DEFAULT_STUN_PORT),
       G_STRUCT_OFFSET (SIPConnParams, stun_port) },
     /* Not used */
     { "extra-auth-user", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
@@ -452,6 +453,9 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   SET_PROPERTY_IF_PARAM_SET ("stun-server", SIP_CONN_PARAM_STUN_SERVER,
       params->stun_server);
+
+  SET_PROPERTY_IF_PARAM_SET ("stun-port", SIP_CONN_PARAM_STUN_PORT,
+      params->stun_port);
 
   SET_PROPERTY_IF_PARAM_SET ("keepalive-interval",
       SIP_CONN_PARAM_KEEPALIVE_INTERVAL, params->keepalive_interval);
