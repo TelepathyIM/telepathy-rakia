@@ -54,6 +54,9 @@ struct _SIPMediaFactoryPrivate
   /* g_strdup'd gchar *sessionid => unowned SIPMediaChannel *chan */
   GHashTable *session_chans;
 
+  gchar *stun_server;
+  guint16 stun_port;
+
   gboolean dispose_has_run;
 };
 
@@ -95,6 +98,9 @@ sip_media_factory_dispose (GObject *object)
   g_assert (priv->channel == NULL);
 #endif
   g_assert (priv->session_chans == NULL);
+
+  g_free (priv->stun_server);
+  priv->stun_server = NULL;
 
   if (G_OBJECT_CLASS (sip_media_factory_parent_class)->dispose)
     G_OBJECT_CLASS (sip_media_factory_parent_class)->dispose (object);
@@ -199,6 +205,22 @@ sip_media_factory_connecting (TpChannelFactoryIface *iface)
 static void
 sip_media_factory_connected (TpChannelFactoryIface *iface)
 {
+  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
+  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  gchar *stun_server = NULL;
+  guint stun_port = 0;
+
+  g_object_get (priv->conn,
+      "stun-server", &stun_server,
+      "stun-port", &stun_port,
+      NULL);
+
+  if (stun_server != NULL)
+    {
+      g_free (priv->stun_server);
+      priv->stun_server = stun_server;
+      priv->stun_port = stun_port;
+    }
 }
 
 static void
