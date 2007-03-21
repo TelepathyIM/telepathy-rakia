@@ -98,7 +98,10 @@ enum
   PROP_HANDLE,
   PROP_CREATOR,
   PROP_NUA_OP,
+  /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
+  PROP_STUN_SERVER,
+  PROP_STUN_PORT,
   LAST_PROPERTY
 };
 
@@ -106,12 +109,16 @@ enum
 enum
 {
   TP_PROP_NAT_TRAVERSAL = 0,
+  TP_PROP_STUN_SERVER,
+  TP_PROP_STUN_PORT,
   NUM_TP_PROPS
 };
 
 const TpPropertySignature media_channel_property_signatures[NUM_TP_PROPS] =
 {
-    { "nat-traversal",          G_TYPE_STRING }
+    { "nat-traversal",          G_TYPE_STRING },
+    { "stun-server",            G_TYPE_STRING },
+    { "stun-port",              G_TYPE_UINT },
 };
 
 /* private structure */
@@ -320,6 +327,24 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
                                     G_PARAM_STATIC_NAME |
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_NAT_TRAVERSAL, param_spec);
+
+  param_spec = g_param_spec_string ("stun-server",
+                                    "STUN server",
+                                    "IP or address of STUN server.",
+                                    NULL,
+                                    G_PARAM_READWRITE |
+                                    G_PARAM_STATIC_NAME |
+                                    G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class, PROP_STUN_SERVER, param_spec);
+
+  param_spec = g_param_spec_uint ("stun-port",
+                                  "STUN port",
+                                  "UDP port of STUN server.",
+                                  0, G_MAXUINT16, 0,
+                                  G_PARAM_READWRITE |
+                                  G_PARAM_STATIC_NAME |
+                                  G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class, PROP_STUN_PORT, param_spec);
 
   signals[SIG_NEW_MEDIA_SESSION_HANDLER] =
     g_signal_new ("new-media-session-handler",

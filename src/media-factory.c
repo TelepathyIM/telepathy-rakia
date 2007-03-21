@@ -317,6 +317,7 @@ sip_media_factory_new_channel (SIPMediaFactory *fac, TpHandle creator,
   SIPMediaFactoryPrivate *priv;
   SIPMediaChannel *chan;
   gchar *object_path;
+  const gchar *nat_traversal = "none";
 
   g_assert (SIP_IS_MEDIA_FACTORY (fac));
 
@@ -333,15 +334,28 @@ sip_media_factory_new_channel (SIPMediaFactory *fac, TpHandle creator,
   g_debug ("%s: object path %s (created by #%d, NUA handle %p", G_STRFUNC,
       object_path, creator, nh);
 
+  if (priv->stun_server != NULL)
+    {
+      nat_traversal = "stun";
+    }
+
   chan = g_object_new (SIP_TYPE_MEDIA_CHANNEL,
                        "connection", priv->conn,
                        "factory", fac,
                        "object-path", object_path,
                        "creator", creator,
                        "nua-handle", nh,
+                       "nat-traversal", nat_traversal,
                        NULL);
 
   g_free (object_path);
+
+  if (priv->stun_server != NULL)
+    {
+      g_object_set ((GObject *) chan, "stun-server", priv->stun_server, NULL);
+      if (priv->stun_port != 0)
+        g_object_set ((GObject *) chan, "stun-port", priv->stun_port, NULL);
+    }
 
   g_signal_connect (chan, "closed", (GCallback) channel_closed, fac);
 
