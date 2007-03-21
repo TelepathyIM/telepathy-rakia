@@ -87,6 +87,7 @@ enum
   PROP_DISCOVER_BINDING,   /**< enable discovery of public binding */
   PROP_STUN_SERVER,        /**< STUN server address (if not set, derived
 			        from public SIP address */
+  PROP_STUN_PORT,          /**< STUN port */
   PROP_EXTRA_AUTH_USER,	   /**< User name to use for extra authentication challenges */
   PROP_EXTRA_AUTH_PASSWORD,/**< Password to use for extra authentication challenges */
   PROP_SOFIA_ROOT,         /**< Event root pointer from the Sofia-SIP stack */
@@ -209,6 +210,37 @@ sip_connection_init (SIPConnection *obj)
 }
 
 static void
+priv_update_stun_server (SIPConnection *self, SIPConnectionPrivate *priv)
+{
+  gchar *composed = NULL;
+
+  if (!priv->sofia_nua)
+    {
+      /* nothing to do */
+      return;
+    }
+
+  if (priv->stun_server != NULL)
+    {
+
+      if (priv->stun_port == 0)
+        {
+          composed = g_strdup (priv->stun_server);
+        }
+      else
+        {
+          composed = g_strdup_printf ("%s:%u", priv->stun_server,
+              priv->stun_port);
+        }
+    }
+
+  nua_set_params(priv->sofia_nua,
+      STUNTAG_SERVER(composed), TAG_END());
+
+  g_free (composed);
+}
+
+static void
 sip_connection_set_property (GObject      *object,
                              guint         property_id,
                              const GValue *value,
@@ -277,11 +309,15 @@ sip_connection_set_property (GObject      *object,
       sip_conn_update_nua_outbound (self);
     break;
   }
+  case PROP_STUN_PORT: {
+    priv->stun_port = g_value_get_uint (value);
+    priv_update_stun_server (self, priv);
+    break;
+  }
   case PROP_STUN_SERVER: {
     g_free((gpointer)priv->stun_server);
     priv->stun_server =  g_value_dup_string (value);
-    if (priv->sofia_nua) 
-      nua_set_params(priv->sofia_nua, STUNTAG_SERVER(priv->stun_server), TAG_END());
+    priv_update_stun_server (self, priv);
     break;
   }
   case PROP_EXTRA_AUTH_USER: {
@@ -493,10 +529,21 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
 
   param_spec = g_param_spec_string("stun-server",
                                    "STUN server address",
-                                   "STUN server address (FQDN or IP address) and optionally the port (e.g. 'stun.myprovider.com:3478') [optional]",
+                                   "STUN server address (FQDN or IP address, "
+                                   "e.g. 'stun.myprovider.com') [optional]",
                                    NULL, /*default value*/
                                    G_PARAM_READWRITE);
   INST_PROP(PROP_STUN_SERVER);
+
+  param_spec = g_param_spec_uint ("stun-port",
+                                  "STUN port",
+                                  "STUN port.",
+                                  0, G_MAXUINT16, SIP_DEFAULT_STUN_PORT,
+                                  G_PARAM_CONSTRUCT |
+                                  G_PARAM_READWRITE |
+                                  G_PARAM_STATIC_NAME |
+                                  G_PARAM_STATIC_BLURB);
+  INST_PROP(PROP_STUN_PORT);
 
   sip_conn_signals[DISCONNECTED] =
     g_signal_new ("disconnected",
@@ -687,6 +734,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
 
   sip_conn_update_nua_outbound (self);
   sip_conn_update_nua_contact_features (self);
+  priv_update_stun_server (self, priv);
 
   g_message ("Sofia-SIP NUA at address %p (SIP URI: %s)", 
 	     priv->sofia_nua, priv->requested_address);

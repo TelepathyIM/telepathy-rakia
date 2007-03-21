@@ -58,6 +58,8 @@ struct _SIPConnection {
 
 GType sip_connection_get_type(void);
 
+#define SIP_DEFAULT_STUN_PORT 3478
+
 /* TYPE MACROS */
 #define SIP_TYPE_CONNECTION \
   (sip_connection_get_type())
