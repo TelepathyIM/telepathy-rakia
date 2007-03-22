@@ -84,10 +84,10 @@ priv_handle_auth (SIPConnection* self,
       /* Clear the last used credentials saved for loop detection
        * and proceed with normal handling */
       if (priv->last_auth != NULL)
-	{
-	  g_free (priv->last_auth);
-	  priv->last_auth = NULL;
-	}
+        {
+          g_free (priv->last_auth);
+          priv->last_auth = NULL;
+        }
       return SIP_AUTH_PASS;
     }
 
@@ -112,16 +112,16 @@ priv_handle_auth (SIPConnection* self,
     {
       /* Save the realm presented by the registrar */
       if (priv->registrar_realm == NULL)
-	priv->registrar_realm = g_strdup (realm);
+        priv->registrar_realm = g_strdup (realm);
       else if (wa && strcmp(priv->registrar_realm, realm) != 0)
-	{
-	  g_message ("registrar realm changed from '%s' to '%s'", priv->registrar_realm, realm);
-	  g_free (priv->registrar_realm);
-	  priv->registrar_realm = g_strdup (realm);
-	}
+        {
+          g_message ("registrar realm changed from '%s' to '%s'", priv->registrar_realm, realm);
+          g_free (priv->registrar_realm);
+          priv->registrar_realm = g_strdup (realm);
+        }
     }
   else if (priv->registrar_realm != NULL
-	   && strcmp(priv->registrar_realm, realm) == 0)
+           && strcmp(priv->registrar_realm, realm) == 0)
     home_realm = TRUE;
 
   if (home_realm)
@@ -133,11 +133,11 @@ priv_handle_auth (SIPConnection* self,
 
       /* use the userpart in "From" header */
       if (sipfrom && sipfrom->a_url)
-	 user = sipfrom->a_url->url_user;
-	
+        user = sipfrom->a_url->url_user;
+
       /* alternatively use the userpart in "To" header */
       if (!user && sipto && sipto->a_url)
-	 user = sipto->a_url->url_user;
+        user = sipto->a_url->url_user;
 
       password = priv->password;
     }
