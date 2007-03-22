@@ -40,6 +40,9 @@ struct _SIPConnectionPrivate
   su_home_t *sofia_home;
   nua_handle_t *register_op;
 
+  gchar *registrar_realm;
+  gchar *last_auth;
+
   gint sofia_shutdown;
 
   /* channels */

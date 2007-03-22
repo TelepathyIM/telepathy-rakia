@@ -688,6 +688,11 @@ sip_connection_finalize (GObject *obj)
   g_free (priv->registrar);
   g_free (priv->http_proxy);
   g_free (priv->stun_server);
+  g_free (priv->extra_auth_user);
+  g_free (priv->extra_auth_password);
+
+  g_free (priv->registrar_realm);
+  g_free (priv->last_auth);
 
   DEBUG ("exit");
 
