@@ -1,0 +1,1167 @@
+2007-03-15  Mikhail Zabaluev  <mikhail.zabaluev@nokia.com>
+
+	* src/sip-connection-sofia.c: (priv_r_message):
+	* src/sip-text-channel.h:
+	* src/sip-text-channel.c: (sip_text_channel_emit_message_status):
+	Changed sip_text_channel_message_emit() to have a cleaner name and
+	parameter sequence. More elaborate mapping of SIP response codes
+	to TpChannelTextSendError values.
+
+2007-03-14  Mikhail Zabaluev  <mikhail.zabaluev@nokia.com>
+
+	* src/sip-connection-sofia.c: (priv_disconnect),
+	(priv_authenticate), (priv_handle_auth_register),
+	(priv_handle_auth_extra), (priv_r_invite), (priv_r_register),
+	(priv_r_message):
+	More graceful handling of missing auth credentials, still has issues
+	with the stack.
+	* src/sip-media-channel.c: (sip_media_channel_peer_error):
+	Added more status codes to the unimplemented auth error reporting case.
+
+2007-03-14  Mikhail Zabaluev  <mikhail.zabaluev@nokia.com>
+
+	* src/sip-connection-manager.c:
+	(sip_connection_manager_new_connection):
+	* src/sip-connection-private.h:
+	* src/sip-connection.c: (sip_connection_set_property),
+	(sip_connection_class_init):
+	Implemented properties "extra-auth-user", "extra-auth-password".
+	* src/sip-connection-sofia.c: (priv_authenticate),
+	(priv_handle_auth_register), (priv_handle_auth_extra),
+	(priv_r_invite), (priv_r_register), (priv_r_message):
+	Separated authentication for REGISTER and other requests, the latter
+	using new extra auth properties.
+	Cleaned up the authentication code, fixed a memory leak.
+
+2007-03-08  Robert McQueen  <robert.mcqueen@collabora.co.uk>
+
+	* client/, generate/: Delete defunct directories.
+	* configure.ac, Makefile.am: Update in light of deleted directories.
+	* data/Makefile.am: Remove reference to obsolete siptest.manager.
+	* src/Makefile.am: Add sofiasip.manager to CLEANFILES.
+
+2007-03-08  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/sip-connection-helpers.c: (sip_conn_update_nua_outbound),
+	(sip_conn_update_nua_keepalive_interval),
+	(sip_conn_update_nua_contact_features):
+	* src/sip-connection-helpers.h:
+	* src/sip-connection.c: (sip_connection_start_connecting):
+	Support REGISTER keepalives through use of "expires" parameter
+	in NUTAG_M_FEATURES.
+
+2007-03-07  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/sip-connection-helpers.c: (sip_conn_update_nua_outbound):
+	Don't explicitly disable "natify" outbound option, necessary to
+	retain keepalives. Effectively disable keepalives for the _NONE setting.
+	* src/sip-connection-manager.c:
+	(sip_connection_manager_new_connection):
+	* src/sip-connection-private.h:
+	* src/sip-connection.c: (sip_connection_set_property),
+	(sip_connection_get_property), (sip_connection_class_init):
+	Renamed "natify" connection property to "discover-binding" for clarity.
+
+2007-03-06  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* Changed over to the branch using telepathy-glib
+	developed by Simon McVittie.
+
+2007-03-06  Simon McVittie  <simon.mcvittie@collabora.co.uk>
+
+	* Use connection manager life-cycle code from telepathy-glib >= 0.5.5
+	* Generate sofiasip.manager from the source, to ensure they're in sync
+	* Remove obsolete siptest.manager
+	* Remove obsolete support for x-jingle-candidate attributes
+
+2007-02-28  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* "discover-binding" property also enables "use-rport" outbound option.
+	* Emit StreamStateChanged properly including the channel ID.
+
+2007-02-26  Robert McQueen  <robert.mcqueen@collabora.co.uk>
+
+	* src/sip-media-channel.c: Add Properties interface to the
+	GetInterfaces method.
+
+2007-02-23  Robert McQueen  <robert.mcqueen@collabora.co.uk>
+
+	* src/sip-media-channel.c, src/sip-media-channel.h: Use the properties
+	mixin to expose a "nat-traversal" property with the value "none".
+
+2007-02-23  Robert McQueen  <robert.mcqueen@collabora.co.uk>
+
+	* generate/sip.def, generate/xml-pristine/sip-media-channel.xml,
+	generate/xml-modified/sip-media-channel.xml,
+	generate/src/sip-media-channel.c, generate/src/sip-media-channel.h:
+	Add the Properties interface to the media channel and regenerate.
+
+2007-02-16  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/sip-connection-manager.c: (priv_compose_proxy_uri),
+	(priv_compose_default_proxy_uri),
+	(sip_connection_manager_request_connection):
+	Compose the default proxy URI with regard to transport and port
+	parameters passed to SIPConnectionManager.
+	* src/sip-connection.c: (sip_connection_connect):
+	Don't initialize default proxy inside SIPConnection.
+
+2007-02-15  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/sip-connection-sofia.c: (priv_emit_remote_error),
+	(priv_r_invite): Don't assert on error responses received after
+	the media channel has been destroyed, only print a log message
+	if it's not a request termination.
+
+2007-02-14  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/sip-connection-helpers.c: (sip_conn_update_nua_outbound),
+	(sip_conn_update_nua_keepalive_interval):
+	* src/sip-connection-helpers.h:
+	* src/sip-connection-manager.c:
+	(sip_connection_manager_request_connection):
+	* src/sip-connection-private.h:
+	* src/sip-connection.c: (sip_connection_constructor),
+	(sip_connection_set_property), (sip_connection_get_property),
+	(sip_connection_class_init):
+	Implemented discovery of the public address option
+	(AKA "natify" in NUTAG_OUTBOUND).
+	Refactored outbound/keepalive parameter management.
+
+2007-02-09  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/telepathy-constants.h: Updated TpChannelGroupChangeReason enum
+	with new values added to the spec.
+	* src/sip-media-channel.c: (sip_media_channel_peer_error):
+	Select peer removal reason based on response status code.
+
+2007-02-08  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/Makefile.am: Added enumtypes files generated for
+	SIPConnectionKeepaliveMechanism.
+	* src/sip-connection-helpers.c:
+	(sip_conn_update_nua_keepalive_mechanism),
+	(sip_conn_update_nua_keepalive_interval):
+	* src/sip-connection-helpers.h:
+	* src/sip-connection-manager.c:
+	(sip_connection_manager_request_connection):
+	* src/sip-connection-private.h:
+	* src/sip-connection.c: (sip_connection_constructor),
+	(sip_connection_set_property), (sip_connection_get_property),
+	(sip_connection_class_init):
+	* src/sip-connection.h:
+	Initial support for the "keepalive-mechanism" connection property.
+	* src/telepathy-helpers.h: Added a missing dbus include.
+
+2007-02-05  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* data/sofiasip.manager: Added default values.
+
+2007-02-02  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/sip-connection.c: (sip_connection_request_channel):
+	Allow creation of media channels with a zero creator handle.
+	* src/sip-media-channel.c: (sip_media_channel_dispose),
+	(sip_media_channel_respond_to_invite),
+	(priv_session_state_changed_cb), (priv_release_session),
+	(priv_create_session), (priv_media_channel_add_member):
+	Small code cleanups.
+
+2007-01-30  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/sip-media-stream.c:
+	(priv_update_local_sdp): Quick fix for Farsight's new ability to
+	specify multiple transports per candidate.
+	Don't send x-jingle-candidate: lines in SDP.
+
+2007-01-29  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/sip-connection-sofia.c: (priv_emit_remote_error),
+	(priv_r_invite):
+	* src/sip-media-channel.h:
+	* src/sip-media-channel.c: (sip_media_channel_peer_error):
+	Emit a MembersChanged signal with the reason of error
+	when the peer responds with a non-200 final status to an INVITE.
+	* src/sip-media-channel.c: (priv_make_stream_list),
+	(sip_media_channel_stream_state), (priv_session_stream_added_cb),
+	(priv_create_session), (priv_media_channel_add_member):
+	* src/sip-media-session.c: (sip_media_session_get_peer):
+	* src/sip-media-session.h:
+	Refactored peer handle management for simplicity.
+	* src/sip-connection.c: (sip_connection_request_channel):
+	Code beautification.
+	* src/sip-text-channel.c: (sip_text_channel_message_emit):
+	* src/sip-text-channel.h: Changed a method's name to reflect its
+	public usage.
+	* src/sip-connection-sofia.c: (priv_r_message): Update to the method
+	name change for SIPTextChannel.
+
+2007-01-19  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* TODO: updated with recent developments.
+
+2007-01-19  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* data/sofiasip.manager, src/sip-connection-manager.c,
+	  src/sip-connection.c, src/sip-connection-private.h:
+	Resurrected the registrar URI parameter for GConf tweaking.
+	Reverted to the single internal proxy property for a Connection.
+
+2007-01-18  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* src/sip-connection-manager.c, src/sip-connection.c: Componentized
+	proxy URI into separate parameters for host, port, and transport
+	(work in progress). Retired the registrar parameter.
+	* src/sip-connection.c, src/sip-connection-private.h,
+	  src/sip-connection-helpers.h:
+	Utilize the url module from Sofia-SIP to work with SIP URI components.
+	* data/sofiasip.manager: Added proxy-host, port, transport parameters
+	instead of the single proxy URI.
+
+2007-01-16  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* data/sofiasip.manager: Added connection parameters to match
+	the UI draft requirements and the TODO listing.
+	* src/sip-connection-manager.c: Removed "http-proxy" as a
+	client-settable connection parameter.
+
+2007-01-03  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* sip-connection.c, sip-connection-manager.c: All connection instances
+	use the same Sofia root.
+
+2007-01-03  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* sip-connection.c: Fixed up destruction of NUA stack instance,
+	making the GLib source recursible for the occasion.
+
+2006-12-21  Kai Vehmanen  <first.surname@nokia.com>
+
+	* sip-connection.c: Sanitize user-supplied SIP URI properties
+	so that no invalid SIP URIs are passed to the stack.
+	* sip-connection.c: Initialize the default outbound proxy at 
+	connection initialization time.
+
+2006-12-19  Kai Vehmanen  <first.surname@nokia.com>
+
+	* sip-connection-sofia.c: Added support for authenticating outbound
+	INVITE requests. Required for instance by some PSTN gateways.
+	* Release of 0.3.6.
+	
+2006-12-18  Kai Vehmanen  <first.surname@nokia.com>
+
+	* sip-media-stream.c: Added logic to detect mangled SDP fields when
+	calling through transparent media relays.
+	* tests/tp_caller.c:  Do not directly use dbus_g_proxy_calls() anymore, 
+	improve the logic for handling inbound calls.
+	* sip-media-session.c: Added the missing logic for handling local 
+	acceptance of media sessions in the offer/answer logic.
+
+2006-12-15  Martti Mela  <first.surname@nokia.com>
+
+	* sip-connection-sofia.c: only messages with Content-Type
+	"text/plain" are shown for the user.
+
+2006-12-15  Kai Vehmanen  <first.surname@nokia.com>
+
+	* sip-media-channel.c: Added the missing NewSessionHandler signal.
+	* sip-media-stream.c: Fixed warnings caused by reinitializing the
+	gvalues.
+	* Release of 0.3.5.
+
+2006-12-14  Kai Vehmanen  <first.surname@nokia.com>
+
+	* sip-media-channel.c, sip-media-stream.c, sip-media-session.c: Refactored 
+	the offer/answer logic to allow sessions with multiple media.
+
+2006-12-13  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* sip-media-channel.c, sip-connection-helpers.c: Allow creation of
+	a media channel and emission of NewSignal with the null creator handle.
+	Assign the creator from the handle passed to
+	sip_media_channel_respond_to_invite().
+	* sip-connection-sofia.c: Emit NewSignal with the null creator handle
+	in case of an incoming call, as per an undocumented agreement.
+
+2006-12-13  Kai Vehmanen  <first.surname@nokia.com>
+
+	* sip-connection.c: Modified the approach used for setting
+	key stack parameters.
+	* Both outbound and inbound audio calls now work.
+	* Release of 0.3.4.
+	
+2006-12-13  Martti Mela  <first.surname@nokia.com>
+
+	* configure.ac: --enable-debug now turns debugging on
+	* sip-connection-sofia.c: unsuccessful connection attempt now
+	produces error on UI.
+	* telepathy-sofiasip.c: connecting to signal "no-more-connections"
+	and handling clean exit. If GABBLE_PERSIST env flag is set, no
+	exit is done.
+
+2006-12-11  Mikhail Zabaluev  <first.surname@nokia.com>
+
+	* sip-connection-sofia.c: New file.
+	* sip-connection-sofia.h: Moved code to sip-connection-sofia.c,
+	exposing the sole callback method.
+	* sip-connection.h, sip-connection.c: Exposed former
+	priv_status_changed() as sip_connection_status_changed().
+	* sip-connection-private.h: Fixed header inclusion.
+
+2006-12-07  Martti Mela  <first.surname@nokia.com>
+
+	* sip-text-channel.c: Fixed a "Permission denied" after 2nd
+	message: referencing handle for an incoming message.
+
+2006-12-05  Martti Mela  <first.surname@nokia.com>
+
+	* TODO: updated
+
+2006-12-04  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Release of 0.3.3.
+	* Fixed various bugs with communication towards the 
+	stream-engine. 
+	* Essential functionality for creating media channels 
+	with the 0.13 telepathy API is now complete.
+
+2006-12-04  Martti Mela  <first.surname@nokia.com>
+
+	* Fixed 'sent' signal: now successfully emitted after 200 OK
+	* Implemented functions for pending and acknowledging messages
+	* Added 'send-error' signal for unsuccessful msg delivery
+
+2006-11-10  Martti Mela  <first.surname@nokia.com>
+
+	* incoming msg now supports 0.13 telepathy API
+
+2006-10-09  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Release of 0.3.2.
+
+2006-09-28  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Implemented the Group interface to sip-media-channel.
+
+2006-09-12  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Limit implementation to one media session at a time.
+	* Finished the jingle based media implementation. This is not compliant
+	with the IETF-ICE specs nor does it work against non-ICE SIP clients.
+	These limitations will be addressed in the future. See README for
+	more information on this topic.
+	* Updated TODO.
+
+2006-06-15  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Fixed bugs mapping SIP URIs to handles (non-static strings
+	as inputs to GQuarks).
+	* Release of 0.3.1.
+
+2006-06-14  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Release of 0.3.0.
+
+2006-06-08  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Various build fixes needed to get distcheck through.
+	* Modify main binary name to telepathy-sip.
+	* Rename top-level server dir to src.
+
+2006-06-07  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Add proper copyright statement to gintset.[ch].
+
+2006-06-04  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Updated the AUTHORS file.
+	* Added functions for stream SDP generation.
+	* Updated TODO, added section discussing differences between IETF and 
+	Jabber/jingle ICE.
+
+2006-06-03  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Implement sip-media-session::stream_error.
+
+2006-06-02  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Added new methods to sip-media-session and sip-media-channel.
+	* Fixed bugs in RequestHandle code.
+	* Implement more missing methods for sip-media-stream.
+	* Refactor channel creation in tp_caller.
+	* Updated tp_caller to request a handle with ReqeustHandle, and 
+	then requesting for channel to the created handle.
+	* Fixed errors in handling connection state information.
+	* Updated hold methods to new async prototypes.
+	* Added RequestHandle implementation to sip-connection.
+	* Added SIP functions to the handles API. Keep the rest of the handles.h API 
+	intact to ease merging with changes from tp-gabble.
+	* Modify handle functions to be async. Matches with current telepathy-gabble 
+	implementation.
+	* Lots of updates to tp_caller. Now succesfully creates a connection, one media 
+	channel, and cleans up after receiving a SIGINT.
+	* Implement get_group_flags for sip-media-channel i/f.
+	* Remove unused gabble code: group-mixins and handles-set.
+
+2006-05-31  Kai Vehmanen  <first.surname@nokia.com>
+	
+	* Added tp_caller to the distribution.
+
+2006-05-30  Kai Vehmanen  <first.surname@nokia.com>	
+        
+	* Enable to set the password as a cmdline parameter.
+
+2006-05-30  Kai Vehmanen  <first.surname@nokia.com>	
+
+	* Updated siptest.manager template.
+	* Updated to use the new nua_glib auth-api pushed to sofia-sip darcs 
+	on 2006-05-30.
+
+2006-05-29  Kai Vehmanen  <first.surname@nokia.com>	
+
+	* Implemented connection:GetStatus.
+	* Updated the manager files.
+	* Implemented new_native_candidate method. Close media channels upon 
+	connection disconnect.
+	* Fixed typos in not-implemented errors.
+	* Modified the media-stream::Ready signature to match tp interfaces 0.12 and 0.13.1.
+	* Fixed handling of the nua-op property.
+	* Add not-implemented warnigs to sip-connection methods.
+	* Added lots of support code to sip-media channel, session and stream codebases.
+	* Added nua-op property to sip-media-channel.
+
+2006-05-29  Martti Mela <first.surname@nokia.com>
+
+	* starting presence (SUB+NOTIFY) support
+
+2006-05-24  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Modify sip-connection properties to match those of nua_glib.h.
+	* Added tp_test to tests/.
+	* Modified manager name to sofiasip.
+	* Added tp-0.12 compatibility interfaces.
+	* Add compatibility methods for tp-0.12 interface.
+	* Added data subdirectory file, installation of sofiasip.service file and the necessary configure.ac additions.
+
+2006-05-23  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Added kv-voiptest.py to the repo.
+	* Added not-implemented responses to sip-media-stream.
+
+2006-05-19  Martti Mela <first.surname@nokia.com>
+
+	* Fixed compiler warnings in sip-connection-manager.c.
+	* Renamed sipserver.c to sip-server.c to be consistent with other 
+	sources and binary.
+
+2006-05-18  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Incoming and outgoing SIP MESSAGEs supported (initial)
+
+2006-05-17  Martti Mela <first.surname@nokia.com>	
+
+	* Incoming SIP MESSAGEs now partly handled.
+
+2006-05-16  Martti Mela <first.surname@nokia.com>
+
+	* test-client.py: still updated message send()ing
+	* enhanced test-client.py KB exception handling
+	* test-client supports now sending SIP MESSAGEs
+	* sip-server now supports sending SIP MESSAGEs
+
+2006-05-12  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Added ListChannels implementation.
+
+2006-05-15  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Changed name from SIPIMChannel to SIPTextChannel.
+	* Added sip-im-channel skeleton.
+
+2006-05-12  Martti Mela <first.surname@nokia.com>
+	
+	* Started test program for sending IMs.
+	* sip-server: started IM integration
+	* Added bind URL and STUN server parameters for NUA gobj creation.
+
+2006-05-04  Kai Vehmanen  <first.surname@nokia.com>	
+
+	* Added skeleton code for sip-media-stream.
+	* Separate derived and implementation specific declarations in 
+	the public headers.
+
+2006-05-03  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Added media-stream creation to media-channel and media-session.
+	* Added sip-media-stream to builds.
+
+2006-05-02  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Avoid using __func__.
+	* Added not-implemented stubs to sip-media-channel methods.
+	* Implemented get_interfaces for sip-media-channel.c
+	* Updated telepathy-sip sources to telepathy iface specs 0.13.1-20060502.
+	* Updated to telepathy iface specs 0.13.1-20060502.
+
+2006-04-27  Martti Mela <first.surname@nokia.com>		
+
+	* Fixed build errors (time.h).
+
+2006-04-26  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Added sip-media-session files modified from generated templates.
+	* Modified sofia_glib to sofia_nua.
+	* Added basic code for session creation.
+	* Added sip-media-session files modified from generated templates.
+	* Do not compile handles.c. Fixed make rules.
+	* Added test client modified for Telepathy-SIP.
+
+2006-05-24  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Removed unused code.
+	* Added base properties to SIP channel.
+	* Moved sip-connection object registration to sip-connect code.
+
+2006-04-12  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Updated actual server code to telepathy interface spec 0.13.1.
+	* Updated to telepathy interface spec 0.13.1.
+	* Update to xml iface files to telepathy spec 0.13.1.
+
+2006-04-10  Kai Vehmanen  <first.surname@nokia.com>
+	
+	* Updated to 2006-04-10 telepathy-python specs, regenerated xml and src.
+	* Added debugging, modified to use a fixed handle, added more code to stubs.
+
+2006-04-04  Kai Vehmanen  <first.surname@nokia.com>
+	
+	* Modified sip-connection to use the gabble handle management functions.
+	* Added shared code from telepathy-gabble.
+	* Fixed the get_interfaces method.
+	* Fixed compilation errors with sip_connection.
+	* Backported code from original telepathy-sip. Compiles but will crash at startup.
+	* Added sip-media-channel template.
+	* Added interface marshal list files.
+
+2006-04-03  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Updated to the xml-modified src.
+	* Make manual modifications to Telepathy XML interface specs.
+	* Modified from SipFoobar to SIPFoobar in all interfaces.
+	* Added generated src files.
+	* Fixed client bindings to new prototypes.
+	* Added generate/ scripts, adapted from telepathy-gabble, and updated 
+	the prototypes to the latest telepathy-python interfaces.
+	* Removed obsolete generation scripts. Will be replaced by generate/ scripts.
+	* Require dbus 0.60 or newer.
+	* Modified to use the correct DBUS flags for queing policy.
+	* Updated to use the new NuaGlib interface.
+
+2006-04-03  Kai Vehmanen  <first.surname@nokia.com>
+
+	* Branch from telepathy-sip (Nov 29 2005) released by Rob 
+	Taylor <robtaylor@floopily.org>.
+	* The branched code implements the Telepathy framework 
+	interfaces as of v0.2 (2005/Nov). See the file AUTHORS for full
+	list of contributors to original telepathy-sip package.
+
+Tue Nov 29 15:42:23 EET 2005  robtaylor@floopily.org
+  * added some build notes to README
+
+Fri Nov 18 12:00:07 EET 2005  robtaylor@floopily.org
+  tagged Release 0.2.1 - snafu fix
+
+Fri Nov 18 11:18:54 EET 2005  robtaylor@floopily.org
+  * added missing files from last release
+
+Fri Nov 18 11:09:36 EET 2005  robtaylor@floopily.org
+  tagged Version 0.2
+
+Fri Nov 18 11:08:33 EET 2005  robtaylor@floopily.org
+  * cleaned up documentation for SofiaGlib
+
+Fri Nov 18 11:07:46 EET 2005  robtaylor@floopily.org
+  * cleaned up documentation for GIntSet
+
+Fri Nov 18 11:07:24 EET 2005  robtaylor@floopily.org
+  * added gtkdoc infrastructure
+
+Fri Nov 18 10:09:30 EET 2005  robtaylor@floopily.org
+  tagged Version 0.1
+
+Fri Nov 18 10:02:49 EET 2005  robtaylor@floopily.org
+  * send DTMF
+
+Fri Nov 18 10:02:10 EET 2005  robtaylor@floopily.org
+  * make contact go on hold when you leave the channel
+
+Fri Nov 18 09:56:39 EET 2005  robtaylor@floopily.org
+  * added some basic stuff for new media params
+
+Fri Nov 18 08:10:51 EET 2005  robtaylor@floopily.org
+  * made making calls, receiving call, call transfer and call forwarding work
+  this involved:
+    Solidifying the object ownership structure
+    spinning out SIPConnection's private structures into a header, to allow
+    SIPChannel to access them 
+    adding functionality to sofia-glib to allow call tranfer and forwarding
+    adding a set_size funcion to GIntSet
+    adding dbus decoration for telepathy errors
+    a multitude of bug fixes
+    implementing a lot of missing interfaces
+
+Fri Nov 18 08:09:56 EET 2005  robtaylor@floopily.org
+  * added missing test-intsets.c
+
+Fri Nov 18 04:31:32 EET 2005  robtaylor@floopily.org
+  * regenerate from annotation of GetCapabilites
+
+Fri Nov 18 04:31:09 EET 2005  robtaylor@floopily.org
+  * annotated GetCapabilites so i can use the sidedoor
+
+Wed Nov 16 21:09:11 EET 2005  robtaylor@floopily.org
+  * various GIntSet fixes
+
+Wed Nov 16 21:08:44 EET 2005  robtaylor@floopily.org
+  * added unit test for GIntSet
+
+Wed Nov 16 18:58:41 EET 2005  robtaylor@floopily.org
+  * corrected malformed signal constructions
+
+Tue Nov 15 20:36:01 EET 2005  robtaylor@floopily.org
+  * code regneration for latest spec
+
+Tue Nov 15 20:34:18 EET 2005  rob.taylor@collabora.co.uk
+  * regeneration for latest spec
+
+Tue Nov 15 20:33:45 EET 2005  rob.taylor@collabora.co.uk
+  * update genxml to latest python, fix generated name
+
+Tue Nov 15 20:20:52 EET 2005  robtaylor@floopily.org
+  * error if sendmediaparams is called, we wont implement this for now
+
+Tue Nov 15 20:20:36 EET 2005  robtaylor@floopily.org
+  * add channel group flag reporting
+
+Tue Nov 15 20:20:08 EET 2005  robtaylor@floopily.org
+  * use sets for channel memebers
+
+Tue Nov 15 20:19:30 EET 2005  robtaylor@floopily.org
+  * use new type macro name SIP_TYPE_CONNECTION_MANAGER
+
+Tue Nov 15 20:17:18 EET 2005  robtaylor@floopily.org
+  * add SIPConnection parameter to SIPChannel
+
+Tue Nov 15 20:14:47 EET 2005  robtaylor@floopily.org
+  * changed GIntSet to use guint, add a foreach and to_array, fix a stupid bug
+
+Tue Nov 15 20:12:20 EET 2005  robtaylor@floopily.org
+  * fix stupid error in GIntSet
+
+Tue Nov 15 15:25:34 EET 2005  robtaylor@floopily.org
+  * regenerate from removal of generated _new methods
+
+Tue Nov 15 15:25:00 EET 2005  robtaylor@floopily.org
+  * remove generates of a _new method, its not appropriate for generation, and it was just plain wrong anyway...
+
+Tue Nov 15 14:09:22 EET 2005  robtaylor@floopily.org
+  * fixed stupid errors that stop building, sill lots of rework to do on SIPChannel
+
+Tue Nov 15 14:00:19 EET 2005  robtaylor@floopily.org
+  * convert to new api, add a handle reposiroty and a set of 'held' handles, add storage of users SDP
+
+Tue Nov 15 13:59:40 EET 2005  robtaylor@floopily.org
+  * emit correct interfaces list
+
+Tue Nov 15 13:56:12 EET 2005  robtaylor@floopily.org
+  * correct SIPConnectionManager for new api, change to store a set of SIPConnection objects rather than a hash of accountname to SIPConnection objects
+
+Tue Nov 15 13:55:11 EET 2005  robtaylor@floopily.org
+  * add mnual annotation of c name for SIPChannel:SendDTMF to work around bug in dbus-binding-tool
+
+Tue Nov 15 13:54:01 EET 2005  robtaylor@floopily.org
+  * fixed typo in makefile that caused telepathy-errors-enumtypes.h to be be misgnerated
+
+Tue Nov 15 13:53:05 EET 2005  robtaylor@floopily.org
+  * added an implementation of a set of integers, optimised for low-order integers
+
+Tue Nov 15 13:52:18 EET 2005  robtaylor@floopily.org
+  * renames generated client bindings to *-bindings.h
+
+Tue Nov 15 13:51:47 EET 2005  robtaylor@floopily.org
+  * added generation of tests/Makefile.am to configure.ac
+
+Tue Nov 15 13:50:30 EET 2005  robtaylor@floopily.org
+  * added a tests diretctory for unit tests, added a unittest for TelepathyHandleRepo
+
+Tue Nov 15 13:49:22 EET 2005  robtaylor@floopily.org
+  * added a telepathy handle repository implementation
+
+Tue Nov 15 13:48:44 EET 2005  robtaylor@floopily.org
+  * made a lot of things boring so darcs whatsnew -l is usable
+
+Tue Nov 15 13:42:44 EET 2005  robtaylor@floopily.org
+  * added TODO
+
+Mon Nov 14 21:39:12 EET 2005  robtaylor@floopily.org
+  * clarified a line
+
+Mon Nov 14 12:04:26 EET 2005  robtaylor@floopily.org
+  * regenerate code fro spec 0.10.1
+
+Mon Nov 14 12:03:56 EET 2005  robtaylor@floopily.org
+  * resolve conflict from 0.10.1 xmlregen
+
+Mon Nov 14 12:02:58 EET 2005  rob.taylor@collabora.co.uk
+  * updated xml from latest spec
+
+Mon Nov 14 02:07:59 EET 2005  robtaylor@floopily.org
+  * regenerate from removal of old stuff from sip-channel.xml
+
+Mon Nov 14 02:07:37 EET 2005  robtaylor@floopily.org
+  * removed old crap that was still in sip-channel.xml
+
+Mon Nov 14 02:00:29 EET 2005  robtaylor@floopily.org
+  * regenerate to remove gerror quarks and make a{s* params GHashTables
+
+Mon Nov 14 01:59:27 EET 2005  robtaylor@floopily.org
+  * remove the gquark error stuff, it's usually not right to have a seperate error
+  domain per dbus object
+
+Mon Nov 14 01:58:35 EET 2005  robtaylor@floopily.org
+  * all a{s* types should encode as a GHashTable, i think
+
+Mon Nov 14 01:48:59 EET 2005  robtaylor@floopily.org
+  * moved function bodites for functions that moved in the xml :/
+
+Mon Nov 14 01:19:33 EET 2005  robtaylor@floopily.org
+  * resolve conflicts
+
+Mon Nov 14 01:18:24 EET 2005  robtaylor@floopily.org
+  * regenerate code from new xml due to spec change
+
+Mon Nov 14 01:17:46 EET 2005  robtaylor@floopily.org
+  * resolved conflicts from xml regen of massive spec change
+
+Mon Nov 14 01:12:19 EET 2005  rob.taylor@collabora.co.uk
+  * regenerate xml from massive spec change
+
+Mon Nov 14 01:11:48 EET 2005  rob.taylor@collabora.co.uk
+  * modify genxml to add missing and new interfaces
+
+Mon Nov 14 01:16:07 EET 2005  robtaylor@floopily.org
+  * emit MEMBERS_CHANGED signals
+
+Mon Nov 14 01:13:53 EET 2005  robtaylor@floopily.org
+  * implement callstate change for new interface design
+
+Sun Nov 13 20:05:39 EET 2005  robtaylor@floopily.org
+  * fixups in real code for correcy prefix spotting in the gobject generation code
+
+Sun Nov 13 20:04:02 EET 2005  robtaylor@floopily.org
+  * regeneration from fixing our conception of prefix
+
+Sun Nov 13 20:03:20 EET 2005  robtaylor@floopily.org
+  * prefix should be just the 1st section of a name
+
+Sun Nov 13 20:01:29 EET 2005  robtaylor@floopily.org
+  * prefix is only to 1st underscore, fix enumtypes rules appropriately
+
+Sun Nov 13 19:50:44 EET 2005  robtaylor@floopily.org
+  * inclyde telepathy-errors.h
+
+Sun Nov 13 19:50:18 EET 2005  robtaylor@floopily.org
+  * remove all member state stuff as no longer necessary thanks to spec rewrite...
+
+Sun Nov 13 19:49:35 EET 2005  robtaylor@floopily.org
+  * fix enumtypes generation to have correct guardnames and type macro names
+
+Sun Nov 13 18:45:59 EET 2005  robtaylor@floopily.org
+  * regeneration from new xml
+
+Sun Nov 13 18:45:22 EET 2005  robtaylor@floopily.org
+  * removed pointless PYTHONPATH stuff from do_gen
+
+Sun Nov 13 18:27:34 EET 2005  robtaylor@floopily.org
+  * resolved clash in sip-channel.xml
+
+Sun Nov 13 18:25:58 EET 2005  robtaylor@floopily.org
+  * cleaned up do_gen a bit
+
+Sun Nov 13 18:11:53 EET 2005  rob.taylor@collabora.co.uk
+  * regenerated xml from latest spec changes
+
+Sun Nov 13 18:02:33 EET 2005  robtaylor@floopily.org
+  * 1st steps for handling incoming calls
+
+Sun Nov 13 18:01:59 EET 2005  robtaylor@floopily.org
+  * abortive remove_members impl. commented out for now, waiting for handle rework of spec
+
+Sun Nov 13 18:01:38 EET 2005  robtaylor@floopily.org
+  * added handling of bye
+
+Sun Nov 13 18:01:02 EET 2005  robtaylor@floopily.org
+  * renamed l_/r_sdp to local_/remote_sdp
+
+Sun Nov 13 17:57:38 EET 2005  robtaylor@floopily.org
+  * added ringing state for channel members
+
+Sun Nov 13 17:55:39 EET 2005  robtaylor@floopily.org
+  * add sofia-glib.c to sip_server_SOURCES
+
+Sun Nov 13 17:28:37 EET 2005  robtaylor@floopily.org
+  * resolved conflict in server/Makefile.am
+
+Sun Nov 13 17:12:30 EET 2005  robtaylor@floopily.org
+  * added generation of glib enum types for telepathy errors and made some rules nicer to reduce duplciation
+
+Sun Nov 13 17:11:36 EET 2005  robtaylor@floopily.org
+  * added gnerated telepathy-errors.h
+
+Sun Nov 13 17:10:26 EET 2005  robtaylor@floopily.org
+  * made a lot of file generated during make boring
+
+Sat Nov 12 23:08:53 EET 2005  robtaylor@floopily.org
+  * added code to generate an errors enum
+
+Sat Nov 12 23:08:28 EET 2005  robtaylor@floopily.org
+  * made gengobject importable
+
+Sat Nov 12 22:16:58 EET 2005  robtaylor@floopily.org
+  * regeneration from adding _H_ in generation of header guard names
+
+Sat Nov 12 22:16:33 EET 2005  robtaylor@floopily.org
+  * added an _H_ in generation of header guard names
+
+Sat Nov 12 22:13:23 EET 2005  robtaylor@floopily.org
+  * regeneration for fix to description generation
+
+Sat Nov 12 22:12:57 EET 2005  robtaylor@floopily.org
+  * fixed file description generation
+
+Sat Nov 12 22:08:45 EET 2005  robtaylor@floopily.org
+  * renamed python scripts so they can be imported
+
+Sat Nov 12 21:22:19 EET 2005  robtaylor@floopily.org
+  * regeneration from removing async annotation from RequestChannel
+
+Sat Nov 12 21:21:46 EET 2005  robtaylor@floopily.org
+  * RequestChannel doesnt need to be async, removing annotation
+
+Fri Nov 11 18:46:39 EET 2005  robtaylor@floopily.org
+  * regnerate to fix typos and make SIPChannel:RemoveMembers non-asyc
+
+Fri Nov 11 18:46:17 EET 2005  robtaylor@floopily.org
+  * fix typo
+
+Fri Nov 11 18:45:00 EET 2005  robtaylor@floopily.org
+  * RequestMember doesn't need to be async
+
+Fri Nov 11 18:54:17 EET 2005  robtaylor@floopily.org
+  * implement all remaining telepathy interface, create and destroy SIPChannels
+
+Fri Nov 11 18:51:50 EET 2005  robtaylor@floopily.org
+  * SIPConnectionManager now removes channels that are closed
+
+Fri Nov 11 18:51:28 EET 2005  robtaylor@floopily.org
+  * free private data for SIPConnectionManager
+
+Fri Nov 11 18:49:23 EET 2005  robtaylor@floopily.org
+  * initial implementation of sip-channel with support for making calls
+
+Fri Nov 11 16:57:32 EET 2005  robtaylor@floopily.org
+  * whitespace changes
+
+Fri Nov 11 16:56:08 EET 2005  robtaylor@floopily.org
+  * added missing sofia_glib_op_get/set_data
+
+Thu Nov 10 16:03:09 EET 2005  robtaylor@floopily.org
+  * regenerated from latest xml change
+
+Thu Nov 10 16:02:27 EET 2005  robtaylor@floopily.org
+  * resolved conflict in  ./sip-connection-manager.xml
+
+Thu Nov 10 16:01:15 EET 2005  rob.taylor@collabora.co.uk
+  * regenerated xml from latest spec change
+
+Thu Nov 10 14:06:30 EET 2005  robtaylor@floopily.org
+  * regenerate 
+
+Thu Nov 10 14:06:00 EET 2005  robtaylor@floopily.org
+  * add code to autogen some basic dbus method documentation
+
+Thu Nov 10 14:05:27 EET 2005  robtaylor@floopily.org
+  * add code to generate a finalize method in our classes
+
+Thu Nov 10 03:50:34 EET 2005  robtaylor@floopily.org
+  * regenerate
+
+Thu Nov 10 03:50:03 EET 2005  robtaylor@floopily.org
+  * remove *pointless* signal emit methods
+
+Thu Nov 10 03:30:40 EET 2005  robtaylor@floopily.org
+  * regenerate
+
+Thu Nov 10 03:30:12 EET 2005  robtaylor@floopily.org
+  * fix to gen-gobject.py to remove whitespace at end of generated files
+
+Thu Nov 10 03:12:32 EET 2005  robtaylor@floopily.org
+  * regenerated after last gen-gobject change
+
+Thu Nov 10 03:08:50 EET 2005  robtaylor@floopily.org
+  * added code to generate signal emitter bodies, and fix delcarations in headers to match
+
+Thu Nov 10 03:27:06 EET 2005  robtaylor@floopily.org
+  * set dispose and finalize in class init
+
+Thu Nov 10 03:26:19 EET 2005  robtaylor@floopily.org
+  * sofia_glib_authorize was static by accident, this exposes it
+
+Thu Nov 10 03:25:51 EET 2005  robtaylor@floopily.org
+  * whitespace
+
+Thu Nov 10 03:20:38 EET 2005  robtaylor@floopily.org
+  * move su_init into object init, so we can allocate strings in su in CONSTRUCT params
+
+Thu Nov 10 03:18:45 EET 2005  robtaylor@floopily.org
+  * pass in account info into SIPConnection construction
+
+Thu Nov 10 03:16:01 EET 2005  robtaylor@floopily.org
+  * cleanups due to actually spotting warnings...
+
+Thu Nov 10 03:13:44 EET 2005  robtaylor@floopily.org
+  * use -Wall -Werror
+
+Wed Nov  9 21:53:33 EET 2005  robtaylor@floopily.org
+  * fixed up register answered callback
+
+Wed Nov  9 21:52:33 EET 2005  robtaylor@floopily.org
+  * added parameters and constructor to SIPConnection
+
+Wed Nov  9 21:50:29 EET 2005  robtaylor@floopily.org
+  * added state and param enums,also added address to SIPConnectionPrivate
+
+Wed Nov  9 21:49:51 EET 2005  robtaylor@floopily.org
+  * added error for when we have two connection requests to the same name
+
+Wed Nov  9 21:49:36 EET 2005  robtaylor@floopily.org
+  * re-added sofia_glib_op_method_type
+
+Wed Nov  9 21:49:07 EET 2005  robtaylor@floopily.org
+  * add documenation to sofia-sip
+
+Wed Nov  9 20:22:55 EET 2005  robtaylor@floopily.org
+  * added the constuctor back in, we need this to access the construction params
+
+Wed Nov  9 19:53:36 EET 2005  robtaylor@floopily.org
+  * added properties for address,proxy and registrar, removed constructor brain damage
+
+Wed Nov  9 19:52:04 EET 2005  robtaylor@floopily.org
+  * moved creation of SofiaGlib into the connaction object, so we have one per connection
+
+Wed Nov  9 01:39:52 EET 2005  robtaylor@floopily.org
+  * regenerated
+
+Wed Nov  9 01:38:43 EET 2005  robtaylor@floopily.org
+  * made ListChannels async so we can use low-level bindings
+
+Wed Nov  9 01:32:04 EET 2005  robtaylor@floopily.org
+  * removed bogus annotate in sip-connection.xml
+
+Wed Nov  9 01:30:18 EET 2005  robtaylor@floopily.org
+  * regenerated from new xml
+
+Wed Nov  9 01:29:39 EET 2005  robtaylor@floopily.org
+  * removed various printf's left over from nua_cli
+
+Wed Nov  9 01:29:29 EET 2005  robtaylor@floopily.org
+  * whitespace change
+
+Wed Nov  9 01:28:54 EET 2005  robtaylor@floopily.org
+  * various cleanup in sofia-glib
+
+Wed Nov  9 01:27:26 EET 2005  robtaylor@floopily.org
+  * whitespace changes
+
+Wed Nov  9 01:26:23 EET 2005  robtaylor@floopily.org
+  * added code to start using sofia-glib
+
+Wed Nov  9 01:24:35 EET 2005  robtaylor@floopily.org
+  * changed occurrences of 'g' in signatures to 's', as dbus glib bindings don't support this yet
+
+Wed Nov  9 01:15:00 EET 2005  robtaylor@floopily.org
+  * annotated xml for async methods
+
+Wed Nov  9 01:08:22 EET 2005  robtaylor@floopily.org
+  * regenerated xml
+
+Wed Nov  9 01:07:51 EET 2005  robtaylor@floopily.org
+  * updated gen-xml.py to new telepathy api
+
+Tue Nov  8 14:52:56 EET 2005  robtaylor@floopily.org
+  * add an app-specific data member to SofiaGlibOp
+
+Tue Nov  8 14:52:03 EET 2005  robtaylor@floopily.org
+  * stop warnings being fatal
+
+Tue Nov  8 14:50:15 EET 2005  robtaylor@floopily.org
+  * SIPConnectionManager now uses sofia-glib to register with a service
+
+Tue Nov  8 14:19:57 EET 2005  robtaylor@floopily.org
+  * bug fixes to sofia-glib, add a function to get the owner of an operation
+
+Mon Nov  7 22:08:34 EET 2005  robtaylor@floopily.org
+  * added code to test dbus-glib-lowlevel changes
+
+Mon Nov  7 22:07:00 EET 2005  robtaylor@floopily.org
+  * added sofia-glib, a glib wrapper for libsofia-sip-ua
+
+Mon Nov  7 22:06:15 EET 2005  robtaylor@floopily.org
+  * updated configure.ac to check for sofia and dbus
+
+Tue Nov  1 04:45:47 EET 2005  robtaylor@floopily.org
+  * regeneration from change to sip-connection.xml
+
+Tue Nov  1 04:45:20 EET 2005  robtaylor@floopily.org
+  * make ListChannels async so we can use the low-level bindings
+
+Tue Nov  1 04:42:00 EET 2005  robtaylor@floopily.org
+  * return the right paths
+
+Fri Oct 28 18:24:22 EEST 2005  robtaylor@floopily.org
+  * oops.had forgotten to add sip-server.c a long time ago
+
+Fri Oct 28 18:19:02 EEST 2005  robtaylor@floopily.org
+  * regenerate
+
+Fri Oct 28 18:18:09 EEST 2005  robtaylor@floopily.org
+  * last change to gen-gobject was nonsense, this fixes it
+
+Fri Oct 28 18:12:33 EEST 2005  robtaylor@floopily.org
+  * re generate
+
+Fri Oct 28 18:10:56 EEST 2005  robtaylor@floopily.org
+  * modify gen-gobject to put the signal enum and signals array in the body
+
+Fri Oct 28 18:13:05 EEST 2005  robtaylor@floopily.org
+  * initial try at creating the Connection object on a call of sip_connection_manager_connect
+
+Fri Oct 28 15:14:27 EEST 2005  robtaylor@floopily.org
+  * regen from last change to gen-gobject
+
+Fri Oct 28 15:13:55 EEST 2005  robtaylor@floopily.org
+  * dont put quark definition in the header, silly
+
+Fri Oct 28 15:12:32 EEST 2005  robtaylor@floopily.org
+  * added sipserver core to do start-of-day
+
+Thu Oct 27 22:10:27 EEST 2005  robtaylor@floopily.org
+  * newly generated SIPChannel, SIPConnection and SIPConnectionManager
+
+Thu Oct 27 22:08:52 EEST 2005  robtaylor@floopily.org
+  * added a little helper
+
+Thu Oct 27 22:07:58 EEST 2005  robtaylor@floopily.org
+  * add numbering for multiple unnamed ret values
+
+Thu Oct 27 22:05:43 EEST 2005  robtaylor@floopily.org
+  * fix where gen-gobject produces syntax errors =)
+
+Thu Oct 27 22:04:46 EEST 2005  robtaylor@floopily.org
+  * DBusGValue doesn't exist yet
+
+Thu Oct 27 22:03:58 EEST 2005  robtaylor@floopily.org
+  * quick hack to avoid name clash in intro xml. 
+
+Thu Oct 27 22:02:49 EEST 2005  robtaylor@floopily.org
+  * added marshalling for other signals, niceties
+
+Thu Oct 27 22:01:59 EEST 2005  robtaylor@floopily.org
+  * added pkg-config checks for glib and dbus
+
+Thu Oct 27 19:31:54 EEST 2005  robtaylor@floopily.org
+  * add stub methods, dispose and new. clean up classnaming.
+
+Thu Oct 27 19:30:58 EEST 2005  robtaylor@floopily.org
+  * add an error quark for async errors
+
+Thu Oct 27 19:30:16 EEST 2005  robtaylor@floopily.org
+  * fix copyright header writing to be accurate ;)
+
+Thu Oct 27 18:00:19 EEST 2005  robtaylor@floopily.org
+  * remove debug
+
+Thu Oct 27 17:59:50 EEST 2005  robtaylor@floopily.org
+  * add understanding of async methods
+
+Thu Oct 27 17:59:10 EEST 2005  robtaylor@floopily.org
+  * cosmetic fix for include guards
+
+Thu Oct 27 17:58:54 EEST 2005  robtaylor@floopily.org
+  * clean up generated license
+
+Thu Oct 27 17:57:05 EEST 2005  robtaylor@floopily.org
+  * added g_signal_new genertion in class init
+
+Thu Oct 27 17:56:26 EEST 2005  robtaylor@floopily.org
+  * added test async method call to sip-channel introspection xml
+
+Thu Oct 27 05:04:32 EEST 2005  robtaylor@floopily.org
+  * some gen-gobject output tidying
+
+Thu Oct 27 04:58:50 EEST 2005  robtaylor@floopily.org
+  * added 1st cut gobject stub generation from introspection xml
+
+Wed Oct 26 17:33:01 EEST 2005  robtaylor@floopily.org
+  * add gobject definition for SIPChannel
+
+Wed Oct 26 17:32:29 EEST 2005  robtaylor@floopily.org
+  * add glib-genmarshal stuff to generate marchalling for our dbus signals
+
+Wed Oct 26 17:31:09 EEST 2005  robtaylor@floopily.org
+  * rename dbus generated serverside includes to *-glue.h
+
+Wed Oct 26 17:30:39 EEST 2005  robtaylor@floopily.org
+  * add autoconf to check for glib and glib-genmarshal
+
+Tue Oct 25 13:21:01 EEST 2005  robtaylor@floopily.org
+  * remove python-specific type identifier
+
+Tue Oct 25 13:01:57 EEST 2005  robtaylor@floopily.org
+  * fixed thinkos in server automake
+
+Tue Oct 25 13:01:22 EEST 2005  robtaylor@floopily.org
+  * added missing client directory
+
+Tue Oct 25 12:32:55 EEST 2005  robtaylor@floopily.org
+  * split codebase into client and server
+
+Tue Oct 25 04:25:43 EEST 2005  robtaylor@floopily.org
+  * add all the autotool generated stuff to _boring
+
+Tue Oct 25 04:20:23 EEST 2005  robtaylor@floopily.org
+  * create a _boring file so we can ignore all the autotool generated stuff
+
+Tue Oct 25 04:19:53 EEST 2005  robtaylor@floopily.org
+  * add in missing GNU files
+
+Tue Oct 25 04:19:09 EEST 2005  robtaylor@floopily.org
+  * add in initial autotooling
+
+Tue Oct 25 04:18:30 EEST 2005  robtaylor@floopily.org
+  * added autofoo to generate service and client headers form the xml binding information
+
+Tue Oct 25 03:57:33 EEST 2005  robtaylor@floopily.org
+  * add some generated xml
+
+Tue Oct 25 03:56:51 EEST 2005  robtaylor@floopily.org
+  * change output to cwd for gen-xml.py
+
+Tue Oct 25 03:55:05 EEST 2005  robtaylor@floopily.org
+  * renamed output files from the xml generator
+
+Tue Oct 25 03:52:42 EEST 2005  robtaylor@floopily.org
+  * created a gen-xml.py that will use the telepathy python bindings to generate xml for the telepathy objects we use for the sip service
+
+Tue Oct 25 03:51:29 EEST 2005  robtaylor@floopily.org
+  * add in m4 defn of AS_AC_EXPAND from Rapha[_\c3_][_\ab_]l Slinckx's dbus binding tutorial

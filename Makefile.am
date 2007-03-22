@@ -20,3 +20,6 @@ SUBDIRS = 	data \
 		src \
 		tests
 
+dist-hook:
+	chmod a+w ${distdir}/ChangeLog
+	if test -d _darcs; then darcs changes >${distdir}/ChangeLog; fi
