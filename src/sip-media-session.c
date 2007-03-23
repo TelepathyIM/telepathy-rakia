@@ -704,7 +704,11 @@ int sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_s
     }
 
     g_assert(media == NULL);
-    g_assert(i == priv->streams->len);
+    if (i != priv->streams->len)
+      {
+        g_warning ("There were %u parsed SDP m-lines but we have %u streams - "
+            "is someone failing to comply with RFCs?");
+      }
     
     /* XXX: hmm, this is not the correct place really */
     g_object_set (session, "state", JS_STATE_ACTIVE, NULL);
