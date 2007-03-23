@@ -163,23 +163,31 @@ priv_handle_auth_extra (SIPConnection *self,
 static void
 priv_emit_remote_error (SIPConnection *self,
 			nua_handle_t *nh,
-			TpHandle handle,
 			int status,
 			char const *phrase)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   SIPMediaChannel *channel = sip_media_factory_get_only_channel (
       priv->media_factory);
+  nua_handle_t *channel_nh;
 
   if (channel == NULL)
     {
+      /* 487 Request Terminated is OK on destroyed channels */
       if (status != 487)
-        g_message ("error response %03d received for a destroyed media channel", status);
+        g_message ("error response %03d received for a destroyed media "
+            "channel", status);
       return;
     }
 
-  /* XXX: more checks on the handle belonging to channel membership */
-  g_return_if_fail (handle > 0);
+  g_object_get (channel, "nua-handle", &channel_nh, NULL);
+
+  if (channel_nh != nh)
+    {
+      g_warning ("error response '%03d %s' was for some other channel "
+          "(error nh=%p but our channel is nh=%p)",
+          status, phrase, nh, channel_nh);
+    }
 
   sip_media_channel_peer_error (channel, status, phrase);
 }
@@ -201,7 +209,7 @@ static void priv_r_invite(int status, char const *phrase,
 
     /* redirects (3xx responses) are not handled properly */
     /* smcv-FIXME: need to work out which channel we're dealing with here */
-    priv_emit_remote_error (self, nh, GPOINTER_TO_UINT(hmagic), status, phrase);
+    priv_emit_remote_error (self, nh, status, phrase);
   }
 }
 
