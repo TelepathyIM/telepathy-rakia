@@ -707,7 +707,7 @@ int sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_s
     if (i != priv->streams->len)
       {
         g_warning ("There were %u parsed SDP m-lines but we have %u streams - "
-            "is someone failing to comply with RFCs?");
+            "is someone failing to comply with RFCs?", i, priv->streams->len);
       }
     
     /* XXX: hmm, this is not the correct place really */
