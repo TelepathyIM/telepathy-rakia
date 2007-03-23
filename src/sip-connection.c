@@ -168,12 +168,18 @@ static const char *list_handle_strings[] =
     NULL
 };
 
+static gchar *normalize_sipuri (TpHandleRepoIface *repo, const gchar *sipuri,
+    gpointer context, GError **error);
+
 static void
-sip_handle_repos_init (TpHandleRepoIface *repos[LAST_TP_HANDLE_TYPE+1])
+sip_create_handle_repos (TpBaseConnection *conn,
+                         TpHandleRepoIface *repos[LAST_TP_HANDLE_TYPE+1])
 {
   repos[TP_HANDLE_TYPE_CONTACT] =
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,
-          "handle-type", TP_HANDLE_TYPE_CONTACT, NULL);
+          "handle-type", TP_HANDLE_TYPE_CONTACT,
+          "normalize-function", normalize_sipuri,
+          NULL);
   repos[TP_HANDLE_TYPE_LIST] =
       (TpHandleRepoIface *)g_object_new (TP_TYPE_STATIC_HANDLE_REPO,
           "handle-type", TP_HANDLE_TYPE_LIST,
@@ -436,7 +442,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   g_object_class_install_property (object_class,  x, param_spec)
 
   /* Implement pure-virtual methods */
-  base_class->init_handle_repos = sip_handle_repos_init;
+  base_class->create_handle_repos = sip_create_handle_repos;
   base_class->get_unique_connection_name = sip_connection_unique_name;
   base_class->create_channel_factories =
     sip_connection_create_channel_factories;
@@ -597,6 +603,8 @@ sip_connection_dispose (GObject *object)
   SIPConnection *self = SIP_CONNECTION (object);
   TpBaseConnection *base = (TpBaseConnection *)self;
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (base,
+      TP_HANDLE_TYPE_CONTACT);
 
   if (priv->dispose_has_run)
     return;
@@ -611,8 +619,7 @@ sip_connection_dispose (GObject *object)
   priv->media_factory = NULL;
   priv->text_factory = NULL;
 
-  tp_handle_unref (base->handles[TP_HANDLE_TYPE_CONTACT],
-      base->self_handle);
+  tp_handle_unref (contact_repo, base->self_handle);
   base->self_handle = 0;
 
   if (G_OBJECT_CLASS (sip_connection_parent_class)->dispose)
@@ -700,6 +707,8 @@ sip_connection_start_connecting (TpBaseConnection *base,
 {
   SIPConnection *self = SIP_CONNECTION (base);
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (base,
+      TP_HANDLE_TYPE_CONTACT);
   gchar *sip_address;
 
   g_message("%s: Connection %p ref-count=%u (obj)", G_STRFUNC, self,
@@ -743,11 +752,18 @@ sip_connection_start_connecting (TpBaseConnection *base,
   g_message ("Sofia-SIP NUA at address %p (SIP URI: %s)", 
 	     priv->sofia_nua, priv->requested_address);
 
-  base->self_handle = tp_handle_request (
-      base->handles[TP_HANDLE_TYPE_CONTACT], priv->requested_address,
-      TRUE);
-  tp_handle_ref (base->handles[TP_HANDLE_TYPE_CONTACT],
-      base->self_handle);
+  /* FIXME: we should defer setting the self handle until we've found out from
+   * the stack what handle we actually got, at which point we set it; and
+   * not tell Telepathy that connection has succeeded until we've done so
+   */
+  base->self_handle = tp_handle_ensure (contact_repo, priv->requested_address,
+      NULL, error);
+  if (base->self_handle == 0)
+    {
+      g_warning ("our requested SIP address is invalid, not connecting: '%s'",
+          priv->requested_address);
+      return FALSE;
+    }
 
   g_message ("self_handle = %d", base->self_handle);
 
@@ -811,11 +827,27 @@ sip_connection_get_interfaces (TpSvcConnection *iface,
 }
 
 
-static gboolean
-sipuri_is_valid (const gchar *sipuri, GError **error)
+static gchar *
+normalize_sipuri (TpHandleRepoIface *repo,
+                  const gchar *sipuri,
+                  gpointer context,
+                  GError **error)
 {
-  if (strncmp (sipuri, "sip", 3) &&
-      strncmp (sipuri, "tel", 3))
+  /* FIXME:
+   * - guess whether it's a phone number or a SIP URI
+   * - prepend sip: etc.
+   * - perform case normalization etc.
+   */
+
+  if (strchr (sipuri, ':') == NULL)
+    {
+      g_debug ("%s has no ':', assuming user meant sip:%s", sipuri, sipuri);
+      return g_strdup_printf ("sip:%s", sipuri);
+    }
+
+  if (strncmp (sipuri, "sip:", 4) &&
+      strncmp (sipuri, "sips:", 5) &&
+      strncmp (sipuri, "tel:", 4))
     {
       g_debug ("%s: not a valid sip/sips/tel URI (%s)", G_STRFUNC, sipuri);
 
@@ -823,90 +855,10 @@ sipuri_is_valid (const gchar *sipuri, GError **error)
         *error = g_error_new (TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
                               "invalid SIP URI");
 
-      return FALSE;
+      return NULL;
     }
 
-  return TRUE;
-}
-
-static gboolean
-priv_sip_connection_request_handle (SIPConnection *obj,
-                                    guint handle_type,
-                                    const gchar *name,
-                                    TpHandle *handle,
-                                    GError **error,
-                                    const gchar* clientname)
-{
-  TpBaseConnection *base = (TpBaseConnection *)obj;
-  SIPConnectionPrivate *priv;
-
-  priv = SIP_CONNECTION_GET_PRIVATE (obj);
-
-  DEBUG("enter");
-
-  if (!tp_handle_type_is_valid (handle_type, error))
-    {
-      return FALSE;
-    }
-
-  switch (handle_type)
-    {
-    case TP_HANDLE_TYPE_CONTACT:
-      if (!sipuri_is_valid (name, error))
-        {
-          return FALSE;
-        }
-
-      *handle = tp_handle_request (
-          base->handles[TP_HANDLE_TYPE_CONTACT], name, TRUE);
-
-      g_debug("%s:\n\tverify handle '%s' => %u (%s)", G_STRFUNC, name, *handle,
-          tp_handle_inspect(base->handles[TP_HANDLE_TYPE_CONTACT],
-            *handle));
-
-      if (*handle == 0)
-        {
-          g_debug ("%s: requested handle %s was invalid", G_STRFUNC, name);
-
-          *error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-				"requested handle %s was invalid", name);
-          return FALSE;
-        }
-      break;
-
-    case TP_HANDLE_TYPE_LIST:
-      if (!strcmp (name, "publish"))
-        {
-          *handle = LIST_HANDLE_PUBLISH;
-        }
-      else if (!strcmp (name, "subscribe"))
-        {
-          *handle = LIST_HANDLE_SUBSCRIBE;
-        }
-      else
-        {
-          g_debug ("%s: requested list channel %s not available", G_STRFUNC, name);
-
-          *error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-				"requested list channel %s not available",
-                                name);
-
-          return FALSE;
-        }
-      break;
-
-    default:
-      g_debug ("%s: unimplemented handle type %u", G_STRFUNC, handle_type);
-      tp_g_set_error_unsupported_handle_type (handle_type, error);
-      return FALSE;
-    }
-
-  if (!tp_handle_client_hold (base->handles[handle_type], clientname,
-        *handle, error)) {
-    return FALSE;
-  }
-
-  return TRUE;
+  return g_strdup (sipuri);
 }
 
 
@@ -930,11 +882,13 @@ sip_connection_request_handles (TpSvcConnection *iface,
 {
   SIPConnection *obj = SIP_CONNECTION (iface);
   TpBaseConnection *base = (TpBaseConnection *)obj;
-  gint count = 0, i;
+  gint count = 0, i, j;
   const gchar **h;
   GArray *handles;
   GError *error = NULL;
+  const gchar *client_name;
   SIPConnectionPrivate *priv;
+  TpHandleRepoIface *repo = tp_base_connection_get_handles (base, handle_type);
 
   priv = SIP_CONNECTION_GET_PRIVATE (obj);
 
@@ -942,24 +896,67 @@ sip_connection_request_handles (TpSvcConnection *iface,
 
   ERROR_IF_NOT_CONNECTED_ASYNC (base, context)
 
+  if (!tp_handle_type_is_valid (handle_type, &error))
+    {
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+      return;
+    }
+  
+  if (repo == NULL)
+    {
+      tp_g_set_error_unsupported_handle_type (handle_type, &error);
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+      return;
+    }
+
   for (h = names; *h != NULL; h++)
     ++count;
 
-  handles = g_array_sized_new(FALSE, FALSE, sizeof(TpHandle), count);
+  handles = g_array_sized_new(FALSE, FALSE, sizeof(guint), count);
+
+  client_name = dbus_g_method_get_sender (context);
 
   for (i = 0; i < count; i++) {
     TpHandle handle;
 
-    priv_sip_connection_request_handle(obj, handle_type, names[i], &handle,
-        &error, dbus_g_method_get_sender (context));
-    if (error != NULL) {
-      dbus_g_method_return_error (context, error);
-      g_error_free (error);
-      g_array_free (handles, TRUE);
-      return;
-    }
+    handle = tp_handle_ensure (repo, names[i], NULL, &error);
+
+    if (handle == 0)
+      {
+        g_debug ("%s: requested handle %s was invalid", G_STRFUNC, names[i]);
+        goto ERROR_IN_LOOP;
+      }
+
+    g_debug("%s:\n\tverify handle '%s' => %u (%s)", G_STRFUNC, names[i],
+        handle, tp_handle_inspect (repo, handle));
+
+    if (!tp_handle_client_hold (repo, client_name, handle, &error))
+      {
+        /* oops */
+        tp_handle_unref (repo, handle);
+        goto ERROR_IN_LOOP;
+      }
+
+    /* now the client owns the handle, so we can drop our reference */
+    tp_handle_unref (repo, handle);
 
     g_array_append_val(handles, handle);
+    continue;
+
+ERROR_IN_LOOP:
+    for (j = 0; j < i; j++)
+      {
+        tp_handle_client_release (repo, client_name,
+            (TpHandle) g_array_index (handles, guint, i),
+            NULL);
+      }
+
+    dbus_g_method_return_error (context, error);
+    g_error_free (error);
+    g_array_free (handles, TRUE);
+    return;
   }
 
   tp_svc_connection_return_from_request_handles (context, handles);

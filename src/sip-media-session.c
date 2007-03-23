@@ -862,7 +862,8 @@ static void priv_session_media_state (SIPMediaSession *session, gboolean playing
 static void priv_offer_answer_step (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  TpBaseConnection *conn = (TpBaseConnection *)(priv->conn);
+  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
   guint i;
   gint non_ready_streams = 0;
 
@@ -896,8 +897,7 @@ static void priv_offer_answer_step (SIPMediaSession *session)
       su_home_t *sofia_home = sip_conn_sofia_home (priv->conn);
       const char *dest_uri;
 
-      dest_uri = tp_handle_inspect (
-          conn->handles[TP_HANDLE_TYPE_CONTACT], priv->peer);
+      dest_uri = tp_handle_inspect (contact_repo, priv->peer);
 
       g_debug ("mapped handle %u to uri %s.", priv->peer, dest_uri);
 

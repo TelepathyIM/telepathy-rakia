@@ -389,7 +389,7 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 {
   SIPTextChannel *obj = SIP_TEXT_CHANNEL (iface);
   SIPTextChannelPrivate *priv;
-  TpBaseConnection *conn;
+  TpHandleRepoIface *contact_repo;
   GList **nodes;
   SIPTextPendingMessage *msg;
   guint i;
@@ -397,7 +397,8 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
   enter;
   
   priv = SIP_TEXT_CHANNEL_GET_PRIVATE(obj);
-  conn = (TpBaseConnection *)(priv->conn);
+  contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
 
   nodes = g_new(GList *, ids->len);
 
@@ -433,8 +434,7 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 
       g_queue_remove (priv->pending_messages, msg);
 
-      tp_handle_unref (conn->handles[TP_HANDLE_TYPE_CONTACT],
-          msg->sender);
+      tp_handle_unref (contact_repo, msg->sender);
       _sip_text_pending_free (msg);
     }
 
@@ -611,8 +611,9 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
 {
   SIPTextChannel *self = SIP_TEXT_CHANNEL(iface);
   SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
   SIPConnection *sip_conn = SIP_CONNECTION (priv->conn);
-  TpBaseConnection *conn = (TpBaseConnection *)(priv->conn);
   SIPTextPendingMessage *msg = NULL;
   gchar *object_path;
   nua_t *sofia_nua = sip_conn_sofia_nua (sip_conn);
@@ -628,9 +629,7 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
   object_path = g_strdup_printf ("%s/TextChannel%u", priv->object_path, priv->handle);
 
   g_debug ("%s: priv->handle = %d", G_STRFUNC, priv->handle);
-  recipient = tp_handle_inspect(
-      conn->handles[TP_HANDLE_TYPE_CONTACT],
-      priv->handle);
+  recipient = tp_handle_inspect(contact_repo, priv->handle);
   
   if ((recipient == NULL) || (strlen(recipient) == 0)) {
       GError invalid =  { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
@@ -763,7 +762,7 @@ void sip_text_channel_receive(SIPTextChannel *chan,
 {
   SIPTextPendingMessage *msg;
   SIPTextChannelPrivate *priv;
-  TpBaseConnection *conn;
+  TpHandleRepoIface *contact_repo;
   GObject *obj;
 
   enter;
@@ -771,7 +770,8 @@ void sip_text_channel_receive(SIPTextChannel *chan,
   g_assert(chan != NULL);
   g_assert(SIP_IS_TEXT_CHANNEL(chan));
   priv = SIP_TEXT_CHANNEL_GET_PRIVATE (chan);
-  conn = (TpBaseConnection *)(priv->conn);
+  contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
   obj = &chan->parent;
 
   msg = _sip_text_pending_new();
@@ -784,7 +784,7 @@ void sip_text_channel_receive(SIPTextChannel *chan,
 
   g_queue_push_tail(priv->pending_messages, msg);
 
-  tp_handle_ref (conn->handles[TP_HANDLE_TYPE_CONTACT], msg->sender);
+  tp_handle_ref (contact_repo, msg->sender);
 
   g_debug ("%s: message = %s", G_STRFUNC, message);
 

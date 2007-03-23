@@ -192,10 +192,14 @@ priv_emit_remote_error (SIPConnection *self,
   sip_media_channel_peer_error (channel, status, phrase);
 }
 
-static void priv_r_invite(int status, char const *phrase, 
-			  nua_t *nua, SIPConnection *self,
-			  nua_handle_t *nh, nua_hmagic_t *hmagic, sip_t const *sip,
-			  tagi_t tags[])
+static void
+priv_r_invite (int status,
+               char const *phrase,
+               nua_t *nua,
+               SIPConnection *self,
+               nua_handle_t *nh,
+               sip_t const *sip,
+               tagi_t tags[])
 {
   DEBUG("enter");
 
@@ -219,7 +223,6 @@ priv_r_register (int status,
                  nua_t *nua,
                  SIPConnection *self,
                  nua_handle_t *nh,
-                 nua_hmagic_t *hmagic,
                  sip_t const *sip,
                  tagi_t tags[])
 {
@@ -261,7 +264,6 @@ priv_r_unregister (int status,
                    nua_t *nua,
                    SIPConnection *self,
                    nua_handle_t *nh,
-                   nua_hmagic_t *hmagic,
                    sip_t const *sip,
                    tagi_t tags[])
 {
@@ -288,14 +290,14 @@ priv_r_unregister (int status,
     nua_handle_destroy (register_op);
 }
 
-static void priv_r_shutdown(int status,
-                            char const *phrase, 
-                            nua_t *nua,
-                            SIPConnection *self,
-                            nua_handle_t *nh,
-                            nua_hmagic_t *op,
-                            sip_t const *sip,
-                            tagi_t tags[])
+static void
+priv_r_shutdown(int status,
+                char const *phrase, 
+                nua_t *nua,
+                SIPConnection *self,
+                nua_handle_t *nh,
+                sip_t const *sip,
+                tagi_t tags[])
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   gint old_state;
@@ -312,10 +314,14 @@ static void priv_r_shutdown(int status,
     tp_base_connection_finish_shutdown ((TpBaseConnection *)self);
 }
 
-static void priv_r_get_params(int status, char const *phrase, 
-			      nua_t *nua, SIPConnection *self,
-			      nua_handle_t *nh, nua_hmagic_t *op, sip_t const *sip,
-			      tagi_t tags[])
+static void
+priv_r_get_params (int status,
+                   char const *phrase,
+                   nua_t *nua,
+                   SIPConnection *self,
+                   nua_handle_t *nh,
+                   sip_t const *sip,
+                   tagi_t tags[])
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   sip_from_t const *from = NULL;
@@ -369,45 +375,23 @@ static gboolean priv_parse_sip_from (sip_t const *sip, su_home_t *home, const gc
 }
 
 
-static TpHandle
-priv_parse_handle (SIPConnection *conn,
-                   nua_handle_t *nh,
-                   TpHandle ihandle,
-                   const gchar *from_url_str)
-{
-  TpBaseConnection *base = (TpBaseConnection *)conn;
-  TpHandle ohandle = ihandle;
-  const gchar *handle_identity = NULL;
-
-  /* step: check whether this is a known identity */
-  if (ihandle > 0)
-    handle_identity = tp_handle_inspect (
-        base->handles[TP_HANDLE_TYPE_CONTACT], ihandle);
-
-  if (handle_identity == NULL) {
-    ohandle = tp_handle_request (
-        base->handles[TP_HANDLE_TYPE_CONTACT], from_url_str, TRUE);
-  }
-
-  nua_handle_bind (nh, GUINT_TO_POINTER (ohandle));
-
-  g_assert (ohandle > 0);
-
-  return ohandle;
-}
-
-
-static void priv_r_message(int status, char const *phrase, nua_t *nua,
-			   SIPConnection *self, nua_handle_t *nh,
-			   nua_hmagic_t *op, sip_t const *sip,
-			   tagi_t tags[])
+static void
+priv_r_message (int status,
+                char const *phrase,
+                nua_t *nua,
+                SIPConnection *self,
+                nua_handle_t *nh,
+                sip_t const *sip,
+                tagi_t tags[])
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   SIPTextChannel *channel;
-  TpHandle handle = GPOINTER_TO_UINT (op);
   const gchar *to_str;
   gchar *to_url_str;
   su_home_t *home = sip_conn_sofia_home (self);
+  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
+  TpHandle handle;
 
   g_message("sofiasip: nua_r_message: %03d %s", status, phrase);
 
@@ -422,7 +406,14 @@ static void priv_r_message(int status, char const *phrase, nua_t *nua,
     g_message("Message delivered for %s <%s>", 
 	      to_str, to_url_str);
 
-  handle = priv_parse_handle (self, nh, handle, to_url_str);
+  handle = tp_handle_ensure (contact_repo, to_url_str, NULL, NULL);
+  if (!handle)
+    {
+      g_warning ("Message apparently delivered to invalid SIP URI %s?! "
+                 "Ignoring it", to_url_str);
+      return;
+    }
+
   channel = sip_text_factory_lookup_channel (priv->text_factory, handle);
 
   if (channel && status >= 200)
@@ -430,88 +421,120 @@ static void priv_r_message(int status, char const *phrase, nua_t *nua,
 }
 
 
-static void priv_i_invite(int status, char const *phrase, 
-			  nua_t *nua, SIPConnection *self,
-			  nua_handle_t *nh, nua_hmagic_t *op, sip_t const *sip,
-			  tagi_t tags[])
+static void
+priv_i_invite (int status,
+               char const *phrase,
+               nua_t *nua,
+               SIPConnection *self,
+               nua_handle_t *nh,
+               sip_t const *sip,
+               tagi_t tags[])
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  TpHandle handle = GPOINTER_TO_UINT (op);
   SIPMediaChannel *channel = sip_media_factory_get_only_channel (
       priv->media_factory);
   su_home_t *home = sip_conn_sofia_home (self);
   const gchar *from_str, *subject_str;
   gchar *from_url_str = NULL;
+  nua_handle_t *channel_nh;
+  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
 
-  if (priv_parse_sip_from (sip, home, &from_str, &from_url_str, &subject_str)) {
+  if (!priv_parse_sip_from (sip, home, &from_str, &from_url_str,
+        &subject_str)) {
+    g_warning ("Unable to parse headers in incoming invite");  
+    return;
+  }
 
-    g_message("Got incoming invite from %s <%s> on topic '%s'", 
-	      from_str, from_url_str, subject_str);
+  g_message("Got incoming invite from %s <%s> on topic '%s'", 
+            from_str, from_url_str, subject_str);
 
-    if (handle == 0) {
+  /* case 1: we already have a channel */
+  if (channel != NULL) {
+    g_object_get (channel, "nua-handle", &channel_nh, NULL);
 
-      /* case: a new handle */
-
-      if (channel == NULL) {
-
-	/* case 1: ready to establish a media session */
-
-	/* Accordingly to lassis, NewChannel has to be emitted
-	 * with the null handle for incoming calls */
-	channel = sip_media_factory_new_channel (
-            SIP_MEDIA_FACTORY (priv->media_factory), 0, nh, NULL);
-	if (channel) {
-	  /* figure out a new handle for the identity */
-	  handle = priv_parse_handle (self, nh, handle, from_url_str);
-
-	  sip_media_channel_respond_to_invite(channel, 
-					      handle, 
-					      subject_str,  
-					      from_url_str);
-	}					      
-	else
-	  g_message ("Creation of SIP media channel failed");
-      }
-      else {
-	/* case 2: already have a media channel, report we are
-	   busy */
-	nua_respond (nh, 480, sip_480_Temporarily_unavailable, TAG_END());
-      }
+    if (channel_nh == nh) {
+      /* note: re-INVITEs are handled in priv_i_state() */
+      g_warning ("Got a re-INVITE for NUA handle %p", nh);
     }
     else {
-      /* note: re-INVITEs are handled in priv_i_state() */
-      g_warning ("Got a re-INVITE for handle %u", handle);
+      /* case 2: already have a media channel, report we are
+         busy */
+       nua_respond (nh, 480, sip_480_Temporarily_unavailable, TAG_END());
     }
+
   }
-  else
-    g_warning ("Unable to parse headers in incoming invite");  
+  else {
+
+    /* case 2: we're ready to establish a media session */
+
+    /* Accordingly to lassis, NewChannel has to be emitted
+     * with the null handle for incoming calls */
+    channel = sip_media_factory_new_channel (
+        SIP_MEDIA_FACTORY (priv->media_factory), 0, nh, NULL);
+    if (channel) {
+      /* figure out a new handle for the identity */
+      TpHandle handle = tp_handle_ensure (contact_repo, from_url_str,
+          NULL, NULL);
+
+      if (handle == 0)
+        {
+          g_warning ("Incoming call from invalid SIP URI %s, ignoring it",
+              from_url_str);
+        }
+      else
+        {
+          /* this causes the channel to reference the handle, so we can
+           * discard our reference afterwards */
+          sip_media_channel_respond_to_invite(channel, 
+                                              handle, 
+                                              subject_str,  
+                                              from_url_str);
+          tp_handle_unref (contact_repo, handle);
+        }
+    }					      
+    else
+      g_message ("Creation of SIP media channel failed");
+  }
 
   su_free (home, from_url_str);
 }
 
-static void priv_i_message(int status, char const *phrase, 
-			   nua_t *nua, SIPConnection *self,
-			   nua_handle_t *nh, nua_hmagic_t *op, sip_t const *sip,
-			   tagi_t tags[])
+static void
+priv_i_message (int status,
+                char const *phrase,
+                nua_t *nua,
+                SIPConnection *self,
+                nua_handle_t *nh,
+                sip_t const *sip,
+                tagi_t tags[])
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   TpChannelIface *channel;
-  TpHandle handle = GPOINTER_TO_UINT (op);
   GString *message;
   const gchar *from_str, *subject_str;
   gchar *from_url_str;
   su_home_t *home = sip_conn_sofia_home (self);
+  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
 
   /* Block anything else except text/plain messages (like isComposings) */
   if (sip->sip_content_type && (strcmp("text/plain", sip->sip_content_type->c_type)))
     return;
 
   if (priv_parse_sip_from (sip, home, &from_str, &from_url_str, &subject_str)) {
+    TpHandle handle;
 
     g_message("Got incoming message from %s <%s> on topic '%s'", 
 	      from_str, from_url_str, subject_str);
 
-    handle = priv_parse_handle (self, nh, handle, from_url_str);
+    handle = tp_handle_ensure (contact_repo, from_url_str, NULL, NULL);
+    if (handle == 0)
+      {
+        g_warning ("Incoming message is from invalid SIP URI %s, ignoring it",
+            from_url_str);
+        return;
+      }
 
     channel = (TpChannelIface *)sip_text_factory_lookup_channel (
         priv->text_factory, handle);
@@ -531,6 +554,7 @@ static void priv_i_message(int status, char const *phrase,
     sip_text_channel_receive(SIP_TEXT_CHANNEL (channel), handle, from_str,
         from_url_str, subject_str, message->str);
 
+    tp_handle_unref (contact_repo, handle);
     g_string_free (message, TRUE);
     su_free (home, from_url_str);
   }
@@ -538,14 +562,16 @@ static void priv_i_message(int status, char const *phrase,
     g_warning ("Unable to parse headers in incoming message.");
 }
 
-static void priv_i_state(int status, char const *phrase, 
-			 nua_t *nua, SIPConnection *self,
-			 nua_handle_t *nh, nua_hmagic_t *op, sip_t const *sip,
-			 tagi_t tags[])
+static void
+priv_i_state (int status,
+              char const *phrase,
+              nua_t *nua,
+              SIPConnection *self,
+              nua_handle_t *nh,
+              sip_t const *sip,
+              tagi_t tags[])
 {
-  TpBaseConnection *base = (TpBaseConnection *)self;
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  TpHandle handle = GPOINTER_TO_UINT (op);
   char const *l_sdp = NULL, *r_sdp = NULL;
   int offer_recv = 0, answer_recv = 0, offer_sent = 0, answer_sent = 0;
   int ss_state = nua_callstate_init;
@@ -594,10 +620,8 @@ static void priv_i_state(int status, char const *phrase,
 
   case nua_callstate_ready:
     /* XXX -> note: only print if state has changed */
-    g_message ("sofiasip: call to %s is active => '%s'", 
-	       tp_handle_inspect (base->handles[TP_HANDLE_TYPE_CONTACT],
-                 handle),
-	       nua_callstate_name (ss_state));
+    g_message ("sofiasip: call nh=%p is active => '%s'", 
+	       nh, nua_callstate_name (ss_state));
     break;
 
   case nua_callstate_terminated:
@@ -605,11 +629,7 @@ static void priv_i_state(int status, char const *phrase,
       /* smcv-FIXME: need to work out which channel we're dealing with here */
       SIPMediaChannel *chan = sip_media_factory_get_only_channel (
           priv->media_factory);
-      g_message ("sofiasip: call to %s is terminated", 
-		 handle > 0 ? 
-		 tp_handle_inspect (base->handles[TP_HANDLE_TYPE_CONTACT],
-                   handle)
-                 : "<unknown>");
+      g_message ("sofiasip: call nh=%p is terminated", nh);
       if (chan)
         sip_media_channel_close (chan);
       nua_handle_destroy (nh);
@@ -633,12 +653,10 @@ sip_connection_sofia_callback(nua_event_t event,
 			      nua_t *nua,
 			      SIPConnection *self,
 			      nua_handle_t *nh,
-			      nua_hmagic_t *op,
+			      nua_hmagic_t *unused,
 			      sip_t const *sip,
 			      tagi_t tags[])
 {
-  TpHandle handle = GPOINTER_TO_UINT (op);
-  TpBaseConnection *base = (TpBaseConnection *)self;
   SIPConnectionPrivate *priv;
 
   DEBUG("enter: NUA at %p (conn %p), event #%d %s, %d %s", nua, self, event,
@@ -655,39 +673,39 @@ sip_connection_sofia_callback(nua_event_t event,
      * ------------------------- */
 
   case nua_i_fork:
-    /* self_i_fork(status, phrase, nua, self, nh, op, sip, tags); */
+    /* self_i_fork(status, phrase, nua, self, nh, sip, tags); */
     break;
     
   case nua_i_invite:
-    priv_i_invite (status, phrase, nua, self, nh, op, sip, tags);
+    priv_i_invite (status, phrase, nua, self, nh, sip, tags);
     break;
 
   case nua_i_state:
-    priv_i_state (status, phrase, nua, self, nh, op, sip, tags);
+    priv_i_state (status, phrase, nua, self, nh, sip, tags);
     break;
 
   case nua_i_bye:
-    /* self_i_bye(nua, self, nh, op, sip, tags); */
+    /* self_i_bye(nua, self, nh, sip, tags); */
     break;
 
   case nua_i_message:
-    priv_i_message(status, phrase, nua, self, nh, op, sip, tags);
+    priv_i_message(status, phrase, nua, self, nh, sip, tags);
     break;
 
   case nua_i_refer:
-    /* self_i_refer(nua, self, nh, op, sip, tags); */
+    /* self_i_refer(nua, self, nh, sip, tags); */
     break;
 
   case nua_i_notify:
-    /* self_i_notify(nua, self, nh, op, sip, tags); */
+    /* self_i_notify(nua, self, nh, sip, tags); */
     break;
 
   case nua_i_cancel:
-    /* self_i_cancel(nua, self, nh, op, sip, tags); */
+    /* self_i_cancel(nua, self, nh, sip, tags); */
     break;
 
   case nua_i_error:
-    /* self_i_error(nua, self, nh, op, status, phrase, tags); */
+    /* self_i_error(nua, self, nh, status, phrase, tags); */
     break;
 
   case nua_i_active:
@@ -700,69 +718,72 @@ sip_connection_sofia_callback(nua_event_t event,
      * ------------------------- */
 
   case nua_r_shutdown:    
-    priv_r_shutdown (status, phrase, nua, self, nh, op, sip, tags);
+    priv_r_shutdown (status, phrase, nua, self, nh, sip, tags);
     break;
 
   case nua_r_register:
-    priv_r_register (status, phrase, nua, self, nh, op, sip, tags);
+    priv_r_register (status, phrase, nua, self, nh, sip, tags);
     break;
     
   case nua_r_unregister:
-    priv_r_unregister (status, phrase, nua, self, nh, op, sip, tags);
+    priv_r_unregister (status, phrase, nua, self, nh, sip, tags);
     break;
     
   case nua_r_invite:
-    priv_r_invite(status, phrase, nua, self, nh, op, sip, tags);
+    priv_r_invite(status, phrase, nua, self, nh, sip, tags);
     break;
 
   case nua_r_bye:
-    /* self_r_bye(status, phrase, nua, self, nh, op, sip, tags); */
+    /* self_r_bye(status, phrase, nua, self, nh, sip, tags); */
     break;
 
   case nua_r_message:
-    priv_r_message(status, phrase, nua, self, nh, op, sip, tags);
+    priv_r_message(status, phrase, nua, self, nh, sip, tags);
     break;
 
   case nua_r_refer:
-    /* self_r_refer(status, phrase, nua, self, nh, op, sip, tags); */
+    /* self_r_refer(status, phrase, nua, self, nh, sip, tags); */
     break;
 
   case nua_r_subscribe:
-    /* self_r_subscribe(status, phrase, nua, self, nh, op, sip, tags); */
+    /* self_r_subscribe(status, phrase, nua, self, nh,  sip, tags); */
     break;
 
   case nua_r_unsubscribe:
-    /* self_r_unsubscribe(status, phrase, nua, self, nh, op, sip, tags); */
+    /* self_r_unsubscribe(status, phrase, nua, self, nh, sip, tags); */
     break;
 
   case nua_r_publish:
-    /* self_r_publish(status, phrase, nua, self, nh, op, sip, tags); */
+    /* self_r_publish(status, phrase, nua, self, nh, sip, tags); */
     break;
     
   case nua_r_notify:
-    /* self_r_notify(status, phrase, nua, self, nh, op, sip, tags); */
+    /* self_r_notify(status, phrase, nua, self, nh, sip, tags); */
     break;
 
   case nua_r_get_params:
-    priv_r_get_params(status, phrase, nua, self, nh, op, sip, tags);
+    priv_r_get_params(status, phrase, nua, self, nh, sip, tags);
     break;
      
   default:
     if (status > 100)
-      g_message ("sip-connection: unknown event '%s' (%d): %03d %s handle=%u", 
-		 nua_event_name(event), event, status, phrase, handle);
+      g_message ("sip-connection: unknown event '%s' (%d): %03d %s nh=%p", 
+		 nua_event_name(event), event, status, phrase, nh);
     else
-      g_message ("sip-connection: unknown event %d handle=%u", event, handle);
+      g_message ("sip-connection: unknown event %d nh=%p", event, nh);
+
+#if 0
+    /* I'm not convinced this is valid -smcv */
 
     if (handle > 0 &&
-	!tp_handle_is_valid (base->handles[TP_HANDLE_TYPE_CONTACT],
-          handle, NULL)) {
+	!tp_handle_is_valid (contact_repo, handle, NULL)) {
       /* note: unknown handle, not associated to any existing 
        *       call, message, registration, etc, so it can
        *       be safely destroyed */
       g_message ("NOTE: destroying handle %p (%u).", nh, handle);
       nua_handle_destroy(nh);
     }
+#endif
 
     break;
   }

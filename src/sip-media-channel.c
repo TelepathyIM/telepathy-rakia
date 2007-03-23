@@ -170,6 +170,7 @@ sip_media_channel_constructor (GType type, guint n_props,
   SIPMediaChannelPrivate *priv;
   DBusGConnection *bus;
   TpBaseConnection *conn;
+  TpHandleRepoIface *contact_repo;
 
   DEBUG("enter");
   
@@ -178,6 +179,8 @@ sip_media_channel_constructor (GType type, guint n_props,
 
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (SIP_MEDIA_CHANNEL (obj));
   conn = (TpBaseConnection *)(priv->conn);
+  contact_repo = tp_base_connection_get_handles (conn,
+      TP_HANDLE_TYPE_CONTACT);
   
   /* register object on the bus */
   bus = tp_get_bus ();
@@ -187,7 +190,7 @@ sip_media_channel_constructor (GType type, guint n_props,
 
   tp_group_mixin_init ((TpSvcChannelInterfaceGroup *)obj,
                        G_STRUCT_OFFSET (SIPMediaChannel, group),
-                       conn->handles[TP_HANDLE_TYPE_CONTACT],
+                       contact_repo,
                        conn->self_handle);
 
   /* automatically add creator to channel, if defined */
@@ -752,7 +755,7 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
   GError *error = NULL;
   GPtrArray *ret;
   SIPMediaChannelPrivate *priv;
-  TpBaseConnection *conn;
+  TpHandleRepoIface *contact_repo;
 
   GPtrArray *streams;
 
@@ -761,10 +764,10 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
   g_assert (SIP_IS_MEDIA_CHANNEL (self));
 
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  conn = (TpBaseConnection *)(priv->conn);
+  contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
 
-  if (!tp_handle_is_valid (conn->handles[TP_HANDLE_TYPE_CONTACT],
-        contact_handle, &error))
+  if (!tp_handle_is_valid (contact_repo, contact_handle, &error))
     {
       dbus_g_method_return_error (context, error);
       g_error_free (error);
@@ -875,7 +878,8 @@ void sip_media_channel_respond_to_invite (SIPMediaChannel *self,
 					  const char *remoteurl)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  TpBaseConnection *conn = (TpBaseConnection *)(priv->conn);
+  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
   GObject *obj = G_OBJECT (self);
   TpIntSet *set;
@@ -887,8 +891,7 @@ void sip_media_channel_respond_to_invite (SIPMediaChannel *self,
   g_message ("%s: adding handle %d (%s)", 
 	     G_STRFUNC,
              handle,
-	     tp_handle_inspect (
-               conn->handles[TP_HANDLE_TYPE_CONTACT], handle));
+	     tp_handle_inspect (contact_repo, handle));
 
   set = tp_intset_new ();
   tp_intset_add (set, handle);
