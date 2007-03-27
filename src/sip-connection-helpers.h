@@ -25,11 +25,24 @@
 /* note: As one Sofia-SIP NUA instance is created per SIP connection,
  *       SIPConnection is used as the primary context pointer. See
  *       {top}/docs/design.txt for further information.
- *       
- *       Each NUA handle is mapped 1:1 to a Telepathy handle (guint). 
- *       The handles are stored as pointer values and have to be
- *       properly casted before use with GPOINTER_TO_UINT() and
- *       GUINT_TO_POINTER().
+ *
+ *       Each NUA handle representing a call is mapped as follows:
+ *       - A SIPMediaChannel has a pointer to a call NUA handle, which may
+ *         start as NULL.
+ *       - A call NUA handle has hmagic, which is either a pointer to a
+ *         SIPMediaChannel, or NULL.
+ *       - When the media channel is created because of an incoming call,
+ *         its NUA handle is initialized to the call's NUA handle
+ *       - When the media channel is created by user request (for an outgoing
+ *         call), its NUA handle is initially NULL, then is set to the call's
+ *         NUA handle once the call actually starts
+ *
+ *       In either case, as soon as the SIPMediaChannel's NUA handle becomes
+ *       non-NULL, the NUA handle's hmagic is set to the SIPMediaChannel.
+ *
+ *       The NUA handle survives at least as long as the SIPMediaChannel.
+ *       When the SIPMediaChannel is closed, the NUA handle's hmagic is set
+ *       to NULL.
  */
 
 struct SIPConnection;
@@ -38,7 +51,7 @@ struct SIPConnectionManager;
 #define NUA_MAGIC_T      SIPConnection 
 #define SU_ROOT_MAGIC_T  SIPConnectionManager
 #define SU_TIMER_ARG_T   SIPConnection
-#define NUA_HMAGIC_T     gpointer
+#define NUA_HMAGIC_T     void
 
 #include <sofia-sip/nua.h>
 #include <sofia-sip/su.h>

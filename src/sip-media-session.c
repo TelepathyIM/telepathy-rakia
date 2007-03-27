@@ -803,12 +803,12 @@ void sip_media_session_accept (SIPMediaSession *self, gboolean accept)
 static nua_handle_t *priv_get_nua_handle_for_session (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  gpointer *tmp = NULL;
+  nua_handle_t *tmp = NULL;
 
   if (priv->channel) 
     g_object_get (priv->channel, "nua-handle", &tmp, NULL);
 
-  return (nua_handle_t*)tmp;
+  return tmp;
 }
 
 static void priv_stream_new_active_candidate_pair_cb (SIPMediaStream *stream,
@@ -908,6 +908,7 @@ static void priv_offer_answer_step (SIPMediaSession *session)
       if (dest_uri) {
 	nh = sip_conn_create_request_handle (sofia_nua, sofia_home, dest_uri, 
             priv->peer);
+	g_object_set (priv->channel, "nua-handle", nh, NULL);
 
 	/* note:  we need to be prepared to receive media right after the
 	 *       offer is sent, so we must set state to playing */
@@ -920,8 +921,6 @@ static void priv_offer_answer_step (SIPMediaSession *session)
 		    TAG_END());
 
 	priv->oa_pending = FALSE;
-
-	g_object_set (priv->channel, "nua-handle", (gpointer)nh, NULL);
       }
       else 
 	g_warning ("Unable to send offer due to invalid destination SIP URI.");
