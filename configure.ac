@@ -29,8 +29,8 @@ fi
 AC_SUBST(ERROR_CFLAGS)
 
 AC_ARG_ENABLE(debug,
-  AC_HELP_STRING([--enable-debug],[compile with debug code]),
-    enable_debug=$enableval, enable_debug=no )
+  AC_HELP_STRING([--disable-debug],[omit debug code]),
+    enable_debug=$enableval, enable_debug=yes )
 
 if test x$enable_debug = xyes; then
   AC_DEFINE(ENABLE_DEBUG, [], [Enable debug code])
