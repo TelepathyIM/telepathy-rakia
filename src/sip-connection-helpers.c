@@ -223,7 +223,6 @@ sip_conn_update_nua_outbound (SIPConnection *conn)
 
   /* Purge existing occurrences of the affected options */
   g_hash_table_remove (option_table, "options-keepalive");
-  g_hash_table_remove (option_table, "use-stun");
 
   /* Set options that affect keepalive behavior */
   switch (priv->keepalive_mechanism)
@@ -234,24 +233,14 @@ sip_conn_update_nua_outbound (SIPConnection *conn)
       g_hash_table_insert (option_table,
                            g_strdup ("options-keepalive"),
                            GINT_TO_POINTER(FALSE));
-      g_hash_table_insert (option_table,
-                           g_strdup ("use-stun"),
-                           GINT_TO_POINTER(FALSE));
       break;
     case SIP_CONNECTION_KEEPALIVE_OPTIONS:
       g_hash_table_insert (option_table,
                            g_strdup ("options-keepalive"),
                            GINT_TO_POINTER(TRUE));
-      /*
-      g_hash_table_insert (option_table,
-                           g_strdup ("use-stun"),
-                           GINT_TO_POINTER(FALSE));
-       */
       break;
     case SIP_CONNECTION_KEEPALIVE_STUN:
-      g_hash_table_insert (option_table,
-                           g_strdup ("use-stun"),
-                           GINT_TO_POINTER(TRUE));
+      /* Not supported */
       break;
     case SIP_CONNECTION_KEEPALIVE_AUTO:
     default:
