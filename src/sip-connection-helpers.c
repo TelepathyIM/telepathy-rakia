@@ -310,3 +310,35 @@ sip_conn_update_nua_contact_features (SIPConnection *conn)
 		 TAG_NULL());
   g_free (contact_features);
 }
+
+void
+sip_conn_update_stun_server (SIPConnection *conn)
+{
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  gchar *composed = NULL;
+
+  if (!priv->sofia_nua)
+    {
+      /* nothing to do */
+      return;
+    }
+
+  if (priv->stun_server != NULL)
+    {
+
+      if (priv->stun_port == 0)
+        {
+          composed = g_strdup (priv->stun_server);
+        }
+      else
+        {
+          composed = g_strdup_printf ("%s:%u", priv->stun_server,
+              priv->stun_port);
+        }
+    }
+
+  nua_set_params(priv->sofia_nua,
+      STUNTAG_SERVER(composed), TAG_END());
+
+  g_free (composed);
+}

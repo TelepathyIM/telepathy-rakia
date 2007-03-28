@@ -57,7 +57,6 @@ G_DEFINE_TYPE_WITH_CODE(SIPConnection, sip_connection,
 #include "sip-connection-helpers.h"
 #include "sip-connection-private.h"
 #include "sip-connection-sofia.h"
-#include <sofia-sip/stun_tag.h>
 
 #define ERROR_IF_NOT_CONNECTED_ASYNC(BASE, CONTEXT) \
   if ((BASE)->status != TP_CONNECTION_STATUS_CONNECTED) \
@@ -216,37 +215,6 @@ sip_connection_init (SIPConnection *obj)
 }
 
 static void
-priv_update_stun_server (SIPConnection *self, SIPConnectionPrivate *priv)
-{
-  gchar *composed = NULL;
-
-  if (!priv->sofia_nua)
-    {
-      /* nothing to do */
-      return;
-    }
-
-  if (priv->stun_server != NULL)
-    {
-
-      if (priv->stun_port == 0)
-        {
-          composed = g_strdup (priv->stun_server);
-        }
-      else
-        {
-          composed = g_strdup_printf ("%s:%u", priv->stun_server,
-              priv->stun_port);
-        }
-    }
-
-  nua_set_params(priv->sofia_nua,
-      STUNTAG_SERVER(composed), TAG_END());
-
-  g_free (composed);
-}
-
-static void
 sip_connection_set_property (GObject      *object,
                              guint         property_id,
                              const GValue *value,
@@ -317,13 +285,13 @@ sip_connection_set_property (GObject      *object,
   }
   case PROP_STUN_PORT: {
     priv->stun_port = g_value_get_uint (value);
-    priv_update_stun_server (self, priv);
+    sip_conn_update_stun_server (self);
     break;
   }
   case PROP_STUN_SERVER: {
     g_free((gpointer)priv->stun_server);
     priv->stun_server =  g_value_dup_string (value);
-    priv_update_stun_server (self, priv);
+    sip_conn_update_stun_server (self);
     break;
   }
   case PROP_EXTRA_AUTH_USER: {
@@ -753,7 +721,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
 
   sip_conn_update_nua_outbound (self);
   sip_conn_update_nua_contact_features (self);
-  priv_update_stun_server (self, priv);
+  sip_conn_update_stun_server (self);
 
   g_message ("Sofia-SIP NUA at address %p (SIP URI: %s)", 
 	     priv->sofia_nua, priv->requested_address);

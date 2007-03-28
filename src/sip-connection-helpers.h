@@ -62,6 +62,7 @@ extern void *_sip_nh_expired;
 #include <sofia-sip/sl_utils.h>
 #include <sofia-sip/su_glib.h>
 #include <sofia-sip/tport_tag.h>
+#include <sofia-sip/stun_tag.h>
 
 #include "sip-media-channel.h"
 #include "sip-text-channel.h"
@@ -84,12 +85,13 @@ nua_handle_t *sip_conn_create_request_handle (nua_t *nua, su_home_t *home,
     const char *address);
 
 /***********************************************************************
- * Functions for managing NUA outbound/keepalive parameters
+ * Functions for managing NUA outbound/keepalive parameters and STUN settings
  ***********************************************************************/
 
 void sip_conn_update_nua_outbound (SIPConnection *conn);
 void sip_conn_update_nua_keepalive_interval (SIPConnection *conn);
 void sip_conn_update_nua_contact_features (SIPConnection *conn);
+void sip_conn_update_stun_server (SIPConnection *conn);
 
 G_END_DECLS
 
