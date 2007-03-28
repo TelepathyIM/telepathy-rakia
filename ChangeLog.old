@@ -1,21 +1,3 @@
-Wed Mar 21 17:59:36 EET 2007  Simon McVittie <simon.mcvittie@collabora.co.uk>
-  * Remove untrue "not used" comments - we now have extra auth
-
-Wed Mar 21 17:56:27 EET 2007  Simon McVittie <simon.mcvittie@collabora.co.uk>
-  * Transfer STUN port number from RequestConnection to the new connection
-
-Wed Mar 21 16:45:22 EET 2007  Simon McVittie <simon.mcvittie@collabora.co.uk>
-  * Add forgotten property_get case for PROP_STUN_PORT
-
-Wed Mar 21 16:26:29 EET 2007  Simon McVittie <simon.mcvittie@collabora.co.uk>
-  * Add STUN server and port Tp properties to media channels. Copy them from the media factory on construction.
-
-Wed Mar 21 16:24:52 EET 2007  Simon McVittie <simon.mcvittie@collabora.co.uk>
-  * Copy STUN server/port from connection to media factory
-
-Wed Mar 21 16:19:20 EET 2007  Simon McVittie <simon.mcvittie@collabora.co.uk>
-  * Redefine stun-server connection parameter to be IP or FQDN rather than IP:port or FQDN:port. Add stun-port connection parameter. Glue the two together when passing them to the Sofia stack.
-
 2007-03-21  Mikhail Zabaluev  <mikhail.zabaluev@nokia.com>
 
 	* src/sip-connection-private.h:
