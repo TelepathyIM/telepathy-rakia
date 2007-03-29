@@ -326,6 +326,8 @@ sip_conn_update_stun_server (SIPConnection *conn)
         }
     }
 
+  g_debug ("%s: setting STUN server to %s", G_STRFUNC, composed);
+
   nua_set_params(priv->sofia_nua,
       STUNTAG_SERVER(composed), TAG_END());
 
