@@ -42,7 +42,7 @@
  *
  *       The NUA handle survives at least as long as the SIPMediaChannel.
  *       When the SIPMediaChannel is closed, the NUA handle's hmagic is set
- *       to NULL.
+ *       to the special value SIP_NH_EXPIRED.
  */
 
 struct SIPConnection;
@@ -52,6 +52,10 @@ struct SIPConnectionManager;
 #define SU_ROOT_MAGIC_T  SIPConnectionManager
 #define SU_TIMER_ARG_T   SIPConnection
 #define NUA_HMAGIC_T     void
+
+/* a magical distinct value for nua_hmagic_t */
+extern void *_sip_nh_expired;
+#define SIP_NH_EXPIRED (_sip_nh_expired)
 
 #include <sofia-sip/nua.h>
 #include <sofia-sip/su.h>

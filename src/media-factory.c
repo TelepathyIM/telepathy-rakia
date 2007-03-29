@@ -22,8 +22,6 @@
 #include <telepathy-glib/interfaces.h>
 #include "media-factory.h"
 
-#undef MULTIPLE_MEDIA_CHANNELS
-
 static void factory_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (SIPMediaFactory, sip_media_factory,
@@ -42,15 +40,10 @@ struct _SIPMediaFactoryPrivate
 {
   /* unreferenced (since it owns this factory) */
   SIPConnection *conn;
-#ifdef MULTIPLE_MEDIA_CHANNELS
   /* array of referenced (SIPMediaChannel *) */
   GPtrArray *channels;
   /* for unique channel object paths, currently always increments */
   guint channel_index;
-#else
-  /* referenced singleton, or NULL */
-  SIPMediaChannel *channel;
-#endif
   /* g_strdup'd gchar *sessionid => unowned SIPMediaChannel *chan */
   GHashTable *session_chans;
 
@@ -68,12 +61,8 @@ sip_media_factory_init (SIPMediaFactory *fac)
   SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
   priv->conn = NULL;
-#ifdef MULTIPLE_MEDIA_CHANNELS
   priv->channels = g_ptr_array_sized_new (1);
   priv->channel_index = 0;
-#else
-  priv->channel = NULL;
-#endif
   priv->session_chans = g_hash_table_new_full (g_str_hash, g_str_equal,
       g_free, NULL);
   priv->dispose_has_run = FALSE;
@@ -92,11 +81,7 @@ sip_media_factory_dispose (GObject *object)
 
   tp_channel_factory_iface_close_all (TP_CHANNEL_FACTORY_IFACE (object));
 
-#ifdef MULTIPLE_MEDIA_CHANNELS
   g_assert (priv->channels == NULL);
-#else
-  g_assert (priv->channel == NULL);
-#endif
   g_assert (priv->session_chans == NULL);
 
   g_free (priv->stun_server);
@@ -168,33 +153,31 @@ sip_media_factory_class_init (SIPMediaFactoryClass *klass)
 }
 
 static void
+unref_one (gpointer data, gpointer user_data)
+{
+  g_object_unref (data);
+}
+
+static void
 sip_media_factory_close_all (TpChannelFactoryIface *iface)
 {
   SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
   SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
   GHashTable *session_chans;
-#ifdef MULTIPLE_MEDIA_CHANNELS
   GPtrArray *channels;
-#else
-  SIPMediaChannel *chan;
-#endif
 
   session_chans = priv->session_chans;
   priv->session_chans = NULL;
   if (session_chans)
     g_hash_table_destroy (session_chans);
 
-#ifdef MULTIPLE_MEDIA_CHANNELS
   channels = priv->channels;
   priv->channels = NULL;
   if (channels)
-    g_ptr_array_free (channels, TRUE);
-#else
-  chan = priv->channel;
-  priv->channel = NULL;
-  if (chan)
-    g_object_unref (chan);
-#endif
+    {
+      g_ptr_array_foreach (priv->channels, unref_one, NULL);
+      g_ptr_array_free (priv->channels, TRUE);
+    }
 }
 
 static void
@@ -228,7 +211,6 @@ sip_media_factory_disconnected (TpChannelFactoryIface *iface)
 {
 }
 
-#ifdef MULTIPLE_MEDIA_CHANNELS
 struct _ForeachData
 {
   TpChannelFunc foreach;
@@ -236,14 +218,13 @@ struct _ForeachData
 };
 
 static void
-_foreach_slave (gpointer key, gpointer value, gpointer user_data)
+_foreach_slave (gpointer channel, gpointer user_data)
 {
   struct _ForeachData *data = (struct _ForeachData *)user_data;
-  TpChannelIface *chan = TP_CHANNEL_IFACE (value);
+  TpChannelIface *chan = TP_CHANNEL_IFACE (channel);
 
   data->foreach (chan, data->user_data);
 }
-#endif
 
 static void
 sip_media_factory_foreach (TpChannelFactoryIface *iface,
@@ -253,18 +234,13 @@ sip_media_factory_foreach (TpChannelFactoryIface *iface,
   SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
   SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
-#ifdef MULTIPLE_MEDIA_CHANNELS
   struct _ForeachData data = { foreach, user_data };
 
-  g_hash_table_foreach (priv->channels, _foreach_slave, &data);
-#else
-  if (priv->channel)
-    foreach ((TpChannelIface *)priv->channel, user_data);
-#endif
+  g_ptr_array_foreach (priv->channels, _foreach_slave, &data);
 }
 
 static gboolean
-hash_is_same_channel (gpointer key, gpointer value, gpointer user_data)
+hash_key_is (gpointer key, gpointer value, gpointer user_data)
 {
   return (value == user_data);
 }
@@ -283,25 +259,13 @@ channel_closed (SIPMediaChannel *chan, gpointer user_data)
 
   if (priv->session_chans)
     {
-      g_hash_table_foreach_remove (priv->session_chans, hash_is_same_channel,
-          chan);
+      g_hash_table_foreach_remove (priv->session_chans, hash_key_is, chan);
     }
-#ifdef MULTIPLE_MEDIA_CHANNELS
   if (priv->channels)
     {
-      g_ptr_array_remove (priv->channels, chan);
+      g_ptr_array_remove_fast (priv->channels, chan);
       g_object_unref (chan);
     }
-#else
-  if (priv->channel)
-    {
-      SIPMediaChannel *our_chan = priv->channel;
-
-      g_assert (chan == our_chan);
-      priv->channel = NULL;
-      g_object_unref (chan);
-    }
-#endif
 }
 
 /**
@@ -324,15 +288,19 @@ sip_media_factory_new_channel (SIPMediaFactory *fac, TpHandle creator,
   priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
   conn = (TpBaseConnection *)priv->conn;
 
-#ifdef MULTIPLE_MEDIA_CHANNELS
   object_path = g_strdup_printf ("%s/MediaChannel%u", conn->object_path,
       priv->channel_index++);
-#else
-  object_path = g_strdup_printf ("%s/MediaChannel", conn->object_path);
-#endif
 
-  g_debug ("%s: object path %s (created by #%d, NUA handle %p", G_STRFUNC,
-      object_path, creator, nh);
+  if (nh)
+    {
+      g_debug ("%s: object path %s (created by #%d, NUA handle %p", G_STRFUNC,
+          object_path, creator, nh);
+    }
+  else
+    {
+      g_debug ("%s: object path %s (created by #%d, no NUA handle yet",
+          G_STRFUNC, object_path, creator);
+    }
 
   if (priv->stun_server != NULL)
     {
@@ -359,11 +327,7 @@ sip_media_factory_new_channel (SIPMediaFactory *fac, TpHandle creator,
 
   g_signal_connect (chan, "closed", (GCallback) channel_closed, fac);
 
-#ifdef MULTIPLE_MEDIA_CHANNELS
   g_ptr_array_add (priv->channels, chan);
-#else
-  priv->channel = chan;
-#endif
 
   tp_channel_factory_iface_emit_new_channel (fac, (TpChannelIface *)chan,
       request);
@@ -400,13 +364,6 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
     {
       return TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
     }
-
-#ifndef MULTIPLE_MEDIA_CHANNELS
-  if (priv->channel)
-    {
-      return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
-    }
-#endif
 
   chan = (TpChannelIface *)sip_media_factory_new_channel (fac,
       conn->self_handle, NULL, request);
@@ -480,17 +437,6 @@ sip_media_factory_session_id_unregister (SIPMediaFactory *fac,
    */
   g_hash_table_insert (priv->session_chans, g_strdup (sid), NULL);
 }
-
-#ifndef MULTIPLE_MEDIA_CHANNELS
-SIPMediaChannel *
-sip_media_factory_get_only_channel (TpChannelFactoryIface *iface)
-{
-  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-
-  return priv->channel;
-}
-#endif
 
 static void
 factory_iface_init (gpointer g_iface, gpointer iface_data)

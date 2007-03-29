@@ -453,6 +453,9 @@ sip_media_channel_set_property (GObject     *object,
       {
         nua_handle_t *new_nua_op = g_value_get_pointer (value);
 
+        g_debug ("%s: channel %p: assigning NUA handle %p", G_STRFUNC, object,
+            new_nua_op);
+
         /* you can only set the NUA handle once - migrating a media channel
          * between two NUA handles makes no sense */
         g_return_if_fail (priv->nua_op != NULL);
@@ -508,12 +511,8 @@ sip_media_channel_dispose (GObject *object)
   if (!priv->closed)
     sip_media_channel_close (self);
 
-  if (priv->nua_op)
-    {
-      g_assert (nua_handle_magic (priv->nua_op) == self);
-      nua_handle_bind (priv->nua_op, NULL);
-      priv->nua_op = NULL;
-    }
+  /* closing the channel should have discarded the NUA handle */
+  g_assert (priv->nua_op == NULL);
 
   if (G_OBJECT_CLASS (sip_media_channel_parent_class)->dispose)
     G_OBJECT_CLASS (sip_media_channel_parent_class)->dispose (object);
@@ -576,7 +575,7 @@ sip_media_channel_close (SIPMediaChannel *obj)
 
   if (priv->nua_op)
     {
-      g_assert (nua_handle_magic (priv->nua_op) == self);
+      g_assert (nua_handle_magic (priv->nua_op) == obj);
       nua_handle_bind (priv->nua_op, NULL);
       priv->nua_op = NULL;
     }

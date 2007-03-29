@@ -48,6 +48,9 @@
  * a value obtained from Sofia-SIP documentation */
 #define SIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL 120
 
+/* The value of SIP_NH_EXPIRED. This can be anything that is neither NULL
+ * nor a media channel */
+void *_sip_nh_expired = (void *)"";
 
 nua_t *sip_conn_sofia_nua(SIPConnection *obj)
 {

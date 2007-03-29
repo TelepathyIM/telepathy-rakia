@@ -196,33 +196,27 @@ priv_handle_auth (SIPConnection* self,
 static void
 priv_emit_remote_error (SIPConnection *self,
 			nua_handle_t *nh,
+                        nua_hmagic_t *nh_magic,
 			int status,
 			char const *phrase)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  SIPMediaChannel *channel = sip_media_factory_get_only_channel (
-      priv->media_factory);
-  nua_handle_t *channel_nh;
-
-  if (channel == NULL)
+  if (nh_magic == SIP_NH_EXPIRED)
     {
       /* 487 Request Terminated is OK on destroyed channels */
       if (status != 487)
-        g_message ("error response %03d received for a destroyed media "
-            "channel", status);
+        g_message ("ignoring error response %03d, received for a destroyed "
+            "media channel", status);
       return;
     }
 
-  g_object_get (channel, "nua-handle", &channel_nh, NULL);
-
-  if (channel_nh != nh)
+  if (nh_magic == NULL)
     {
-      g_warning ("error response '%03d %s' was for some other channel "
-          "(error nh=%p but our channel is nh=%p)",
-          status, phrase, nh, channel_nh);
+      g_message ("ignoring error response %03d, on a NUA handle %p which does "
+          "not belong to any media channel", status, nh);
+      return;
     }
 
-  sip_media_channel_peer_error (channel, status, phrase);
+  sip_media_channel_peer_error (SIP_MEDIA_CHANNEL (nh_magic), status, phrase);
 }
 
 static void
@@ -231,6 +225,7 @@ priv_r_invite (int status,
                nua_t *nua,
                SIPConnection *self,
                nua_handle_t *nh,
+               nua_handle_t *nh_magic,
                sip_t const *sip,
                tagi_t tags[])
 {
@@ -243,8 +238,7 @@ priv_r_invite (int status,
 
   if (status >= 300) {
     /* redirects (3xx responses) are not handled properly */
-    /* smcv-FIXME: need to work out which channel we're dealing with here */
-    priv_emit_remote_error (self, nh, status, phrase);
+    priv_emit_remote_error (self, nh, nh_magic, status, phrase);
   }
 }
 
@@ -463,18 +457,23 @@ priv_i_invite (int status,
                nua_t *nua,
                SIPConnection *self,
                nua_handle_t *nh,
+               nua_hmagic_t *nh_magic,
                sip_t const *sip,
                tagi_t tags[])
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  SIPMediaChannel *channel = sip_media_factory_get_only_channel (
-      priv->media_factory);
+  SIPMediaChannel *channel;
   su_home_t *home = sip_conn_sofia_home (self);
   const gchar *from_str, *subject_str;
   gchar *from_url_str = NULL;
-  nua_handle_t *channel_nh;
   TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
+
+  if (nh_magic == SIP_NH_EXPIRED)
+    {
+      g_message ("ignoring incoming invite on a destroyed media channel");
+      return;
+    }
 
   if (!priv_parse_sip_from (sip, home, &from_str, &from_url_str,
         &subject_str)) {
@@ -485,24 +484,15 @@ priv_i_invite (int status,
   g_message("Got incoming invite from %s <%s> on topic '%s'", 
             from_str, from_url_str, subject_str);
 
-  /* case 1: we already have a channel */
-  if (channel != NULL) {
-    g_object_get (channel, "nua-handle", &channel_nh, NULL);
-
-    if (channel_nh == nh) {
-      /* note: re-INVITEs are handled in priv_i_state() */
-      g_warning ("Got a re-INVITE for NUA handle %p", nh);
-    }
-    else {
-      /* case 2: already have a media channel, report we are
-         busy */
-       nua_respond (nh, 480, sip_480_Temporarily_unavailable, TAG_END());
-    }
-
+  /* case 1: we already have a channel for this NH */
+  if (nh_magic != NULL) {
+    channel = SIP_MEDIA_CHANNEL (nh_magic);
+    g_warning ("Got a re-INVITE for NUA handle %p", nh);
   }
   else {
 
-    /* case 2: we're ready to establish a media session */
+    /* case 2: we haven't seen this media session before, so we should
+     * create a new channel to go with it */
 
     /* Accordingly to lassis, NewChannel has to be emitted
      * with the null handle for incoming calls */
@@ -546,7 +536,7 @@ priv_i_message (int status,
                 tagi_t tags[])
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  TpChannelIface *channel;
+  SIPTextChannel *channel;
   GString *message;
   const gchar *from_str, *subject_str;
   gchar *from_url_str;
@@ -572,13 +562,12 @@ priv_i_message (int status,
         return;
       }
 
-    channel = (TpChannelIface *)sip_text_factory_lookup_channel (
-        priv->text_factory, handle);
+    channel = sip_text_factory_lookup_channel (priv->text_factory, handle);
 
     if (!channel)
       {
-        channel = (TpChannelIface *)sip_text_factory_new_channel (
-            priv->text_factory, handle, NULL);
+        channel = sip_text_factory_new_channel (priv->text_factory, handle,
+            NULL);
         g_assert (channel != NULL);
       }
 
@@ -587,8 +576,8 @@ priv_i_message (int status,
     else 
       message = g_string_new ("");
 
-    sip_text_channel_receive(SIP_TEXT_CHANNEL (channel), handle, from_str,
-        from_url_str, subject_str, message->str);
+    sip_text_channel_receive(channel, handle, from_str, from_url_str,
+        subject_str, message->str);
 
     tp_handle_unref (contact_repo, handle);
     g_string_free (message, TRUE);
@@ -604,15 +593,14 @@ priv_i_state (int status,
               nua_t *nua,
               SIPConnection *self,
               nua_handle_t *nh,
+              nua_hmagic_t *nh_magic,
               sip_t const *sip,
               tagi_t tags[])
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   char const *l_sdp = NULL, *r_sdp = NULL;
   int offer_recv = 0, answer_recv = 0, offer_sent = 0, answer_sent = 0;
   int ss_state = nua_callstate_init;
-  SIPMediaChannel *channel = sip_media_factory_get_only_channel (
-      priv->media_factory);
+  SIPMediaChannel *channel;
 
   tl_gets(tags, 
 	  NUTAG_CALLSTATE_REF(ss_state),
@@ -623,6 +611,16 @@ priv_i_state (int status,
 	  SOATAG_LOCAL_SDP_STR_REF(l_sdp),
 	  SOATAG_REMOTE_SDP_STR_REF(r_sdp),
 	  TAG_END());
+
+  if (nh_magic == SIP_NH_EXPIRED)
+    {
+      g_message ("ignoring state change %03d '%s', received for a "
+          "destroyed media channel", status, phrase);
+      return;
+    }
+
+  /* might be NULL */
+  channel = nh_magic;
 
   g_message("sofiasip: nua_state_changed: %03d %s", status, phrase);
 
@@ -662,12 +660,10 @@ priv_i_state (int status,
 
   case nua_callstate_terminated:
     if (nh) {
-      /* smcv-FIXME: need to work out which channel we're dealing with here */
-      SIPMediaChannel *chan = sip_media_factory_get_only_channel (
-          priv->media_factory);
-      g_message ("sofiasip: call nh=%p is terminated", nh);
-      if (chan)
-        sip_media_channel_close (chan);
+      g_message ("sofiasip: call nh=%p, channel=%p is terminated", nh,
+          channel);
+      if (channel)
+        sip_media_channel_close (channel);
       nua_handle_destroy (nh);
     }
     break;
@@ -675,6 +671,20 @@ priv_i_state (int status,
   default:
     break;
   }
+}
+
+static inline const char *
+classify_nh_magic (nua_hmagic_t *nh_magic)
+{
+  if (nh_magic == NULL)
+    {
+      return "no channel yet";
+    }
+  if (nh_magic == SIP_NH_EXPIRED)
+    {
+      return "channel has been destroyed";
+    }
+  return "SIPMediaChannel";
 }
 
 /**
@@ -689,14 +699,14 @@ sip_connection_sofia_callback(nua_event_t event,
 			      nua_t *nua,
 			      SIPConnection *self,
 			      nua_handle_t *nh,
-			      nua_hmagic_t *unused,
+			      nua_hmagic_t *nh_magic,
 			      sip_t const *sip,
 			      tagi_t tags[])
 {
   SIPConnectionPrivate *priv;
 
-  DEBUG("enter: NUA at %p (conn %p), event #%d %s, %d %s", nua, self, event,
-      nua_event_name (event), status, phrase);
+  DEBUG("enter: NUA at %p (conn %p), event #%d '%s', %d '%s'", nua, self,
+      event, nua_event_name (event), status, phrase);
   DEBUG ("Connection refcount is %d", ((GObject *)self)->ref_count);
   
   g_return_if_fail (self);
@@ -713,11 +723,11 @@ sip_connection_sofia_callback(nua_event_t event,
     break;
     
   case nua_i_invite:
-    priv_i_invite (status, phrase, nua, self, nh, sip, tags);
+    priv_i_invite (status, phrase, nua, self, nh, nh_magic, sip, tags);
     break;
 
   case nua_i_state:
-    priv_i_state (status, phrase, nua, self, nh, sip, tags);
+    priv_i_state (status, phrase, nua, self, nh, nh_magic, sip, tags);
     break;
 
   case nua_i_bye:
@@ -766,7 +776,7 @@ sip_connection_sofia_callback(nua_event_t event,
     break;
     
   case nua_r_invite:
-    priv_r_invite(status, phrase, nua, self, nh, sip, tags);
+    priv_r_invite(status, phrase, nua, self, nh, nh_magic, sip, tags);
     break;
 
   case nua_r_bye:
@@ -802,24 +812,18 @@ sip_connection_sofia_callback(nua_event_t event,
     break;
      
   default:
-    if (status > 100)
-      g_message ("sip-connection: unknown event '%s' (%d): %03d %s nh=%p", 
-		 nua_event_name(event), event, status, phrase, nh);
-    else
-      g_message ("sip-connection: unknown event %d nh=%p", event, nh);
+    g_message ("sip-connection: unknown event #%d '%s', status %03d '%s' "
+        " (nh=%p)", event, nua_event_name(event), status, phrase, nh);
 
-#if 0
-    /* I'm not convinced this is valid -smcv */
-
-    if (handle > 0 &&
-	!tp_handle_is_valid (contact_repo, handle, NULL)) {
-      /* note: unknown handle, not associated to any existing 
-       *       call, message, registration, etc, so it can
-       *       be safely destroyed */
-      g_message ("NOTE: destroying handle %p (%u).", nh, handle);
-      nua_handle_destroy(nh);
-    }
-#endif
+    if (nh_magic == SIP_NH_EXPIRED)
+      {
+        /* note: unknown handle, not associated to any existing 
+         *       call, message, registration, etc, so it can
+         *       be safely destroyed */
+        g_message ("NOTE: destroying NUA handle %p (its associated "
+            "channel has already gone away)", nh);
+        nua_handle_destroy (nh);
+      }
 
     break;
   }
