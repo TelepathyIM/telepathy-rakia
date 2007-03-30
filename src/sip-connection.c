@@ -603,8 +603,6 @@ sip_connection_dispose (GObject *object)
   SIPConnection *self = SIP_CONNECTION (object);
   TpBaseConnection *base = (TpBaseConnection *)self;
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (base,
-      TP_HANDLE_TYPE_CONTACT);
 
   if (priv->dispose_has_run)
     return;
@@ -619,8 +617,11 @@ sip_connection_dispose (GObject *object)
   priv->media_factory = NULL;
   priv->text_factory = NULL;
 
-  tp_handle_unref (contact_repo, base->self_handle);
-  base->self_handle = 0;
+  /* the base class is responsible for unreffing the self handle when we
+   * disconnect */
+  g_assert (base->status == TP_CONNECTION_STATUS_DISCONNECTED
+      || base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
+  g_assert (base->self_handle == 0);
 
   if (G_OBJECT_CLASS (sip_connection_parent_class)->dispose)
     G_OBJECT_CLASS (sip_connection_parent_class)->dispose (object);
