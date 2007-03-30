@@ -458,12 +458,14 @@ sip_media_channel_set_property (GObject     *object,
 
         /* you can only set the NUA handle once - migrating a media channel
          * between two NUA handles makes no sense */
-        g_return_if_fail (priv->nua_op != NULL);
+        g_return_if_fail (priv->nua_op == NULL);
         /* migrating a NUA handle between two active media channels
          * makes no sense either */
         if (new_nua_op)
           {
-            g_return_if_fail (nua_handle_magic (new_nua_op) != NULL);
+            nua_hmagic_t *nua_op_chan = nua_handle_magic (new_nua_op);
+
+            g_return_if_fail (nua_op_chan == NULL || nua_op_chan == chan);
           }
 
         priv->nua_op = new_nua_op;
