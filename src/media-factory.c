@@ -175,8 +175,8 @@ sip_media_factory_close_all (TpChannelFactoryIface *iface)
   priv->channels = NULL;
   if (channels)
     {
-      g_ptr_array_foreach (priv->channels, unref_one, NULL);
-      g_ptr_array_free (priv->channels, TRUE);
+      g_ptr_array_foreach (channels, unref_one, NULL);
+      g_ptr_array_free (channels, TRUE);
     }
 }
 
