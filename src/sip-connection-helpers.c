@@ -77,34 +77,39 @@ static sip_to_t *priv_sip_to_url_make (su_home_t *home, const char *address)
   return NULL;
 }
 
-nua_handle_t *sip_conn_create_register_handle (nua_t *nua, su_home_t *home, const char *address, TpHandle handle)
+nua_handle_t *
+sip_conn_create_register_handle (nua_t *nua,
+                                 su_home_t *home,
+                                 const char *address)
 {
   sip_to_t *to;
   nua_handle_t *result = NULL;
-  gpointer ptr = GUINT_TO_POINTER(handle);
 
   to = priv_sip_to_url_make (home, address);
 
   if (to) 
-    result = nua_handle(nua, ptr, SIPTAG_TO(to), TAG_END());
+    result = nua_handle (nua, NULL, SIPTAG_TO(to), TAG_END());
   else
-    g_warning("nua: Unable to create register handle for %u.\n", handle);
+    g_warning ("nua: Unable to create register handle for <%s>", address);
 
   return result;
 }
 
-nua_handle_t *sip_conn_create_request_handle (nua_t *nua, su_home_t *home, const char *address, TpHandle handle)
+nua_handle_t *
+sip_conn_create_request_handle (nua_t *nua,
+                                su_home_t *home,
+                                const char *address)
 {
   sip_to_t *to;
   nua_handle_t *result = NULL;
-  gpointer ptr = GUINT_TO_POINTER(handle);
 
   to = priv_sip_to_url_make (home, address);
 
   if (to) 
-    result = nua_handle(nua, ptr, NUTAG_URL(to->a_url), SIPTAG_TO(to), TAG_END());
+    result = nua_handle (nua, NULL, NUTAG_URL(to->a_url), SIPTAG_TO(to),
+        TAG_END());
   else
-    g_warning("nua: Unable to create SIP request handle for %u.\n", handle);
+    g_warning ("nua: Unable to create SIP request handle for <%s>", address);
 
   return result;
 }

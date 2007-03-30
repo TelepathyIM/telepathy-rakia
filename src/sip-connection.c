@@ -782,7 +782,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
   nua_get_params(priv->sofia_nua, TAG_ANY(), TAG_NULL());
 
   priv->register_op = sip_conn_create_register_handle(priv->sofia_nua,
-      priv->sofia_home, sip_address, base->self_handle);
+      priv->sofia_home, sip_address);
   nua_register(priv->register_op, TAG_NULL());
 
   return TRUE;

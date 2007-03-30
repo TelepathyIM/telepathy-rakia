@@ -640,10 +640,11 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
       return;
   }
   
-  /* XXX: do we have any need to track the handles at client side? */
+  /* XXX: would it be helpful to bind the channel, or the
+   * SIPTextPendingMessage, or something, to the NH? */
 
   msg_nh = sip_conn_create_request_handle (sofia_nua, sofia_home,
-					   recipient, priv->handle);
+					   recipient);
   nua_message(msg_nh,
 	      SIPTAG_CONTENT_TYPE_STR("text/plain"),
 	      SIPTAG_PAYLOAD_STR(text),

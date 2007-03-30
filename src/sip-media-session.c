@@ -906,8 +906,7 @@ static void priv_offer_answer_step (SIPMediaSession *session)
       g_debug ("mapped handle %u to uri %s.", priv->peer, dest_uri);
 
       if (dest_uri) {
-	nh = sip_conn_create_request_handle (sofia_nua, sofia_home, dest_uri, 
-            priv->peer);
+	nh = sip_conn_create_request_handle (sofia_nua, sofia_home, dest_uri);
 	g_object_set (priv->channel, "nua-handle", nh, NULL);
 
 	/* note:  we need to be prepared to receive media right after the
