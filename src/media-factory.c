@@ -293,12 +293,12 @@ sip_media_factory_new_channel (SIPMediaFactory *fac, TpHandle creator,
 
   if (nh)
     {
-      g_debug ("%s: object path %s (created by #%d, NUA handle %p", G_STRFUNC,
+      g_debug ("%s: object path %s (created by #%d, NUA handle %p)", G_STRFUNC,
           object_path, creator, nh);
     }
   else
     {
-      g_debug ("%s: object path %s (created by #%d, no NUA handle yet",
+      g_debug ("%s: object path %s (created by #%d, no NUA handle yet)",
           G_STRFUNC, object_path, creator);
     }
 
