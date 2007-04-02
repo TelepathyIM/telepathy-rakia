@@ -249,7 +249,7 @@ sip_text_factory_new_channel (TpChannelFactoryIface *iface,
 
   g_free (object_path);
 
-  g_signal_connect (chan, "closed", (GCallback) channel_closed, priv->conn);
+  g_signal_connect (chan, "closed", (GCallback) channel_closed, fac);
 
   g_hash_table_insert (priv->channels, GUINT_TO_POINTER (handle), chan);
 
