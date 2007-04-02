@@ -453,7 +453,17 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 static void
 sip_text_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *context)
 {
+  SIPTextChannel *self = SIP_TEXT_CHANNEL(iface);
+  SIPTextChannelPrivate *priv;
+
   enter;
+
+  priv = SIP_TEXT_CHANNEL_GET_PRIVATE(self);
+  if (!priv->closed)
+    {
+      priv->closed = TRUE;
+      tp_svc_channel_emit_closed (self);
+    }
 
   tp_svc_channel_return_from_close (context);
 }
