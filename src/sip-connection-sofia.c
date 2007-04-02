@@ -184,11 +184,11 @@ priv_handle_auth (SIPConnection* self,
       priv->last_auth = auth;
     }
 
+  if (auth == NULL)
+    return SIP_AUTH_FAILURE;
+
   /* step: authenticate */
-  /* XXX: if we don't have a valid authentication, it's still necessary
-   * to call nua_authenticate() giving no tags due to a bug in Sofia-SIP
-   * (as of version 1.12.5) */
-  nua_authenticate(nh, TAG_IF(auth, NUTAG_AUTH(auth)), TAG_END());
+  nua_authenticate(nh, NUTAG_AUTH(auth), TAG_END());
 
   return SIP_AUTH_HANDLED;
 }
