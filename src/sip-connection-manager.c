@@ -59,7 +59,7 @@ typedef struct {
     guint stun_port;
     gchar *extra_auth_user;
     gchar *extra_auth_password;
-    gboolean disable_difficult;
+    gboolean avoid_difficult;
 } SIPConnParams;
 
 static void *
@@ -101,7 +101,7 @@ enum {
     SIP_CONN_PARAM_STUN_PORT,
     SIP_CONN_PARAM_EXTRA_AUTH_USER,
     SIP_CONN_PARAM_EXTRA_AUTH_PASSWORD,
-    SIP_CONN_PARAM_DISABLE_DIFFICULT,
+    SIP_CONN_PARAM_AVOID_DIFFICULT,
     N_SIP_CONN_PARAMS
 };
 
@@ -158,9 +158,9 @@ static const TpCMParamSpec sip_params[] = {
     { "extra-auth-password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (SIPConnParams, extra_auth_password) },
     /* Not used */
-    { "disable-difficult", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
+    { "avoid-difficult", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(FALSE),
-      G_STRUCT_OFFSET (SIPConnParams, disable_difficult) },
+      G_STRUCT_OFFSET (SIPConnParams, avoid_difficult) },
     { NULL, NULL, 0, 0, NULL, 0 }
 };
 
