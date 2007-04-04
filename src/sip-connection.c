@@ -585,7 +585,7 @@ sip_connection_dispose (GObject *object)
 }
 
 static void
-priv_free_nua (SIPConnection *self, SIPConnectionPrivate *priv)
+priv_free_nua (SIPConnectionPrivate *priv)
 {
   GSource *source;
   gboolean source_recursive;
@@ -637,7 +637,7 @@ sip_connection_finalize (GObject *obj)
 
   DEBUG("enter");
 
-  priv_free_nua (self, priv);
+  priv_free_nua (priv);
 
   su_home_unref (priv->sofia_home);
 
