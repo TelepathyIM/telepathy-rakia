@@ -24,11 +24,11 @@
 
 #include "sip-media-channel.h"
 
-enum {
+typedef enum {
   SIP_NUA_SHUTDOWN_NOT_STARTED = 0,
   SIP_NUA_SHUTDOWN_STARTED,
   SIP_NUA_SHUTDOWN_DONE
-};
+} SIPShutdownState;
 
 struct _SIPConnectionPrivate
 {
@@ -43,7 +43,7 @@ struct _SIPConnectionPrivate
   gchar *registrar_realm;
   gchar *last_auth;
 
-  gint sofia_shutdown;
+  SIPShutdownState sofia_shutdown;
 
   /* channels */
   TpChannelFactoryIface *text_factory;
