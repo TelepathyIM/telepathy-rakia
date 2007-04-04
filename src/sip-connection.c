@@ -93,8 +93,6 @@ enum
   LAST_PROPERTY
 };
 
-guint sip_conn_signals[LAST_SIGNAL] = {0};
-
 /**
  * Returns a duplicated char array of a *user-provided* SIP 
  * URI, which might be missing the URI prefix, or some other 
@@ -522,15 +520,6 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                   G_PARAM_STATIC_NAME |
                                   G_PARAM_STATIC_BLURB);
   INST_PROP(PROP_STUN_PORT);
-
-  sip_conn_signals[DISCONNECTED] =
-    g_signal_new ("disconnected",
-                  G_OBJECT_CLASS_TYPE (sip_connection_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
 }
 
 static void

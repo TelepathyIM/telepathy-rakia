@@ -67,13 +67,4 @@ struct _SIPConnectionPrivate
 
 #define SIP_CONNECTION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_CONNECTION, SIPConnectionPrivate))
 
-/* signal enum */
-enum
-{
-    DISCONNECTED,
-    LAST_SIGNAL
-};
-
-extern guint sip_conn_signals[LAST_SIGNAL];
-
 #endif /*__SIP_CONNECTION_PRIVATE_H__*/
