@@ -20,8 +20,6 @@
 #ifndef __SIP_CONNECTION_HELPERS_H__
 #define __SIP_CONNECTION_HELPERS_H__
 
-#include <glib-object.h>
-
 /* note: As one Sofia-SIP NUA instance is created per SIP connection,
  *       SIPConnection is used as the primary context pointer. See
  *       {top}/docs/design.txt for further information.
@@ -45,12 +43,9 @@
  *       to the special value SIP_NH_EXPIRED.
  */
 
-struct SIPConnection;
-struct SIPConnectionManager;
-
-#define NUA_MAGIC_T      SIPConnection 
-#define SU_ROOT_MAGIC_T  SIPConnectionManager
-#define SU_TIMER_ARG_T   SIPConnection
+#define NUA_MAGIC_T      struct _SIPConnectionSofia
+#define SU_ROOT_MAGIC_T  struct _SIPConnectionManager
+#define SU_TIMER_ARG_T   struct _SIPConnection
 #define NUA_HMAGIC_T     void
 
 /* a magical distinct value for nua_hmagic_t */
@@ -64,11 +59,7 @@ extern void *_sip_nh_expired;
 #include <sofia-sip/tport_tag.h>
 #include <sofia-sip/stun_tag.h>
 
-#include "sip-media-channel.h"
-#include "sip-text-channel.h"
 #include "sip-connection.h"
-#include <telepathy-glib/handle.h>
-
 
 G_BEGIN_DECLS
 
