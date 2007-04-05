@@ -22,8 +22,6 @@
 
 #include <telepathy-glib/channel-factory-iface.h>
 
-#include "sip-media-channel.h"
-
 typedef enum {
   SIP_NUA_SHUTDOWN_NOT_STARTED = 0,
   SIP_NUA_SHUTDOWN_STARTED,
