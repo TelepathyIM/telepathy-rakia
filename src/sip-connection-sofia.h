@@ -25,6 +25,15 @@
 
 G_BEGIN_DECLS
 
+typedef struct _SIPConnectionSofia {
+  /* The owner SIP connection object */
+  SIPConnection *conn;
+  /* Event loop root for Sofia-SIP */
+  su_root_t *sofia_root;
+} SIPConnectionSofia;
+
+SIPConnectionSofia * sip_connection_sofia_new (SIPConnection *conn);
+
 /**
  * Callback for events delivered by the SIP stack.
  *
@@ -32,7 +41,7 @@ G_BEGIN_DECLS
  */
 void sip_connection_sofia_callback(nua_event_t event,
 				   int status, char const *phrase,
-				   nua_t *nua, SIPConnection *self,
+				   nua_t *nua, SIPConnectionSofia *sofia,
 				   nua_handle_t *nh, nua_hmagic_t *op, sip_t const *sip,
 				   tagi_t tags[]);
 

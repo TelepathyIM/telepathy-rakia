@@ -22,26 +22,20 @@
 
 #include <telepathy-glib/channel-factory-iface.h>
 
-typedef enum {
-  SIP_NUA_SHUTDOWN_NOT_STARTED = 0,
-  SIP_NUA_SHUTDOWN_STARTED,
-  SIP_NUA_SHUTDOWN_DONE
-} SIPShutdownState;
+#include "sip-connection-sofia.h"
 
 struct _SIPConnectionPrivate
 {
   gchar *requested_address;
   gboolean dispose_has_run;
-  
+
+  SIPConnectionSofia *sofia;
   nua_t  *sofia_nua;
-  su_root_t *sofia_root;
   su_home_t *sofia_home;
   nua_handle_t *register_op;
 
   gchar *registrar_realm;
   gchar *last_auth;
-
-  SIPShutdownState sofia_shutdown;
 
   /* channels */
   TpChannelFactoryIface *text_factory;

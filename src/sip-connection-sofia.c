@@ -24,7 +24,6 @@
 
 #include "sip-connection-sofia.h"
 #include "sip-connection-private.h"
-#include "sip-connection-helpers.h"
 #include "media-factory.h"
 #include "text-factory.h"
 
@@ -37,6 +36,51 @@
 
 #define DEBUG_FLAG SIP_DEBUG_CONNECTION
 #include "debug.h"
+
+SIPConnectionSofia *
+sip_connection_sofia_new (SIPConnection *conn)
+{
+  SIPConnectionSofia *sofia = g_slice_new0 (SIPConnectionSofia);
+  sofia->conn = conn;
+  return sofia;
+}
+
+static void
+priv_r_shutdown(int status,
+                char const *phrase, 
+                nua_t *nua,
+                SIPConnectionSofia *sofia)
+{
+  GSource *source;
+  gboolean source_recursive;
+
+  DEBUG("nua_shutdown: %03d %s", status, phrase);
+
+  if (status < 200)
+    return;
+
+  g_assert(sofia->conn == NULL);
+
+  source = su_root_gsource (sofia->sofia_root);
+
+  /* XXX: temporarily allow recursion in the Sofia source to work around
+   * nua_destroy() requiring nested mainloop iterations to complete
+   * (Sofia-SIP bug #1624446). Actual recursion safety of the source is to be
+   * examined. */
+  source_recursive = g_source_get_can_recurse (source);
+  if (!source_recursive)
+    {
+      DEBUG("forcing Sofia root GSource to be recursive");
+      g_source_set_can_recurse (source, TRUE);
+    }
+
+  nua_destroy (nua);
+
+  if (!source_recursive)
+    g_source_set_can_recurse (source, FALSE);
+
+  g_slice_free (SIPConnectionSofia, sofia);
+}
 
 static void
 priv_disconnect (SIPConnection *self, TpConnectionStatusReason reason)
@@ -319,30 +363,6 @@ priv_r_unregister (int status,
   priv->register_op = NULL;
   if (register_op)
     nua_handle_destroy (register_op);
-}
-
-static void
-priv_r_shutdown(int status,
-                char const *phrase, 
-                nua_t *nua,
-                SIPConnection *self,
-                nua_handle_t *nh,
-                sip_t const *sip,
-                tagi_t tags[])
-{
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  gint old_state;
-
-  g_message("sofiasip: nua_shutdown: %03d %s", status, phrase);
-
-  if (status < 200)
-    return;
-
-  old_state = priv->sofia_shutdown;
-  priv->sofia_shutdown = SIP_NUA_SHUTDOWN_DONE;
-
-  if (old_state == SIP_NUA_SHUTDOWN_STARTED)
-    tp_base_connection_finish_shutdown ((TpBaseConnection *)self);
 }
 
 static void
@@ -697,21 +717,28 @@ sip_connection_sofia_callback(nua_event_t event,
 			      int status,
 			      char const *phrase,
 			      nua_t *nua,
-			      SIPConnection *self,
+			      SIPConnectionSofia *state,
 			      nua_handle_t *nh,
 			      nua_hmagic_t *nh_magic,
 			      sip_t const *sip,
 			      tagi_t tags[])
 {
-  SIPConnectionPrivate *priv;
+  SIPConnection *self;
+
+  g_return_if_fail (state);
+
+  if (event == nua_r_shutdown)
+    {
+      priv_r_shutdown (status, phrase, nua, state);
+      return;
+    }
+
+  self = state->conn;
+  g_return_if_fail (self);
 
   DEBUG("enter: NUA at %p (conn %p), event #%d '%s', %d '%s'", nua, self,
       event, nua_event_name (event), status, phrase);
   DEBUG ("Connection refcount is %d", ((GObject *)self)->ref_count);
-  
-  g_return_if_fail (self);
-  priv = SIP_CONNECTION_GET_PRIVATE (self);
-  g_return_if_fail (priv);
 
   switch (event) {
     
@@ -762,10 +789,6 @@ sip_connection_sofia_callback(nua_event_t event,
 
     /* responses to our requests 
      * ------------------------- */
-
-  case nua_r_shutdown:    
-    priv_r_shutdown (status, phrase, nua, self, nh, sip, tags);
-    break;
 
   case nua_r_register:
     priv_r_register (status, phrase, nua, self, nh, sip, tags);

@@ -209,6 +209,8 @@ sip_connection_init (SIPConnection *obj)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (obj);
 
+  priv->sofia = sip_connection_sofia_new (obj);
+
   priv->keepalive_interval = -1;
 }
 
@@ -303,7 +305,8 @@ sip_connection_set_property (GObject      *object,
     break;
   }
   case PROP_SOFIA_ROOT: {
-    priv->sofia_root = g_value_get_pointer (value);
+    g_return_if_fail (priv->sofia != NULL);
+    priv->sofia->sofia_root = g_value_get_pointer (value);
     break;
   }
   default:
@@ -367,7 +370,8 @@ sip_connection_get_property (GObject      *object,
     break;
   }
   case PROP_SOFIA_ROOT: {
-    g_value_set_pointer (value, priv->sofia_root);
+    g_return_if_fail (priv->sofia != NULL);
+    g_value_set_pointer (value, priv->sofia->sofia_root);
     break;
   }
   default:
@@ -537,21 +541,24 @@ sip_connection_shut_down (TpBaseConnection *base)
    */
   g_return_if_fail (priv->sofia_nua != NULL);
 
-  if (priv->sofia_shutdown == SIP_NUA_SHUTDOWN_NOT_STARTED)
+  if (priv->register_op)
     {
-      /* we cannot release resources until the SIP stack has properly
-       * exited */
-      priv->sofia_shutdown = SIP_NUA_SHUTDOWN_STARTED;
-      nua_shutdown (priv->sofia_nua);
+      nua_handle_t *register_op = priv->register_op;
+      priv->register_op = NULL;
+      nua_handle_destroy (register_op);
     }
-  else if (priv->sofia_shutdown == SIP_NUA_SHUTDOWN_DONE)
-    {
-      /* If SofiaSIP can be made to notify us of network errors, shut_down
-       * might be called in response to a disconnect event caused by
-       * a SofiaSIP disconnection. (This doesn't yet happen.)
-       */
-      tp_base_connection_finish_shutdown (base);
-    }
+
+  g_assert (priv->sofia != NULL);
+
+  /* Detach the Sofia adapter and let it destroy the NUA handle and itself
+   * in the shutdown callback */
+  priv->sofia->conn = NULL;
+  priv->sofia = NULL;
+
+  nua_shutdown (priv->sofia_nua);
+  priv->sofia_nua = NULL;
+
+  tp_base_connection_finish_shutdown (base);
 }
 
 void
@@ -584,49 +591,6 @@ sip_connection_dispose (GObject *object)
     G_OBJECT_CLASS (sip_connection_parent_class)->dispose (object);
 }
 
-static void
-priv_free_nua (SIPConnectionPrivate *priv)
-{
-  GSource *source;
-  gboolean source_recursive;
-
-  if (priv->register_op)
-    {
-      nua_handle_t *register_op = priv->register_op;
-      priv->register_op = NULL;
-      nua_handle_destroy (register_op);
-    }
-
-  source = su_root_gsource(priv->sofia_root);
-
-  /* XXX: temporarily allow recursion in the Sofia source to work around
-   * nua_destroy() requiring nested mainloop iterations to complete
-   * (Sofia-SIP bug #1624446). Actual recursion safety of the source is to be
-   * examined. */
-  source_recursive = g_source_get_can_recurse (source);
-  if (!source_recursive)
-    {
-      g_debug ("forcing Sofia root GSource to be recursive");
-      g_source_set_can_recurse (source, TRUE);
-    }
-
-  if (priv->sofia_nua)
-    {
-      nua_t *nua = priv->sofia_nua;
-
-      /* if we've created the NUA (which happens when we start connecting),
-       * we should be referenced by the CM until its shutdown process
-       * has finished */
-      g_assert (priv->sofia_shutdown == SIP_NUA_SHUTDOWN_DONE);
-
-      priv->sofia_nua = NULL;
-      nua_destroy (nua);
-    }
-
-  if (!source_recursive)
-    g_source_set_can_recurse (source, FALSE);
-}
-
 void
 sip_connection_finalize (GObject *obj)
 {
@@ -636,8 +600,6 @@ sip_connection_finalize (GObject *obj)
   /* free any data held directly by the object here */
 
   DEBUG("enter");
-
-  priv_free_nua (priv);
 
   su_home_unref (priv->sofia_home);
 
@@ -670,6 +632,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
 {
   SIPConnection *self = SIP_CONNECTION (base);
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+  su_root_t *sofia_root;
   TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (base,
       TP_HANDLE_TYPE_CONTACT);
   gchar *sip_address;
@@ -679,13 +642,16 @@ sip_connection_start_connecting (TpBaseConnection *base,
 
   g_assert (base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
 
+  g_assert (priv->sofia != NULL);
+
   /* the construct parameters will be non-empty */
-  g_assert (priv->sofia_root != NULL);
+  sofia_root = priv->sofia->sofia_root;
+  g_assert (sofia_root != NULL);
   g_assert (priv->requested_address != NULL);
-  
+
   /* step: create stack instance */
-  priv->sofia_nua = nua_create(priv->sofia_root,
-			       sip_connection_sofia_callback, self,
+  priv->sofia_nua = nua_create(sofia_root,
+			       sip_connection_sofia_callback, priv->sofia,
 			       SOATAG_AF (SOA_AF_IP4_IP6),
 			       TAG_IF(priv->requested_address,
 				      SIPTAG_FROM_STR(priv->requested_address)),
