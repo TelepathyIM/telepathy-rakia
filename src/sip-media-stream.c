@@ -939,18 +939,17 @@ static void priv_session_stream_state_changed_cb (SIPMediaSession *session,
 static void priv_generate_sdp (SIPMediaStream *obj)
 {
   SIPMediaStreamPrivate *priv;
-  GPtrArray *candidates, *codecs;
+  GPtrArray *codecs;
 
   g_assert (SIP_IS_MEDIA_STREAM (obj));
 
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
-
-  candidates = g_value_get_boxed (&priv->native_candidates);
-  codecs = g_value_get_boxed (&priv->native_codecs);
   priv_update_local_sdp (obj);
+
+  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   priv->sdp_generated = TRUE;
 
+  codecs = g_value_get_boxed (&priv->native_codecs);
   g_signal_emit (obj, signals[SIG_READY], 0, codecs);
 }
 
