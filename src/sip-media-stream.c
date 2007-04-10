@@ -753,7 +753,8 @@ const char *sip_media_stream_local_sdp (SIPMediaStream *obj)
  * Parses the SDP information, generated TP candidates and 
  * stores the information to 'priv->remote_candidates'.
  */
-gboolean sip_media_stream_set_remote_info (SIPMediaStream *stream, sdp_media_t *media, sdp_session_t *session)
+gboolean
+sip_media_stream_set_remote_info (SIPMediaStream *stream, sdp_media_t *media)
 {
   SIPMediaStreamPrivate *priv;
   gboolean res = TRUE;

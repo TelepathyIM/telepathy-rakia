@@ -693,7 +693,7 @@ int sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_s
 
       /* note: it is ok for the stream to be NULL (unsupported media type) */
       if (stream)
-	res = sip_media_stream_set_remote_info (stream, media, parsed_sdp);
+	res = sip_media_stream_set_remote_info (stream, media);
      
       media = media->m_next;
     }

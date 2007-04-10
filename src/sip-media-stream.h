@@ -57,7 +57,8 @@ GType sip_media_stream_get_type(void);
  ***********************************************************************/
 
 const char *sip_media_stream_local_sdp (SIPMediaStream *self);
-gboolean sip_media_stream_set_remote_info (SIPMediaStream *self, sdp_media_t *media, sdp_session_t *session);
+gboolean sip_media_stream_set_remote_info (SIPMediaStream *self,
+                                           sdp_media_t *media);
 void sip_media_stream_set_playing (SIPMediaStream *self, gboolean playing);
 gboolean sip_media_stream_is_ready (SIPMediaStream *self);
 
