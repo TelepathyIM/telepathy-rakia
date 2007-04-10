@@ -761,8 +761,6 @@ gboolean sip_media_stream_set_remote_info (SIPMediaStream *stream, sdp_media_t *
   GValue tp_candidate = { 0, };
   GPtrArray *tp_transports;
   GValue tp_transport = { 0, };
-  sdp_attribute_t *attr; 
-  int cands_in_sdp = 0;
   unsigned long r_port = media->m_port;
   sdp_connection_t *sdp_conns = sdp_media_connections(media);
 
@@ -776,28 +774,7 @@ gboolean sip_media_stream_set_remote_info (SIPMediaStream *stream, sdp_media_t *
   g_value_init (&tp_candidate, TP_TYPE_CANDIDATE_STRUCT);
   g_value_init (&tp_transport, TP_TYPE_TRANSPORT_STRUCT);
 
-  for(attr = media->m_attributes; attr; attr = attr->a_next) {
-    if (strcmp(attr->a_name,"x-jingle-candidate") == 0) 
-      ++cands_in_sdp;
-  }
-
-  /* note: As the c-line addresses might get modified by transparent
-   *       media relays, make sure some of the remote candidates match
-   *       the address seen on SDP c-line. 
-   * 
-   *       If no match is found, there is a media relay on path, 
-   *       and it is safest to use its address for media, and 
-   *       ignore the jingle-candidates.
-   */
-
-  /* step 1 : use the jingle candidates (unmodified c-line)
-   * ... no longer done, we're not trying to use Jingle any more
-   */
-
-  /* step 2: no remote jingle-candidates, or modified c-line address
-   *         (see notes above), so use the address from SDP c-line 
-   *         as the only remote candidate */
-  g_debug ("%s: using SDP c-line for sending media", G_STRFUNC);
+  /* use the address from SDP c-line as the only remote candidate */
 
   if (sdp_conns && r_port > 0)
     {
