@@ -765,7 +765,7 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
   GPtrArray *tp_transports;
   GValue tp_transport = { 0, };
   unsigned long r_port = media->m_port;
-  sdp_connection_t *sdp_conns = sdp_media_connections(media);
+  sdp_connection_t *sdp_conns;
 
   DEBUG ("enter");
 
@@ -779,6 +779,7 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
 
   /* use the address from SDP c-line as the only remote candidate */
 
+  sdp_conns = sdp_media_connections(media);
   if (sdp_conns && r_port > 0)
     {
       /* remote side does not support ICE/jingle */
