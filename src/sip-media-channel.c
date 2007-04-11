@@ -716,21 +716,26 @@ sip_media_channel_list_streams (TpSvcChannelTypeStreamedMedia *iface,
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
   SIPMediaChannelPrivate *priv;
+  const GType stream_type = TP_CHANNEL_STREAM_TYPE;
   GPtrArray *streams = NULL;
   GPtrArray *ret;
+  int i;
 
   g_assert (SIP_IS_MEDIA_CHANNEL (self));
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  /* FIXME: I suspect this leaks memory */
   if (sip_media_session_list_streams (priv->session, &streams)) {
     ret = priv_make_stream_list (self, streams);
+    g_ptr_array_free (streams, TRUE);
   }
   else {
     ret = g_ptr_array_new ();
   }
 
   tp_svc_channel_type_streamed_media_return_from_list_streams (context, ret);
+
+  for (i = 0; i < ret->len; i++)
+    g_boxed_free (stream_type, g_ptr_array_index (ret, i));
   g_ptr_array_free (ret, TRUE);
 }
 
