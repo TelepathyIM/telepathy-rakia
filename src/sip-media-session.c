@@ -762,26 +762,26 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
  * Returns a list of pointers to SIPMediaStream objects 
  * associated with this session.
  */
-/* FIXME: error handling is a bit weird, and might be assuming ret is
- * initially NULL */
 gboolean sip_media_session_list_streams (SIPMediaSession *session,
 					 GPtrArray **ret)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  SIPMediaStream *stream;
   guint i;
 
-  if (priv->streams && priv->streams->len > 0) {
-    *ret = g_ptr_array_sized_new (priv->streams->len);
-    
-    for (i = 0; *ret && i < priv->streams->len; i++) {
-      SIPMediaStream *stream = g_ptr_array_index(priv->streams, i);
-      
+  if (priv->streams == NULL || priv->streams->len == 0)
+    return FALSE;
+
+  *ret = g_ptr_array_sized_new (priv->streams->len);
+
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      stream = g_ptr_array_index(priv->streams, i);
       if (stream)
 	g_ptr_array_add (*ret, stream);
     }
-  }
 
-  return *ret != NULL;
+  return TRUE;
 }
 
 void sip_media_session_accept (SIPMediaSession *self, gboolean accept)
