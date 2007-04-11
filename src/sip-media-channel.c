@@ -844,6 +844,7 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 static GPtrArray *priv_make_stream_list (SIPMediaChannel *self, GPtrArray *streams)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  const GType stream_type = TP_CHANNEL_STREAM_TYPE;
   GPtrArray *ret;
   guint i;
 
@@ -880,9 +881,9 @@ static GPtrArray *priv_make_stream_list (SIPMediaChannel *self, GPtrArray *strea
     g_assert (priv->session);
     peer = sip_media_session_get_peer (priv->session);
 
-    g_value_init (&entry, TP_CHANNEL_STREAM_TYPE);
+    g_value_init (&entry, stream_type);
     g_value_take_boxed (&entry,
-			dbus_g_type_specialized_construct (TP_CHANNEL_STREAM_TYPE));
+			dbus_g_type_specialized_construct (stream_type));
 
     dbus_g_type_struct_set (&entry,
 			    0, id,
