@@ -170,7 +170,7 @@ static gchar *normalize_sipuri (TpHandleRepoIface *repo, const gchar *sipuri,
 
 static void
 sip_create_handle_repos (TpBaseConnection *conn,
-                         TpHandleRepoIface *repos[LAST_TP_HANDLE_TYPE+1])
+                         TpHandleRepoIface *repos[NUM_TP_HANDLE_TYPES])
 {
   repos[TP_HANDLE_TYPE_CONTACT] =
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,
