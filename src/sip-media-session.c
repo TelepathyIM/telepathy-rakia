@@ -669,7 +669,7 @@ sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_sdp)
   }
   else {
     sdp_session_t *parsed_sdp = sdp_session(parser);
-    sdp_media_t *media = parsed_sdp->sdp_media;
+    const sdp_media_t *media = parsed_sdp->sdp_media;
     guint i, supported_media_cnt = 0;
 
     g_debug("Succesfully parsed remote SDP.");

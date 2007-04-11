@@ -109,7 +109,8 @@ struct _SIPMediaStreamPrivate
 static void priv_session_stream_state_changed_cb (SIPMediaSession *session,
 						  GParamSpec *arg1,
 						  SIPMediaStream *stream);
-static gboolean priv_set_remote_codecs(SIPMediaStream *stream, sdp_media_t *sdpmedia);
+static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
+                                       const sdp_media_t *sdpmedia);
 static void push_remote_codecs (SIPMediaStream *stream);
 static void push_remote_candidates (SIPMediaStream *stream);
 static int priv_update_local_sdp(SIPMediaStream *stream);
@@ -754,7 +755,8 @@ const char *sip_media_stream_local_sdp (SIPMediaStream *obj)
  * stores the information to 'priv->remote_candidates'.
  */
 gboolean
-sip_media_stream_set_remote_info (SIPMediaStream *stream, sdp_media_t *media)
+sip_media_stream_set_remote_info (SIPMediaStream *stream,
+                                  const sdp_media_t *media)
 {
   SIPMediaStreamPrivate *priv;
   gboolean res = TRUE;
@@ -834,7 +836,8 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream, sdp_media_t *media)
   return res;
 }
 
-static gboolean priv_set_remote_codecs(SIPMediaStream *stream, sdp_media_t *sdpmedia)
+static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
+                                       const sdp_media_t *sdpmedia)
 {
   SIPMediaStreamPrivate *priv;
   gboolean res = TRUE;

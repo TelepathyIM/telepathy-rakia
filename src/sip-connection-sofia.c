@@ -617,7 +617,8 @@ priv_i_state (int status,
               sip_t const *sip,
               tagi_t tags[])
 {
-  char const *l_sdp = NULL, *r_sdp = NULL;
+  char const *l_sdp = NULL;
+  char const *r_sdp = NULL;
   int offer_recv = 0, answer_recv = 0, offer_sent = 0, answer_sent = 0;
   int ss_state = nua_callstate_init;
   SIPMediaChannel *channel;
