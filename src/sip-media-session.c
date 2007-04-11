@@ -650,13 +650,14 @@ static guint priv_tp_media_type (sdp_media_e sip_mtype)
   g_assert_not_reached();
 }
 
-int sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_sdp)
+gboolean
+sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_sdp)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
   su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
   sdp_parser_t *parser;
   const char *pa_error;
-  int res = 0;
+  gboolean res = TRUE;
 
   DEBUG ("enter");
 
@@ -664,7 +665,7 @@ int sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_s
   pa_error = sdp_parsing_error(parser);
   if (pa_error) {
     g_warning("%s: error parsing SDP: %s\n", __func__, pa_error);
-    res = -1;
+    res = FALSE;
   }
   else {
     sdp_session_t *parsed_sdp = sdp_session(parser);
@@ -700,7 +701,7 @@ int sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_s
 
     if (supported_media_cnt == 0) {
       g_warning ("No supported media in the session, aborting.");
-      res = -1;
+      res = FALSE;
     }
 
     g_assert(media == NULL);

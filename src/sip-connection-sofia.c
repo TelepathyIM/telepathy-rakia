@@ -651,8 +651,7 @@ priv_i_state (int status,
   if (r_sdp) {
     g_return_if_fail(answer_recv || offer_recv);
     if (channel) {
-      int res = sip_media_channel_set_remote_info (channel, r_sdp);
-      if (res < 0)
+      if (!sip_media_channel_set_remote_info (channel, r_sdp))
         {
           sip_media_channel_close (channel);
         }

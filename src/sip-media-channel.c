@@ -951,10 +951,11 @@ void sip_media_channel_respond_to_invite (SIPMediaChannel *self,
   tp_intset_destroy (set);
 }
 
-int sip_media_channel_set_remote_info (SIPMediaChannel *chan, const char* r_sdp)
+gboolean
+sip_media_channel_set_remote_info (SIPMediaChannel *chan, const char* r_sdp)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
-  int res = -1;
+  gboolean res = FALSE;
 
   DEBUG("enter");
 

@@ -64,7 +64,8 @@ GType sip_media_session_get_type(void);
 
 TpHandle sip_media_session_get_peer (SIPMediaSession *session);
 void sip_media_session_terminate (SIPMediaSession *session);
-int sip_media_session_set_remote_info (SIPMediaSession *chan, const char* r_sdp);
+gboolean sip_media_session_set_remote_info (SIPMediaSession *chan,
+                                            const char* r_sdp);
 void sip_media_session_stream_state (SIPMediaSession *sess,
                                      guint stream_id,
                                      guint state);
