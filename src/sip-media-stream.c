@@ -106,9 +106,11 @@ struct _SIPMediaStreamPrivate
 
 #define SIP_MEDIA_STREAM_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_STREAM, SIPMediaStreamPrivate))
 
+#if 0
 static void priv_session_stream_state_changed_cb (SIPMediaSession *session,
 						  GParamSpec *arg1,
 						  SIPMediaStream *stream);
+#endif
 static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
                                        const sdp_media_t *sdpmedia);
 static void push_remote_codecs (SIPMediaStream *stream);
@@ -157,8 +159,10 @@ sip_media_stream_constructor (GType type, guint n_props,
            constructor (type, n_props, props);
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (SIP_MEDIA_STREAM (obj));
 
+#if 0
   g_signal_connect (priv->session, "notify::state",
       (GCallback) priv_session_stream_state_changed_cb, obj);
+#endif
 
   /* get the connection handle once */
   g_object_get (priv->session, "media-channel", &chan, NULL);
@@ -930,6 +934,7 @@ gboolean sip_media_stream_is_ready (SIPMediaStream *self)
   return priv->sdp_generated && priv->ready_received;
 }
 
+#if 0
 static void priv_session_stream_state_changed_cb (SIPMediaSession *session,
 						  GParamSpec *arg1,
 						  SIPMediaStream *stream)
@@ -939,6 +944,7 @@ static void priv_session_stream_state_changed_cb (SIPMediaSession *session,
   g_object_get (session, "state", &state, NULL);
   g_debug ("stream state cb: session js-state to %d.", state);
 }
+#endif
 
 static void priv_generate_sdp (SIPMediaStream *obj)
 {
