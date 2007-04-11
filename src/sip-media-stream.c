@@ -1047,7 +1047,7 @@ static void push_remote_candidates (SIPMediaStream *stream)
     g_debug ("%s: emitting SetStreamPlaying TRUE", G_STRFUNC);
     tp_svc_media_stream_handler_emit_set_stream_playing (
         (TpSvcMediaStreamHandler *)stream, TRUE);
-}
+  }
 }
 
 static const char* priv_media_type_to_str(guint media_type)
