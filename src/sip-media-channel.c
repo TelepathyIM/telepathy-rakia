@@ -21,6 +21,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+/* FIXME: take this out and depend on telepathy-glib >= 0.5.8 instead, after
+ * it's released */
+#define _TP_CM_UPDATED_FOR_0_5_7
+
 #define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <dbus/dbus-glib.h>
 #include <stdio.h>
@@ -188,7 +192,7 @@ sip_media_channel_constructor (GType type, guint n_props,
   g_debug("registering object to dbus path=%s.\n", priv->object_path);
   dbus_g_connection_register_g_object (bus, priv->object_path, obj);
 
-  tp_group_mixin_init ((TpSvcChannelInterfaceGroup *)obj,
+  tp_group_mixin_init (obj,
                        G_STRUCT_OFFSET (SIPMediaChannel, group),
                        contact_repo,
                        conn->self_handle);
@@ -197,14 +201,12 @@ sip_media_channel_constructor (GType type, guint n_props,
   if (priv->creator) {
     TpIntSet *set = tp_intset_new ();
     tp_intset_add (set, priv->creator);
-    tp_group_mixin_change_members ((TpSvcChannelInterfaceGroup *)obj,
-        "", set, NULL, NULL, NULL, 0, 0);
+    tp_group_mixin_change_members (obj, "", set, NULL, NULL, NULL, 0, 0);
     tp_intset_destroy (set);
   }
 
   /* allow member adding */
-  tp_group_mixin_change_flags ((TpSvcChannelInterfaceGroup *)obj,
-      TP_CHANNEL_GROUP_FLAG_CAN_ADD, 0);
+  tp_group_mixin_change_flags (obj, TP_CHANNEL_GROUP_FLAG_CAN_ADD, 0);
 
   return obj;
 }
@@ -224,11 +226,11 @@ static void priv_create_session (SIPMediaChannel *channel,
                                  TpHandle peer,
                                  const gchar *sid);
 static void priv_release_session(SIPMediaChannel *channel);
-gboolean sip_media_channel_add_member (TpSvcChannelInterfaceGroup *iface,
+gboolean sip_media_channel_add_member (GObject *iface,
                                        TpHandle handle,
                                        const gchar *message,
                                        GError **error);
-static gboolean priv_media_channel_remove_member (TpSvcChannelInterfaceGroup *iface,
+static gboolean priv_media_channel_remove_member (GObject *iface,
                                                   TpHandle handle,
                                                   const gchar *message,
                                                   GError **error);
@@ -251,7 +253,7 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
   object_class->dispose = sip_media_channel_dispose;
   object_class->finalize = sip_media_channel_finalize;
 
-  tp_group_mixin_class_init ((TpSvcChannelInterfaceGroupClass *)object_class,
+  tp_group_mixin_class_init (object_class,
                              G_STRUCT_OFFSET (SIPMediaChannelClass, group_class),
                              sip_media_channel_add_member,
                              priv_media_channel_remove_member);
@@ -526,7 +528,7 @@ void
 sip_media_channel_finalize (GObject *object)
 {
   /* free any data held directly by the object here */
-  tp_group_mixin_finalize (TP_SVC_CHANNEL_INTERFACE_GROUP (object));
+  tp_group_mixin_finalize (object);
 
   tp_properties_mixin_finalize (object);
 
@@ -932,8 +934,7 @@ void sip_media_channel_respond_to_invite (SIPMediaChannel *self,
 
   set = tp_intset_new ();
   tp_intset_add (set, handle);
-  tp_group_mixin_change_members ((TpSvcChannelInterfaceGroup *)obj,
-      "", set, NULL, NULL, NULL, 0, 0);
+  tp_group_mixin_change_members (obj, "", set, NULL, NULL, NULL, 0, 0);
   tp_intset_destroy (set);
 
   if (priv->session == NULL) {
@@ -952,8 +953,7 @@ void sip_media_channel_respond_to_invite (SIPMediaChannel *self,
   /* add self_handle to local pending */
   set = tp_intset_new ();
   tp_intset_add (set, mixin->self_handle);
-  tp_group_mixin_change_members ((TpSvcChannelInterfaceGroup *)obj,
-      "", NULL, NULL, set, NULL, 0, 0);
+  tp_group_mixin_change_members (obj, "", NULL, NULL, set, NULL, 0, 0);
   tp_intset_destroy (set);
 }
 
@@ -1033,7 +1033,7 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
 
   set = tp_intset_new ();
   tp_intset_add (set, peer);
-  tp_group_mixin_change_members ((TpSvcChannelInterfaceGroup *)self, message,
+  tp_group_mixin_change_members ((GObject *)self, message,
       NULL, set, NULL, NULL, 0, reason);
   tp_intset_destroy (set);
 }
@@ -1064,11 +1064,11 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
     /* add the peer to the member list */
     tp_intset_add (set, peer);
 
-    tp_group_mixin_change_members ((TpSvcChannelInterfaceGroup *)channel,
+    tp_group_mixin_change_members ((GObject *)channel,
         "", set, NULL, NULL, NULL, 0, 0);
 
     /* update flags accordingly -- allow removal, deny adding and rescinding */
-    tp_group_mixin_change_flags ((TpSvcChannelInterfaceGroup *)channel,
+    tp_group_mixin_change_flags ((GObject *)channel,
 				     TP_CHANNEL_GROUP_FLAG_CAN_REMOVE,
 				     TP_CHANNEL_GROUP_FLAG_CAN_ADD |
 				     TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
@@ -1077,11 +1077,11 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
     /* remove us and the peer from the member list */
     tp_intset_add (set, mixin->self_handle);
     tp_intset_add (set, peer);
-    tp_group_mixin_change_members ((TpSvcChannelInterfaceGroup *)channel,
+    tp_group_mixin_change_members ((GObject *)channel,
         "", NULL, set, NULL, NULL, 0, 0);
 
     /* update flags accordingly -- allow adding, deny removal */
-    tp_group_mixin_change_flags ((TpSvcChannelInterfaceGroup *)channel,
+    tp_group_mixin_change_flags ((GObject *)channel,
         TP_CHANNEL_GROUP_FLAG_CAN_ADD, TP_CHANNEL_GROUP_FLAG_CAN_REMOVE);
 
     priv_release_session(channel);
@@ -1213,7 +1213,7 @@ priv_create_session (SIPMediaChannel *channel,
 }
 
 gboolean
-sip_media_channel_add_member (TpSvcChannelInterfaceGroup *iface,
+sip_media_channel_add_member (GObject *iface,
                               TpHandle handle,
                               const gchar *message,
                               GError **error)
@@ -1275,7 +1275,11 @@ sip_media_channel_add_member (TpSvcChannelInterfaceGroup *iface,
   return TRUE;
 }
 
-static gboolean priv_media_channel_remove_member (TpSvcChannelInterfaceGroup *obj, TpHandle handle, const gchar *message, GError **error)
+static gboolean
+priv_media_channel_remove_member (GObject *obj,
+                                  TpHandle handle,
+                                  const gchar *message,
+                                  GError **error)
 {
   /* XXX: no implemented */
   g_assert_not_reached ();

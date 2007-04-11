@@ -18,6 +18,10 @@
  * Boston, MA 02111-1307, USA. 
  */
 
+/* FIXME: take this out and depend on telepathy-glib >= 0.5.8 instead, after
+ * it's released */
+#define _TP_CM_UPDATED_FOR_0_5_7
+
 #include <telepathy-glib/svc-connection.h>
 #include <telepathy-glib/interfaces.h>
 #include "media-factory.h"
@@ -370,7 +374,7 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
 
   if (handle_type == TP_HANDLE_TYPE_CONTACT)
     {
-      if (!sip_media_channel_add_member ((TpSvcChannelInterfaceGroup *)chan,
+      if (!sip_media_channel_add_member ((GObject *)chan,
             handle, "", error))
         {
           sip_media_channel_close (SIP_MEDIA_CHANNEL (chan));

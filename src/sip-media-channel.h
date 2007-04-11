@@ -59,8 +59,8 @@ GType sip_media_channel_get_type(void);
   (G_TYPE_INSTANCE_GET_CLASS ((obj), SIP_TYPE_MEDIA_CHANNEL, SIPMediaChannelClass))
 
 
-gboolean sip_media_channel_add_member (TpSvcChannelInterfaceGroup *,
-    TpHandle, const gchar *, GError **);
+gboolean sip_media_channel_add_member (GObject *, TpHandle, const gchar *,
+    GError **);
 
 void sip_media_channel_close (SIPMediaChannel *self);
 
