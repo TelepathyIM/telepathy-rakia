@@ -386,6 +386,20 @@ priv_parse_keepalive (const gchar *str)
       g_object_set (connection, prop, member, NULL); \
     }
 
+static gboolean
+check_not_empty_if_present (const gchar *name,
+                            const gchar *value,
+                            GError **error)
+{
+  if (value != NULL && value[0] == '\0')
+    {
+      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+          "If supplied, '%s' account parameter may not be empty", name);
+      return FALSE;
+    }
+  return TRUE;
+}
+
 /**
  * sip_connection_manager_request_connection
  *
@@ -416,9 +430,32 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
    * "use-http-proxy" parameter is enabled */
 
   /* TpBaseConnectionManager code has already checked that required params
-   * are present
+   * are present (but not that they are non-empty, if we're using >= 0.5.8)
    */
   g_assert (params->account);
+
+  /* FIXME: validate account SIP URI properly, using appropriate RFCs */
+  if (!check_not_empty_if_present ("account", params->account, error))
+    return FALSE;
+  /* FIXME: validate registrar SIP URI properly, using appropriate RFCs */
+  if (!check_not_empty_if_present ("registrar", params->registrar, error))
+    return FALSE;
+  /* FIXME: validate proxy host properly */
+  if (!check_not_empty_if_present ("proxy-host", params->proxy_host, error))
+    return FALSE;
+  /* FIXME: check against the list (which presumably exists) of valid
+   * transports */
+  if (!check_not_empty_if_present ("transport", params->transport, error))
+    return FALSE;
+  /* FIXME: check against the list (which presumably exists) of valid
+   * KA mechanisms */
+  if (!check_not_empty_if_present ("keepalive-mechanism",
+        params->keepalive_mechanism, error))
+    return FALSE;
+  /* FIXME: validate STUN server properly */
+  if (!check_not_empty_if_present ("stun-server", params->stun_server,
+        error))
+    return FALSE;
 
   DEBUG("New SIP connection to %s", params->account);
 
