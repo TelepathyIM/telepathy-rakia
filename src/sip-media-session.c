@@ -829,7 +829,7 @@ sip_media_session_get_stream (SIPMediaSession *self,
 gboolean
 sip_media_session_start_telephony_event (SIPMediaSession *self,
                                          guint stream_id,
-                                         guint event,
+                                         guchar event,
                                          GError **error)
 {
   SIPMediaStream *stream;
@@ -838,7 +838,7 @@ sip_media_session_start_telephony_event (SIPMediaSession *self,
   if (stream == NULL)
     return FALSE;
 
-  DEBUG("starting telephony event %u on stream %u", event, stream_id);
+  DEBUG("starting telephony event %u on stream %u", (guint) event, stream_id);
 
   sip_media_stream_start_telephony_event (stream, event);
 

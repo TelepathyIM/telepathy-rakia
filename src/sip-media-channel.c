@@ -1292,7 +1292,7 @@ priv_media_channel_remove_member (GObject *obj,
 static void
 sip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
                               guint stream_id,
-                              guint event,
+                              guchar event,
                               DBusGMethodInvocation *context)
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);

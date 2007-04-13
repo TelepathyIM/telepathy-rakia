@@ -78,7 +78,7 @@ gboolean sip_media_session_list_streams (SIPMediaSession *session,
 void sip_media_session_accept (SIPMediaSession *self, gboolean accept);
 gboolean sip_media_session_start_telephony_event (SIPMediaSession *self,
                                                   guint stream_id,
-                                                  guint event,
+                                                  guchar event,
                                                   GError **error);
 gboolean sip_media_session_stop_telephony_event  (SIPMediaSession *self,
                                                   guint stream_id,
