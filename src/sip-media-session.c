@@ -797,6 +797,17 @@ void sip_media_session_accept (SIPMediaSession *self, gboolean accept)
     priv_offer_answer_step (self);
 }
 
+void sip_media_session_start_telephony_event (SIPMediaSession *self,
+                                              guint stream_id,
+                                              guint event)
+{
+}
+
+void sip_media_session_stop_telephony_event  (SIPMediaSession *self,
+                                              guint stream_id)
+{
+}
+
 /***********************************************************************
  * Helper functions follow (not based on generated templates)
  ***********************************************************************/

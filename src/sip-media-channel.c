@@ -1295,7 +1295,16 @@ sip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
                               guint event,
                               DBusGMethodInvocation *context)
 {
-  /* TODO: stub */
+  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
+  SIPMediaChannelPrivate *priv;
+
+  DEBUG("enter");
+
+  g_assert (SIP_IS_MEDIA_CHANNEL (self));
+
+  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  sip_media_session_start_telephony_event (priv->session, stream_id, event);
 
   tp_svc_channel_interface_dtmf_return_from_start_tone (context);
 }
@@ -1305,7 +1314,16 @@ sip_media_channel_stop_tone (TpSvcChannelInterfaceDTMF *iface,
                              guint stream_id,
                              DBusGMethodInvocation *context)
 {
-  /* TODO: stub */
+  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
+  SIPMediaChannelPrivate *priv;
+
+  DEBUG("enter");
+
+  g_assert (SIP_IS_MEDIA_CHANNEL (self));
+
+  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  sip_media_session_stop_telephony_event (priv->session, stream_id);
 
   tp_svc_channel_interface_dtmf_return_from_stop_tone (context);
 }
