@@ -76,11 +76,13 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
 gboolean sip_media_session_list_streams (SIPMediaSession *session,
 					 GPtrArray **ret);
 void sip_media_session_accept (SIPMediaSession *self, gboolean accept);
-void sip_media_session_start_telephony_event (SIPMediaSession *self,
-                                              guint stream_id,
-                                              guint event);
-void sip_media_session_stop_telephony_event  (SIPMediaSession *self,
-                                              guint stream_id);
+gboolean sip_media_session_start_telephony_event (SIPMediaSession *self,
+                                                  guint stream_id,
+                                                  guint event,
+                                                  GError **error);
+gboolean sip_media_session_stop_telephony_event  (SIPMediaSession *self,
+                                                  guint stream_id,
+                                                  GError **error);
 
 typedef enum {
     DEBUG_MSG_INFO = 0,

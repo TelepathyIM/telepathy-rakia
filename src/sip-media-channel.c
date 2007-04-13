@@ -1297,6 +1297,7 @@ sip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
   SIPMediaChannelPrivate *priv;
+  GError *error = NULL;
 
   DEBUG("enter");
 
@@ -1304,7 +1305,15 @@ sip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
 
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  sip_media_session_start_telephony_event (priv->session, stream_id, event);
+  if (!sip_media_session_start_telephony_event (priv->session,
+                                                stream_id,
+                                                event,
+                                                &error))
+    {
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+      return;
+    }
 
   tp_svc_channel_interface_dtmf_return_from_start_tone (context);
 }
@@ -1316,6 +1325,7 @@ sip_media_channel_stop_tone (TpSvcChannelInterfaceDTMF *iface,
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
   SIPMediaChannelPrivate *priv;
+  GError *error = NULL;
 
   DEBUG("enter");
 
@@ -1323,7 +1333,14 @@ sip_media_channel_stop_tone (TpSvcChannelInterfaceDTMF *iface,
 
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  sip_media_session_stop_telephony_event (priv->session, stream_id);
+  if (!sip_media_session_stop_telephony_event (priv->session,
+                                               stream_id,
+                                               &error))
+    {
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+      return;
+    }
 
   tp_svc_channel_interface_dtmf_return_from_stop_tone (context);
 }

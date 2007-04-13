@@ -797,15 +797,66 @@ void sip_media_session_accept (SIPMediaSession *self, gboolean accept)
     priv_offer_answer_step (self);
 }
 
-void sip_media_session_start_telephony_event (SIPMediaSession *self,
-                                              guint stream_id,
-                                              guint event)
+static SIPMediaStream *
+sip_media_session_get_stream (SIPMediaSession *self,
+                              guint stream_id,
+                              GError **error)
 {
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  SIPMediaStream *stream;
+
+  g_assert (priv->streams != NULL);
+
+  if (stream_id >= priv->streams->len)
+    {
+      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+                   "stream ID %u is invalid", stream_id);
+      return NULL;
+    }
+
+  stream = g_ptr_array_index (priv->streams, stream_id);
+
+  if (stream == NULL)
+    {
+      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+                   "stream %u does not exist", stream_id);
+      return NULL;
+    }
+
+  return stream;
 }
 
-void sip_media_session_stop_telephony_event  (SIPMediaSession *self,
-                                              guint stream_id)
+gboolean
+sip_media_session_start_telephony_event (SIPMediaSession *self,
+                                         guint stream_id,
+                                         guint event,
+                                         GError **error)
 {
+  SIPMediaStream *stream;
+
+  stream = sip_media_session_get_stream (self, stream_id, error);
+  if (stream == NULL)
+    return FALSE;
+
+  DEBUG("starting telephony event %u on stream %u", event, stream_id);
+
+  return TRUE;
+}
+
+gboolean
+sip_media_session_stop_telephony_event  (SIPMediaSession *self,
+                                         guint stream_id,
+                                         GError **error)
+{
+  SIPMediaStream *stream;
+
+  stream = sip_media_session_get_stream (self, stream_id, error);
+  if (stream == NULL)
+    return FALSE;
+
+  DEBUG("stopping the telephony event on stream %u", stream_id);
+
+  return TRUE;
 }
 
 /***********************************************************************
