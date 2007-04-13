@@ -1303,6 +1303,15 @@ sip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
 
   g_assert (SIP_IS_MEDIA_CHANNEL (self));
 
+  if (event >= NUM_TP_DTMF_EVENTS)
+    {
+      g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+                   "event %u is not a known DTMF event", event);
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+      return;
+    }
+
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (!sip_media_session_start_telephony_event (priv->session,
