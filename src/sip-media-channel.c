@@ -52,6 +52,7 @@
 static void channel_iface_init (gpointer, gpointer);
 static void media_signalling_iface_init (gpointer, gpointer);
 static void streamed_media_iface_init (gpointer, gpointer);
+static void dtmf_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
     G_TYPE_OBJECT,
@@ -60,6 +61,8 @@ G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
       tp_group_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MEDIA_SIGNALLING,
       media_signalling_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DTMF,
+      dtmf_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_STREAMED_MEDIA,
       streamed_media_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_PROPERTIES_INTERFACE,
@@ -1287,6 +1290,27 @@ priv_media_channel_remove_member (GObject *obj,
 }
 
 static void
+sip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
+                              guint stream_id,
+                              guint event,
+                              DBusGMethodInvocation *context)
+{
+  /* TODO: stub */
+
+  tp_svc_channel_interface_dtmf_return_from_start_tone (context);
+}
+
+static void
+sip_media_channel_stop_tone (TpSvcChannelInterfaceDTMF *iface,
+                             guint stream_id,
+                             DBusGMethodInvocation *context)
+{
+  /* TODO: stub */
+
+  tp_svc_channel_interface_dtmf_return_from_stop_tone (context);
+}
+
+static void
 channel_iface_init(gpointer g_iface, gpointer iface_data)
 {
   TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
@@ -1322,5 +1346,17 @@ media_signalling_iface_init(gpointer g_iface, gpointer iface_data)
 #define IMPLEMENT(x) tp_svc_channel_interface_media_signalling_implement_##x (\
     klass, sip_media_channel_##x)
   IMPLEMENT(get_session_handlers);
+#undef IMPLEMENT
+}
+
+static void
+dtmf_iface_init (gpointer g_iface, gpointer iface_data)
+{
+  TpSvcChannelInterfaceDTMFClass *klass = (TpSvcChannelInterfaceDTMFClass *)g_iface;
+
+#define IMPLEMENT(x) tp_svc_channel_interface_dtmf_implement_##x (\
+    klass, sip_media_channel_##x)
+  IMPLEMENT(start_tone);
+  IMPLEMENT(stop_tone);
 #undef IMPLEMENT
 }
