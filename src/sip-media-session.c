@@ -832,7 +832,7 @@ sip_media_session_start_telephony_event (SIPMediaSession *self,
                                          GError **error)
 {
   SIPMediaStream *stream;
-  guint media_type;
+  guint media_type = TP_MEDIA_STREAM_TYPE_AUDIO;
 
   stream = sip_media_session_get_stream (self, stream_id, error);
   if (stream == NULL)
