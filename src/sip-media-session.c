@@ -612,7 +612,6 @@ static gboolean priv_timeout_session (gpointer data)
 void sip_media_session_terminate (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  nua_t *nua = sip_conn_sofia_nua(priv->conn);
   
   DEBUG ("enter");
 
@@ -621,8 +620,8 @@ void sip_media_session_terminate (SIPMediaSession *session)
 
   if (priv->state == JS_STATE_PENDING_INITIATED ||
       priv->state == JS_STATE_ACTIVE) {
-    g_message("%s: sending SIP BYE (%p).", G_STRFUNC, nua);
     nua_handle_t *nh = priv_get_nua_handle_for_session(session);
+    DEBUG("sending SIP BYE (handle %p)", nh);
     if (nh)
       nua_bye (nh, TAG_END());
     else
