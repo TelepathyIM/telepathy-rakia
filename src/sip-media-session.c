@@ -679,22 +679,38 @@ sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_sdp)
 
     for (i = 0; media; i++) {
       SIPMediaStream *stream = NULL;
+      guint media_type;
+
+      media_type = priv_tp_media_type (media->m_type);
 
       if (i >= priv->streams->len)
-	stream = priv_create_media_stream (session, priv_tp_media_type (media->m_type));
+	stream = priv_create_media_stream (session, media_type);
       else 
 	stream = g_ptr_array_index(priv->streams, i);
-      
-      if (media->m_type == sdp_media_audio ||
-	  media->m_type == sdp_media_video)
-	++supported_media_cnt;
-      
+
       g_debug ("Setting remote SDP for stream (%u:%p).", i, stream);	
 
       /* note: it is ok for the stream to be NULL (unsupported media type) */
-      if (stream)
-	res = sip_media_stream_set_remote_info (stream, media);
-     
+      if (stream == NULL)
+        goto next_media;
+
+      if (sip_media_stream_get_media_type (stream) != media_type)
+        {
+          g_warning ("The peer has changed the media type, don't know what to do");
+        }
+      else if (sip_media_stream_set_remote_info (stream, media))
+        {
+          ++supported_media_cnt;
+          goto next_media;
+        }
+
+      /* There have been problems with the stream update, kill the stream */
+      /* XXX: fast and furious, not tested */
+      sip_media_stream_close (stream);
+      g_object_unref (stream);
+      g_ptr_array_index(priv->streams, i) = NULL;
+
+    next_media:
       media = media->m_next;
     }
 
