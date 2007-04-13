@@ -394,7 +394,7 @@ sip_media_session_finalize (GObject *object)
       g_object_unref (stream);
   }
 
-  g_ptr_array_free(priv->streams, FALSE);
+  g_ptr_array_free(priv->streams, TRUE);
 
   DEBUG ("exit");
 }
