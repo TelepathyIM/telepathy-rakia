@@ -832,16 +832,12 @@ sip_media_session_start_telephony_event (SIPMediaSession *self,
                                          GError **error)
 {
   SIPMediaStream *stream;
-  guint media_type = TP_MEDIA_STREAM_TYPE_AUDIO;
 
   stream = sip_media_session_get_stream (self, stream_id, error);
   if (stream == NULL)
     return FALSE;
 
-  g_object_get (stream,
-                "media-type", &media_type,
-                NULL);
-  if (media_type != TP_MEDIA_STREAM_TYPE_AUDIO)
+  if (sip_media_stream_get_media_type (stream) != TP_MEDIA_STREAM_TYPE_AUDIO)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
                    "non-audio stream %u does not support telephony events", stream_id);
@@ -861,16 +857,12 @@ sip_media_session_stop_telephony_event  (SIPMediaSession *self,
                                          GError **error)
 {
   SIPMediaStream *stream;
-  guint media_type = TP_MEDIA_STREAM_TYPE_AUDIO;
 
   stream = sip_media_session_get_stream (self, stream_id, error);
   if (stream == NULL)
     return FALSE;
 
-  g_object_get (stream,
-                "media-type", &media_type,
-                NULL);
-  if (media_type != TP_MEDIA_STREAM_TYPE_AUDIO)
+  if (sip_media_stream_get_media_type (stream) != TP_MEDIA_STREAM_TYPE_AUDIO)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
                    "non-audio stream %u does not support telephony events; spurious use of the stop event?", stream_id);

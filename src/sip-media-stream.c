@@ -732,6 +732,13 @@ sip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
  * Helper functions follow (not based on generated templates)
  ***********************************************************************/
 
+guint
+sip_media_stream_get_media_type (SIPMediaStream *self)
+{
+  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  return priv->media_type;
+}
+
 /**
  * Described the local stream configuration in SDP (RFC2327),
  * or NULL if stream not configured yet.
