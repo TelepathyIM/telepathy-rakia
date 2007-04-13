@@ -934,6 +934,18 @@ gboolean sip_media_stream_is_ready (SIPMediaStream *self)
   return priv->sdp_generated && priv->ready_received;
 }
 
+void
+sip_media_stream_start_telephony_event (SIPMediaStream *self, guint event)
+{
+  /* TODO: stub */
+}
+
+void
+sip_media_stream_stop_telephony_event  (SIPMediaStream *self)
+{
+  /* TODO: stub */
+}
+
 #if 0
 static void priv_session_stream_state_changed_cb (SIPMediaSession *session,
 						  GParamSpec *arg1,

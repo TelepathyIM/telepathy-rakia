@@ -840,6 +840,8 @@ sip_media_session_start_telephony_event (SIPMediaSession *self,
 
   DEBUG("starting telephony event %u on stream %u", event, stream_id);
 
+  sip_media_stream_start_telephony_event (stream, event);
+
   return TRUE;
 }
 
@@ -855,6 +857,8 @@ sip_media_session_stop_telephony_event  (SIPMediaSession *self,
     return FALSE;
 
   DEBUG("stopping the telephony event on stream %u", stream_id);
+
+  sip_media_stream_stop_telephony_event (stream);
 
   return TRUE;
 }

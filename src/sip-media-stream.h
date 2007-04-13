@@ -61,6 +61,8 @@ gboolean sip_media_stream_set_remote_info (SIPMediaStream *self,
                                            const sdp_media_t *media);
 void sip_media_stream_set_playing (SIPMediaStream *self, gboolean playing);
 gboolean sip_media_stream_is_ready (SIPMediaStream *self);
+void sip_media_stream_start_telephony_event (SIPMediaStream *self, guint event);
+void sip_media_stream_stop_telephony_event  (SIPMediaStream *self);
 
 #define TP_TYPE_TRANSPORT_STRUCT (dbus_g_type_get_struct ("GValueArray", \
       G_TYPE_UINT, \
