@@ -739,6 +739,12 @@ sip_media_stream_get_media_type (SIPMediaStream *self)
   return priv->media_type;
 }
 
+void
+sip_media_stream_close (SIPMediaStream *self)
+{
+  tp_svc_media_stream_handler_emit_close ((TpSvcMediaStreamHandler *) self);
+}
+
 /**
  * Described the local stream configuration in SDP (RFC2327),
  * or NULL if stream not configured yet.

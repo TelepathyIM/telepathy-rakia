@@ -56,6 +56,7 @@ GType sip_media_stream_get_type(void);
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
+void sip_media_stream_close (SIPMediaStream *self);
 guint sip_media_stream_get_media_type (SIPMediaStream *self);
 const char *sip_media_stream_local_sdp (SIPMediaStream *self);
 gboolean sip_media_stream_set_remote_info (SIPMediaStream *self,
