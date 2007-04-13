@@ -937,13 +937,15 @@ gboolean sip_media_stream_is_ready (SIPMediaStream *self)
 void
 sip_media_stream_start_telephony_event (SIPMediaStream *self, guchar event)
 {
-  /* TODO: stub */
+  tp_svc_media_stream_handler_emit_start_telephony_event (
+        (TpSvcMediaStreamHandler *)self, event);
 }
 
 void
 sip_media_stream_stop_telephony_event  (SIPMediaStream *self)
 {
-  /* TODO: stub */
+  tp_svc_media_stream_handler_emit_stop_telephony_event (
+        (TpSvcMediaStreamHandler *)self);
 }
 
 #if 0
