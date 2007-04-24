@@ -657,6 +657,8 @@ sip_connection_start_connecting (TpBaseConnection *base,
 				      SIPTAG_FROM_STR(priv->requested_address)),
 			       TAG_IF(priv->proxy,
 				      NUTAG_PROXY(priv->proxy)),
+                               TAG_IF(g_ascii_strncasecmp(priv->proxy, "sips:", 5) == 0,
+                                      NUTAG_SIPS_URL("sips:*")),
                                NUTAG_USER_AGENT("Telepathy-SofiaSIP/" TELEPATHY_SIP_VERSION),
 			       TAG_NULL ());
   if (priv->sofia_nua == NULL)
