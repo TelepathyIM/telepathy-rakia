@@ -634,6 +634,7 @@ sip_media_channel_get_interfaces (TpSvcChannel *iface,
   const gchar *interfaces[] = {
     TP_IFACE_CHANNEL_INTERFACE_GROUP,
     TP_IFACE_CHANNEL_INTERFACE_MEDIA_SIGNALLING,
+    TP_IFACE_CHANNEL_INTERFACE_DTMF,
     TP_IFACE_PROPERTIES_INTERFACE,
     NULL
   };
