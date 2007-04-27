@@ -228,7 +228,7 @@ static void sip_media_channel_set_property (GObject     *object,
 static void priv_create_session (SIPMediaChannel *channel,
                                  TpHandle peer,
                                  const gchar *sid);
-static void priv_release_session(SIPMediaChannel *channel);
+static void priv_destroy_session(SIPMediaChannel *channel);
 gboolean sip_media_channel_add_member (GObject *iface,
                                        TpHandle handle,
                                        const gchar *message,
@@ -513,7 +513,7 @@ sip_media_channel_dispose (GObject *object)
 
   priv->dispose_has_run = TRUE;
 
-  priv_release_session(self);
+  priv_destroy_session(self);
 
   if (!priv->closed)
     sip_media_channel_close (self);
@@ -1088,7 +1088,8 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
     tp_group_mixin_change_flags ((GObject *)channel,
         TP_CHANNEL_GROUP_FLAG_CAN_ADD, TP_CHANNEL_GROUP_FLAG_CAN_REMOVE);
 
-    priv_release_session(channel);
+    priv_destroy_session (channel);
+    sip_media_channel_close (channel);
   }
 
   tp_intset_destroy (set);
@@ -1110,39 +1111,6 @@ static void priv_session_stream_added_cb (SIPMediaSession *session,
 
   tp_svc_channel_type_streamed_media_emit_stream_added (
         (TpSvcChannelTypeStreamedMedia *)chan, id, handle, type);
-}
-
-static void priv_session_terminated_cb (SIPMediaSession *session,
-					gpointer user_data)
-{
-  SIPMediaChannel *channel = SIP_MEDIA_CHANNEL (user_data);
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
-  gchar *sid;
-
-  DEBUG("enter");
-  g_object_get (session, "session-id", &sid, NULL);
-  sip_media_factory_session_id_unregister(priv->factory, sid);
-  g_free (sid);
-}
-
-static void
-priv_release_session(SIPMediaChannel *channel)
-{
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
-
-  DEBUG("enter");
-
-  /* close the channel */
-  sip_media_channel_close (channel);
-
-  /* remove the session */
-  if (priv->session)
-    {
-      SIPMediaSession *session = priv->session;
-
-      priv->session = NULL;
-      g_object_unref (session);
-    }
 }
 
 /**
@@ -1200,8 +1168,6 @@ priv_create_session (SIPMediaChannel *channel,
                     (GCallback) priv_session_state_changed_cb, channel);
   g_signal_connect (session, "stream-added",
 		    (GCallback) priv_session_stream_added_cb, channel);
-  g_signal_connect (session, "terminated",
-		    (GCallback) priv_session_terminated_cb, channel);
 
   priv->session = session;
 
@@ -1214,6 +1180,27 @@ priv_create_session (SIPMediaChannel *channel,
   g_free (object_path);
 
   DEBUG ("exit");
+}
+
+static void
+priv_destroy_session(SIPMediaChannel *channel)
+{
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
+  SIPMediaSession *session;
+  gchar *sid = NULL;
+
+  DEBUG("enter");
+
+  session = priv->session;
+  if (session == NULL)
+    return;
+
+  g_object_get (session, "session-id", &sid, NULL);
+  sip_media_factory_session_id_unregister(priv->factory, sid);
+  g_free (sid);
+
+  priv->session = NULL;
+  g_object_unref (session);
 }
 
 gboolean

@@ -59,7 +59,6 @@ G_DEFINE_TYPE_WITH_CODE(SIPMediaSession,
 enum
 {
   SIG_STREAM_ADDED,
-  SIG_TERMINATED,
   SIG_LAST_SIGNAL
 };
 
@@ -336,15 +335,6 @@ sip_media_session_class_init (SIPMediaSessionClass *sip_media_session_class)
                   NULL, NULL,
                   g_cclosure_marshal_VOID__OBJECT,
                   G_TYPE_NONE, 1, G_TYPE_OBJECT);
-
-  signals[SIG_TERMINATED] =
-    g_signal_new ("terminated",
-                  G_OBJECT_CLASS_TYPE (sip_media_session_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
 }
 
 static void
@@ -357,8 +347,6 @@ sip_media_session_dispose (GObject *object)
     return;
 
   priv->dispose_has_run = TRUE;
-
-  g_signal_emit (self, signals[SIG_TERMINATED], 0);
 
   if (priv->conn)
     {
