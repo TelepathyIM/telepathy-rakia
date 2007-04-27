@@ -575,8 +575,7 @@ sip_media_channel_close (SIPMediaChannel *obj)
 
   priv->closed = TRUE;
 
-  if (priv->session && 
-      SIP_IS_MEDIA_SESSION (priv->session)) {
+  if (priv->session) {
     sip_media_session_terminate (priv->session);
     g_assert (priv->session == NULL);
   }
