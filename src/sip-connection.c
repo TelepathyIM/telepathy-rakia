@@ -541,13 +541,6 @@ sip_connection_shut_down (TpBaseConnection *base)
    */
   g_return_if_fail (priv->sofia_nua != NULL);
 
-  if (priv->register_op)
-    {
-      nua_handle_t *register_op = priv->register_op;
-      priv->register_op = NULL;
-      nua_handle_destroy (register_op);
-    }
-
   g_assert (priv->sofia != NULL);
 
   /* Detach the Sofia adapter and let it destroy the NUA handle and itself
@@ -557,6 +550,14 @@ sip_connection_shut_down (TpBaseConnection *base)
 
   nua_shutdown (priv->sofia_nua);
   priv->sofia_nua = NULL;
+
+  /* Reap the register handle if still present */
+  if (priv->register_op)
+    {
+      nua_handle_t *register_op = priv->register_op;
+      priv->register_op = NULL;
+      nua_handle_destroy (register_op);
+    }
 
   tp_base_connection_finish_shutdown (base);
 }
