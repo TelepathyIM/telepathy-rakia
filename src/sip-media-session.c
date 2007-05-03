@@ -982,7 +982,7 @@ static void priv_offer_answer_step (SIPMediaSession *session)
     /* send an offer if the session was initiated by us */
     if (priv->initiator != priv->peer) {
       nua_handle_t *nh;
-      su_home_t *sofia_home = sip_conn_sofia_home (priv->conn);
+      su_home_t *sofia_home;
       const char *dest_uri;
 
       dest_uri = tp_handle_inspect (contact_repo, priv->peer);
@@ -990,6 +990,7 @@ static void priv_offer_answer_step (SIPMediaSession *session)
       g_debug ("mapped handle %u to uri %s.", priv->peer, dest_uri);
 
       if (dest_uri) {
+        sofia_home = sip_conn_sofia_home (priv->conn);
 	nh = sip_conn_create_request_handle (sofia_nua, sofia_home, dest_uri);
 	g_object_set (priv->channel, "nua-handle", nh, NULL);
 
