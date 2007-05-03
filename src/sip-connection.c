@@ -707,6 +707,8 @@ sip_connection_start_connecting (TpBaseConnection *base,
       priv->sofia_home, sip_address);
   nua_register(priv->register_op, TAG_NULL());
 
+  DEBUG("exit");
+
   return TRUE;
 }
 
