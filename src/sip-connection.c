@@ -548,16 +548,10 @@ sip_connection_shut_down (TpBaseConnection *base)
   priv->sofia->conn = NULL;
   priv->sofia = NULL;
 
+  g_assert (priv->register_op == NULL);
+
   nua_shutdown (priv->sofia_nua);
   priv->sofia_nua = NULL;
-
-  /* Reap the register handle if still present */
-  if (priv->register_op)
-    {
-      nua_handle_t *register_op = priv->register_op;
-      priv->register_op = NULL;
-      nua_handle_destroy (register_op);
-    }
 
   tp_base_connection_finish_shutdown (base);
 }
@@ -733,8 +727,14 @@ sip_connection_disconnected (TpBaseConnection *base)
 
   DEBUG("enter");
 
-  if (priv->sofia_nua && priv->register_op)
-    nua_unregister(priv->register_op, TAG_NULL());
+  if (priv->register_op != NULL)
+    {
+      g_assert (priv->sofia_nua != NULL);
+      DEBUG("unregistering");
+      nua_unregister(priv->register_op, TAG_NULL());
+      /* The handle will be disposed of in the r_unregister handler */
+      priv->register_op = NULL;
+    }
 }
 
 /**

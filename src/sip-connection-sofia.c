@@ -336,16 +336,9 @@ priv_r_register (int status,
 static void
 priv_r_unregister (int status,
                    char const *phrase,
-                   nua_t *nua,
-                   SIPConnection *self,
-                   nua_handle_t *nh,
-                   sip_t const *sip,
-                   tagi_t tags[])
+                   nua_handle_t *nh)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  nua_handle_t *register_op;
-
-  g_message ("sofiasip: un-REGISTER: %03d %s", status, phrase);
+  DEBUG("un-REGISTER: %03d %s", status, phrase);
 
   if (status < 200)
     return;
@@ -359,10 +352,8 @@ priv_r_unregister (int status,
       g_warning ("Registrar won't let me unregister: %d %s", status, phrase);
     }
 
-  register_op = priv->register_op;
-  priv->register_op = NULL;
-  if (register_op)
-    nua_handle_destroy (register_op);
+  /* Dispose of the register op handle */
+  nua_handle_destroy (nh);
 }
 
 static void
@@ -731,6 +722,11 @@ sip_connection_sofia_callback(nua_event_t event,
       priv_r_shutdown (status, phrase, nua, state);
       return;
     }
+  else if (event == nua_r_unregister)
+    {
+      priv_r_unregister (status, phrase, nh);
+      return;
+    }
 
   self = state->conn;
   if (self == NULL)
@@ -796,10 +792,6 @@ sip_connection_sofia_callback(nua_event_t event,
 
   case nua_r_register:
     priv_r_register (status, phrase, nua, self, nh, sip, tags);
-    break;
-    
-  case nua_r_unregister:
-    priv_r_unregister (status, phrase, nua, self, nh, sip, tags);
     break;
     
   case nua_r_invite:
