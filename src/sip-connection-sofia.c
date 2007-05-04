@@ -61,9 +61,6 @@ priv_r_shutdown(int status,
 
   g_assert(sofia->conn == NULL);
 
-  if (sofia->register_op != NULL)
-    nua_handle_destroy (sofia->register_op);
-
   source = su_root_gsource (sofia->sofia_root);
 
   /* XXX: temporarily allow recursion in the Sofia source to work around
@@ -90,17 +87,13 @@ priv_disconnect (SIPConnection *self, TpConnectionStatusReason reason)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   TpBaseConnection *base = (TpBaseConnection *)self;
-  nua_handle_t *register_op; 
 
   tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
       reason);
-
-  g_assert (priv->sofia != NULL);
-  register_op = priv->sofia->register_op; 
-  if (register_op != NULL)
+  if (priv->register_op != NULL)
     {
-      priv->sofia->register_op = NULL;
-      nua_handle_destroy (register_op);
+      nua_handle_destroy (priv->register_op);
+      priv->register_op = NULL;
     }
 }
 
@@ -358,6 +351,9 @@ priv_r_unregister (int status,
        * So we ignore it and hope it goes away. */
       g_warning ("Registrar won't let me unregister: %d %s", status, phrase);
     }
+
+  /* Dispose of the register op handle */
+  nua_handle_destroy (nh);
 }
 
 static void
