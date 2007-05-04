@@ -733,7 +733,12 @@ sip_connection_sofia_callback(nua_event_t event,
     }
 
   self = state->conn;
-  g_return_if_fail (self);
+  if (self == NULL)
+    {
+      g_warning ("post-shutdown event received for a connection: NUA at %p, event #%d '%s', %d '%s'",
+                 nua, event, nua_event_name (event), status, phrase);
+      return;
+    }
 
   DEBUG("enter: NUA at %p (conn %p), event #%d '%s', %d '%s'", nua, self,
       event, nua_event_name (event), status, phrase);
