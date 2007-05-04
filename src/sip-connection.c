@@ -548,8 +548,6 @@ sip_connection_shut_down (TpBaseConnection *base)
   priv->sofia->conn = NULL;
   priv->sofia = NULL;
 
-  g_assert (priv->register_op == NULL);
-
   nua_shutdown (priv->sofia_nua);
   priv->sofia_nua = NULL;
 
@@ -703,9 +701,9 @@ sip_connection_start_connecting (TpBaseConnection *base,
    * at registration time */
   nua_get_params(priv->sofia_nua, TAG_ANY(), TAG_NULL());
 
-  priv->register_op = sip_conn_create_register_handle(priv->sofia_nua,
+  priv->sofia->register_op = sip_conn_create_register_handle(priv->sofia_nua,
       priv->sofia_home, sip_address);
-  nua_register(priv->register_op, TAG_NULL());
+  nua_register (priv->sofia->register_op, TAG_NULL());
 
   DEBUG("exit");
 
@@ -723,19 +721,20 @@ sip_connection_disconnected (TpBaseConnection *base)
 {
   SIPConnection *obj = SIP_CONNECTION (base);
   SIPConnectionPrivate *priv;
+  nua_handle_t *register_op;
 
   g_assert (SIP_IS_CONNECTION (obj));
   priv = SIP_CONNECTION_GET_PRIVATE (obj);
 
   DEBUG("enter");
 
-  if (priv->register_op != NULL)
+  g_assert (priv->sofia != NULL);
+  register_op = priv->sofia->register_op;
+  if (register_op != NULL)
     {
       g_assert (priv->sofia_nua != NULL);
       DEBUG("unregistering");
-      nua_unregister(priv->register_op, TAG_NULL());
-      /* The handle will be disposed of in the r_unregister handler */
-      priv->register_op = NULL;
+      nua_unregister (register_op, TAG_NULL());
     }
 }
 
