@@ -186,7 +186,6 @@ sip_connection_manager_init (SIPConnectionManager *obj)
   obj->priv = priv;
 
   priv->sofia_root = su_glib_root_create(obj);
-  su_root_threading(priv->sofia_root, 0);
   source = su_root_gsource(priv->sofia_root);
   g_source_attach(source, NULL);
 }

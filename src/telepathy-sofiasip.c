@@ -50,6 +50,8 @@ main (int argc, char** argv)
     }
 #endif
 
+  g_thread_init (NULL);
+
   return tp_run_connection_manager ("telepathy-sofiasip", VERSION,
       construct_cm, argc, argv);
 }
