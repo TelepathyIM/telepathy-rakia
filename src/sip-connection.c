@@ -532,6 +532,8 @@ sip_connection_shut_down (TpBaseConnection *base)
   SIPConnection *self = SIP_CONNECTION (base);
   SIPConnectionPrivate *priv;
 
+  DEBUG ("enter");
+
   g_assert (SIP_IS_CONNECTION (self));
   priv = SIP_CONNECTION_GET_PRIVATE (self);
 
@@ -609,8 +611,6 @@ sip_connection_finalize (GObject *obj)
 
   g_free (priv->registrar_realm);
   g_free (priv->last_auth);
-
-  DEBUG ("exit");
 
   G_OBJECT_CLASS (sip_connection_parent_class)->finalize (obj);
 }

@@ -74,6 +74,7 @@ priv_r_shutdown(int status,
       g_source_set_can_recurse (source, TRUE);
     }
 
+  DEBUG("destroying Sofia-SIP NUA at address %p", nua);
   nua_destroy (nua);
 
   if (!source_recursive)
