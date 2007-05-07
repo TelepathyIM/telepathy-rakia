@@ -27,7 +27,6 @@
 struct _SIPConnectionPrivate
 {
   gchar *requested_address;
-  gboolean dispose_has_run;
 
   SIPConnectionSofia *sofia;
   nua_t  *sofia_nua;
@@ -53,6 +52,8 @@ struct _SIPConnectionPrivate
   gchar *extra_auth_user;
   gchar *extra_auth_password;
   gboolean discover_binding;
+
+  gboolean dispose_has_run;
 };
 
 #define SIP_PROTOCOL_STRING               "sip"
