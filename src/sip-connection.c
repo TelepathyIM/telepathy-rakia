@@ -541,12 +541,8 @@ sip_connection_shut_down (TpBaseConnection *base)
    */
   g_return_if_fail (priv->sofia_nua != NULL);
 
-  if (priv->register_op != NULL)
-    {
-      /* We are not keeping the handle anymore, let the stack dispose of it */
-      nua_handle_unref (priv->register_op);
-      priv->register_op = NULL;
-    }
+  /* We disposed of the REGISTER handle in the disconnected method */
+  g_assert (priv->register_op == NULL);
 
   g_assert (priv->sofia != NULL);
 
@@ -734,11 +730,22 @@ sip_connection_disconnected (TpBaseConnection *base)
 
   DEBUG("enter");
 
+  /* Dispose of the register use */
   if (priv->register_op != NULL)
     {
-      g_assert (priv->sofia_nua != NULL);
-      DEBUG("unregistering");
-      nua_unregister (priv->register_op, TAG_NULL());
+      if (priv->register_succeeded)
+        {
+          DEBUG("unregistering");
+          nua_unregister (priv->register_op, TAG_NULL());
+          nua_handle_unref (priv->register_op);
+        }
+      else
+        {
+          DEBUG("don't let the incomplete registration linger any longer");
+          nua_handle_destroy (priv->register_op);
+        }
+
+      priv->register_op = NULL;
     }
 }
 
