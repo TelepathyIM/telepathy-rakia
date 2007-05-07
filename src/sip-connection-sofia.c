@@ -351,9 +351,6 @@ priv_r_unregister (int status,
        * So we ignore it and hope it goes away. */
       g_warning ("Registrar won't let me unregister: %d %s", status, phrase);
     }
-
-  /* Dispose of the register op handle */
-  nua_handle_destroy (nh);
 }
 
 static void

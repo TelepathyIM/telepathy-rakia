@@ -541,14 +541,19 @@ sip_connection_shut_down (TpBaseConnection *base)
    */
   g_return_if_fail (priv->sofia_nua != NULL);
 
+  if (priv->register_op != NULL)
+    {
+      /* We are not keeping the handle anymore, let the stack dispose of it */
+      nua_handle_unref (priv->register_op);
+      priv->register_op = NULL;
+    }
+
   g_assert (priv->sofia != NULL);
 
   /* Detach the Sofia adapter and let it destroy the NUA handle and itself
    * in the shutdown callback */
   priv->sofia->conn = NULL;
   priv->sofia = NULL;
-
-  g_assert (priv->register_op == NULL);
 
   nua_shutdown (priv->sofia_nua);
   priv->sofia_nua = NULL;
@@ -733,9 +738,7 @@ sip_connection_disconnected (TpBaseConnection *base)
     {
       g_assert (priv->sofia_nua != NULL);
       DEBUG("unregistering");
-      nua_unregister(priv->register_op, TAG_NULL());
-      /* The handle will be disposed of in the r_unregister handler */
-      priv->register_op = NULL;
+      nua_unregister (priv->register_op, TAG_NULL());
     }
 }
 
