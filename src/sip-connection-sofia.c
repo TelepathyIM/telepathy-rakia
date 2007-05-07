@@ -82,21 +82,6 @@ priv_r_shutdown(int status,
   g_slice_free (SIPConnectionSofia, sofia);
 }
 
-static void
-priv_disconnect (SIPConnection *self, TpConnectionStatusReason reason)
-{
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  TpBaseConnection *base = (TpBaseConnection *)self;
-
-  tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
-      reason);
-  if (priv->register_op != NULL)
-    {
-      nua_handle_destroy (priv->register_op);
-      priv->register_op = NULL;
-    }
-}
-
 /* We have a monster auth handler method with a traffic light
  * return code. Might think about refactoring it someday... */
 typedef enum {
@@ -310,7 +295,8 @@ priv_r_register (int status,
     {
     case SIP_AUTH_FAILURE:
       g_message ("sofiasip: REGISTER failed, insufficient/wrong credentials, disconnecting.");
-      priv_disconnect (self, TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
+      tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
+                TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
       return;
     case SIP_AUTH_HANDLED:
       return;
@@ -320,11 +306,13 @@ priv_r_register (int status,
 
   if (status == 403) {
     g_message ("sofiasip: REGISTER failed, wrong credentials, disconnecting.");
-    priv_disconnect (self, TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
+    tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
+                TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
   }
   else if (status >= 300) {
     g_message ("sofiasip: REGISTER failed, disconnecting.");
-    priv_disconnect (self, TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
+    tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
+                TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
   }
   else /* if (status == 200) */ {
     g_message ("sofiasip: succesfully registered %s to network", priv->address);
