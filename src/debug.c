@@ -16,22 +16,20 @@ static const GDebugKey keys[] = {
   { "media-channel", SIP_DEBUG_MEDIA },
   { "connection",    SIP_DEBUG_CONNECTION },
   { "im",            SIP_DEBUG_IM },
-  { 0, },
 };
 
 void sip_debug_set_flags_from_env ()
 {
-  guint nkeys;
   const gchar *flags_string;
-
-  for (nkeys = 0; keys[nkeys].value; nkeys++);
 
   flags_string = g_getenv ("SOFIASIP_DEBUG");
 
   if (flags_string)
     {
       tp_debug_set_flags_from_env ("SOFIASIP_DEBUG");
-      sip_debug_set_flags (g_parse_debug_string (flags_string, keys, nkeys));
+      sip_debug_set_flags (g_parse_debug_string (flags_string,
+                                                 keys,
+                                                 G_N_ELEMENTS(keys)));
     }
 }
 
