@@ -28,8 +28,6 @@
 #include <telepathy-glib/run.h>
 #include <telepathy-glib/debug.h>
 
-#define DIE_TIME 5000
-
 static TpBaseConnectionManager *
 construct_cm (void)
 {
