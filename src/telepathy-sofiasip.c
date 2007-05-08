@@ -4,6 +4,7 @@
  * Copyright (C) 2005,2006 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
  *   @author Martti Mela <first.surname@nokia.com>
+ *   @author Mikhail Zabaluev <first.surname@nokia.com>
  *
  * Based on telepathy-gabble implementation (gabble-connection).
  *   @author See gabble.c
