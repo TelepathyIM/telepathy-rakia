@@ -12,10 +12,9 @@ G_BEGIN_DECLS
 
 typedef enum
 {
-  SIP_DEBUG_PERSIST       = 1 << 0,
+  SIP_DEBUG_CONNECTION    = 1 << 0,
   SIP_DEBUG_MEDIA         = 1 << 1,
-  SIP_DEBUG_CONNECTION    = 1 << 2,
-  SIP_DEBUG_IM            = 1 << 3,
+  SIP_DEBUG_IM            = 1 << 2,
 } SIPDebugFlags;
 
 void sip_debug_set_flags_from_env ();

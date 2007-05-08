@@ -13,7 +13,6 @@
 static SIPDebugFlags flags = 0;
 
 static GDebugKey keys[] = {
-  { "persist",       SIP_DEBUG_PERSIST },
   { "media-channel", SIP_DEBUG_MEDIA },
   { "connection",    SIP_DEBUG_CONNECTION },
   { "im",            SIP_DEBUG_IM },
