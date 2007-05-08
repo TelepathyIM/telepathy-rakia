@@ -12,7 +12,7 @@
 
 static SIPDebugFlags flags = 0;
 
-static GDebugKey keys[] = {
+static const GDebugKey keys[] = {
   { "media-channel", SIP_DEBUG_MEDIA },
   { "connection",    SIP_DEBUG_CONNECTION },
   { "im",            SIP_DEBUG_IM },
