@@ -170,11 +170,6 @@ sip_media_factory_close_all (TpChannelFactoryIface *iface)
   GHashTable *session_chans;
   GPtrArray *channels;
 
-  session_chans = priv->session_chans;
-  priv->session_chans = NULL;
-  if (session_chans)
-    g_hash_table_destroy (session_chans);
-
   channels = priv->channels;
   priv->channels = NULL;
   if (channels)
@@ -182,6 +177,11 @@ sip_media_factory_close_all (TpChannelFactoryIface *iface)
       g_ptr_array_foreach (channels, unref_one, NULL);
       g_ptr_array_free (channels, TRUE);
     }
+
+  session_chans = priv->session_chans;
+  priv->session_chans = NULL;
+  if (session_chans)
+    g_hash_table_destroy (session_chans);
 }
 
 static void
