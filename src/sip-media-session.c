@@ -551,10 +551,25 @@ sip_media_session_debug (SIPMediaSession *session,
 static gboolean priv_timeout_session (gpointer data)
 {
   SIPMediaSession *session = data;
+  TpIntSet *set;
+  TpHandle peer;
 
-  g_debug ("%s: session timed out", G_STRFUNC);
+  DEBUG("session timed out");
   if (session)
-    sip_media_session_terminate (session);
+    {
+      SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session); 
+
+      peer = sip_media_session_get_peer (session);
+
+      set = tp_intset_new ();
+      tp_intset_add (set, peer);
+      tp_group_mixin_change_members ((GObject *)priv->channel, "Timed out",
+                                     NULL, set, NULL, NULL, 0,
+                                     TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER);
+      tp_intset_destroy (set);
+
+      sip_media_session_terminate (session);
+    }
 
   return FALSE;
 }
