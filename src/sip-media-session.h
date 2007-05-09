@@ -25,11 +25,11 @@
 G_BEGIN_DECLS
 
 typedef enum {
-    JS_STATE_PENDING_CREATED = 0,
-    JS_STATE_PENDING_INITIATED,
-    JS_STATE_ACTIVE,
-    JS_STATE_ENDED
-} JingleSessionState;
+    SIP_MEDIA_SESSION_STATE_PENDING_CREATED = 0,
+    SIP_MEDIA_SESSION_STATE_PENDING_INITIATED,
+    SIP_MEDIA_SESSION_STATE_ACTIVE,
+    SIP_MEDIA_SESSION_STATE_ENDED
+} SIPMediaSessionState;
 
 typedef struct _SIPMediaSession SIPMediaSession;
 typedef struct _SIPMediaSessionClass SIPMediaSessionClass;

@@ -1051,7 +1051,7 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 					   SIPMediaChannel *channel)
 {
   TpGroupMixin *mixin = TP_GROUP_MIXIN (channel);
-  JingleSessionState state;
+  SIPMediaSessionState state;
   TpHandle peer;
   TpIntSet *set;
 
@@ -1064,7 +1064,7 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 
   set = tp_intset_new ();
 
-  if (state == JS_STATE_ACTIVE) {
+  if (state == SIP_MEDIA_SESSION_STATE_ACTIVE) {
     /* add the peer to the member list */
     tp_intset_add (set, peer);
 
@@ -1077,7 +1077,7 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 				     TP_CHANNEL_GROUP_FLAG_CAN_ADD |
 				     TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
   }
-  else if (state == JS_STATE_ENDED) {
+  else if (state == SIP_MEDIA_SESSION_STATE_ENDED) {
     /* remove us and the peer from the member list */
     tp_intset_add (set, mixin->self_handle);
     tp_intset_add (set, peer);

@@ -110,7 +110,7 @@ struct _SIPMediaSessionPrivate
   gchar *id;                            /** see gobj. prop. 'session-id' */
   TpHandle initiator;                   /** see gobj. prop. 'initator' */
   TpHandle peer;                        /** see gobj. prop. 'peer' */
-  JingleSessionState state;             /** see gobj. prop. 'state' */
+  SIPMediaSessionState state;             /** see gobj. prop. 'state' */
   guint timer_id;
   gboolean accepted;                    /**< session has been locally accepted for use */
   gboolean oa_pending;                  /**< offer/answer waiting to be sent */
@@ -160,7 +160,7 @@ sip_media_session_constructor (GType type, guint n_props,
 
   g_object_get (priv->channel, "connection", &priv->conn, NULL);
 
-  priv->state = JS_STATE_PENDING_CREATED;
+  priv->state = SIP_MEDIA_SESSION_STATE_PENDING_CREATED;
 
   /* note: session is always created to either create a new outbound
    *       request for a media channel, or to respond to an incoming 
@@ -207,8 +207,8 @@ static void sip_media_session_get_property (GObject    *object,
 }
 
 static void priv_session_state_changed (SIPMediaSession *session,
-					JingleSessionState prev_state,
-					JingleSessionState new_state);
+					SIPMediaSessionState prev_state,
+					SIPMediaSessionState new_state);
 
 static void sip_media_session_set_property (GObject      *object,
 					    guint         property_id,
@@ -217,7 +217,7 @@ static void sip_media_session_set_property (GObject      *object,
 {
   SIPMediaSession *session = SIP_MEDIA_SESSION (object);
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  JingleSessionState prev_state;
+  SIPMediaSessionState prev_state;
 
   switch (property_id) {
     case PROP_MEDIA_CHANNEL:
@@ -500,8 +500,8 @@ sip_media_session_get_peer (SIPMediaSession *session)
 }
 
 static void priv_session_state_changed (SIPMediaSession *session,
-					JingleSessionState prev_state,
-					JingleSessionState new_state)
+					SIPMediaSessionState prev_state,
+					SIPMediaSessionState new_state)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
@@ -509,12 +509,12 @@ static void priv_session_state_changed (SIPMediaSession *session,
                 session_states[prev_state],
                 session_states[new_state]);
 
-  if (new_state == JS_STATE_PENDING_INITIATED)
+  if (new_state == SIP_MEDIA_SESSION_STATE_PENDING_INITIATED)
     {
       priv->timer_id =
         g_timeout_add (DEFAULT_SESSION_TIMEOUT, priv_timeout_session, session);
     }
-  else if (new_state == JS_STATE_ACTIVE)
+  else if (new_state == SIP_MEDIA_SESSION_STATE_ACTIVE)
     {
       if (priv->timer_id) {
 	g_source_remove (priv->timer_id);
@@ -565,11 +565,11 @@ void sip_media_session_terminate (SIPMediaSession *session)
   
   DEBUG ("enter");
 
-  if (priv->state == JS_STATE_ENDED)
+  if (priv->state == SIP_MEDIA_SESSION_STATE_ENDED)
     return;
 
-  if (priv->state == JS_STATE_PENDING_INITIATED ||
-      priv->state == JS_STATE_ACTIVE) {
+  if (priv->state == SIP_MEDIA_SESSION_STATE_PENDING_INITIATED ||
+      priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE) {
     nua_handle_t *nh = priv_get_nua_handle_for_session(session);
     DEBUG("sending SIP BYE (handle %p)", nh);
     if (nh)
@@ -578,7 +578,7 @@ void sip_media_session_terminate (SIPMediaSession *session)
       g_warning ("Unable to send BYE, channel handle not available.");
   }
 
-  g_object_set (session, "state", JS_STATE_ENDED, NULL);
+  g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ENDED, NULL);
 }
 
 /**
@@ -677,7 +677,7 @@ sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_sdp)
       }
     
     /* XXX: hmm, this is not the correct place really */
-    g_object_set (session, "state", JS_STATE_ACTIVE, NULL);
+    g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ACTIVE, NULL);
   }
 
   sdp_parser_free(parser);
@@ -870,7 +870,7 @@ static void priv_stream_new_active_candidate_pair_cb (SIPMediaStream *stream,
 
   priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  /* g_assert (priv->state < JS_STATE_ACTIVE); */
+  /* g_assert (priv->state < SIP_MEDIA_SESSION_STATE_ACTIVE); */
 
   SESSION_DEBUG(session, "stream-engine reported a new active candidate pair [\"%s\" - \"%s\"]",
                 native_candidate_id, remote_candidate_id);
@@ -1006,8 +1006,8 @@ static void priv_stream_ready_cb (SIPMediaStream *stream,
  
   DEBUG ("enter");
 
-  if (priv->state < JS_STATE_PENDING_INITIATED)
-    g_object_set (session, "state", JS_STATE_PENDING_INITIATED, NULL);
+  if (priv->state < SIP_MEDIA_SESSION_STATE_PENDING_INITIATED)
+    g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_PENDING_INITIATED, NULL);
 
   priv_offer_answer_step (session);
 }

@@ -121,12 +121,12 @@ static int priv_update_local_sdp(SIPMediaStream *stream);
 static void priv_generate_sdp (SIPMediaStream *stream);
 
 #ifdef ENABLE_DEBUG
-static const char *gms_tp_protocols[] = {
+static const char *debug_tp_protocols[] = {
   "TP_MEDIA_STREAM_PROTO_UDP (0)",
   "TP_MEDIA_STREAM_PROTO_TCP (1)"
 };
 
-static const char *gms_tp_transports[] = {
+static const char *debug_tp_transports[] = {
   "TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL (0)",
   "TP_MEDIA_STREAM_TRANSPORT_TYPE_DERIVED (1)",
   "TP_MEDIA_STREAM_TRANSPORT_TYPE_RELAY (2)"
@@ -538,7 +538,7 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
   SIPMediaStreamPrivate *priv;
-  JingleSessionState state;
+  SIPMediaSessionState state;
   GPtrArray *candidates;
   GValue candidate = { 0, };
   GValueArray *transport;
@@ -552,8 +552,8 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   /* FIXME: maybe this should be an assertion in case the channel
    * isn't closed early enough right now? */
-  if (state > JS_STATE_ACTIVE) {
-    g_debug ("%s: state > JS_STATE_ACTIVE, doing nothing", G_STRFUNC);
+  if (state > SIP_MEDIA_SESSION_STATE_ACTIVE) {
+    g_debug ("%s: state > SIP_MEDIA_SESSION_STATE_ACTIVE, doing nothing", G_STRFUNC);
     tp_svc_media_stream_handler_return_from_new_native_candidate (context);
     return;
   }
@@ -966,7 +966,7 @@ static void priv_session_stream_state_changed_cb (SIPMediaSession *session,
 						  GParamSpec *arg1,
 						  SIPMediaStream *stream)
 {
-  JingleSessionState state;
+  SIPMediaSessionState state;
 
   g_object_get (session, "state", &state, NULL);
   g_debug ("stream state cb: session js-state to %d.", state);
@@ -998,7 +998,7 @@ static void priv_generate_sdp (SIPMediaStream *obj)
 static void push_remote_codecs (SIPMediaStream *stream)
 {
   SIPMediaStreamPrivate *priv;
-  JingleSessionState state;
+  SIPMediaSessionState state;
   GPtrArray *codecs;
 
   DEBUG ("enter");
@@ -1028,7 +1028,7 @@ static void push_remote_codecs (SIPMediaStream *stream)
 static void push_remote_candidates (SIPMediaStream *stream)
 {
   SIPMediaStreamPrivate *priv;
-  JingleSessionState state;
+  SIPMediaSessionState state;
   GPtrArray *candidates;
   guint i;
 
@@ -1044,7 +1044,7 @@ static void push_remote_candidates (SIPMediaStream *stream)
   candidates = g_value_get_boxed (&priv->remote_candidates);
 
   g_object_get (priv->session, "state", &state, NULL);
-  g_assert (state < JS_STATE_ENDED);
+  g_assert (state < SIP_MEDIA_SESSION_STATE_ENDED);
 
   g_debug ("%s: number of candidates to push %d.", G_STRFUNC, candidates->len);
 
@@ -1236,8 +1236,8 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
   SESSION_DEBUG(priv->session,
                 "from Telepathy DBus struct: [\"%s\", [1, \"%s\", %d, %s, "
                 "\"RTP\", \"AVP\", %f, %s, \"%s\", \"%s\"]]",
-                ca_id, tr_addr, tr_port, gms_tp_protocols[tr_proto],
-                tr_pref, gms_tp_transports[tr_type], tr_user, tr_pass);
+                ca_id, tr_addr, tr_port, debug_tp_protocols[tr_proto],
+                tr_pref, debug_tp_transports[tr_type], tr_user, tr_pass);
 
   tmpa_str = g_strconcat(c_sdp_version, mline_str, c_crlf, cline_str, malines_str, NULL);
 
