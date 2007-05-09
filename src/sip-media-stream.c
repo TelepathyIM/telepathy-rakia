@@ -31,6 +31,8 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/svc-media-interfaces.h>
 
+#include "config.h"
+
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
 #include "sip-media-channel.h"
@@ -118,7 +120,7 @@ static void push_remote_candidates (SIPMediaStream *stream);
 static int priv_update_local_sdp(SIPMediaStream *stream);
 static void priv_generate_sdp (SIPMediaStream *stream);
 
-#if _GMS_DEBUG_LEVEL > 1
+#ifdef ENABLE_DEBUG
 static const char *gms_tp_protocols[] = {
   "TP_MEDIA_STREAM_PROTO_UDP (0)",
   "TP_MEDIA_STREAM_PROTO_TCP (1)"
@@ -129,7 +131,7 @@ static const char *gms_tp_transports[] = {
   "TP_MEDIA_STREAM_TRANSPORT_TYPE_DERIVED (1)",
   "TP_MEDIA_STREAM_TRANSPORT_TYPE_RELAY (2)"
 };
-#endif
+#endif /* ENABLE_DEBUG */
 
 /***********************************************************************
  * Set: Gobject interface
@@ -442,7 +444,7 @@ sip_media_stream_error (TpSvcMediaStreamHandler *iface,
 
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
-  GMS_DEBUG_WARNING (priv->session, "Media.StreamHandler::Error called -- terminating session");
+  SESSION_DEBUG(priv->session, "Media.StreamHandler::Error called -- terminating session");
 
   sip_media_session_terminate (priv->session);
 
@@ -577,15 +579,14 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
   addr = g_value_get_string (g_value_array_get_nth (transport, 1));
   if (!strcmp (addr, "127.0.0.1"))
     {
-      GMS_DEBUG_WARNING (priv->session, "%s: ignoring native localhost candidate",
-                         G_STRFUNC);
+      SESSION_DEBUG(priv->session, "ignoring native localhost candidate");
       tp_svc_media_stream_handler_return_from_new_native_candidate (context);
       return;
     }
 
   g_ptr_array_add (candidates, g_value_get_boxed (&candidate));
 
-  GMS_DEBUG_INFO (priv->session, "put 1 native candidate from stream-engine into cache");
+  SESSION_DEBUG(priv->session, "put 1 native candidate from stream-engine into cache");
 
   if (candidates->len > 1 &&
       priv->native_codecs_prepared == TRUE &&
@@ -631,8 +632,8 @@ sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
 
   priv->ready_received = TRUE;
 
-  GMS_DEBUG_INFO (priv->session, "putting list of all %d locally supported "
-                  "codecs from stream-engine into cache", codecs->len);
+  SESSION_DEBUG(priv->session, "putting list of all %d locally supported "
+                "codecs from stream-engine into cache", codecs->len);
   g_value_init (&val, TP_TYPE_CODEC_LIST);
   g_value_set_static_boxed (&val, codecs);
   g_value_copy (&val, &priv->native_codecs);
@@ -716,9 +717,8 @@ sip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
   g_assert (SIP_IS_MEDIA_STREAM (obj));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
-  if (SIP_IS_MEDIA_SESSION (priv->session))
-    GMS_DEBUG_INFO (priv->session, "got codec intersection containing %d "
-		    "codecs from stream-engine", codecs->len);
+  SESSION_DEBUG(priv->session, "got codec intersection containing %d "
+                "codecs from stream-engine", codecs->len);
 
   /* store the intersection for later on */
   g_value_set_boxed (&priv->native_codecs, codecs);
@@ -1013,8 +1013,8 @@ static void push_remote_codecs (SIPMediaStream *stream)
 
   codecs = g_value_get_boxed (&priv->remote_codecs);
 
-  GMS_DEBUG_EVENT (priv->session, "passing %d remote codecs to stream-engine",
-                   codecs->len);
+  SESSION_DEBUG(priv->session, "passing %d remote codecs to stream-engine",
+                codecs->len);
 
   if (codecs->len > 0) {
     tp_svc_media_stream_handler_emit_set_remote_codecs (
@@ -1057,8 +1057,8 @@ static void push_remote_candidates (SIPMediaStream *stream)
       candidate_id = g_value_get_string (g_value_array_get_nth (candidate, 0));
       transports = g_value_get_boxed (g_value_array_get_nth (candidate, 1));
 
-      GMS_DEBUG_EVENT (priv->session, "passing 1 remote candidate "
-                       "to stream-engine");
+      SESSION_DEBUG(priv->session,
+                    "passing 1 remote candidate to stream-engine");
 
       tp_svc_media_stream_handler_emit_add_remote_candidate (
           (TpSvcMediaStreamHandler *)stream, candidate_id, transports);
@@ -1233,13 +1233,12 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
   }
   
 
-  GMS_DEBUG_DUMP (priv->session,
-		  "  from Telepathy DBus struct: [%s\"%s\", %s[%s1, \"%s\", %d, %s, "
-		  "\"%s\", \"%s\", %f, %s, \"%s\", \"%s\"%s]]",
-		  ANSI_BOLD_OFF, ca_id, ANSI_BOLD_ON, ANSI_BOLD_OFF, tr_addr, tr_port,
-		  gms_tp_protocols[tr_proto], "RTP", "AVP", tr_pref, gms_tp_transports[tr_type], tr_user, tr_pass,
-		  ANSI_BOLD_ON);
-  
+  SESSION_DEBUG(priv->session,
+                "from Telepathy DBus struct: [\"%s\", [1, \"%s\", %d, %s, "
+                "\"RTP\", \"AVP\", %f, %s, \"%s\", \"%s\"]]",
+                ca_id, tr_addr, tr_port, gms_tp_protocols[tr_proto],
+                tr_pref, gms_tp_transports[tr_type], tr_user, tr_pass);
+
   tmpa_str = g_strconcat(c_sdp_version, mline_str, c_crlf, cline_str, malines_str, NULL);
 
   g_free(priv->stream_sdp);

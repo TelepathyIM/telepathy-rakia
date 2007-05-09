@@ -84,63 +84,16 @@ gboolean sip_media_session_stop_telephony_event  (SIPMediaSession *self,
                                                   guint stream_id,
                                                   GError **error);
 
-typedef enum {
-    DEBUG_MSG_INFO = 0,
-    DEBUG_MSG_DUMP,
-    DEBUG_MSG_WARNING,
-    DEBUG_MSG_ERROR,
-    DEBUG_MSG_EVENT
-} DebugMessageType;
+#ifdef ENABLE_DEBUG
 
-#ifndef _GMS_DEBUG_LEVEL
-#define _GMS_DEBUG_LEVEL 2
-#endif
-
-#if _GMS_DEBUG_LEVEL
-
-#define ANSI_RESET      "\x1b[0m"
-#define ANSI_BOLD_ON    "\x1b[1m"
-#define ANSI_BOLD_OFF   "\x1b[22m"
-#define ANSI_INVERSE_ON "\x1b[7m"
-
-#define ANSI_BG_RED     "\x1b[41m"
-#define ANSI_BG_GREEN   "\x1b[42m"
-#define ANSI_BG_YELLOW  "\x1b[43m"
-#define ANSI_BG_BLUE    "\x1b[44m"
-#define ANSI_BG_MAGENTA "\x1b[45m"
-#define ANSI_BG_CYAN    "\x1b[46m"
-#define ANSI_BG_WHITE   "\x1b[47m"
-
-#define ANSI_FG_BLACK   "\x1b[30m"
-#define ANSI_FG_RED     "\x1b[31m"
-#define ANSI_FG_GREEN   "\x1b[32m"
-#define ANSI_FG_YELLOW  "\x1b[33m"
-#define ANSI_FG_BLUE    "\x1b[34m"
-#define ANSI_FG_MAGENTA "\x1b[35m"
-#define ANSI_FG_CYAN    "\x1b[36m"
-#define ANSI_FG_WHITE   "\x1b[37m"
-
-#define GMS_DEBUG_INFO(s, ...)    sip_media_session_debug (s, DEBUG_MSG_INFO, __VA_ARGS__)
-#if _GMS_DEBUG_LEVEL > 1
-#define GMS_DEBUG_DUMP(s, ...)    sip_media_session_debug (s, DEBUG_MSG_DUMP, __VA_ARGS__)
-#else
-#define GMS_DEBUG_DUMP(s, ...)
-#endif
-#define GMS_DEBUG_WARNING(s, ...) sip_media_session_debug (s, DEBUG_MSG_WARNING, __VA_ARGS__)
-#define GMS_DEBUG_ERROR(s, ...)   sip_media_session_debug (s, DEBUG_MSG_ERROR, __VA_ARGS__)
-#define GMS_DEBUG_EVENT(s, ...)   sip_media_session_debug (s, DEBUG_MSG_EVENT, __VA_ARGS__)
+#define SESSION_DEBUG(s, ...)    sip_media_session_debug (s, __VA_ARGS__)
 
 void sip_media_session_debug (SIPMediaSession *session,
-			      DebugMessageType type,
 			      const gchar *format, ...);
 
 #else
 
-#define GMS_DEBUG_INFO(s, ...)
-#define GMS_DEBUG_DUMP(s, ...)
-#define GMS_DEBUG_WARNING(s, ...)
-#define GMS_DEBUG_ERROR(s, ...)
-#define GMS_DEBUG_EVENT(s, ...)
+#define SESSION_DEBUG(s, ...)
 
 #endif
 

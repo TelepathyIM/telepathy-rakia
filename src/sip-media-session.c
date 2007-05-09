@@ -35,6 +35,8 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/svc-media-interfaces.h>
 
+#include "config.h"
+
 #include "sip-media-channel.h"
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
@@ -76,10 +78,7 @@ enum
 
 static guint signals[SIG_LAST_SIGNAL] = {0};
 
-typedef struct {
-    gchar *name;
-    gchar *attributes;
-} SessionStateDescription;
+#ifdef ENABLE_DEBUG
 
 /**
  * StreamEngine session states:
@@ -90,13 +89,15 @@ typedef struct {
  *   an error)
  * - ended, session has ended
  */
-static const SessionStateDescription session_states[] =
+static const char* session_states[] =
 {
-    { "JS_STATE_PENDING_CREATED",   ANSI_BOLD_ON ANSI_FG_BLACK ANSI_BG_WHITE   },
-    { "JS_STATE_PENDING_INITIATED", ANSI_BOLD_ON               ANSI_BG_MAGENTA },
-    { "JS_STATE_ACTIVE",            ANSI_BOLD_ON               ANSI_BG_BLUE    },
-    { "JS_STATE_ENDED",                                        ANSI_BG_RED     }
+    "pending-created",
+    "pending-initiated",
+    "active",
+    "ended"
 };
+
+#endif /* ENABLE_DEBUG */
 
 /* private structure */
 typedef struct _SIPMediaSessionPrivate SIPMediaSessionPrivate;
@@ -403,7 +404,7 @@ sip_media_session_error (TpSvcMediaSessionHandler *iface,
 {
   SIPMediaSession *obj = SIP_MEDIA_SESSION (iface);
 
-  GMS_DEBUG_INFO (obj, "Media.SessionHandler::Error called (%s) terminating session", message);
+  SESSION_DEBUG(obj, "Media.SessionHandler::Error called (%s) terminating session", message);
 
   sip_media_session_terminate (obj);
 
@@ -504,9 +505,9 @@ static void priv_session_state_changed (SIPMediaSession *session,
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  GMS_DEBUG_EVENT (session, "state changed from %s to %s",
-                   session_states[prev_state].name,
-                   session_states[new_state].name);
+  SESSION_DEBUG(session, "state changed from %s to %s",
+                session_states[prev_state],
+                session_states[new_state]);
 
   if (new_state == JS_STATE_PENDING_INITIATED)
     {
@@ -522,69 +523,30 @@ static void priv_session_state_changed (SIPMediaSession *session,
     }
 }
 
-#if _GMS_DEBUG_LEVEL
+#ifdef ENABLE_DEBUG
 void
 sip_media_session_debug (SIPMediaSession *session,
-			 DebugMessageType type,
 			 const gchar *format, ...)
 {
   va_list list;
   gchar buf[512];
   SIPMediaSessionPrivate *priv;
-  time_t curtime;
-  struct tm *loctime;
-  gchar stamp[10];
-  const gchar *type_str;
 
   g_assert (SIP_IS_MEDIA_SESSION (session));
 
   priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  curtime = time (NULL);
-  loctime = localtime (&curtime);
-
-  strftime (stamp, sizeof (stamp), "%T", loctime);
-
   va_start (list, format);
 
-  vsnprintf (buf, sizeof (buf), format, list);
+  g_vsnprintf (buf, sizeof (buf), format, list);
 
   va_end (list);
 
-  switch (type) {
-    case DEBUG_MSG_INFO:
-      type_str = ANSI_BOLD_ON ANSI_FG_WHITE;
-      break;
-    case DEBUG_MSG_DUMP:
-      type_str = ANSI_BOLD_ON ANSI_FG_GREEN;
-      break;
-    case DEBUG_MSG_WARNING:
-      type_str = ANSI_BOLD_ON ANSI_FG_YELLOW;
-      break;
-    case DEBUG_MSG_ERROR:
-      type_str = ANSI_BOLD_ON ANSI_FG_WHITE ANSI_BG_RED;
-      break;
-    case DEBUG_MSG_EVENT:
-      type_str = ANSI_BOLD_ON ANSI_FG_CYAN;
-      break;
-    default:
-      g_assert_not_reached ();
-  }
-
-  printf ("[%s%s%s] %s%-26s%s %s%s%s\n",
-      ANSI_BOLD_ON ANSI_FG_WHITE,
-      stamp,
-      ANSI_RESET,
-      session_states[priv->state].attributes,
-      session_states[priv->state].name,
-      ANSI_RESET,
-      type_str,
-      buf,
-      ANSI_RESET);
-
-  fflush (stdout);
+  sip_debug (DEBUG_FLAG, "SIP media session [%-17s]: %s\n",
+      session_states[priv->state],
+      buf);
 }
-#endif /* _GMS_DEBUG_LEVEL */
+#endif /* ENABLE_DEBUG */
 
 static gboolean priv_timeout_session (gpointer data)
 {
@@ -910,8 +872,8 @@ static void priv_stream_new_active_candidate_pair_cb (SIPMediaStream *stream,
 
   /* g_assert (priv->state < JS_STATE_ACTIVE); */
 
-  GMS_DEBUG_INFO (session, "stream-engine reported a new active candidate pair [\"%s\" - \"%s\"]",
-                  native_candidate_id, remote_candidate_id);
+  SESSION_DEBUG(session, "stream-engine reported a new active candidate pair [\"%s\" - \"%s\"]",
+                native_candidate_id, remote_candidate_id);
 
   /* XXX: active candidate pair, requires signaling action, 
    *      but currently done in priv_stream_ready_cb() */
@@ -1062,9 +1024,9 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
 
   if (priv->initiator != priv->peer)
     {
-      GMS_DEBUG_INFO (session, "%s: session not initiated by peer so we're "
-                      "not preparing an accept message",
-                      G_STRFUNC);
+      SESSION_DEBUG(session,
+                    "session not initiated by peer so we're "
+                    "not preparing an accept message");
       return;
     }
 }
