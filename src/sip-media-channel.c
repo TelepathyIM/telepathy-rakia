@@ -535,6 +535,8 @@ sip_media_channel_finalize (GObject *object)
 
   tp_properties_mixin_finalize (object);
 
+  g_free (priv->object_path);
+
   G_OBJECT_CLASS (sip_media_channel_parent_class)->finalize (object);
 
   DEBUG ("exit");
