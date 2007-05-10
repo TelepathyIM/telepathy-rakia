@@ -286,8 +286,7 @@ sip_text_channel_set_property(GObject *object,
     break;
     
   case PROP_OBJECT_PATH:
-    g_debug ("%s: PROP_OBJECT_PATH", G_STRFUNC);
-    g_free (priv->object_path);
+    g_assert (priv->object_path == NULL);
     priv->object_path = g_value_dup_string (value);
     break;
 
