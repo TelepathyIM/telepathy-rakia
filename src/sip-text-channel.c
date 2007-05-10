@@ -123,17 +123,18 @@ struct _SIPTextChannelPrivate
 
 static void _sip_text_pending_free(SIPTextPendingMessage *msg)
 {
-        enter;
+  if (msg->text)
+    g_free (msg->text);
 
-	if (msg->text)
-	{
-		g_free(msg->text);
-	}
-	msg->nh = NULL;
-	
-	g_slice_free(SIPTextPendingMessage, msg);
+  nua_handle_unref (msg->nh);
+
+  g_slice_free (SIPTextPendingMessage, msg);
 }
 
+static void _sip_text_pending_free_walk(gpointer data, gpointer user_data)
+{
+  _sip_text_pending_free ((SIPTextPendingMessage *) data);
+}
 
 static void
 sip_text_channel_init (SIPTextChannel *obj)
@@ -144,9 +145,6 @@ sip_text_channel_init (SIPTextChannel *obj)
 
   priv->pending_messages = g_queue_new ();
   priv->messages_to_be_acknowledged = g_queue_new ();
-
-  /* XXX -- mela: priv->last_msg = _sip_text_pending_new0(); */
-
 }
 
 static
@@ -346,10 +344,25 @@ sip_text_channel_finalize(GObject *object)
 
   enter;
 
-  if (!priv)
-    return;
+  if (!g_queue_is_empty (priv->pending_messages))
+    {
+      g_warning ("zapping %u pending incoming messages",
+                 g_queue_get_length (priv->pending_messages));
+      g_queue_foreach (priv->pending_messages,
+                       _sip_text_pending_free_walk, NULL);
+    }
+  g_queue_free (priv->pending_messages);
 
-  /* free any data held directly by the object here */
+  if (!g_queue_is_empty (priv->messages_to_be_acknowledged))
+    {
+      g_message ("zapping %u pending outgoing message requests",
+                 g_queue_get_length (priv->messages_to_be_acknowledged));
+      g_queue_foreach (priv->messages_to_be_acknowledged,
+                       _sip_text_pending_free_walk, NULL);
+    }
+  g_queue_free (priv->messages_to_be_acknowledged);
+
+  g_free (priv->object_path);
 
   G_OBJECT_CLASS (sip_text_channel_parent_class)->finalize (object);
 }
