@@ -42,6 +42,9 @@
 
 #include "sip-text-channel.h"
 
+#define DEBUG_FLAG SIP_DEBUG_IM
+#include "debug.h"
+
 static void channel_iface_init (gpointer, gpointer);
 static void text_iface_init (gpointer, gpointer);
 
@@ -72,9 +75,6 @@ enum
       G_TYPE_UINT, \
       G_TYPE_STRING, \
       G_TYPE_INVALID))
-
-
-#define enter g_debug("%s: enter", G_STRFUNC)
 
 
 /* private structures */
@@ -141,7 +141,7 @@ sip_text_channel_init (SIPTextChannel *obj)
 {
   SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (obj);
 
-  enter;
+  DEBUG("enter");
 
   priv->pending_messages = g_queue_new ();
   priv->messages_to_be_acknowledged = g_queue_new ();
@@ -156,7 +156,7 @@ GObject *sip_text_channel_constructor(GType type,
   SIPTextChannelPrivate *priv;
   DBusGConnection *bus;
 
-  enter;
+  DEBUG("enter");
 
   obj =
     G_OBJECT_CLASS(sip_text_channel_parent_class)->constructor(type,
@@ -188,7 +188,7 @@ sip_text_channel_class_init(SIPTextChannelClass *sip_text_channel_class)
   GObjectClass *object_class = G_OBJECT_CLASS (sip_text_channel_class);
   GParamSpec *param_spec;
 
-  enter;
+  DEBUG("enter");
 
   g_type_class_add_private (sip_text_channel_class, sizeof (SIPTextChannelPrivate));
 
@@ -243,9 +243,6 @@ void sip_text_channel_get_property(GObject *object,
   SIPTextChannel *chan = SIP_TEXT_CHANNEL(object);
   SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE(chan);
 
-  enter;
-
-
   switch (property_id) {
     case PROP_CONNECTION:
       g_value_set_object(value, priv->conn);
@@ -264,8 +261,6 @@ void sip_text_channel_get_property(GObject *object,
     break;
 
   case PROP_HANDLE:
-    g_debug ("%s: PROP_HANDLE: %d", G_STRFUNC, priv->handle); /* XXX -- mela */
-    g_debug ("%s: priv->handle = %d", G_STRFUNC, priv->handle); /* XXX -- mela */
     g_value_set_uint(value, priv->handle);
     break;
 
@@ -285,11 +280,8 @@ sip_text_channel_set_property(GObject *object,
   SIPTextChannel *chan = SIP_TEXT_CHANNEL (object);
   SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (chan);
 
-  enter;
-
   switch (property_id) {
   case PROP_CONNECTION:
-    g_debug ("%s: PROP_CONNECTION", G_STRFUNC);
     priv->conn = g_value_get_object (value);
     break;
     
@@ -306,12 +298,9 @@ sip_text_channel_set_property(GObject *object,
 
   case PROP_HANDLE:
     priv->handle = g_value_get_uint(value);
-    g_debug ("%s: priv->handle = %d", G_STRFUNC, priv->handle);
-    g_debug ("%s: PROP_HANDLE: %d", G_STRFUNC, priv->handle);
     break;
     
   default:
-    g_debug ("%s: default", G_STRFUNC);
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
   }
@@ -323,7 +312,7 @@ sip_text_channel_dispose(GObject *object)
   SIPTextChannel *self = SIP_TEXT_CHANNEL (object);
   SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
 
-  enter;
+  DEBUG("enter");
 
   if (priv->dispose_has_run)
     return;
@@ -342,7 +331,7 @@ sip_text_channel_finalize(GObject *object)
   SIPTextChannel *self = SIP_TEXT_CHANNEL (object);
   SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
 
-  enter;
+  DEBUG("enter");
 
   if (!g_queue_is_empty (priv->pending_messages))
     {
@@ -367,8 +356,6 @@ sip_text_channel_finalize(GObject *object)
   G_OBJECT_CLASS (sip_text_channel_parent_class)->finalize (object);
 }
 
-
-
 static gint sip_pending_message_compare(gconstpointer msg, gconstpointer id)
 {
 	SIPTextPendingMessage *message = (SIPTextPendingMessage *)(msg);
@@ -378,14 +365,11 @@ static gint sip_pending_message_compare(gconstpointer msg, gconstpointer id)
 	return (message->id != GPOINTER_TO_INT(id));
 }
 
-
 static gint sip_acknowledged_messages_compare(gconstpointer msg,
 					      gconstpointer id)
 {
   SIPTextPendingMessage *message = (SIPTextPendingMessage *)msg;
   nua_handle_t *nh = (nua_handle_t *) id;
-  enter;
-
   return (message->nh != nh);
 }
 
@@ -407,7 +391,7 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
   SIPTextPendingMessage *msg;
   guint i;
 
-  enter;
+  DEBUG("enter");
   
   priv = SIP_TEXT_CHANNEL_GET_PRIVATE(obj);
   contact_repo = tp_base_connection_get_handles (
@@ -427,7 +411,7 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
         {
           GError *error = NULL;
 
-          g_debug ("invalid message id %u", id);
+          DEBUG ("invalid message id %u", id);
 
           g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
               "invalid message id %u", id);
@@ -443,7 +427,7 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
     {
       msg = (SIPTextPendingMessage *) nodes[i]->data;
 
-      g_debug ("acknowleding message id %u", msg->id);
+      DEBUG("acknowledging message id %u", msg->id);
 
       g_queue_remove (priv->pending_messages, msg);
 
@@ -469,7 +453,7 @@ sip_text_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *context)
   SIPTextChannel *self = SIP_TEXT_CHANNEL(iface);
   SIPTextChannelPrivate *priv;
 
-  enter;
+  DEBUG("enter");
 
   priv = SIP_TEXT_CHANNEL_GET_PRIVATE(self);
   if (!priv->closed)
@@ -492,7 +476,7 @@ static void
 sip_text_channel_get_channel_type (TpSvcChannel *iface,
                                    DBusGMethodInvocation *context)
 {
-  enter;
+  DEBUG("enter");
 
   tp_svc_channel_return_from_get_channel_type (context,
       TP_IFACE_CHANNEL_TYPE_TEXT);
@@ -510,17 +494,12 @@ sip_text_channel_get_handle (TpSvcChannel *iface,
                              DBusGMethodInvocation *context)
 {
   SIPTextChannel *obj = SIP_TEXT_CHANNEL (iface);
-
   SIPTextChannelPrivate *priv;
 
-  enter;
-
-  g_assert(obj != NULL);
-  g_assert(SIP_IS_TEXT_CHANNEL(obj));
+  DEBUG("enter");
 
   priv = SIP_TEXT_CHANNEL_GET_PRIVATE(obj);
 
-  g_debug ("%s: priv->handle = %d", G_STRFUNC, priv->handle); /* XXX -- mela */
   tp_svc_channel_return_from_get_handle (context, TP_HANDLE_TYPE_CONTACT,
       priv->handle);
 }
@@ -538,7 +517,7 @@ sip_text_channel_get_interfaces(TpSvcChannel *iface,
 {
   const char *interfaces[] = { NULL };
 
-  enter;
+  DEBUG("enter");
   tp_svc_channel_return_from_get_interfaces (context, interfaces);
 }
 
@@ -556,7 +535,7 @@ sip_text_channel_get_message_types(TpSvcChannelTypeText *iface,
   GArray *ret = g_array_sized_new (FALSE, FALSE, sizeof (guint), 1);
   guint normal[1] = { TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL };
 
-  enter;
+  DEBUG("enter");
   g_array_append_val (ret, normal);
   tp_svc_channel_type_text_return_from_get_message_types (context, ret);
   g_array_free (ret, TRUE);
@@ -644,21 +623,20 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
   nua_handle_t *msg_nh = NULL;
   const char *recipient;
 
-  enter;
+  DEBUG("enter");
 
   g_assert(sofia_nua);
   g_assert(sofia_home);
 
   object_path = g_strdup_printf ("%s/TextChannel%u", priv->object_path, priv->handle);
 
-  g_debug ("%s: priv->handle = %d", G_STRFUNC, priv->handle);
   recipient = tp_handle_inspect(contact_repo, priv->handle);
   
   if ((recipient == NULL) || (strlen(recipient) == 0)) {
       GError invalid =  { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
           "invalid recipient" };
 
-      g_debug("%s: invalid recipient %d", G_STRFUNC, priv->handle);
+      g_warning ("invalid recipient handle %d", priv->handle);
       dbus_g_method_return_error (context, &invalid);
       return;
   }
@@ -694,23 +672,20 @@ sip_text_channel_emit_message_status(SIPTextChannel *obj,
   TpChannelTextSendError send_error;
   GList *node;
 
-  enter;
+  DEBUG("enter");
 
   node = g_queue_find_custom(priv->messages_to_be_acknowledged, nh,
 			     sip_acknowledged_messages_compare);
 
   /* Shouldn't happen... */
   if (!node) {
-    g_debug("%s: message not found", G_STRFUNC);
+    g_warning ("message not found");
     return;
   }
   
   msg = (SIPTextPendingMessage *)node->data;
 
-  if (!msg) {
-    g_critical ("%s: message broken. Corrupted memory?", G_STRFUNC);
-    return;
-  }
+  g_return_if_fail (msg != NULL);
 
   if (status >= 200 && status < 300) {
     tp_svc_channel_type_text_emit_sent ((TpSvcChannelTypeText *)obj,
@@ -754,7 +729,7 @@ sip_text_channel_emit_message_status(SIPTextChannel *obj,
 	send_error = TP_CHANNEL_TEXT_SEND_ERROR_UNKNOWN;
       }
 
-    g_debug ("emitting send error %d %s", (int)send_error, msg->text);
+    DEBUG("emitting send error %d %s", (int)send_error, msg->text);
 
     tp_svc_channel_type_text_emit_send_error ((TpSvcChannelTypeText *)obj,
 	send_error, msg->timestamp, msg->type, msg->text);  
@@ -789,7 +764,7 @@ void sip_text_channel_receive(SIPTextChannel *chan,
   TpHandleRepoIface *contact_repo;
   GObject *obj;
 
-  enter;
+  DEBUG("enter");
 
   g_assert(chan != NULL);
   g_assert(SIP_IS_TEXT_CHANNEL(chan));
@@ -810,7 +785,7 @@ void sip_text_channel_receive(SIPTextChannel *chan,
 
   tp_handle_ref (contact_repo, msg->sender);
 
-  g_debug ("%s: message = %s", G_STRFUNC, message);
+  DEBUG("received message: %s", message);
 
   tp_svc_channel_type_text_emit_received ((TpSvcChannelTypeText *)chan,
       msg->id, msg->timestamp, msg->sender, msg->type,
