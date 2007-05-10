@@ -683,46 +683,47 @@ sip_text_channel_emit_message_status(SIPTextChannel *obj,
 
   g_return_if_fail (msg != NULL);
 
-  if (status >= 200 && status < 300) {
-    tp_svc_channel_type_text_emit_sent ((TpSvcChannelTypeText *)obj,
-        msg->timestamp, msg->type, msg->text);
-    return;
-  }
-  else {
-    switch (status)
-      {
-      case 401:
-      case 403:
-      case 407:
-      case 603:
-	send_error = TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED;
-	break;
-      case 404:
-      case 484:
-      case 485:
-      case 604:
-	send_error = TP_CHANNEL_TEXT_SEND_ERROR_INVALID_CONTACT;
-	break;
-      case 405:
-      case 406:
-      case 415:
-      case 416:
-      case 488:
-      case 501:
-      case 505:
-      case 606:
-	send_error = TP_CHANNEL_TEXT_SEND_ERROR_NOT_IMPLEMENTED;
-	break;
-      case 410:
-	send_error = TP_CHANNEL_TEXT_SEND_ERROR_INVALID_CONTACT /* TP_CHANNEL_TEXT_SEND_ERROR_OFFLINE? */;
-	break;
-      case 413:
-      case 414:
-      case 513:
-	send_error = TP_CHANNEL_TEXT_SEND_ERROR_TOO_LONG;
-	break;
-      default:
-	send_error = TP_CHANNEL_TEXT_SEND_ERROR_UNKNOWN;
+  if (status >= 200 && status < 300)
+    {
+      tp_svc_channel_type_text_emit_sent ((TpSvcChannelTypeText *)obj,
+          msg->timestamp, msg->type, msg->text);
+    }
+  else
+    {
+      switch (status)
+        {
+        case 401:
+        case 403:
+        case 407:
+        case 603:
+          send_error = TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED;
+          break;
+        case 404:
+        case 484:
+        case 485:
+        case 604:
+          send_error = TP_CHANNEL_TEXT_SEND_ERROR_INVALID_CONTACT;
+          break;
+        case 405:
+        case 406:
+        case 415:
+        case 416:
+        case 488:
+        case 501:
+        case 505:
+        case 606:
+          send_error = TP_CHANNEL_TEXT_SEND_ERROR_NOT_IMPLEMENTED;
+          break;
+        case 410:
+          send_error = TP_CHANNEL_TEXT_SEND_ERROR_INVALID_CONTACT /* TP_CHANNEL_TEXT_SEND_ERROR_OFFLINE? */;
+          break;
+        case 413:
+        case 414:
+        case 513:
+          send_error = TP_CHANNEL_TEXT_SEND_ERROR_TOO_LONG;
+          break;
+        default:
+          send_error = TP_CHANNEL_TEXT_SEND_ERROR_UNKNOWN;
       }
 
     DEBUG("emitting send error %d %s", (int)send_error, msg->text);
