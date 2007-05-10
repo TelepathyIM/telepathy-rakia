@@ -736,19 +736,6 @@ sip_text_channel_emit_message_status(SIPTextChannel *obj,
   _sip_text_pending_free(msg);
 }
 
-
-/**
- * sip_text_channel_receive
-
-      <arg type="u" name="id" />
-      <arg type="u" name="timestamp" />
-      <arg type="u" name="sender" />
-      <arg type="u" name="type" />
-      <arg type="u" name="flags" />
-      <arg type="s" name="text" />
-
- *
- */
 void sip_text_channel_receive(SIPTextChannel *chan,
 			      TpHandle sender,
 			      const char *display_name,
