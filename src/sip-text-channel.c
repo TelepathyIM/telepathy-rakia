@@ -357,11 +357,8 @@ sip_text_channel_finalize(GObject *object)
 
 static gint sip_pending_message_compare(gconstpointer msg, gconstpointer id)
 {
-	SIPTextPendingMessage *message = (SIPTextPendingMessage *)(msg);
-
-	enter;
-
-	return (message->id != GPOINTER_TO_INT(id));
+  SIPTextPendingMessage *message = (SIPTextPendingMessage *)(msg);
+  return (message->id != GPOINTER_TO_INT(id));
 }
 
 static gint sip_acknowledged_messages_compare(gconstpointer msg,
