@@ -530,12 +530,14 @@ sip_media_channel_dispose (GObject *object)
 void
 sip_media_channel_finalize (GObject *object)
 {
-  /* free any data held directly by the object here */
+  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (object);
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  g_free (priv->object_path);
+
   tp_group_mixin_finalize (object);
 
   tp_properties_mixin_finalize (object);
-
-  g_free (priv->object_path);
 
   G_OBJECT_CLASS (sip_media_channel_parent_class)->finalize (object);
 
