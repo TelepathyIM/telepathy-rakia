@@ -574,8 +574,7 @@ priv_i_message (int status,
     else 
       message = g_string_new ("");
 
-    sip_text_channel_receive(channel, handle, from_str, from_url_str,
-        subject_str, message->str);
+    sip_text_channel_receive (channel, handle, message->str);
 
     tp_handle_unref (contact_repo, handle);
     g_string_free (message, TRUE);

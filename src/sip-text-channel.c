@@ -738,9 +738,6 @@ sip_text_channel_emit_message_status(SIPTextChannel *obj,
 
 void sip_text_channel_receive(SIPTextChannel *chan,
 			      TpHandle sender,
-			      const char *display_name,
-			      const char *url,
-			      const char *subject,
 			      const char *message)
 {
   SIPTextPendingMessage *msg;

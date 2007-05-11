@@ -58,9 +58,9 @@ void sip_text_channel_emit_message_status(SIPTextChannel *obj,
                                           nua_handle_t *nh,
                                           int status);
 
-void sip_text_channel_receive(SIPTextChannel *obj, TpHandle sender,
-    const char *display_name, const char *url,
-    const char *subject, const char *message);
+void sip_text_channel_receive (SIPTextChannel *obj,
+                               TpHandle        sender,
+                               const char     *message);
 
 
 G_END_DECLS
