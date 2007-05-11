@@ -535,7 +535,6 @@ priv_i_message (int status,
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   SIPTextChannel *channel;
-  GString *message;
   const gchar *from_str, *subject_str;
   gchar *from_url_str;
   su_home_t *home = sip_conn_sofia_home (self);
@@ -548,6 +547,7 @@ priv_i_message (int status,
 
   if (priv_parse_sip_from (sip, home, &from_str, &from_url_str, &subject_str)) {
     TpHandle handle;
+    char *text;
 
     g_message("Got incoming message from %s <%s> on topic '%s'", 
 	      from_str, from_url_str, subject_str);
@@ -570,14 +570,14 @@ priv_i_message (int status,
       }
 
     if (sip->sip_payload && sip->sip_payload->pl_len > 0)
-      message = g_string_new_len(sip->sip_payload->pl_data, sip->sip_payload->pl_len);
-    else 
-      message = g_string_new ("");
+      text = g_strndup (sip->sip_payload->pl_data, sip->sip_payload->pl_len);
+    else
+      text = g_strdup ("");
 
-    sip_text_channel_receive (channel, handle, message->str);
+    sip_text_channel_receive (channel, handle, text);
 
     tp_handle_unref (contact_repo, handle);
-    g_string_free (message, TRUE);
+    g_free (text);
     su_free (home, from_url_str);
   }
   else
