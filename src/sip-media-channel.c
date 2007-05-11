@@ -921,7 +921,6 @@ static GPtrArray *priv_make_stream_list (SIPMediaChannel *self, GPtrArray *strea
  */
 void sip_media_channel_respond_to_invite (SIPMediaChannel *self, 
 					  TpHandle handle,
-					  const char *subject,
 					  const char *remoteurl)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);

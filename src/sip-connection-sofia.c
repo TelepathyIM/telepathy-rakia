@@ -512,7 +512,6 @@ priv_i_invite (int status,
            * discard our reference afterwards */
           sip_media_channel_respond_to_invite(channel, 
                                               handle, 
-                                              subject_str,  
                                               from_url_str);
           tp_handle_unref (contact_repo, handle);
         }
