@@ -743,7 +743,6 @@ void sip_text_channel_receive(SIPTextChannel *chan,
   SIPTextPendingMessage *msg;
   SIPTextChannelPrivate *priv;
   TpHandleRepoIface *contact_repo;
-  GObject *obj;
 
   DEBUG("enter");
 
@@ -752,7 +751,6 @@ void sip_text_channel_receive(SIPTextChannel *chan,
   priv = SIP_TEXT_CHANNEL_GET_PRIVATE (chan);
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
-  obj = &chan->parent;
 
   msg = _sip_text_pending_new();
 
