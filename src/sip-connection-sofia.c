@@ -510,9 +510,7 @@ priv_i_invite (int status,
         {
           /* this causes the channel to reference the handle, so we can
            * discard our reference afterwards */
-          sip_media_channel_respond_to_invite(channel, 
-                                              handle, 
-                                              from_url_str);
+          sip_media_channel_respond_to_invite (channel, handle);
           tp_handle_unref (contact_repo, handle);
         }
     }					      

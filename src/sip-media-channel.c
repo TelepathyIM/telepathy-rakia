@@ -227,7 +227,7 @@ static void sip_media_channel_set_property (GObject     *object,
 
 static void priv_create_session (SIPMediaChannel *channel,
                                  TpHandle peer,
-                                 const gchar *sid);
+                                 gboolean remote_initiated);
 static void priv_destroy_session(SIPMediaChannel *channel);
 gboolean sip_media_channel_add_member (GObject *iface,
                                        TpHandle handle,
@@ -919,9 +919,9 @@ static GPtrArray *priv_make_stream_list (SIPMediaChannel *self, GPtrArray *strea
 /**
  * Invite the given handle to this channel
  */
-void sip_media_channel_respond_to_invite (SIPMediaChannel *self, 
-					  TpHandle handle,
-					  const char *remoteurl)
+void
+sip_media_channel_respond_to_invite (SIPMediaChannel *self, 
+                                     TpHandle handle)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
@@ -944,15 +944,16 @@ void sip_media_channel_respond_to_invite (SIPMediaChannel *self,
   tp_group_mixin_change_members (obj, "", set, NULL, NULL, NULL, 0, 0);
   tp_intset_destroy (set);
 
-  if (priv->session == NULL) {
-    priv_create_session(self, handle, remoteurl);
+  if (priv->session == NULL)
+    {
+      priv_create_session (self, handle, TRUE);
     
-    /* note: start the local stream-engine; once the local 
-     *       candidate are ready, reply with nua_respond() 
-     *
-     *       with the tp-0.13 API, the streams need to be created
-     *       based on remote SDP (see sip_media_session_set_remote_info()) */
-  }
+      /* note: start the local stream-engine; once the local 
+       *       candidate are ready, reply with nua_respond() 
+       *
+       *       with the tp-0.13 API, the streams need to be created
+       *       based on remote SDP (see sip_media_session_set_remote_info()) */
+    }
 
   /* XXX: should be attached more data than just the handle? 
    * - yes, we need to be able to access all the <op,handle> pairs */
@@ -1128,7 +1129,7 @@ static void priv_session_stream_added_cb (SIPMediaSession *session,
 static void
 priv_create_session (SIPMediaChannel *channel,
                      TpHandle peer,
-                     const gchar *remote_url)
+                     gboolean remote_initiated)
 {
   SIPMediaChannelPrivate *priv;
   TpBaseConnection *conn;
@@ -1147,17 +1148,12 @@ priv_create_session (SIPMediaChannel *channel,
 
   object_path = g_strdup_printf ("%s/MediaSession%u", priv->object_path, peer);
 
-  if (remote_url == NULL) {
-    initiator = conn->self_handle;
-    /* allocate a hash-entry for the new jingle session */
-    sid = sip_media_factory_session_id_allocate (priv->factory);
-  }
-  else {
-    initiator = peer;
-    sid = remote_url;
-  }
+  initiator = (remote_initiated)? peer : conn->self_handle; 
 
-  g_debug("%s: allocating session, initiator=%u, peer=%u.", G_STRFUNC, initiator, peer);
+  /* allocate a hash-entry for the new media session */
+  sid = sip_media_factory_session_id_allocate (priv->factory);
+
+  DEBUG("allocating session, initiator=%u, peer=%u.", initiator, peer);
 
   session = g_object_new (SIP_TYPE_MEDIA_SESSION,
                           "media-channel", channel,
@@ -1228,9 +1224,9 @@ sip_media_channel_add_member (GObject *iface,
     TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
     TpIntSet *lset, *rset;
 
-    g_debug("making outbound call - setting peer handle to %u.\n", handle);
+    DEBUG("making outbound call - setting peer handle to %u", handle);
 
-    priv_create_session(self, handle, NULL);
+    priv_create_session (self, handle, FALSE);
 
     /* make remote pending */
     rset = tp_intset_new ();

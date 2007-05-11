@@ -69,8 +69,7 @@ void sip_media_channel_close (SIPMediaChannel *self);
  ***********************************************************************/
 
 void sip_media_channel_respond_to_invite (SIPMediaChannel *self, 
-					  TpHandle handle,
-					  const char *remoteurl);
+					  TpHandle handle);
 gboolean sip_media_channel_set_remote_info (SIPMediaChannel *chan,
                                             const char      *r_sdp);
 void sip_media_channel_stream_state (SIPMediaChannel *chan,
