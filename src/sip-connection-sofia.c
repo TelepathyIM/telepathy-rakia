@@ -422,7 +422,7 @@ priv_r_message (int status,
       (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
   TpHandle handle;
 
-  g_message("sofiasip: nua_r_message: %03d %s", status, phrase);
+  DEBUG("nua_r_message: %03d %s", status, phrase);
 
   if (priv_handle_auth (self, status, nh, sip, FALSE) == SIP_AUTH_HANDLED)
     return;
@@ -444,7 +444,9 @@ priv_r_message (int status,
 
   channel = sip_text_factory_lookup_channel (priv->text_factory, handle);
 
-  if (channel && status >= 200)
+  if (!channel)
+    g_warning ("Delivery status ignored for a non-existant channel");
+  else if (status >= 200)
     sip_text_channel_emit_message_status(channel, nh, status);
 }
 
