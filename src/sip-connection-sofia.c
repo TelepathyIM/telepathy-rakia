@@ -383,7 +383,7 @@ priv_handle_parse_from (const sip_t *sip,
 {
   TpHandle handle = 0;
   gchar *url_str;
-  
+
   g_return_val_if_fail (sip != NULL, 0);
 
   if (sip->sip_from)
@@ -524,7 +524,7 @@ priv_i_invite (int status,
          * discard our reference afterwards */
         sip_media_channel_respond_to_invite (channel, handle);
         tp_handle_unref (contact_repo, handle);
-      }					      
+      }
     else
       g_warning ("Creation of SIP media channel failed");
   }
