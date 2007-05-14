@@ -365,14 +365,16 @@ priv_r_get_params (int status,
 
   tl_gets(tags, SIPTAG_FROM_REF(from), TAG_END());
 
+  /* XXX: why is it here??? */
   if (from) {
-    char const *new_address = 
+    char *new_address = 
       sip_header_as_string(priv->sofia_home, (sip_header_t *)from);
     if (new_address) {
-      g_message ("Updating the public SIP address to %s.\n", new_address);
+      DEBUG("Updating the public SIP address to %s", new_address);
       g_free (priv->address);
       priv->address = g_strdup(new_address);
-    }      
+      su_free (priv->sofia_home, new_address);
+    }
   }
 }
 
