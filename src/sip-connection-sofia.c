@@ -376,33 +376,53 @@ priv_r_get_params (int status,
   }
 }
 
-static gboolean priv_parse_sip_to(sip_t const *sip, su_home_t *home,
-				  const gchar **to_str,
-				  gchar **to_url_str)
+static TpHandle
+priv_handle_parse_from (const sip_t *sip,
+                        su_home_t *home,
+                        TpHandleRepoIface *contact_repo)
 {
-  if (sip && sip->sip_to) {
-    *to_str = sip->sip_to->a_display;
-    *to_url_str = url_as_string(home, sip->sip_to->a_url);
+  TpHandle handle = 0;
+  gchar *url_str;
+  
+  g_return_val_if_fail (sip != NULL, 0);
 
-    return TRUE;
-  }
+  if (sip->sip_from)
+    {
+      url_str = url_as_string (home, sip->sip_from->a_url);
 
-  return FALSE;
+      handle = tp_handle_ensure (contact_repo, url_str, NULL, NULL);
+
+      su_free (home, url_str);
+
+      /* TODO: set qdata for the display name */
+    }
+
+  return handle;
 }
 
-static gboolean priv_parse_sip_from (sip_t const *sip, su_home_t *home, const gchar **from_str, gchar **from_url_str, const gchar **subject_str)
+static TpHandle
+priv_handle_parse_to (const sip_t *sip,
+                      su_home_t *home,
+                      TpHandleRepoIface *contact_repo)
 {
-  if (sip && sip->sip_from) {
-    *from_str = sip->sip_from->a_display;
-    *from_url_str = url_as_string(home, sip->sip_from->a_url);
-    *subject_str = sip->sip_subject ? sip->sip_subject->g_string : "";
+  TpHandle handle = 0;
+  gchar *url_str;
+  
+  g_return_val_if_fail (sip != NULL, 0);
 
-    return TRUE;
-  }
+  if (sip->sip_to)
+    {
+      url_str = url_as_string (home, sip->sip_to->a_url);
 
-  return FALSE;
+      handle = tp_handle_ensure (contact_repo, url_str, NULL, NULL);
+
+      su_free (home, url_str);
+
+      /* TODO: set qdata for the display name */
+    }
+
+  return handle;
 }
-
 
 static void
 priv_r_message (int status,
@@ -415,11 +435,7 @@ priv_r_message (int status,
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   SIPTextChannel *channel;
-  const gchar *to_str;
-  gchar *to_url_str;
-  su_home_t *home = sip_conn_sofia_home (self);
-  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
+  TpHandleRepoIface *contact_repo;
   TpHandle handle;
 
   DEBUG("nua_r_message: %03d %s", status, phrase);
@@ -427,27 +443,27 @@ priv_r_message (int status,
   if (priv_handle_auth (self, status, nh, sip, FALSE) == SIP_AUTH_HANDLED)
     return;
 
-  if (!priv_parse_sip_to(sip, home, &to_str, &to_url_str))
-    return;
+  contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
 
-  if (status == 200)
-    g_message("Message delivered for %s <%s>", 
-	      to_str, to_url_str);
+  handle = priv_handle_parse_to (sip, priv->sofia_home, contact_repo);
 
-  handle = tp_handle_ensure (contact_repo, to_url_str, NULL, NULL);
   if (!handle)
     {
-      g_warning ("Message apparently delivered to invalid SIP URI %s?! "
-                 "Ignoring it", to_url_str);
+      g_warning ("Message apparently delivered to an invalid recipient, ignoring");
       return;
     }
+
+  if (status == 200)
+    DEBUG("Message delivered for <%s>",
+          tp_handle_inspect (contact_repo, handle));
 
   channel = sip_text_factory_lookup_channel (priv->text_factory, handle);
 
   if (!channel)
     g_warning ("Delivery status ignored for a non-existant channel");
   else if (status >= 200)
-    sip_text_channel_emit_message_status(channel, nh, status);
+    sip_text_channel_emit_message_status (channel, nh, status);
 }
 
 
@@ -478,51 +494,39 @@ priv_i_invite (int status,
     g_warning ("Got a re-INVITE for NUA handle %p", nh);
   }
   else {
-    su_home_t *home;
-    const gchar *from_str, *subject_str;
-    gchar *from_url_str = NULL;
-
     /* case 2: we haven't seen this media session before, so we should
      * create a new channel to go with it */
 
-    home = sip_conn_sofia_home (self);
+    /* figure out a handle for the identity */
 
-    if (!priv_parse_sip_from (sip, home, &from_str, &from_url_str,
-        &subject_str))
+    contact_repo = tp_base_connection_get_handles ((TpBaseConnection *)self,
+                                                   TP_HANDLE_TYPE_CONTACT);
+
+    handle = priv_handle_parse_from (sip, priv->sofia_home, contact_repo);
+
+    if (!handle)
       {
-        g_warning ("Unable to parse headers in incoming invite");  
+        g_warning ("Got an incoming INVITE with invalid sender information");
+        /* XXX: respond with the bad news? */
         return;
       }
 
-    g_message("Got incoming invite from %s <%s> on topic '%s'", 
-              from_str, from_url_str, subject_str);
+    DEBUG("Got incoming invite from <%s>", 
+          tp_handle_inspect (contact_repo, handle));
 
     /* Accordingly to lassis, NewChannel has to be emitted
      * with the null handle for incoming calls */
     channel = sip_media_factory_new_channel (
         SIP_MEDIA_FACTORY (priv->media_factory), 0, nh, NULL);
-    if (channel) {
-      /* figure out a new handle for the identity */
-      contact_repo = tp_base_connection_get_handles ((TpBaseConnection *)self,
-                                                     TP_HANDLE_TYPE_CONTACT);
-      handle = tp_handle_ensure (contact_repo, from_url_str, NULL, NULL);
-      if (handle == 0)
-        {
-          g_warning ("Incoming call from invalid SIP URI %s, ignoring it",
-              from_url_str);
-        }
-      else
-        {
-          /* this causes the channel to reference the handle, so we can
-           * discard our reference afterwards */
-          sip_media_channel_respond_to_invite (channel, handle);
-          tp_handle_unref (contact_repo, handle);
-        }
-    }					      
+    if (channel)
+      {
+        /* this causes the channel to reference the handle, so we can
+         * discard our reference afterwards */
+        sip_media_channel_respond_to_invite (channel, handle);
+        tp_handle_unref (contact_repo, handle);
+      }					      
     else
       g_warning ("Creation of SIP media channel failed");
-
-    su_free (home, from_url_str);
   }
 }
 
@@ -537,53 +541,54 @@ priv_i_message (int status,
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   SIPTextChannel *channel;
-  const gchar *from_str, *subject_str;
-  gchar *from_url_str;
-  su_home_t *home = sip_conn_sofia_home (self);
-  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
+  TpHandleRepoIface *contact_repo;
+  TpHandle handle;
 
   /* Block anything else except text/plain messages (like isComposings) */
   if (sip->sip_content_type && (strcmp("text/plain", sip->sip_content_type->c_type)))
-    return;
+    {
+      /* XXX: respond with the bad news? */
+      return;
+    }
 
-  if (priv_parse_sip_from (sip, home, &from_str, &from_url_str, &subject_str)) {
-    TpHandle handle;
-    char *text;
+  contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
 
-    g_message("Got incoming message from %s <%s> on topic '%s'", 
-	      from_str, from_url_str, subject_str);
+  handle = priv_handle_parse_from (sip, priv->sofia_home, contact_repo);
 
-    handle = tp_handle_ensure (contact_repo, from_url_str, NULL, NULL);
-    if (handle == 0)
-      {
-        g_warning ("Incoming message is from invalid SIP URI %s, ignoring it",
-            from_url_str);
-        return;
-      }
+  if (handle)
+    {
+      char *text;
 
-    channel = sip_text_factory_lookup_channel (priv->text_factory, handle);
+      DEBUG("Got incoming message from <%s>", 
+	    tp_handle_inspect (contact_repo, handle));
 
-    if (!channel)
-      {
-        channel = sip_text_factory_new_channel (priv->text_factory, handle,
-            NULL);
-        g_assert (channel != NULL);
-      }
+      channel = sip_text_factory_lookup_channel (priv->text_factory, handle);
 
-    if (sip->sip_payload && sip->sip_payload->pl_len > 0)
-      text = g_strndup (sip->sip_payload->pl_data, sip->sip_payload->pl_len);
-    else
-      text = g_strdup ("");
+      if (!channel)
+        {
+          channel = sip_text_factory_new_channel (priv->text_factory, handle,
+              NULL);
+          g_assert (channel != NULL);
+        }
 
-    sip_text_channel_receive (channel, handle, text);
+      /* XXX: look into sip->sip_content_type->c_params and try to convert from any non-UTF8 encoding? */
 
-    tp_handle_unref (contact_repo, handle);
-    g_free (text);
-    su_free (home, from_url_str);
-  }
+      if (sip->sip_payload && sip->sip_payload->pl_len > 0)
+        text = g_strndup (sip->sip_payload->pl_data, sip->sip_payload->pl_len);
+      else
+        text = g_strdup ("");
+
+      sip_text_channel_receive (channel, handle, text);
+
+      tp_handle_unref (contact_repo, handle);
+      g_free (text);
+    }
   else
-    g_warning ("Unable to parse headers in incoming message.");
+    {
+      /* XXX: respond with the bad news? */
+      g_warning ("Incoming message has invalid sender information, ignoring it");
+    }
 }
 
 static void
