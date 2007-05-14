@@ -99,15 +99,18 @@ libtpsip_convenience_la_SOURCES = \
 nodist_libtpsip_convenience_la_SOURCES = \
     $(BUILT_SOURCES)
 
+libtpsip_convenience_la_LIBADD = \
+    @TELEPATHY_GLIB_LIBS@
+
 telepathy_sofiasip_SOURCES = \
     telepathy-sofiasip.c 
 
-telepathy_sofiasip_LDADD = libtpsip-convenience.la -ltelepathy-glib
+telepathy_sofiasip_LDADD = libtpsip-convenience.la
 
 write_mgr_file_SOURCES = \
     write-mgr-file.c 
 
-write_mgr_file_LDADD = libtpsip-convenience.la -ltelepathy-glib
+write_mgr_file_LDADD = libtpsip-convenience.la
 
 # ----------------------------------------------------------------------
 # Install and distribution rules
