@@ -826,7 +826,8 @@ sip_connection_request_handles (TpSvcConnection *iface,
 {
   SIPConnection *obj = SIP_CONNECTION (iface);
   TpBaseConnection *base = (TpBaseConnection *)obj;
-  gint count = 0, i, j;
+  gint count = 0;
+  gint i;
   const gchar **h;
   GArray *handles;
   GError *error = NULL;
@@ -890,7 +891,7 @@ sip_connection_request_handles (TpSvcConnection *iface,
     continue;
 
 ERROR_IN_LOOP:
-    for (j = 0; j < i; j++)
+    for (; i >= 0; --i)
       {
         tp_handle_client_release (repo, client_name,
             (TpHandle) g_array_index (handles, guint, i),
