@@ -99,9 +99,6 @@ libtpsip_convenience_la_SOURCES = \
 nodist_libtpsip_convenience_la_SOURCES = \
     $(BUILT_SOURCES)
 
-libtpsip_convenience_la_LIBADD = \
-    @TELEPATHY_GLIB_LIBS@
-
 telepathy_sofiasip_SOURCES = \
     telepathy-sofiasip.c 
 
