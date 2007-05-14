@@ -70,9 +70,9 @@ G_BEGIN_DECLS
 nua_t *sip_conn_sofia_nua (SIPConnection *conn);
 su_home_t *sip_conn_sofia_home (SIPConnection *conn);
 
-nua_handle_t *sip_conn_create_register_handle (nua_t *nua, su_home_t *home,
+nua_handle_t *sip_conn_create_register_handle (SIPConnection *conn,
     const char *address);
-nua_handle_t *sip_conn_create_request_handle (nua_t *nua, su_home_t *home,
+nua_handle_t *sip_conn_create_request_handle (SIPConnection *conn,
     const char *address);
 
 /***********************************************************************

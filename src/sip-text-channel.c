@@ -611,20 +611,11 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
   SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
-  SIPConnection *sip_conn = SIP_CONNECTION (priv->conn);
   SIPTextPendingMessage *msg = NULL;
-  gchar *object_path;
-  nua_t *sofia_nua = sip_conn_sofia_nua (sip_conn);
-  su_home_t *sofia_home = sip_conn_sofia_home (sip_conn);
   nua_handle_t *msg_nh = NULL;
   const char *recipient;
 
   DEBUG("enter");
-
-  g_assert(sofia_nua);
-  g_assert(sofia_home);
-
-  object_path = g_strdup_printf ("%s/TextChannel%u", priv->object_path, priv->handle);
 
   recipient = tp_handle_inspect(contact_repo, priv->handle);
   
@@ -640,8 +631,7 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
   /* XXX: would it be helpful to bind the channel, or the
    * SIPTextPendingMessage, or something, to the NH? */
 
-  msg_nh = sip_conn_create_request_handle (sofia_nua, sofia_home,
-					   recipient);
+  msg_nh = sip_conn_create_request_handle (priv->conn, recipient);
   nua_message(msg_nh,
 	      SIPTAG_CONTENT_TYPE_STR("text/plain"),
 	      SIPTAG_PAYLOAD_STR(text),

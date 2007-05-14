@@ -945,7 +945,6 @@ static void priv_offer_answer_step (SIPMediaSession *session)
   /* step: if all stream are ready, send an offer/answer */
   if (non_ready_streams == 0 &&
       priv->oa_pending) {
-    nua_t *sofia_nua = sip_conn_sofia_nua (priv->conn);
     GString *user_sdp = g_string_sized_new (0);
 
     for (i = 0; i < priv->streams->len; i++) {
@@ -959,7 +958,6 @@ static void priv_offer_answer_step (SIPMediaSession *session)
     /* send an offer if the session was initiated by us */
     if (priv->initiator != priv->peer) {
       nua_handle_t *nh;
-      su_home_t *sofia_home;
       const char *dest_uri;
 
       dest_uri = tp_handle_inspect (contact_repo, priv->peer);
@@ -967,8 +965,7 @@ static void priv_offer_answer_step (SIPMediaSession *session)
       g_debug ("mapped handle %u to uri %s.", priv->peer, dest_uri);
 
       if (dest_uri) {
-        sofia_home = sip_conn_sofia_home (priv->conn);
-	nh = sip_conn_create_request_handle (sofia_nua, sofia_home, dest_uri);
+	nh = sip_conn_create_request_handle (priv->conn, dest_uri);
 	g_object_set (priv->channel, "nua-handle", nh, NULL);
 
 	/* note:  we need to be prepared to receive media right after the
