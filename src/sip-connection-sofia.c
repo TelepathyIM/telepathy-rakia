@@ -461,11 +461,8 @@ priv_i_invite (int status,
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   SIPMediaChannel *channel;
-  su_home_t *home = sip_conn_sofia_home (self);
-  const gchar *from_str, *subject_str;
-  gchar *from_url_str = NULL;
-  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
+  TpHandleRepoIface *contact_repo;
+  TpHandle handle;
 
   if (nh_magic == SIP_NH_EXPIRED)
     {
@@ -473,24 +470,30 @@ priv_i_invite (int status,
       return;
     }
 
-  if (!priv_parse_sip_from (sip, home, &from_str, &from_url_str,
-        &subject_str)) {
-    g_warning ("Unable to parse headers in incoming invite");  
-    return;
-  }
-
-  g_message("Got incoming invite from %s <%s> on topic '%s'", 
-            from_str, from_url_str, subject_str);
-
-  /* case 1: we already have a channel for this NH */
   if (nh_magic != NULL) {
+    /* case 1: we already have a channel for this NH */
     channel = SIP_MEDIA_CHANNEL (nh_magic);
     g_warning ("Got a re-INVITE for NUA handle %p", nh);
   }
   else {
+    su_home_t *home;
+    const gchar *from_str, *subject_str;
+    gchar *from_url_str = NULL;
 
     /* case 2: we haven't seen this media session before, so we should
      * create a new channel to go with it */
+
+    home = sip_conn_sofia_home (self);
+
+    if (!priv_parse_sip_from (sip, home, &from_str, &from_url_str,
+        &subject_str))
+      {
+        g_warning ("Unable to parse headers in incoming invite");  
+        return;
+      }
+
+    g_message("Got incoming invite from %s <%s> on topic '%s'", 
+              from_str, from_url_str, subject_str);
 
     /* Accordingly to lassis, NewChannel has to be emitted
      * with the null handle for incoming calls */
@@ -498,9 +501,9 @@ priv_i_invite (int status,
         SIP_MEDIA_FACTORY (priv->media_factory), 0, nh, NULL);
     if (channel) {
       /* figure out a new handle for the identity */
-      TpHandle handle = tp_handle_ensure (contact_repo, from_url_str,
-          NULL, NULL);
-
+      contact_repo = tp_base_connection_get_handles ((TpBaseConnection *)self,
+                                                     TP_HANDLE_TYPE_CONTACT);
+      handle = tp_handle_ensure (contact_repo, from_url_str, NULL, NULL);
       if (handle == 0)
         {
           g_warning ("Incoming call from invalid SIP URI %s, ignoring it",
@@ -515,10 +518,10 @@ priv_i_invite (int status,
         }
     }					      
     else
-      g_message ("Creation of SIP media channel failed");
-  }
+      g_warning ("Creation of SIP media channel failed");
 
-  su_free (home, from_url_str);
+    su_free (home, from_url_str);
+  }
 }
 
 static void
