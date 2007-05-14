@@ -460,6 +460,8 @@ priv_r_message (int status,
 
   channel = sip_text_factory_lookup_channel (priv->text_factory, handle);
 
+  tp_handle_unref (contact_repo, handle);
+
   if (!channel)
     g_warning ("Delivery status ignored for a non-existant channel");
   else if (status >= 200)
@@ -523,10 +525,11 @@ priv_i_invite (int status,
         /* this causes the channel to reference the handle, so we can
          * discard our reference afterwards */
         sip_media_channel_respond_to_invite (channel, handle);
-        tp_handle_unref (contact_repo, handle);
       }
     else
       g_warning ("Creation of SIP media channel failed");
+
+    tp_handle_unref (contact_repo, handle);
   }
 }
 
@@ -581,8 +584,8 @@ priv_i_message (int status,
 
       sip_text_channel_receive (channel, handle, text);
 
-      tp_handle_unref (contact_repo, handle);
       g_free (text);
+      tp_handle_unref (contact_repo, handle);
     }
   else
     {
