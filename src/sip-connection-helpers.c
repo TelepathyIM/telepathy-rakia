@@ -52,20 +52,6 @@
  * nor a media channel */
 void *_sip_nh_expired = (void *)"";
 
-nua_t *sip_conn_sofia_nua(SIPConnection *obj)
-{
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (obj);
-
-  return priv->sofia_nua;
-}
-
-su_home_t *sip_conn_sofia_home (SIPConnection *conn)
-{
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
-
-  return priv->sofia_home;
-}
-
 static sip_to_t *priv_sip_to_url_make (su_home_t *home, const char *address)
 {
   sip_to_t *to = sip_to_make (home, address);
