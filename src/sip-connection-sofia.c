@@ -655,7 +655,6 @@ priv_i_state (int status,
       g_message ("sofiasip: call nh=%p is terminated", nh);
       if (channel)
         sip_media_channel_close (channel);
-      nua_handle_destroy (nh);
     }
     break;
 

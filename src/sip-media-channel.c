@@ -464,18 +464,21 @@ sip_media_channel_set_property (GObject     *object,
         /* you can only set the NUA handle once - migrating a media channel
          * between two NUA handles makes no sense */
         g_return_if_fail (priv->nua_op == NULL);
-        /* migrating a NUA handle between two active media channels
-         * makes no sense either */
+
         if (new_nua_op)
           {
             nua_hmagic_t *nua_op_chan = nua_handle_magic (new_nua_op);
 
+            /* migrating a NUA handle between two active media channels
+             * makes no sense either */
             g_return_if_fail (nua_op_chan == NULL || nua_op_chan == chan);
-          }
 
+            nua_handle_ref (new_nua_op);
+
+            /* tell the NUA that we're handling this call */
+            nua_handle_bind (new_nua_op, chan);
+          }
         priv->nua_op = new_nua_op;
-        /* tell the NUA that we're handling this call */
-        nua_handle_bind (priv->nua_op, chan);
       }
       break;
     default:
@@ -588,6 +591,7 @@ sip_media_channel_close (SIPMediaChannel *obj)
     {
       g_assert (nua_handle_magic (priv->nua_op) == obj);
       nua_handle_bind (priv->nua_op, NULL);
+      nua_handle_unref (priv->nua_op);
       priv->nua_op = NULL;
     }
 

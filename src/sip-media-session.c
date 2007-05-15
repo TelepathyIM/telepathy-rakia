@@ -974,6 +974,9 @@ static void priv_offer_answer_step (SIPMediaSession *session)
 		    SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
 		    TAG_END());
 
+        /* The reference is now kept by the channel */
+        nua_handle_unref (nh);
+
 	priv->oa_pending = FALSE;
       }
       else 
