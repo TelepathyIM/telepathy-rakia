@@ -956,11 +956,9 @@ static void priv_offer_answer_step (SIPMediaSession *session)
     /* send an offer if the session was initiated by us */
     if (priv->initiator != priv->peer) {
       nua_handle_t *nh;
-      const char *dest_uri;
 
-      if (dest_uri) {
-	nh = sip_conn_create_request_handle (priv->conn, priv->peer);
-        g_assert (nh != NULL);
+      nh = sip_conn_create_request_handle (priv->conn, priv->peer);
+      if (nh != NULL) {
 
 	g_object_set (priv->channel, "nua-handle", nh, NULL);
 
@@ -980,7 +978,7 @@ static void priv_offer_answer_step (SIPMediaSession *session)
 	priv->oa_pending = FALSE;
       }
       else 
-	g_warning ("Unable to send offer due to invalid destination SIP URI.");
+	g_warning ("Unable to create the request handle, probably due to invalid destination URI");
     }
     else {
       /* note: only send a reply if session is locally accepted */
