@@ -1046,7 +1046,7 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
   set = tp_intset_new ();
   tp_intset_add (set, peer);
   tp_group_mixin_change_members ((GObject *)self, message,
-      NULL, set, NULL, NULL, 0, reason);
+      NULL, set, NULL, NULL, peer, reason);
   tp_intset_destroy (set);
 }
 
