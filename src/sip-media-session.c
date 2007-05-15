@@ -585,12 +585,12 @@ void sip_media_session_terminate (SIPMediaSession *session)
 
   if (priv->state == SIP_MEDIA_SESSION_STATE_PENDING_INITIATED ||
       priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE) {
-    nua_handle_t *nh = priv_get_nua_handle_for_session(session);
-    DEBUG("sending SIP BYE (handle %p)", nh);
-    if (nh)
-      nua_bye (nh, TAG_END());
-    else
-      g_warning ("Unable to send BYE, channel handle not available.");
+    nua_handle_t *nh = priv_get_nua_handle_for_session (session);
+    if (nh != NULL)
+      {
+        DEBUG("sending SIP BYE (handle %p)", nh);
+        nua_bye (nh, TAG_END());
+      }
   }
 
   g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ENDED, NULL);
