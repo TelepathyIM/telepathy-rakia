@@ -84,7 +84,7 @@ sip_conn_create_register_handle (SIPConnection *conn,
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
   nua_handle_t *result = NULL;
-  su_home_t *temphome;
+  su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
   sip_to_t *to;
 
   g_assert (priv->sofia_home != NULL);
@@ -97,7 +97,7 @@ sip_conn_create_register_handle (SIPConnection *conn,
   if (to)
     result = nua_handle (priv->sofia_nua, NULL, SIPTAG_TO(to), TAG_END());
 
-  su_home_unref (temphome);
+  su_home_deinit (temphome);
 
   return result;
 }
@@ -108,7 +108,7 @@ sip_conn_create_request_handle (SIPConnection *conn,
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
   nua_handle_t *result = NULL;
-  su_home_t *temphome;
+  su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
   sip_to_t *to;
 
   g_assert (priv->sofia_home != NULL);
@@ -127,7 +127,7 @@ sip_conn_create_request_handle (SIPConnection *conn,
                          SIPTAG_TO(to),
                          TAG_END());
 
-  su_home_unref (temphome);
+  su_home_deinit (temphome);
 
   return result;
 }
