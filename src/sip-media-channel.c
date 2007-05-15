@@ -1032,13 +1032,13 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
       /* No reason means roughly "rejected" */
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_NONE;
       break;
-    /*
     case 401:
     case 403:
     case 407:
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_?;
+      /* Closest thing to having no authorization
+       * is to reuse 'banned' from a group chat */
+      reason = TP_CHANNEL_GROUP_CHANGE_REASON_BANNED;
       break;
-    */
     }
 
   peer = sip_media_session_get_peer (priv->session);
