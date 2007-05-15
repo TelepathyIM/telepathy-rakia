@@ -68,9 +68,9 @@ G_BEGIN_DECLS
  ***********************************************************************/
 
 nua_handle_t *sip_conn_create_register_handle (SIPConnection *conn,
-    const char *address);
+    TpHandle contact);
 nua_handle_t *sip_conn_create_request_handle (SIPConnection *conn,
-    const char *address);
+    TpHandle contact);
 
 /***********************************************************************
  * Functions for managing NUA outbound/keepalive parameters and STUN settings

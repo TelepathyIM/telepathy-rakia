@@ -26,8 +26,6 @@
 
 struct _SIPConnectionPrivate
 {
-  gchar *requested_address;
-
   SIPConnectionSofia *sofia;
   nua_t  *sofia_nua;
   su_home_t *sofia_home;

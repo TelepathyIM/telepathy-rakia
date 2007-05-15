@@ -352,30 +352,13 @@ priv_r_get_params (int status,
                    sip_t const *sip,
                    tagi_t tags[])
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  sip_from_t const *from = NULL;
-
-  g_message("sofiasip: nua_r_get_params: %03d %s", status, phrase);
+  DEBUG("nua_r_get_params: %03d %s", status, phrase);
 
   if (status < 200)
     return;
 
   /* note: print contents of all tags to stdout */
   tl_print(stdout, "tp-sofiasip stack parameters:\n", tags);
-
-  tl_gets(tags, SIPTAG_FROM_REF(from), TAG_END());
-
-  /* XXX: why is it here??? */
-  if (from) {
-    char *new_address = 
-      sip_header_as_string(priv->sofia_home, (sip_header_t *)from);
-    if (new_address) {
-      DEBUG("Updating the public SIP address to %s", new_address);
-      g_free (priv->address);
-      priv->address = g_strdup(new_address);
-      su_free (priv->sofia_home, new_address);
-    }
-  }
 }
 
 static TpHandle

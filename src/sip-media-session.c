@@ -927,8 +927,6 @@ static void priv_session_media_state (SIPMediaSession *session, gboolean playing
 static void priv_offer_answer_step (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
   guint i;
   gint non_ready_streams = 0;
 
@@ -960,12 +958,10 @@ static void priv_offer_answer_step (SIPMediaSession *session)
       nua_handle_t *nh;
       const char *dest_uri;
 
-      dest_uri = tp_handle_inspect (contact_repo, priv->peer);
-
-      g_debug ("mapped handle %u to uri %s.", priv->peer, dest_uri);
-
       if (dest_uri) {
-	nh = sip_conn_create_request_handle (priv->conn, dest_uri);
+	nh = sip_conn_create_request_handle (priv->conn, priv->peer);
+        g_assert (nh != NULL);
+
 	g_object_set (priv->channel, "nua-handle", nh, NULL);
 
 	/* note:  we need to be prepared to receive media right after the

@@ -609,29 +609,27 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
 {
   SIPTextChannel *self = SIP_TEXT_CHANNEL(iface);
   SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
-  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
   SIPTextPendingMessage *msg = NULL;
   nua_handle_t *msg_nh = NULL;
-  const char *recipient;
 
   DEBUG("enter");
 
-  recipient = tp_handle_inspect(contact_repo, priv->handle);
-  
-  if ((recipient == NULL) || (strlen(recipient) == 0)) {
+  if (priv->handle == 0)
+    {
       GError invalid =  { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
           "invalid recipient" };
 
       g_warning ("invalid recipient handle %d", priv->handle);
       dbus_g_method_return_error (context, &invalid);
       return;
-  }
-  
+    }
+
   /* XXX: would it be helpful to bind the channel, or the
    * SIPTextPendingMessage, or something, to the NH? */
 
-  msg_nh = sip_conn_create_request_handle (priv->conn, recipient);
+  msg_nh = sip_conn_create_request_handle (priv->conn, priv->handle);
+  g_assert (msg_nh != NULL);
+
   nua_message(msg_nh,
 	      SIPTAG_CONTENT_TYPE_STR("text/plain"),
 	      SIPTAG_PAYLOAD_STR(text),

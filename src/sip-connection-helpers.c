@@ -52,9 +52,24 @@
  * nor a media channel */
 void *_sip_nh_expired = (void *)"";
 
-static sip_to_t *priv_sip_to_url_make (su_home_t *home, const char *address)
+static sip_to_t *priv_sip_to_url_make (SIPConnection *conn,
+                                       su_home_t *home,
+                                       TpHandle contact)
 {
-  sip_to_t *to = sip_to_make (home, address);
+  TpHandleRepoIface *contact_repo;
+  sip_to_t *to;
+  const char *address;
+
+  contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)conn, TP_HANDLE_TYPE_CONTACT);
+
+  address = tp_handle_inspect (contact_repo, contact);
+  if (address == NULL)
+    return NULL;
+
+  /* TODO: set display name bound to the handle using qdata? */
+
+  to = sip_to_make (home, address);
 
   if (to &&
       url_sanitize(to->a_url) == 0) 
@@ -65,45 +80,54 @@ static sip_to_t *priv_sip_to_url_make (su_home_t *home, const char *address)
 
 nua_handle_t *
 sip_conn_create_register_handle (SIPConnection *conn,
-                                 const char *address)
+                                 TpHandle contact)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
-  sip_to_t *to;
   nua_handle_t *result = NULL;
+  su_home_t *temphome;
+  sip_to_t *to;
 
   g_assert (priv->sofia_home != NULL);
   g_assert (priv->sofia_nua != NULL);
 
-  to = priv_sip_to_url_make (priv->sofia_home, address);
+  temphome = su_home_create ();
+
+  to = priv_sip_to_url_make (conn, temphome, contact);
 
   if (to)
     result = nua_handle (priv->sofia_nua, NULL, SIPTAG_TO(to), TAG_END());
-  else
-    g_warning ("Unable to create register handle for <%s>", address);
+
+  su_home_unref (temphome);
 
   return result;
 }
 
 nua_handle_t *
 sip_conn_create_request_handle (SIPConnection *conn,
-                                const char *address)
+                                TpHandle contact)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
-  sip_to_t *to;
   nua_handle_t *result = NULL;
+  su_home_t *temphome;
+  sip_to_t *to;
 
   g_assert (priv->sofia_home != NULL);
   g_assert (priv->sofia_nua != NULL);
 
-  to = priv_sip_to_url_make (priv->sofia_home, address);
+  temphome = su_home_create ();
+
+  to = priv_sip_to_url_make (conn, temphome, contact);
+
+  /* TODO: Pass also SIPTAG_FROM updated from base->self_handle, to update the
+   * display name possibly set by the client */
 
   if (to)
     result = nua_handle (priv->sofia_nua, NULL,
                          NUTAG_URL(to->a_url),
                          SIPTAG_TO(to),
                          TAG_END());
-  else
-    g_warning ("nua: Unable to create SIP request handle for <%s>", address);
+
+  su_home_unref (temphome);
 
   return result;
 }

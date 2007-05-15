@@ -221,18 +221,12 @@ sip_connection_set_property (GObject      *object,
                              GParamSpec   *pspec)
 {
   SIPConnection *self = (SIPConnection*) object;
-  TpBaseConnection *base = (TpBaseConnection *)self;
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
 
   switch (property_id) {
   case PROP_ADDRESS: {
-    /* check address has been set*/
-    g_assert (strcmp (g_value_get_string (value), "no-address-set") != 0);
-    /* check this is 1st call, cannot be changed afterwords */ 
-    g_assert (base->self_handle == 0);
-
-    /* just store the address, self_handle set in constructor */
-    priv->requested_address = priv_sip_strdup (g_value_get_string (value));
+    /* just store the address, self_handle set in start_connecting */
+    priv->address = priv_sip_strdup (g_value_get_string (value));
     break;
   }
   case PROP_PASSWORD: {
@@ -327,10 +321,7 @@ sip_connection_get_property (GObject      *object,
 
   switch (property_id) {
   case PROP_ADDRESS: {
-    if (priv->address)
-      g_value_set_string (value, priv->address);
-    else
-      g_value_set_string (value, priv->requested_address);
+    g_value_set_string (value, priv->address);
     break;
   }
   case PROP_PASSWORD: {
@@ -392,7 +383,7 @@ sip_connection_unique_name (TpBaseConnection *base)
 
   g_assert (SIP_IS_CONNECTION (conn));
   priv = SIP_CONNECTION_GET_PRIVATE (conn);
-  return g_strdup (priv->requested_address);
+  return g_strdup (priv->address);
 }
 
 static void sip_connection_disconnected (TpBaseConnection *base);
@@ -439,7 +430,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_string("address",
                                    "SIPConnection construction property",
                                    "Public SIP address",
-                                   "no-address-set", /*default value*/
+                                   NULL, /*default value*/
                                    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
   INST_PROP(PROP_ADDRESS);
 
@@ -629,9 +620,8 @@ sip_connection_start_connecting (TpBaseConnection *base,
   SIPConnection *self = SIP_CONNECTION (base);
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
   su_root_t *sofia_root;
-  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (base,
-      TP_HANDLE_TYPE_CONTACT);
-  gchar *sip_address;
+  TpHandleRepoIface *contact_repo;
+  const gchar *sip_address;
 
   g_message("%s: Connection %p ref-count=%u (obj)", G_STRFUNC, self,
       G_OBJECT(self)->ref_count);
@@ -643,20 +633,40 @@ sip_connection_start_connecting (TpBaseConnection *base,
   /* the construct parameters will be non-empty */
   sofia_root = priv->sofia->sofia_root;
   g_assert (sofia_root != NULL);
-  g_assert (priv->requested_address != NULL);
+  g_return_val_if_fail (priv->address != NULL, FALSE);
+
+  /* FIXME: we should defer setting the self handle until we've found out from
+   * the stack what handle we actually got, at which point we set it; and
+   * not tell Telepathy that connection has succeeded until we've done so
+   */
+  contact_repo = tp_base_connection_get_handles (base, TP_HANDLE_TYPE_CONTACT);
+  base->self_handle = tp_handle_ensure (contact_repo, priv->address,
+      NULL, error);
+  if (base->self_handle == 0)
+    {
+      g_warning ("our requested SIP address '%s' is invalid, not connecting",
+          priv->address);
+      return FALSE;
+    }
+  DEBUG("self_handle = %d", base->self_handle);
+
+  sip_address = tp_handle_inspect(contact_repo, base->self_handle);
 
   /* step: create stack instance */
-  priv->sofia_nua = nua_create(sofia_root,
-			       sip_connection_sofia_callback, priv->sofia,
-			       SOATAG_AF (SOA_AF_IP4_IP6),
-			       TAG_IF(priv->requested_address,
-				      SIPTAG_FROM_STR(priv->requested_address)),
-			       TAG_IF(priv->proxy,
-				      NUTAG_PROXY(priv->proxy)),
-                               TAG_IF(g_ascii_strncasecmp(priv->proxy, "sips:", 5) == 0,
-                                      NUTAG_SIPS_URL("sips:*")),
-                               NUTAG_USER_AGENT("Telepathy-SofiaSIP/" TELEPATHY_SIP_VERSION),
-			       TAG_NULL ());
+  priv->sofia_nua = nua_create (sofia_root,
+      sip_connection_sofia_callback,
+      priv->sofia,
+      SOATAG_AF(SOA_AF_IP4_IP6),
+      SIPTAG_FROM_STR(sip_address),
+      TAG_IF(priv->proxy, NUTAG_PROXY(priv->proxy)),
+      TAG_IF(g_ascii_strncasecmp(priv->proxy, "sips:", 5) == 0,
+                                 NUTAG_SIPS_URL("sips:*")),
+      NUTAG_USER_AGENT("Telepathy-SofiaSIP/" TELEPATHY_SIP_VERSION),
+      NUTAG_ENABLEMESSAGE(1),
+      NUTAG_ENABLEINVITE(1),
+      NUTAG_AUTOALERT(0),
+      NUTAG_AUTOANSWER(0),
+      TAG_NULL ());
   if (priv->sofia_nua == NULL)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
@@ -664,47 +674,23 @@ sip_connection_start_connecting (TpBaseConnection *base,
       return FALSE;
     }
 
-  nua_set_params(priv->sofia_nua,
-		 TAG_IF (priv->keepalive_interval > 0,
-			 NUTAG_KEEPALIVE((glong)priv->keepalive_interval * 1000)),
-		 NUTAG_ENABLEMESSAGE(1),
-		 NUTAG_ENABLEINVITE(1),
-		 NUTAG_AUTOALERT(0),
-		 NUTAG_AUTOANSWER(0),
-		 TAG_NULL());
-
   sip_conn_update_nua_outbound (self);
+  sip_conn_update_nua_keepalive_interval (self);
   sip_conn_update_nua_contact_features (self);
   sip_conn_update_stun_server (self);
 
   g_message ("Sofia-SIP NUA at address %p (SIP URI: %s)", 
-	     priv->sofia_nua, priv->requested_address);
-
-  /* FIXME: we should defer setting the self handle until we've found out from
-   * the stack what handle we actually got, at which point we set it; and
-   * not tell Telepathy that connection has succeeded until we've done so
-   */
-  base->self_handle = tp_handle_ensure (contact_repo, priv->requested_address,
-      NULL, error);
-  if (base->self_handle == 0)
-    {
-      g_warning ("our requested SIP address is invalid, not connecting: '%s'",
-          priv->requested_address);
-      return FALSE;
-    }
-
-  g_message ("self_handle = %d", base->self_handle);
+	     priv->sofia_nua, sip_address);
 
   /* XXX: should there be configuration option to disable use
    *      of outbound proxy, any use-cases? */
-
-  sip_address = priv->address ? priv->address : priv->requested_address;
 
   /* for debugging purposes, request a dump of stack configuration
    * at registration time */
   nua_get_params(priv->sofia_nua, TAG_ANY(), TAG_NULL());
 
-  priv->register_op = sip_conn_create_register_handle(self, sip_address);
+  priv->register_op = sip_conn_create_register_handle (self,
+                                                       base->self_handle);
   nua_register(priv->register_op, TAG_NULL());
 
   DEBUG("exit");
