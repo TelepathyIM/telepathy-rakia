@@ -478,8 +478,8 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   INST_PROP(PROP_HTTP_PROXY);
 
   param_spec = g_param_spec_boolean("discover-binding",
-                                    "Discover public address",
-                                    "Enable discovery of public address beyond NAT",
+                                    "Discover public contact",
+                                    "Enable discovery of public IP address beyond NAT",
                                     TRUE, /*default value*/
                                     G_PARAM_READWRITE);
   INST_PROP(PROP_DISCOVER_BINDING);
