@@ -90,8 +90,6 @@ sip_conn_create_register_handle (SIPConnection *conn,
   g_assert (priv->sofia_home != NULL);
   g_assert (priv->sofia_nua != NULL);
 
-  temphome = su_home_create ();
-
   to = priv_sip_to_url_make (conn, temphome, contact);
 
   if (to)
@@ -113,8 +111,6 @@ sip_conn_create_request_handle (SIPConnection *conn,
 
   g_assert (priv->sofia_home != NULL);
   g_assert (priv->sofia_nua != NULL);
-
-  temphome = su_home_create ();
 
   to = priv_sip_to_url_make (conn, temphome, contact);
 
