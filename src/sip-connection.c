@@ -280,9 +280,7 @@ sip_connection_set_property (GObject      *object,
     break;
   }
   case PROP_STUN_SERVER: {
-    g_free((gpointer)priv->stun_server);
-    priv->stun_server =  g_value_dup_string (value);
-    sip_conn_update_stun_server (self);
+    sip_conn_resolv_stun_server (self, g_value_get_string (value));
     break;
   }
   case PROP_EXTRA_AUTH_USER: {

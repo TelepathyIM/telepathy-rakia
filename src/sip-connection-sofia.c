@@ -61,6 +61,13 @@ priv_r_shutdown(int status,
 
   g_assert(sofia->conn == NULL);
 
+  if (NULL != sofia->sofia_resolver)
+    {
+      g_debug ("destroying sofia resolver");
+      sres_resolver_destroy (sofia->sofia_resolver);
+      sofia->sofia_resolver = NULL;
+    }
+
   source = su_root_gsource (sofia->sofia_root);
 
   /* XXX: temporarily allow recursion in the Sofia source to work around
