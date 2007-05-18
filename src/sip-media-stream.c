@@ -816,7 +816,7 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
                               9, "",
                               G_MAXUINT);
 
-      printf("c_address=<%s>, c_port=<%lu>\n", sdp_conns->c_address, r_port);
+      DEBUG("c_address=<%s>, c_port=<%lu>\n", sdp_conns->c_address, r_port);
 
       tp_transports = g_ptr_array_sized_new (1);
       g_ptr_array_add (tp_transports, g_value_get_boxed (&tp_transport));
