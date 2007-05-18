@@ -816,7 +816,7 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
                               9, "",
                               G_MAXUINT);
 
-      DEBUG("c_address=<%s>, c_port=<%lu>\n", sdp_conns->c_address, r_port);
+      DEBUG("c_address=<%s>, c_port=<%lu>", sdp_conns->c_address, r_port);
 
       tp_transports = g_ptr_array_sized_new (1);
       g_ptr_array_add (tp_transports, g_value_get_boxed (&tp_transport));
@@ -1243,7 +1243,7 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
 
   g_free(priv->stream_sdp);
   priv->stream_sdp = tmpa_str;
-  g_debug("Updated stream SDP:{\n%s}\n", priv->stream_sdp);
+  DEBUG("Updated stream SDP:{\n%s}", priv->stream_sdp);
 
   g_free(tr_addr);
   g_free(tr_user);

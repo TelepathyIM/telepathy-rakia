@@ -858,11 +858,11 @@ sip_connection_request_handles (TpSvcConnection *iface,
 
     if (handle == 0)
       {
-        g_debug ("%s: requested handle %s was invalid", G_STRFUNC, names[i]);
+        DEBUG("requested handle %s was invalid", names[i]);
         goto ERROR_IN_LOOP;
       }
 
-    g_debug("%s:\n\tverify handle '%s' => %u (%s)", G_STRFUNC, names[i],
+    DEBUG("verify handle '%s' => %u (%s)", names[i],
         handle, tp_handle_inspect (repo, handle));
 
     if (!tp_handle_client_hold (repo, client_name, handle, &error))

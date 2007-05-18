@@ -542,7 +542,7 @@ sip_media_session_debug (SIPMediaSession *session,
 
   va_end (list);
 
-  sip_debug (DEBUG_FLAG, "SIP media session [%-17s]: %s\n",
+  sip_debug (DEBUG_FLAG, "SIP media session [%-17s]: %s",
       session_states[priv->state],
       buf);
 }
@@ -628,7 +628,7 @@ sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_sdp)
   parser = sdp_parse(temphome, r_sdp, strlen(r_sdp), sdp_f_insane);
   pa_error = sdp_parsing_error(parser);
   if (pa_error) {
-    g_warning("%s: error parsing SDP: %s\n", __func__, pa_error);
+    g_warning("error parsing SDP: %s", pa_error);
     res = FALSE;
   }
   else {
@@ -727,8 +727,6 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
   for (i = 0; i < media_types->len; i++) {
     guint media_type = g_array_index (media_types, guint, i);
     SIPMediaStream *stream;
-
-    g_debug("%s: len of %d, i = %d\n", G_STRFUNC, media_types->len, i);
 
     stream = priv_create_media_stream (session, media_type);
 

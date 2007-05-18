@@ -192,7 +192,7 @@ sip_media_channel_constructor (GType type, guint n_props,
   /* register object on the bus */
   bus = tp_get_bus ();
 
-  g_debug("registering object to dbus path=%s.\n", priv->object_path);
+  DEBUG("registering object to dbus path=%s", priv->object_path);
   dbus_g_connection_register_g_object (bus, priv->object_path, obj);
 
   tp_group_mixin_init (obj,
