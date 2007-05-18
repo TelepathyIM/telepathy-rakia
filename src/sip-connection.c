@@ -208,10 +208,7 @@ static void
 sip_connection_init (SIPConnection *obj)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (obj);
-
   priv->sofia = sip_connection_sofia_new (obj);
-
-  priv->keepalive_interval = -1;
 }
 
 static void

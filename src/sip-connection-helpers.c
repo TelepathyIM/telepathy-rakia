@@ -287,7 +287,7 @@ sip_conn_update_nua_keepalive_interval (SIPConnection *conn)
     keepalive_interval = (long)priv->keepalive_interval;
   keepalive_interval *= 1000;
 
-  g_debug ("%s: setting keepalive interval to %ld msec", G_STRFUNC, keepalive_interval);
+  DEBUG("setting keepalive interval to %ld msec", keepalive_interval);
 
   nua_set_params (priv->sofia_nua,
                   NUTAG_KEEPALIVE(keepalive_interval),
