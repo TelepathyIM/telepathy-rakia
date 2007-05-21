@@ -365,6 +365,14 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
   struct in_addr test_addr;
 
+  if (stun_server == NULL)
+    {
+      g_free (priv->stun_server);
+      priv->stun_server = NULL;
+      sip_conn_update_stun_server (conn);
+      return;
+    }
+
   if (inet_aton (stun_server, &test_addr))
     {
       g_free (priv->stun_server);
