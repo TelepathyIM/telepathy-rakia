@@ -660,20 +660,33 @@ sip_connection_start_connecting (TpBaseConnection *base,
       priv->sofia,
       SOATAG_AF(SOA_AF_IP4_IP6),
       SIPTAG_FROM_STR(sip_address),
-      TAG_IF(priv->proxy, NUTAG_PROXY(priv->proxy)),
-      TAG_IF(g_ascii_strncasecmp(priv->proxy, "sips:", 5) == 0,
-                                 NUTAG_SIPS_URL("sips:*")),
       NUTAG_USER_AGENT("Telepathy-SofiaSIP/" TELEPATHY_SIP_VERSION),
       NUTAG_ENABLEMESSAGE(1),
       NUTAG_ENABLEINVITE(1),
       NUTAG_AUTOALERT(0),
       NUTAG_AUTOANSWER(0),
-      TAG_NULL ());
+      TAG_NULL());
   if (priv->sofia_nua == NULL)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
           "Unable to create SIP stack");
       return FALSE;
+    }
+
+  /* Take care about SIPS */
+  if (priv->proxy != NULL)
+    {
+      nua_set_params (priv->sofia_nua,
+                      NUTAG_PROXY(priv->proxy),
+                      TAG_IF(g_ascii_strncasecmp(priv->proxy, "sips:", 5) == 0,
+                                                 NUTAG_SIPS_URL("sips:*")),
+                      TAG_NULL());
+    }
+  else if (g_ascii_strncasecmp(sip_address, "sips:", 5) == 0)
+    {
+      nua_set_params (priv->sofia_nua,
+                      NUTAG_SIPS_URL("sips:*"),
+                      TAG_NULL());
     }
 
   sip_conn_update_nua_outbound (self);
