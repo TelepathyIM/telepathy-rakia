@@ -388,8 +388,9 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
       priv->sofia_resolver =
         sres_resolver_create (priv->sofia->sofia_root, NULL, TAG_END());
     }
+  g_return_if_fail (priv->sofia_resolver != NULL);
 
-  g_debug ("creating new stun resolver query");
+  DEBUG("creating a new resolver query for STUN host name %s", stun_server);
 
   sres_query (priv->sofia_resolver,
               _stun_resolver_cb,
