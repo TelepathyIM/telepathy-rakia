@@ -585,6 +585,13 @@ sip_connection_finalize (GObject *obj)
 
   DEBUG("enter");
 
+  if (NULL != priv->sofia_resolver)
+    {
+      g_debug ("destroying sofia resolver");
+      sres_resolver_destroy (priv->sofia_resolver);
+      priv->sofia_resolver = NULL;
+    }
+
   su_home_unref (priv->sofia_home);
 
   g_free (priv->address);

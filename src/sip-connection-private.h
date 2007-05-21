@@ -30,6 +30,7 @@ struct _SIPConnectionPrivate
   nua_t  *sofia_nua;
   su_home_t *sofia_home;
   nua_handle_t *register_op;
+  sres_resolver_t *sofia_resolver;
 
   gchar *registrar_realm;
   gchar *last_auth;

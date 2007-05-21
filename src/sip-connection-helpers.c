@@ -354,24 +354,17 @@ _stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **ans
 {
   SIPConnection *conn = SIP_CONNECTION (ctx);
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
-  unsigned long addr;
 
   if ((NULL != answers) && (NULL != answers[0]) && (0 == answers[0]->sr_record->r_status))
     {
       if (NULL != priv->stun_server)
           g_free (priv->stun_server);
 
-      addr = htonl(answers[0]->sr_a->a_addr.s_addr);
-      priv->stun_server = g_strdup_printf ("%lu.%lu.%lu.%lu",
-          (addr >> 24) & 0xff,
-          (addr >> 16) & 0xff,
-          (addr >> 8) & 0xff,
-          addr & 0xff);
-
+      priv->stun_server = g_strdup (inet_ntoa (answers[0]->sr_a->a_addr));
       sip_conn_update_stun_server (conn);
     }
 
-  sres_free_answers (priv->sofia->sofia_resolver, answers);
+  sres_free_answers (priv->sofia_resolver, answers);
 }
 
 void
@@ -380,19 +373,18 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
   uint16_t qtype = sres_type_a;
 
-  if (NULL == priv->sofia->sofia_resolver)
+  if (NULL == priv->sofia_resolver)
     {
-      priv->sofia->sofia_resolver =
+      priv->sofia_resolver =
         sres_resolver_create (priv->sofia->sofia_root, NULL, TAG_END());
     }
 
-  g_debug ("creating new query");
+  g_debug ("creating new stun resolver query");
 
-  sres_query (priv->sofia->sofia_resolver,
+  sres_query (priv->sofia_resolver,
               _stun_resolver_cb,
               (sres_context_t *) conn,
               qtype,
               stun_server);
 }
-
 

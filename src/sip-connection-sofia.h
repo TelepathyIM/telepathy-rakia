@@ -30,7 +30,6 @@ typedef struct _SIPConnectionSofia {
   SIPConnection *conn;
   /* Event loop root for Sofia-SIP */
   su_root_t *sofia_root;
-  sres_resolver_t *sofia_resolver;
 } SIPConnectionSofia;
 
 SIPConnectionSofia * sip_connection_sofia_new (SIPConnection *conn);
