@@ -343,6 +343,15 @@ sip_conn_update_stun_server (SIPConnection *conn)
   g_free (composed);
 }
 
+static void
+sip_conn_set_stun_server_address (SIPConnection *conn, const gchar *address)
+{
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  g_free (priv->stun_server);
+  priv->stun_server = g_strdup (address);
+  sip_conn_update_stun_server (conn);
+}
+
 void
 _stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **answers)
 {
@@ -350,11 +359,8 @@ _stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **ans
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
 
   if ((NULL != answers) && (NULL != answers[0]) && (0 == answers[0]->sr_record->r_status))
-    {
-      g_free (priv->stun_server);
-      priv->stun_server = g_strdup (inet_ntoa (answers[0]->sr_a->a_addr));
-      sip_conn_update_stun_server (conn);
-    }
+    sip_conn_set_stun_server_address (conn,
+                                      inet_ntoa (answers[0]->sr_a->a_addr));
 
   sres_free_answers (priv->sofia_resolver, answers);
 }
@@ -367,17 +373,13 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
 
   if (stun_server == NULL)
     {
-      g_free (priv->stun_server);
-      priv->stun_server = NULL;
-      sip_conn_update_stun_server (conn);
+      sip_conn_set_stun_server_address (conn, NULL);
       return;
     }
 
   if (inet_aton (stun_server, &test_addr))
     {
-      g_free (priv->stun_server);
-      priv->stun_server = g_strdup (stun_server);
-      sip_conn_update_stun_server (conn);
+      sip_conn_set_stun_server_address (conn, stun_server);
       return;
     }
   
