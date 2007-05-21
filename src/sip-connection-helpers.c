@@ -363,7 +363,6 @@ void
 sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
-  uint16_t qtype = sres_type_a;
   struct in_addr test_addr;
 
   if (inet_aton (stun_server, &test_addr))
@@ -385,7 +384,7 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
   sres_query (priv->sofia_resolver,
               _stun_resolver_cb,
               (sres_context_t *) conn,
-              qtype,
+              sres_type_a,
               stun_server);
 }
 
