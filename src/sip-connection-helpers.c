@@ -357,9 +357,7 @@ _stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **ans
 
   if ((NULL != answers) && (NULL != answers[0]) && (0 == answers[0]->sr_record->r_status))
     {
-      if (NULL != priv->stun_server)
-          g_free (priv->stun_server);
-
+      g_free (priv->stun_server);
       priv->stun_server = g_strdup (inet_ntoa (answers[0]->sr_a->a_addr));
       sip_conn_update_stun_server (conn);
     }
@@ -376,6 +374,7 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
 
   if (inet_aton (stun_server, &test_addr))
     {
+      g_free (priv->stun_server);
       priv->stun_server = g_strdup (stun_server);
       sip_conn_update_stun_server (conn);
       return;
