@@ -321,7 +321,7 @@ sip_conn_update_stun_server (SIPConnection *conn)
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
   gchar *composed = NULL;
 
-  if (!priv->sofia_nua)
+  if (priv->sofia_nua == NULL)
     {
       /* nothing to do */
       return;
@@ -329,19 +329,15 @@ sip_conn_update_stun_server (SIPConnection *conn)
 
   if (priv->stun_server != NULL)
     {
-
       if (priv->stun_port == 0)
-        {
-          composed = g_strdup (priv->stun_server);
-        }
+        composed = g_strdup (priv->stun_server);
       else
-        {
-          composed = g_strdup_printf ("%s:%u", priv->stun_server,
-              priv->stun_port);
-        }
+        composed = g_strdup_printf ("%s:%u",
+                                    priv->stun_server, priv->stun_port);
+      DEBUG("setting STUN server to %s", composed);
     }
-
-  g_debug ("%s: setting STUN server to %s", G_STRFUNC, composed);
+  else
+    DEBUG("clearing STUN server address");
 
   nua_set_params(priv->sofia_nua,
       STUNTAG_SERVER(composed), TAG_END());
