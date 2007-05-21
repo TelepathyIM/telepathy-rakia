@@ -43,8 +43,6 @@
 #define DEBUG_FLAG SIP_DEBUG_CONNECTION
 #include "debug.h"
 
-#include <sofia-sip/sresolv.h>
-
 /* Default keepalive timeout in seconds,
  * a value obtained from Sofia-SIP documentation */
 #define SIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL 120
