@@ -308,60 +308,6 @@ priv_compose_proxy_uri (const gchar *host,
   }
 }
 
-/**
- * Returns a default SIP proxy address based on the public 
- * SIP address 'sip_address' and . For instance
- * "sip:first.surname@company.com" would result in "sip:company.com".
- * The SIP stack will further utilize DNS lookups to find the IP address 
- * for the SIP server responsible for the domain "company.com".
- */
-static gchar *
-priv_compose_default_proxy_uri (const gchar *sip_address,
-                                const gchar *transport,
-                                guint port)
-{
-  char *result = NULL;
-  char *host;
-  char *found;
-
-  g_return_val_if_fail (sip_address != NULL, NULL);
-
-  /* skip sip and sips prefixes, updating transport if necessary */
-  found = strchr (sip_address, ':');
-  if (found != NULL) {
-    if (strncmp("sip:", sip_address, 4) == 0) {
-      ;
-    } else if (strncmp("sips:", sip_address, 5) == 0) {
-      if (transport == NULL || strcmp (transport, "auto") == 0)
-        transport = "tls";
-    } else {
-      /* error, unknown URI prefix */
-      return NULL;
-    }
-
-    sip_address = found + 1;
-  }
-
-  /* skip userinfo */
-  found = strchr (sip_address, '@');
-  if (found != NULL)
-    sip_address = found + 1;
-
-  /* copy rest of the string */
-  host = g_strdup (sip_address);
-
-  /* mark end (uri-parameters defs) */
-  found = strchr (host, ';');
-  if (found != NULL)
-    *found = '\0';
-
-  result = priv_compose_proxy_uri (host, transport, port);
-
-  g_free (host);
-
-  return result;
-}
-
 static SIPConnectionKeepaliveMechanism
 priv_parse_keepalive (const gchar *str)
 {
@@ -465,18 +411,15 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
 			    "address", params->account,
                             NULL);
 
-  if (params->proxy_host == NULL) {
-    proxy = priv_compose_default_proxy_uri (params->account,
-                                            params->transport,
-                                            params->port);
-    g_debug ("Set outbound proxy address to <%s>, based on <%s>", proxy, params->account);
-  } else
-    proxy = priv_compose_proxy_uri (params->proxy_host,
-                                    params->transport,
-                                    params->port);
+  if (params->proxy_host != NULL)
+    {
+      proxy = priv_compose_proxy_uri (params->proxy_host,
+                                      params->transport,
+                                      params->port);
+      g_object_set (connection, "proxy", proxy, NULL);
+      g_free (proxy);
+    }
 
-  g_object_set (connection, "proxy", proxy, NULL);
-  g_free (proxy);
 
   SET_PROPERTY_IF_PARAM_SET ("password", SIP_CONN_PARAM_PASSWORD,
       params->password);
