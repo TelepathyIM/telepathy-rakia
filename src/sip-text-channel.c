@@ -552,9 +552,10 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
   SIPTextChannel *self = SIP_TEXT_CHANNEL(iface);
   SIPTextChannelPrivate *priv;
   GType message_type;
-  guint count;
   GPtrArray *messages;
   GList *cur;
+  guint count;
+  guint i;
 
   priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
 
@@ -589,6 +590,10 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
 
   tp_svc_channel_type_text_return_from_list_pending_messages (context,
       messages);
+
+  for (i = 0; i < messages->len; i++)
+    g_boxed_free (message_type, g_ptr_array_index (messages, i));
+  g_ptr_array_free (messages, TRUE);
 }
 
 
