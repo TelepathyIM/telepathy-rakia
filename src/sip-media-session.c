@@ -42,6 +42,7 @@
 #include "sip-connection-helpers.h"
 #include "sip-media-session.h"
 #include "sip-media-stream.h"
+#include "telepathy-helpers.h"
 
 #define DEBUG_FLAG SIP_DEBUG_MEDIA
 #include "debug.h"
@@ -713,23 +714,16 @@ void sip_media_session_stream_state (SIPMediaSession *sess,
   sip_media_channel_stream_state (priv->channel, stream_id, state);
 }
 
-static GType
-sip_media_session_stream_type (void) /* G_GNUC_CONST */
-{
-  static GType type = 0;
+DEFINE_TP_STRUCT_TYPE(sip_media_session_stream_type,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT)
 
-  if (!type)
-    type = dbus_g_type_get_struct ("GValueArray",
-                                   G_TYPE_UINT,
-                                   G_TYPE_UINT,
-                                   G_TYPE_UINT,
-                                   G_TYPE_UINT,
-                                   G_TYPE_UINT,
-                                   G_TYPE_UINT,
-                                   G_TYPE_INVALID);
-
-  return type;
-}
+DEFINE_TP_LIST_FREE(sip_media_session_free_stream_list,
+                    sip_media_session_stream_type ())
 
 void
 priv_add_stream_list_entry (GPtrArray *list,
@@ -818,20 +812,6 @@ gboolean sip_media_session_list_streams (SIPMediaSession *session,
     }
 
   return TRUE;
-}
-
-void
-sip_media_session_free_stream_list (GPtrArray *list)
-{
-  GType stream_type;
-  guint i;
-
-  stream_type = sip_media_session_stream_type ();
-
-  for (i = 0; i < list->len; i++)
-    g_boxed_free (stream_type, g_ptr_array_index (list, i));
-
-  g_ptr_array_free (list, TRUE);
 }
 
 void sip_media_session_accept (SIPMediaSession *self, gboolean accept)
