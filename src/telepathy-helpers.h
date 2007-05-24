@@ -49,6 +49,17 @@
     return type;                                        \
   }
 
+#define DEFINE_TP_LIST_FREE(func, elem_type) \
+  void func (GPtrArray *list)                           \
+  {                                                     \
+    GType type;                                         \
+    guint i;                                            \
+    type = elem_type;                                   \
+    for (i = 0; i < list->len; i++)                     \
+      g_boxed_free (type, g_ptr_array_index (list, i)); \
+    g_ptr_array_free (list, TRUE);                      \
+  }
+
 
 #endif /* __TELEPATHY_HELPERS_H__ */
 
