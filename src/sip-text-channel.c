@@ -593,14 +593,19 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
   count = g_queue_get_length (priv->pending_messages);
   messages = g_ptr_array_sized_new (count);
 
-  for (cur = (clear ? g_queue_pop_head_link(priv->pending_messages)
-                    : g_queue_peek_head_link(priv->pending_messages));
-       cur != NULL;
-       cur = (clear ? g_queue_pop_head_link(priv->pending_messages)
-                    : cur->next))
+  if (clear)
     {
-      priv_pending_message_list_add (messages,
-                                     (SIPTextPendingMessage *) cur->data);
+      while ((cur = g_queue_pop_head_link (priv->pending_messages)) != NULL)
+        priv_pending_message_list_add (messages,
+                                       (SIPTextPendingMessage *) cur->data);
+    }
+  else
+    {
+      for (cur = g_queue_peek_head_link(priv->pending_messages);
+           cur != NULL;
+           cur = cur->next)
+        priv_pending_message_list_add (messages,
+                                       (SIPTextPendingMessage *) cur->data);
     }
 
   tp_svc_channel_type_text_return_from_list_pending_messages (context,
