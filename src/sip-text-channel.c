@@ -537,6 +537,39 @@ sip_text_channel_get_message_types(TpSvcChannelTypeText *iface,
   g_array_free (ret, TRUE);
 }
 
+static void
+priv_pending_message_list_add (GPtrArray *list, SIPTextPendingMessage *msg)
+{
+  GValue val = { 0 };
+  GType message_type;
+
+  message_type = sip_tp_pending_message_struct_type ();
+  g_value_init (&val, message_type);
+  g_value_take_boxed (&val,
+                      dbus_g_type_specialized_construct (message_type));
+  dbus_g_type_struct_set (&val,
+                          0, msg->id,
+                          1, msg->timestamp,
+                          2, msg->sender,
+                          3, msg->type,
+                          4, 0 /* msg->flags */,
+                          5, msg->text,
+                          G_MAXUINT);
+
+   g_ptr_array_add (list, g_value_get_boxed (&val));
+}
+
+static void
+priv_pending_message_list_free (GPtrArray *list)
+{
+  GType message_type;
+  guint i;
+
+  message_type = sip_tp_pending_message_struct_type ();
+  for (i = 0; i < list->len; i++)
+    g_boxed_free (message_type, g_ptr_array_index (list, i));
+  g_ptr_array_free (list, TRUE);
+}
 
 /**
  * sip_text_channel_list_pending_messages
@@ -551,15 +584,11 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
 {
   SIPTextChannel *self = SIP_TEXT_CHANNEL(iface);
   SIPTextChannelPrivate *priv;
-  GType message_type;
   GPtrArray *messages;
   GList *cur;
   guint count;
-  guint i;
 
   priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
-
-  message_type = sip_tp_pending_message_struct_type ();
 
   count = g_queue_get_length (priv->pending_messages);
   messages = g_ptr_array_sized_new (count);
@@ -570,30 +599,14 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
        cur = (clear ? g_queue_pop_head_link(priv->pending_messages)
                     : cur->next))
     {
-      SIPTextPendingMessage *msg = (SIPTextPendingMessage *) cur->data;
-      GValue val = { 0, };
-
-      g_value_init (&val, message_type);
-      g_value_take_boxed (&val,
-          dbus_g_type_specialized_construct (message_type));
-      dbus_g_type_struct_set (&val,
-			      0, msg->id,
-			      1, msg->timestamp,
-			      2, msg->sender,
-			      3, msg->type,
-			      4, 0 /* msg->flags */,
-			      5, msg->text,
-			      G_MAXUINT);
-
-      g_ptr_array_add (messages, g_value_get_boxed (&val));
+      priv_pending_message_list_add (messages,
+                                     (SIPTextPendingMessage *) cur->data);
     }
 
   tp_svc_channel_type_text_return_from_list_pending_messages (context,
       messages);
 
-  for (i = 0; i < messages->len; i++)
-    g_boxed_free (message_type, g_ptr_array_index (messages, i));
-  g_ptr_array_free (messages, TRUE);
+  priv_pending_message_list_free (messages);
 }
 
 
