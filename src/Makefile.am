@@ -93,8 +93,7 @@ libtpsip_convenience_la_SOURCES = \
     sip-connection-private.h \
     sip-connection-sofia.h \
     sip-connection-sofia.c \
-    telepathy-helpers.h \
-    telepathy-helpers.c
+    telepathy-helpers.h
 
 nodist_libtpsip_convenience_la_SOURCES = \
     $(BUILT_SOURCES)

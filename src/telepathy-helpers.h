@@ -50,18 +50,5 @@
   }
 
 
-G_BEGIN_DECLS
-
-typedef struct
-{
-  gpointer key;
-  gpointer value;
-} TpKeyValue;
-
-GSList *tp_hash_to_key_value_list (GHashTable *hash);
-void tp_key_value_list_free (GSList *list);
-
-G_END_DECLS
-
 #endif /* __TELEPATHY_HELPERS_H__ */
 
