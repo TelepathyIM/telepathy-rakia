@@ -1053,6 +1053,7 @@ static void push_remote_codecs (SIPMediaStream *stream)
     tp_svc_media_stream_handler_emit_set_remote_codecs (
         (TpSvcMediaStreamHandler *)stream, codecs);
 
+    /* XXX: would g_value_unset() be sufficient here? */
     g_value_take_boxed (&priv->remote_codecs,
                         dbus_g_type_specialized_construct (
                                 sip_tp_codec_list_type ()));
