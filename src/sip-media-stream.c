@@ -40,6 +40,7 @@
 
 #include "sip-media-stream.h"
 #include "signals-marshal.h"
+#include "telepathy-helpers.h"
 
 #define DEBUG_FLAG SIP_DEBUG_MEDIA
 #include "debug.h"
@@ -134,6 +135,43 @@ static const char *debug_tp_transports[] = {
 #endif /* ENABLE_DEBUG */
 
 /***********************************************************************
+ * Set: DBus type utilities
+ ***********************************************************************/
+
+DEFINE_TP_STRUCT_TYPE(sip_tp_transport_struct_type,
+                      G_TYPE_UINT,
+                      G_TYPE_STRING,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      G_TYPE_STRING,
+                      G_TYPE_STRING,
+                      G_TYPE_DOUBLE,
+                      G_TYPE_UINT,
+                      G_TYPE_STRING,
+                      G_TYPE_STRING)
+
+DEFINE_TP_LIST_TYPE(sip_tp_transport_list_type,
+                    sip_tp_transport_struct_type())
+
+DEFINE_TP_STRUCT_TYPE(sip_tp_candidate_struct_type,
+                      G_TYPE_STRING,
+                      sip_tp_transport_list_type ())
+
+DEFINE_TP_LIST_TYPE(sip_tp_candidate_list_type,
+                    sip_tp_candidate_struct_type ())
+
+DEFINE_TP_STRUCT_TYPE(sip_tp_codec_struct_type,
+                      G_TYPE_UINT,
+                      G_TYPE_STRING,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      DBUS_TYPE_G_STRING_STRING_HASHTABLE)
+
+DEFINE_TP_LIST_TYPE(sip_tp_codec_list_type,
+                    sip_tp_codec_struct_type ())
+
+/***********************************************************************
  * Set: Gobject interface
  ***********************************************************************/
 
@@ -173,21 +211,21 @@ sip_media_stream_constructor (GType type, guint n_props,
 
   priv->playing = FALSE;
 
-  g_value_init (&priv->native_codecs, TP_TYPE_CODEC_LIST);
+  g_value_init (&priv->native_codecs, sip_tp_codec_list_type ());
   g_value_take_boxed (&priv->native_codecs,
-      dbus_g_type_specialized_construct (TP_TYPE_CODEC_LIST));
+      dbus_g_type_specialized_construct (sip_tp_codec_list_type ()));
 
-  g_value_init (&priv->native_candidates, TP_TYPE_CANDIDATE_LIST);
+  g_value_init (&priv->native_candidates, sip_tp_candidate_list_type ());
   g_value_take_boxed (&priv->native_candidates,
-      dbus_g_type_specialized_construct (TP_TYPE_CANDIDATE_LIST));
+      dbus_g_type_specialized_construct (sip_tp_candidate_list_type ()));
 
-  g_value_init (&priv->remote_codecs, TP_TYPE_CODEC_LIST);
+  g_value_init (&priv->remote_codecs, sip_tp_codec_list_type ());
   g_value_take_boxed (&priv->remote_codecs,
-      dbus_g_type_specialized_construct (TP_TYPE_CODEC_LIST));
+      dbus_g_type_specialized_construct (sip_tp_codec_list_type ()));
 
-  g_value_init (&priv->remote_candidates, TP_TYPE_CANDIDATE_LIST);
+  g_value_init (&priv->remote_candidates, sip_tp_candidate_list_type ());
   g_value_take_boxed (&priv->remote_candidates,
-      dbus_g_type_specialized_construct (TP_TYPE_CANDIDATE_LIST));
+      dbus_g_type_specialized_construct (sip_tp_candidate_list_type ()));
 
   priv->native_cands_prepared = FALSE;
   priv->native_codecs_prepared = FALSE;
@@ -336,7 +374,7 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                   0,
                   NULL, NULL,
                   _tpsip_marshal_VOID__STRING_BOXED,
-                  G_TYPE_NONE, 2, G_TYPE_STRING, TP_TYPE_TRANSPORT_LIST);
+                  G_TYPE_NONE, 2, G_TYPE_STRING, sip_tp_transport_list_type ());
 
   signals[SIG_READY] =
     g_signal_new ("ready",
@@ -345,7 +383,7 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                   0,
                   NULL, NULL,
                   g_cclosure_marshal_VOID__BOXED,
-                  G_TYPE_NONE, 1, TP_TYPE_CODEC_LIST);
+                  G_TYPE_NONE, 1, sip_tp_codec_list_type ());
 
   signals[SIG_SUPPORTED_CODECS] =
     g_signal_new ("supported-codecs",
@@ -354,7 +392,7 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                   0,
                   NULL, NULL,
                   g_cclosure_marshal_VOID__BOXED,
-                  G_TYPE_NONE, 1, TP_TYPE_CODEC_LIST);
+                  G_TYPE_NONE, 1, sip_tp_codec_list_type ());
 }
 
 void
@@ -566,9 +604,9 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   candidates = g_value_get_boxed (&priv->native_candidates);
 
-  g_value_init (&candidate, TP_TYPE_CANDIDATE_STRUCT);
+  g_value_init (&candidate, sip_tp_candidate_struct_type ());
   g_value_set_static_boxed (&candidate,
-      dbus_g_type_specialized_construct (TP_TYPE_CANDIDATE_STRUCT));
+      dbus_g_type_specialized_construct (sip_tp_candidate_struct_type ()));
 
   dbus_g_type_struct_set (&candidate,
       0, candidate_id,
@@ -634,7 +672,7 @@ sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
 
   SESSION_DEBUG(priv->session, "putting list of all %d locally supported "
                 "codecs from stream-engine into cache", codecs->len);
-  g_value_init (&val, TP_TYPE_CODEC_LIST);
+  g_value_init (&val, sip_tp_codec_list_type ());
   g_value_set_static_boxed (&val, codecs);
   g_value_copy (&val, &priv->native_codecs);
 
@@ -791,8 +829,8 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
 
   tp_candidates = g_value_get_boxed (&priv->remote_candidates);
 
-  g_value_init (&tp_candidate, TP_TYPE_CANDIDATE_STRUCT);
-  g_value_init (&tp_transport, TP_TYPE_TRANSPORT_STRUCT);
+  g_value_init (&tp_candidate, sip_tp_candidate_struct_type ());
+  g_value_init (&tp_transport, sip_tp_transport_struct_type ());
 
   /* use the address from SDP c-line as the only remote candidate */
 
@@ -801,7 +839,7 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
     {
       /* remote side does not support ICE/jingle */
       g_value_take_boxed (&tp_transport,
-                          dbus_g_type_specialized_construct (TP_TYPE_TRANSPORT_STRUCT));
+                          dbus_g_type_specialized_construct (sip_tp_transport_struct_type ()));
 
       dbus_g_type_struct_set (&tp_transport,
                               0, "0",         /* component number */
@@ -822,7 +860,7 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
       g_ptr_array_add (tp_transports, g_value_get_boxed (&tp_transport));
 
       g_value_take_boxed (&tp_candidate,
-                          dbus_g_type_specialized_construct (TP_TYPE_CANDIDATE_STRUCT));
+                          dbus_g_type_specialized_construct (sip_tp_candidate_struct_type ()));
 
       dbus_g_type_struct_set (&tp_candidate,
                               0, "L1", /* candidate id */
@@ -874,9 +912,9 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
       while (rtpmap) {
 	GValue codec = { 0, };
 	
-	g_value_init (&codec, TP_TYPE_CODEC_STRUCT);
+	g_value_init (&codec, sip_tp_codec_struct_type ());
 	g_value_take_boxed (&codec,
-			    dbus_g_type_specialized_construct (TP_TYPE_CODEC_STRUCT));
+			    dbus_g_type_specialized_construct (sip_tp_codec_struct_type ()));
 	
 	/* RFC2327: see "m=" line definition 
 	 *  - note, 'encoding_params' is assumed to be channel
@@ -1021,7 +1059,8 @@ static void push_remote_codecs (SIPMediaStream *stream)
         (TpSvcMediaStreamHandler *)stream, codecs);
 
     g_value_take_boxed (&priv->remote_codecs,
-			dbus_g_type_specialized_construct (TP_TYPE_CODEC_LIST));
+                        dbus_g_type_specialized_construct (
+                                sip_tp_codec_list_type ()));
   }
 }
 
@@ -1065,7 +1104,7 @@ static void push_remote_candidates (SIPMediaStream *stream)
     }
 
   g_value_take_boxed (&priv->remote_candidates,
-      dbus_g_type_specialized_construct (TP_TYPE_CANDIDATE_LIST));
+      dbus_g_type_specialized_construct (sip_tp_candidate_list_type ()));
 
   priv->remote_cands_sent = TRUE;
 
@@ -1138,9 +1177,9 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
   candidates = g_value_get_boxed (&priv->native_candidates);
   codecs = g_value_get_boxed (&priv->native_codecs);
 
-  g_value_init (&candidate, TP_TYPE_CANDIDATE_STRUCT);
-  g_value_init (&transport, TP_TYPE_TRANSPORT_STRUCT);
-  g_value_init (&codec, TP_TYPE_CODEC_STRUCT);
+  g_value_init (&candidate, sip_tp_candidate_struct_type ());
+  g_value_init (&transport, sip_tp_transport_struct_type ());
+  g_value_init (&codec, sip_tp_codec_struct_type ());
 
   for (i = 0; i < candidates->len; i++) {
     g_value_set_static_boxed (&candidate, g_ptr_array_index (candidates, i));

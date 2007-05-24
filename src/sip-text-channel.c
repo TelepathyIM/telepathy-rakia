@@ -42,6 +42,8 @@
 
 #include "sip-text-channel.h"
 
+#include "telepathy-helpers.h" 
+
 #define DEBUG_FLAG SIP_DEBUG_IM
 #include "debug.h"
 
@@ -66,15 +68,13 @@ enum
 };
 
 
-
-#define TP_TYPE_PENDING_MESSAGE_STRUCT (dbus_g_type_get_struct ("GValueArray", \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_STRING, \
-      G_TYPE_INVALID))
+DEFINE_TP_STRUCT_TYPE(sip_tp_pending_message_struct_type,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      G_TYPE_UINT,
+                      G_TYPE_STRING)
 
 
 /* private structures */
@@ -551,11 +551,14 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
 {
   SIPTextChannel *self = SIP_TEXT_CHANNEL(iface);
   SIPTextChannelPrivate *priv;
+  GType message_type;
   guint count;
   GPtrArray *messages;
   GList *cur;
 
   priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
+
+  message_type = sip_tp_pending_message_struct_type ();
 
   count = g_queue_get_length (priv->pending_messages);
   messages = g_ptr_array_sized_new (count);
@@ -569,9 +572,9 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
       SIPTextPendingMessage *msg = (SIPTextPendingMessage *) cur->data;
       GValue val = { 0, };
 
-      g_value_init (&val, TP_TYPE_PENDING_MESSAGE_STRUCT);
+      g_value_init (&val, message_type);
       g_value_take_boxed (&val,
-          dbus_g_type_specialized_construct (TP_TYPE_PENDING_MESSAGE_STRUCT));
+          dbus_g_type_specialized_construct (message_type));
       dbus_g_type_struct_set (&val,
 			      0, msg->id,
 			      1, msg->timestamp,

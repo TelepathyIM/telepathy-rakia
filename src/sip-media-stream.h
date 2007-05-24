@@ -66,38 +66,6 @@ gboolean sip_media_stream_is_ready (SIPMediaStream *self);
 void sip_media_stream_start_telephony_event (SIPMediaStream *self, guchar event);
 void sip_media_stream_stop_telephony_event  (SIPMediaStream *self);
 
-#define TP_TYPE_TRANSPORT_STRUCT (dbus_g_type_get_struct ("GValueArray", \
-      G_TYPE_UINT, \
-      G_TYPE_STRING, \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_STRING, \
-      G_TYPE_STRING, \
-      G_TYPE_DOUBLE, \
-      G_TYPE_UINT, \
-      G_TYPE_STRING, \
-      G_TYPE_STRING, \
-      G_TYPE_INVALID))
-#define TP_TYPE_TRANSPORT_LIST (dbus_g_type_get_collection ("GPtrArray", \
-      TP_TYPE_TRANSPORT_STRUCT))
-#define TP_TYPE_CANDIDATE_STRUCT (dbus_g_type_get_struct ("GValueArray", \
-      G_TYPE_STRING, \
-      TP_TYPE_TRANSPORT_LIST, \
-      G_TYPE_INVALID))
-#define TP_TYPE_CANDIDATE_LIST (dbus_g_type_get_collection ("GPtrArray", \
-      TP_TYPE_CANDIDATE_STRUCT))
-
-#define TP_TYPE_CODEC_STRUCT (dbus_g_type_get_struct ("GValueArray", \
-      G_TYPE_UINT, \
-      G_TYPE_STRING, \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      DBUS_TYPE_G_STRING_STRING_HASHTABLE, \
-      G_TYPE_INVALID))
-#define TP_TYPE_CODEC_LIST (dbus_g_type_get_collection ("GPtrArray", \
-      TP_TYPE_CODEC_STRUCT))
-
 G_END_DECLS
 
 #endif /* #ifndef __SIP_MEDIA_STREAM_H__*/
