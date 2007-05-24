@@ -538,7 +538,7 @@ sip_text_channel_get_message_types(TpSvcChannelTypeText *iface,
 }
 
 static void
-priv_pending_message_list_add (GPtrArray *list, SIPTextPendingMessage *msg)
+sip_pending_message_list_add (GPtrArray *list, SIPTextPendingMessage *msg)
 {
   GValue val = { 0 };
   GType message_type;
@@ -559,17 +559,8 @@ priv_pending_message_list_add (GPtrArray *list, SIPTextPendingMessage *msg)
    g_ptr_array_add (list, g_value_get_boxed (&val));
 }
 
-static void
-priv_pending_message_list_free (GPtrArray *list)
-{
-  GType message_type;
-  guint i;
-
-  message_type = sip_tp_pending_message_struct_type ();
-  for (i = 0; i < list->len; i++)
-    g_boxed_free (message_type, g_ptr_array_index (list, i));
-  g_ptr_array_free (list, TRUE);
-}
+DEFINE_TP_LIST_FREE(sip_pending_message_list_free,
+                    sip_tp_pending_message_struct_type ())
 
 /**
  * sip_text_channel_list_pending_messages
@@ -597,22 +588,22 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
   if (clear)
     {
       while ((cur = g_queue_pop_head_link (priv->pending_messages)) != NULL)
-        priv_pending_message_list_add (messages,
-                                       (SIPTextPendingMessage *) cur->data);
+        sip_pending_message_list_add (messages,
+                                      (SIPTextPendingMessage *) cur->data);
     }
   else
     {
       for (cur = g_queue_peek_head_link(priv->pending_messages);
            cur != NULL;
            cur = cur->next)
-        priv_pending_message_list_add (messages,
-                                       (SIPTextPendingMessage *) cur->data);
+        sip_pending_message_list_add (messages,
+                                      (SIPTextPendingMessage *) cur->data);
     }
 
   tp_svc_channel_type_text_return_from_list_pending_messages (context,
       messages);
 
-  priv_pending_message_list_free (messages);
+  sip_pending_message_list_free (messages);
 }
 
 
