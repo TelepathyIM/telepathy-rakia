@@ -69,20 +69,6 @@ G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
       tp_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
 
-#define TP_SESSION_HANDLER_SET_TYPE (dbus_g_type_get_struct ("GValueArray", \
-      DBUS_TYPE_G_OBJECT_PATH, \
-      G_TYPE_STRING, \
-      G_TYPE_INVALID))
-
-#define TP_CHANNEL_STREAM_TYPE (dbus_g_type_get_struct ("GValueArray", \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_UINT, \
-      G_TYPE_INVALID))
-
 /* signal enum */
 enum
 {
@@ -145,7 +131,24 @@ struct _SIPMediaChannelPrivate
 
 #define SIP_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_CHANNEL, SIPMediaChannelPrivate))
 
-static GPtrArray *priv_make_stream_list (SIPMediaChannel *self, GPtrArray *streams);
+
+/***********************************************************************
+ * Set: Type utility functions
+ ***********************************************************************/
+
+static GType
+sip_session_handler_type (void) /* G_GNUC_CONST */
+{
+  static GType type = 0;
+
+  if (!type)
+    type = dbus_g_type_get_struct ("GValueArray",
+                                   DBUS_TYPE_G_OBJECT_PATH,
+                                   G_TYPE_STRING,
+                                   G_TYPE_INVALID);
+
+  return type;
+}
 
 /***********************************************************************
  * Set: Gobject interface
@@ -673,6 +676,7 @@ sip_media_channel_get_session_handlers (TpSvcChannelInterfaceMediaSignalling *if
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
   SIPMediaChannelPrivate *priv;
   GPtrArray *ret;
+  GValue handler = { 0 };
 
   DEBUG("enter");
 
@@ -680,36 +684,39 @@ sip_media_channel_get_session_handlers (TpSvcChannelInterfaceMediaSignalling *if
 
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (priv->session) {
-    GValue handler = { 0, };
-    TpHandle member;
-    gchar *path;
+  ret = g_ptr_array_new ();
 
-    g_value_init (&handler, TP_SESSION_HANDLER_SET_TYPE);
-    g_value_set_static_boxed (&handler,
-        dbus_g_type_specialized_construct (TP_SESSION_HANDLER_SET_TYPE));
+  if (priv->session)
+    {
+      GType handler_type;
+      gchar *path;
 
-    g_object_get (priv->session,
-		  "peer", &member,
-		  "object-path", &path,
-		  NULL);
+      g_object_get (priv->session,
+                    "object-path", &path,
+                    NULL);
 
-    dbus_g_type_struct_set (&handler,
-			    0, path,
-			    1, "rtp",
-			    G_MAXUINT);
+      handler_type = sip_session_handler_type ();
 
-    g_free (path);
-    
-    ret = g_ptr_array_sized_new (1);
-    g_ptr_array_add (ret, g_value_get_boxed (&handler));
-  }
-  else {
-    ret = g_ptr_array_sized_new (0);
-  }
+      g_value_init (&handler, handler_type);
+      g_value_take_boxed (&handler,
+                          dbus_g_type_specialized_construct (handler_type));
+
+      dbus_g_type_struct_set (&handler,
+                              0, path,
+                              1, "rtp",
+                              G_MAXUINT);
+
+      g_free (path);
+
+      g_ptr_array_add (ret, g_value_get_boxed (&handler));
+    }
+  else
+    g_value_init (&handler, G_TYPE_NONE);
 
   tp_svc_channel_interface_media_signalling_return_from_get_session_handlers (
       context, ret);
+
+  g_value_unset (&handler);
   g_ptr_array_free (ret, TRUE);
 }
 
@@ -730,27 +737,17 @@ sip_media_channel_list_streams (TpSvcChannelTypeStreamedMedia *iface,
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
   SIPMediaChannelPrivate *priv;
-  const GType stream_type = TP_CHANNEL_STREAM_TYPE;
-  GPtrArray *streams = NULL;
-  GPtrArray *ret;
-  int i;
+  GPtrArray *ret = NULL;
 
   g_assert (SIP_IS_MEDIA_CHANNEL (self));
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (sip_media_session_list_streams (priv->session, &streams)) {
-    ret = priv_make_stream_list (self, streams);
-    g_ptr_array_free (streams, TRUE);
-  }
-  else {
+  if (!sip_media_session_list_streams (priv->session, &ret))
     ret = g_ptr_array_new ();
-  }
 
   tp_svc_channel_type_streamed_media_return_from_list_streams (context, ret);
 
-  for (i = 0; i < ret->len; i++)
-    g_boxed_free (stream_type, g_ptr_array_index (ret, i));
-  g_ptr_array_free (ret, TRUE);
+  sip_media_session_free_stream_list (ret);
 }
 
 /**
@@ -803,11 +800,9 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
   GError *error = NULL;
-  GPtrArray *ret;
+  GPtrArray *ret = NULL;
   SIPMediaChannelPrivate *priv;
   TpHandleRepoIface *contact_repo;
-
-  GPtrArray *streams;
 
   DEBUG("enter");
 
@@ -837,83 +832,20 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
   /* if the person is a channel member, we should have a session */
   g_assert (priv->session != NULL);
 
-  if (!sip_media_session_request_streams (priv->session, types, &streams, &error))
+  if (!sip_media_session_request_streams (priv->session, types, &ret, &error))
     {
       dbus_g_method_return_error (context, error);
       g_error_free (error);
       return;
     }
 
-  ret = priv_make_stream_list (self, streams);
-
-  g_assert(types->len == (ret)->len);
-
-  g_ptr_array_free (streams, TRUE);
+  g_assert (types->len == ret->len);
 
   tp_svc_channel_type_streamed_media_return_from_request_streams (context, ret);
-  g_ptr_array_free (ret, TRUE);
-  DEBUG ("exit");
-}
 
-static GPtrArray *priv_make_stream_list (SIPMediaChannel *self, GPtrArray *streams)
-{
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  const GType stream_type = TP_CHANNEL_STREAM_TYPE;
-  GPtrArray *ret;
-  guint i;
-
-  DEBUG("enter");
-
-  ret = g_ptr_array_sized_new (streams->len);
-
-  for (i = 0; i < streams->len; i++) {
-    SIPMediaStream *stream = g_ptr_array_index (streams, i);
-    GValue entry = { 0, };
-    guint id;
-    TpHandle peer;
-    TpMediaStreamType type = TP_MEDIA_STREAM_TYPE_AUDIO;
-    TpMediaStreamState connection_state = TP_MEDIA_STREAM_STATE_CONNECTED;
-    /* CombinedStreamDirection combined_direction; */
-
-    /* note: removed streams are kept in the ptr-array as NULL
-     *       items (one cannot remove m-lines in SDP negotiation)
-     */
-
-    if (stream == NULL)
-      continue;
-
-    g_object_get (stream,
-		  "id", &id,
-		  "media-type", &type,
-		  /* XXX: add to sip-stream -> "connection-state", &connection_state, */
-		  /* "combined-direction", &combined_direction,*/
-		  NULL);
-
-    if (id != i)
-      g_warning("%s: strange stream id %d, should be %d", G_STRFUNC, id, i);
-
-    g_assert (priv->session);
-    peer = sip_media_session_get_peer (priv->session);
-
-    g_value_init (&entry, stream_type);
-    g_value_take_boxed (&entry,
-			dbus_g_type_specialized_construct (stream_type));
-
-    dbus_g_type_struct_set (&entry,
-			    0, id,
-			    1, peer,
-			    2, type,
-			    3, connection_state,
-			    4, TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
-			    5, 0,   /* no pending send */
-			    G_MAXUINT);
-
-    g_ptr_array_add (ret, g_value_get_boxed (&entry));
-  }
+  sip_media_session_free_stream_list (ret);
 
   DEBUG ("exit");
-
-  return ret;
 }
 
 /***********************************************************************

@@ -713,6 +713,64 @@ void sip_media_session_stream_state (SIPMediaSession *sess,
   sip_media_channel_stream_state (priv->channel, stream_id, state);
 }
 
+static GType
+sip_media_session_stream_type (void) /* G_GNUC_CONST */
+{
+  static GType type = 0;
+
+  if (!type)
+    type = dbus_g_type_get_struct ("GValueArray",
+                                   G_TYPE_UINT,
+                                   G_TYPE_UINT,
+                                   G_TYPE_UINT,
+                                   G_TYPE_UINT,
+                                   G_TYPE_UINT,
+                                   G_TYPE_UINT,
+                                   G_TYPE_INVALID);
+
+  return type;
+}
+
+void
+priv_add_stream_list_entry (GPtrArray *list,
+                            SIPMediaStream *stream,
+                            SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  GValue entry = { 0 };
+  GType stream_type;
+  guint id;
+  TpMediaStreamType type = TP_MEDIA_STREAM_TYPE_AUDIO;
+  TpMediaStreamState connection_state = TP_MEDIA_STREAM_STATE_CONNECTED;
+  /* CombinedStreamDirection combined_direction; */
+
+  g_assert(stream != NULL);
+
+  g_object_get (stream,
+                "id", &id,
+                "media-type", &type,
+                /* XXX: add to sip-stream -> "connection-state", &connection_state, */
+                /* "combined-direction", &combined_direction,*/
+                NULL);
+
+  stream_type = sip_media_session_stream_type ();
+
+  g_value_init (&entry, stream_type);
+  g_value_take_boxed (&entry,
+                      dbus_g_type_specialized_construct (stream_type));
+
+  dbus_g_type_struct_set (&entry,
+                          0, id,
+                          1, priv->peer,
+                          2, type,
+                          3, connection_state,
+                          4, TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
+                          5, 0,   /* no pending send */
+                          G_MAXUINT);
+
+  g_ptr_array_add (list, g_value_get_boxed (&entry));
+}
+
 gboolean sip_media_session_request_streams (SIPMediaSession *session,
 					    const GArray *media_types,
 					    GPtrArray **ret,
@@ -730,7 +788,7 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
 
     stream = priv_create_media_stream (session, media_type);
 
-    g_ptr_array_add (*ret, stream);
+    priv_add_stream_list_entry (*ret, stream, session);
   }
 
   return TRUE;
@@ -756,10 +814,24 @@ gboolean sip_media_session_list_streams (SIPMediaSession *session,
     {
       stream = g_ptr_array_index(priv->streams, i);
       if (stream)
-	g_ptr_array_add (*ret, stream);
+	priv_add_stream_list_entry (*ret, stream, session);
     }
 
   return TRUE;
+}
+
+void
+sip_media_session_free_stream_list (GPtrArray *list)
+{
+  GType stream_type;
+  guint i;
+
+  stream_type = sip_media_session_stream_type ();
+
+  for (i = 0; i < list->len; i++)
+    g_boxed_free (stream_type, g_ptr_array_index (list, i));
+
+  g_ptr_array_free (list, TRUE);
 }
 
 void sip_media_session_accept (SIPMediaSession *self, gboolean accept)
