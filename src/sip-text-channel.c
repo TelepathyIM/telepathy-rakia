@@ -582,12 +582,13 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
                                        gboolean clear,
                                        DBusGMethodInvocation *context)
 {
-  SIPTextChannel *self = SIP_TEXT_CHANNEL(iface);
+  SIPTextChannel *self = (SIPTextChannel*) iface;
   SIPTextChannelPrivate *priv;
   GPtrArray *messages;
   GList *cur;
   guint count;
 
+  g_assert (SIP_IS_TEXT_CHANNEL(self));
   priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
 
   count = g_queue_get_length (priv->pending_messages);
