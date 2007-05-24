@@ -109,11 +109,6 @@ struct _SIPMediaStreamPrivate
 
 #define SIP_MEDIA_STREAM_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_STREAM, SIPMediaStreamPrivate))
 
-#if 0
-static void priv_session_stream_state_changed_cb (SIPMediaSession *session,
-						  GParamSpec *arg1,
-						  SIPMediaStream *stream);
-#endif
 static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
                                        const sdp_media_t *sdpmedia);
 static void push_remote_codecs (SIPMediaStream *stream);
