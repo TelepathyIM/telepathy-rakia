@@ -62,6 +62,10 @@ GType sip_media_session_get_type(void);
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
+/* Telepathy type helpers */
+#define SIP_TP_STREAM_LIST_TYPE (sip_tp_stream_list_type ())
+GType sip_tp_stream_list_type (void) G_GNUC_CONST;
+
 TpHandle sip_media_session_get_peer (SIPMediaSession *session);
 void sip_media_session_terminate (SIPMediaSession *session);
 gboolean sip_media_session_set_remote_info (SIPMediaSession *chan,
@@ -75,7 +79,6 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
 					    GError **error);
 gboolean sip_media_session_list_streams (SIPMediaSession *session,
 					 GPtrArray **ret);
-void sip_media_session_free_stream_list (GPtrArray *list);
 void sip_media_session_accept (SIPMediaSession *self, gboolean accept);
 gboolean sip_media_session_start_telephony_event (SIPMediaSession *self,
                                                   guint stream_id,

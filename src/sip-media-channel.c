@@ -735,7 +735,7 @@ sip_media_channel_list_streams (TpSvcChannelTypeStreamedMedia *iface,
 
   tp_svc_channel_type_streamed_media_return_from_list_streams (context, ret);
 
-  sip_media_session_free_stream_list (ret);
+  g_boxed_free (SIP_TP_STREAM_LIST_TYPE, ret);
 }
 
 /**
@@ -831,7 +831,7 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 
   tp_svc_channel_type_streamed_media_return_from_request_streams (context, ret);
 
-  sip_media_session_free_stream_list (ret);
+  g_boxed_free (SIP_TP_STREAM_LIST_TYPE, ret);
 
   DEBUG ("exit");
 }

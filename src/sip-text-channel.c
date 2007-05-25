@@ -76,6 +76,9 @@ DEFINE_TP_STRUCT_TYPE(sip_tp_pending_message_struct_type,
                       G_TYPE_UINT,
                       G_TYPE_STRING)
 
+DEFINE_TP_LIST_TYPE(sip_tp_pending_message_list_type,
+                    sip_tp_pending_message_struct_type ())
+
 
 /* private structures */
 
@@ -559,9 +562,6 @@ sip_pending_message_list_add (GPtrArray *list, SIPTextPendingMessage *msg)
    g_ptr_array_add (list, g_value_get_boxed (&val));
 }
 
-DEFINE_TP_LIST_FREE(sip_pending_message_list_free,
-                    sip_tp_pending_message_struct_type ())
-
 /**
  * sip_text_channel_list_pending_messages
  *
@@ -603,7 +603,7 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
   tp_svc_channel_type_text_return_from_list_pending_messages (context,
       messages);
 
-  sip_pending_message_list_free (messages);
+  g_boxed_free (sip_tp_pending_message_list_type (), messages);
 }
 
 

@@ -714,7 +714,7 @@ void sip_media_session_stream_state (SIPMediaSession *sess,
   sip_media_channel_stream_state (priv->channel, stream_id, state);
 }
 
-DEFINE_TP_STRUCT_TYPE(sip_media_session_stream_type,
+DEFINE_TP_STRUCT_TYPE(sip_tp_stream_struct_type,
                       G_TYPE_UINT,
                       G_TYPE_UINT,
                       G_TYPE_UINT,
@@ -722,8 +722,9 @@ DEFINE_TP_STRUCT_TYPE(sip_media_session_stream_type,
                       G_TYPE_UINT,
                       G_TYPE_UINT)
 
-DEFINE_TP_LIST_FREE(sip_media_session_free_stream_list,
-                    sip_media_session_stream_type ())
+DEFINE_TP_LIST_TYPE(sip_tp_stream_list_type,
+                    sip_tp_stream_struct_type ())
+
 
 void
 priv_add_stream_list_entry (GPtrArray *list,
@@ -747,7 +748,7 @@ priv_add_stream_list_entry (GPtrArray *list,
                 /* "combined-direction", &combined_direction,*/
                 NULL);
 
-  stream_type = sip_media_session_stream_type ();
+  stream_type = sip_tp_stream_struct_type ();
 
   g_value_init (&entry, stream_type);
   g_value_take_boxed (&entry,
