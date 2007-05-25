@@ -131,24 +131,10 @@ struct _SIPMediaChannelPrivate
 
 #define SIP_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_CHANNEL, SIPMediaChannelPrivate))
 
+DEFINE_TP_STRUCT_TYPE(sip_session_handler_type,
+                      DBUS_TYPE_G_OBJECT_PATH,
+                      G_TYPE_STRING)
 
-/***********************************************************************
- * Set: Type utility functions
- ***********************************************************************/
-
-static GType
-sip_session_handler_type (void) /* G_GNUC_CONST */
-{
-  static GType type = 0;
-
-  if (!type)
-    type = dbus_g_type_get_struct ("GValueArray",
-                                   DBUS_TYPE_G_OBJECT_PATH,
-                                   G_TYPE_STRING,
-                                   G_TYPE_INVALID);
-
-  return type;
-}
 
 /***********************************************************************
  * Set: Gobject interface
