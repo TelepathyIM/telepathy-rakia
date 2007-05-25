@@ -46,6 +46,8 @@
 #include "media-factory.h"
 #include "signals-marshal.h"
 
+#include "telepathy-helpers.h"
+
 #define DEBUG_FLAG SIP_DEBUG_MEDIA
 #include "debug.h"
 
