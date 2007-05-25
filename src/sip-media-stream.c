@@ -194,11 +194,6 @@ sip_media_stream_constructor (GType type, guint n_props,
            constructor (type, n_props, props);
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (SIP_MEDIA_STREAM (obj));
 
-#if 0
-  g_signal_connect (priv->session, "notify::state",
-      (GCallback) priv_session_stream_state_changed_cb, obj);
-#endif
-
   /* get the connection handle once */
   g_object_get (priv->session, "media-channel", &chan, NULL);
   g_object_get (chan, "connection", &priv->conn, NULL);
