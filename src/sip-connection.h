@@ -24,7 +24,6 @@
 #include <dbus/dbus-glib.h>
 
 #include <telepathy-glib/base-connection.h>
-#include "sip-sofia-decls.h"
 
 G_BEGIN_DECLS
 

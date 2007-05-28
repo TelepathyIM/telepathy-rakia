@@ -22,12 +22,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <telepathy-glib/errors.h>
+#include <telepathy-glib/svc-connection-manager.h>
+
 #include "sip-connection-manager.h"
 #include "sip-connection.h"
 #include "signals-marshal.h"
-
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/svc-connection-manager.h>
+#include "sip-sofia-decls.h"
 
 #define DEBUG_FLAG SIP_DEBUG_CONNECTION
 #include "debug.h"

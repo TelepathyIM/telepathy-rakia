@@ -24,8 +24,6 @@
  *       to the special value SIP_NH_EXPIRED.
  */
 
-/* NOTE: this header file must be included in every header that defines
- * these types */
 #define NUA_MAGIC_T      struct _SIPConnectionSofia
 #define SU_ROOT_MAGIC_T  struct _SIPConnectionManager
 #define SU_TIMER_ARG_T   struct _SIPConnection

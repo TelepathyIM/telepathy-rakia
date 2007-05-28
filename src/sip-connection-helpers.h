@@ -21,6 +21,7 @@
 #define __SIP_CONNECTION_HELPERS_H__
 
 #include "sip-connection.h"
+#include "sip-sofia-decls.h"
 
 G_BEGIN_DECLS
 

@@ -24,8 +24,6 @@
 
 #include <telepathy-glib/base-connection-manager.h>
 
-#include "sip-sofia-decls.h"
-
 G_BEGIN_DECLS
 
 typedef struct _SIPConnectionManager SIPConnectionManager;
