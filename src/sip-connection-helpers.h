@@ -54,7 +54,6 @@ extern void *_sip_nh_expired;
 
 #include <sofia-sip/nua.h>
 #include <sofia-sip/su.h>
-#include <sofia-sip/sl_utils.h>
 #include <sofia-sip/su_glib.h>
 #include <sofia-sip/sdp.h>
 #include <sofia-sip/tport_tag.h>

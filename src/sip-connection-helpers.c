@@ -34,8 +34,6 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
 
-#include "sip-media-channel.h"
-#include "sip-connection.h"
 #include "sip-connection-helpers.h"
 #include "sip-connection.h"
 #include "sip-connection-enumtypes.h"

@@ -20,6 +20,7 @@
 
 #include <telepathy-glib/svc-connection.h>
 #include <telepathy-glib/interfaces.h>
+#include <string.h>
 #include "text-factory.h"
 
 static void factory_iface_init (gpointer, gpointer);
