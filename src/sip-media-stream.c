@@ -82,7 +82,6 @@ typedef struct _SIPMediaStreamPrivate SIPMediaStreamPrivate;
 
 struct _SIPMediaStreamPrivate
 {
-  SIPConnection *conn;
   SIPMediaSession *session;       /** see gobj. prop. 'media-session' */
   gchar *object_path;             /** see gobj. prop. 'object-path' */
   guint id;                       /** see gobj. prop. 'id' */
@@ -186,18 +185,12 @@ sip_media_stream_constructor (GType type, guint n_props,
 {
   GObject *obj;
   SIPMediaStreamPrivate *priv;
-  SIPMediaChannel *chan;
   DBusGConnection *bus;
 
   /* call base class constructor */
   obj = G_OBJECT_CLASS (sip_media_stream_parent_class)->
            constructor (type, n_props, props);
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (SIP_MEDIA_STREAM (obj));
-
-  /* get the connection handle once */
-  g_object_get (priv->session, "media-channel", &chan, NULL);
-  g_object_get (chan, "connection", &priv->conn, NULL);
-  g_object_unref (chan);
 
   priv->playing = FALSE;
 
@@ -395,9 +388,6 @@ sip_media_stream_dispose (GObject *object)
     return;
 
   priv->dispose_has_run = TRUE;
-
-  /* release ref taken in constructor */
-  g_object_unref (priv->conn);
 
   /* release any references held by the object here */
 
