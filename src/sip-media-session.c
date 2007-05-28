@@ -27,7 +27,6 @@
 #include <time.h>
 #include <string.h>
 
-#include <sofia-sip/sdp.h>
 #include <sofia-sip/sip_status.h>
 
 #include <telepathy-glib/interfaces.h>
@@ -37,9 +36,9 @@
 
 #include "config.h"
 
+#include "sip-connection-helpers.h"
 #include "sip-media-channel.h"
 #include "sip-connection.h"
-#include "sip-connection-helpers.h"
 #include "sip-media-session.h"
 #include "sip-media-stream.h"
 #include "telepathy-helpers.h"
@@ -616,34 +615,25 @@ static guint priv_tp_media_type (sdp_media_e sip_mtype)
 }
 
 gboolean
-sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_sdp)
+sip_media_session_set_remote_info (SIPMediaSession *session,
+                                   const sdp_session_t* sdp)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
-  sdp_parser_t *parser;
-  const char *pa_error;
+  const sdp_media_t *media;
+  guint supported_media_cnt = 0;
+  guint i;
   gboolean res = TRUE;
 
   DEBUG ("enter");
 
-  parser = sdp_parse(temphome, r_sdp, strlen(r_sdp), sdp_f_insane);
-  pa_error = sdp_parsing_error(parser);
-  if (pa_error) {
-    g_warning("error parsing SDP: %s", pa_error);
-    res = FALSE;
-  }
-  else {
-    sdp_session_t *parsed_sdp = sdp_session(parser);
-    const sdp_media_t *media = parsed_sdp->sdp_media;
-    guint i, supported_media_cnt = 0;
+  media = sdp->sdp_media;
 
-    g_debug("Succesfully parsed remote SDP.");
+  /* note: for each session, we maintain an ordered list of 
+   *       streams (SDP m-lines) which are matched 1:1 to 
+   *       the streams of the remote SDP */
 
-    /* note: for each session, we maintain an ordered list of 
-     *       streams (SDP m-lines) which are matched 1:1 to 
-     *       the streams of the remote SDP */
-
-    for (i = 0; media; i++) {
+  for (i = 0; media; i++)
+    {
       SIPMediaStream *stream = NULL;
       guint media_type;
 
@@ -680,24 +670,21 @@ sip_media_session_set_remote_info (SIPMediaSession *session, const char* r_sdp)
       media = media->m_next;
     }
 
-    if (supported_media_cnt == 0) {
+  if (supported_media_cnt == 0)
+    {
       g_warning ("No supported media in the session, aborting.");
       res = FALSE;
     }
 
-    g_assert(media == NULL);
-    if (i != priv->streams->len)
-      {
-        g_warning ("There were %u parsed SDP m-lines but we have %u streams - "
-            "is someone failing to comply with RFCs?", i, priv->streams->len);
-      }
-    
-    /* XXX: hmm, this is not the correct place really */
-    g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ACTIVE, NULL);
-  }
+  g_assert(media == NULL);
+  if (i != priv->streams->len)
+    {
+      g_warning ("There were %u parsed SDP m-lines but we have %u stream entries - "
+                 "is someone failing to comply with RFCs?", i, priv->streams->len);
+    }
 
-  sdp_parser_free(parser);
-  su_home_deinit(temphome);
+  /* XXX: hmm, this is not the correct place really */
+  g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ACTIVE, NULL);
 
   DEBUG ("exit");
 

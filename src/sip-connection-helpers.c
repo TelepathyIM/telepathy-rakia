@@ -37,6 +37,7 @@
 #include "sip-media-channel.h"
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
+#include "sip-connection.h"
 #include "sip-connection-enumtypes.h"
 #include "sip-connection-private.h"
 

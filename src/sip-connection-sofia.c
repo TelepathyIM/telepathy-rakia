@@ -589,9 +589,9 @@ priv_i_state (int status,
               sip_t const *sip,
               tagi_t tags[])
 {
-  char const *l_sdp = NULL;
-  char const *r_sdp = NULL;
-  int offer_recv = 0, answer_recv = 0, offer_sent = 0, answer_sent = 0;
+  const sdp_session_t *r_sdp = NULL;
+  int offer_recv = 0;
+  int answer_recv = 0;
   int ss_state = nua_callstate_init;
   SIPMediaChannel *channel;
 
@@ -599,10 +599,7 @@ priv_i_state (int status,
 	  NUTAG_CALLSTATE_REF(ss_state),
 	  NUTAG_OFFER_RECV_REF(offer_recv),
 	  NUTAG_ANSWER_RECV_REF(answer_recv),
-	  NUTAG_OFFER_SENT_REF(offer_sent),
-	  NUTAG_ANSWER_SENT_REF(answer_sent),
-	  SOATAG_LOCAL_SDP_STR_REF(l_sdp),
-	  SOATAG_REMOTE_SDP_STR_REF(r_sdp),
+	  SOATAG_REMOTE_SDP_REF(r_sdp),
 	  TAG_END());
 
   if (nh_magic == SIP_NH_EXPIRED)
@@ -617,10 +614,6 @@ priv_i_state (int status,
 
   g_message("sofiasip: nua_state_changed: %03d %s", status, phrase);
 
-  if (l_sdp) {
-    g_return_if_fail(answer_sent || offer_sent);
-  }
-  
   if (r_sdp) {
     g_return_if_fail(answer_recv || offer_recv);
     if (channel) {
