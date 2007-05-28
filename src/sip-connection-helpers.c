@@ -23,15 +23,15 @@
 #define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <dbus/dbus-glib.h>
 
-#include "sip-sofia-decls.h"
-#include <sofia-sip/sip.h>
-#include <sofia-sip/sip_header.h>
-
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
+
+#include "sip-sofia-decls.h"
+#include <sofia-sip/sip.h>
+#include <sofia-sip/sip_header.h>
 
 #include "sip-connection-helpers.h"
 #include "sip-connection-private.h"
