@@ -21,9 +21,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <assert.h>
 #include <dbus/dbus-glib.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -37,10 +35,10 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/svc-channel.h>
 
+#include "sip-text-channel.h"
+
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
-
-#include "sip-text-channel.h"
 
 #include "telepathy-helpers.h" 
 

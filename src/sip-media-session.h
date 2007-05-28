@@ -21,6 +21,8 @@
 #define __SIP_MEDIA_SESSION_H__
 
 #include <glib-object.h>
+#include <telepathy-glib/handle.h>
+#include <sofia-sip/sdp.h>
 
 G_BEGIN_DECLS
 

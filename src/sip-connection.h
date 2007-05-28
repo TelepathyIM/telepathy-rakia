@@ -24,12 +24,7 @@
 #include <dbus/dbus-glib.h>
 
 #include <telepathy-glib/base-connection.h>
-#include <telepathy-glib/properties-mixin.h>
-#include <telepathy-glib/enums.h>
-#include <telepathy-glib/handle-repo.h>
-
-#include "sip-connection-manager.h"
-
+#include "sip-sofia-decls.h"
 
 G_BEGIN_DECLS
 

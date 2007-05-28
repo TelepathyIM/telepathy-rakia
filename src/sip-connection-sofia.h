@@ -20,8 +20,8 @@
 #ifndef __SIP_CONNECTION_SOFIA_H__
 #define __SIP_CONNECTION_SOFIA_H__
 
+#include "sip-sofia-decls.h"
 #include "sip-connection.h"
-#include "sip-connection-helpers.h"
 
 G_BEGIN_DECLS
 

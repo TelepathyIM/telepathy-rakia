@@ -17,14 +17,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 
 #define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <dbus/dbus-glib.h>
 
+#include "sip-sofia-decls.h"
 #include <sofia-sip/sip.h>
 #include <sofia-sip/sip_header.h>
 
@@ -35,8 +34,6 @@
 #include <telepathy-glib/svc-connection.h>
 
 #include "sip-connection-helpers.h"
-#include "sip-connection.h"
-#include "sip-connection-enumtypes.h"
 #include "sip-connection-private.h"
 
 #define DEBUG_FLAG SIP_DEBUG_CONNECTION
@@ -48,7 +45,7 @@
 
 /* The value of SIP_NH_EXPIRED. This can be anything that is neither NULL
  * nor a media channel */
-void *_sip_nh_expired = (void *)"";
+NUA_HMAGIC_T * const _sip_nh_expired = (NUA_HMAGIC_T *)"";
 
 static sip_to_t *priv_sip_to_url_make (SIPConnection *conn,
                                        su_home_t *home,

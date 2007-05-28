@@ -22,7 +22,6 @@
  */
 
 #include <dbus/dbus-glib.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
@@ -36,11 +35,11 @@
 
 #include "config.h"
 
-#include "sip-connection-helpers.h"
-#include "sip-media-channel.h"
-#include "sip-connection.h"
 #include "sip-media-session.h"
+#include "sip-media-channel.h"
 #include "sip-media-stream.h"
+#include "sip-connection.h"
+#include "sip-connection-helpers.h"
 #include "telepathy-helpers.h"
 
 #define DEBUG_FLAG SIP_DEBUG_MEDIA

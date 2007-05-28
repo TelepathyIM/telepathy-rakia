@@ -22,8 +22,11 @@
 
 #include <glib-object.h>
 
+#include <telepathy-glib/handle.h>
 #include <telepathy-glib/group-mixin.h>
 #include <telepathy-glib/properties-mixin.h>
+
+#include <sofia-sip/sdp.h>
 
 G_BEGIN_DECLS
 

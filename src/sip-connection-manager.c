@@ -19,14 +19,11 @@
 
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-protocol.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 
-#include "sip-connection.h"
-#include "sip-connection-helpers.h"
 #include "sip-connection-manager.h"
+#include "sip-connection.h"
 #include "signals-marshal.h"
 
 #include <telepathy-glib/errors.h>

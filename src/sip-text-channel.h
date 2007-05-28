@@ -22,6 +22,10 @@
 
 #include <glib-object.h>
 
+#include <telepathy-glib/handle.h>
+
+#include "sip-sofia-decls.h"
+
 typedef struct _SipHandleStorage SipHandleStorage;
 
 G_BEGIN_DECLS
