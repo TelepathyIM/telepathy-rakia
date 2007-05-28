@@ -21,10 +21,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-/* FIXME: take this out and depend on telepathy-glib >= 0.5.8 instead, after
- * it's released */
-#define _TP_CM_UPDATED_FOR_0_5_7
-
 #define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <dbus/dbus-glib.h>
 #include <stdlib.h>

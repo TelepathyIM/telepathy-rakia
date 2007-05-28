@@ -18,10 +18,6 @@
  * Boston, MA 02111-1307, USA. 
  */
 
-/* FIXME: take this out and depend on telepathy-glib >= 0.5.8 instead, after
- * it's released */
-#define _TP_CM_UPDATED_FOR_0_5_7
-
 #include <telepathy-glib/svc-connection.h>
 #include <telepathy-glib/interfaces.h>
 #include <string.h>
