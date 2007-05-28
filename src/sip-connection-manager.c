@@ -33,12 +33,8 @@
 #define DEBUG_FLAG SIP_DEBUG_CONNECTION
 #include "debug.h"
 
-static void cm_iface_init (gpointer, gpointer);
-
-G_DEFINE_TYPE_WITH_CODE(SIPConnectionManager, sip_connection_manager,
-    TP_TYPE_BASE_CONNECTION_MANAGER,
-    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_MANAGER,
-      cm_iface_init))
+G_DEFINE_TYPE(SIPConnectionManager, sip_connection_manager,
+    TP_TYPE_BASE_CONNECTION_MANAGER)
 
 /* private structure *//* typedef struct _SIPConnectionManagerPrivate SIPConnectionManagerPrivate; */
 
@@ -222,40 +218,6 @@ sip_connection_manager_finalize (GObject *object)
   su_root_destroy(priv->sofia_root);
 
   G_OBJECT_CLASS (sip_connection_manager_parent_class)->finalize (object);
-}
-
-/**
- * sip_connection_manager_get_parameters
- *
- * Implements DBus method GetParameters
- * on interface org.freedesktop.Telepathy.ConnectionManager
- */
-static void
-sip_connection_manager_get_parameters (TpSvcConnectionManager *iface,
-                                       const gchar *proto,
-                                       DBusGMethodInvocation *context)
-{
-  GPtrArray *ret = g_ptr_array_new ();
-
-  /* FIXME: there are actually lots of parameters... */
-  tp_svc_connection_manager_return_from_get_parameters (context, ret);
-  g_ptr_array_free (ret, TRUE);
-}
-
-/**
- * sip_connection_manager_list_protocols
- *
- * Implements DBus method ListProtocols
- * on interface org.freedesktop.Telepathy.ConnectionManager
- */
-static void
-sip_connection_manager_list_protocols (TpSvcConnectionManager *iface,
-                                       DBusGMethodInvocation *context)
-{
-  const char *protocols[] = { "sip", NULL };
-
-  tp_svc_connection_manager_return_from_list_protocols (
-      context, protocols);
 }
 
 static gchar *
@@ -503,16 +465,4 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
       params->extra_auth_password);
 
   return connection;
-}
-
-static void
-cm_iface_init(gpointer g_iface, gpointer iface_data)
-{
-  TpSvcConnectionManagerClass *klass = (TpSvcConnectionManagerClass *)g_iface;
-
-#define IMPLEMENT(x) tp_svc_connection_manager_implement_##x (klass, \
-    sip_connection_manager_##x)
-  IMPLEMENT(get_parameters); 
-  IMPLEMENT(list_protocols);
-#undef IMPLEMENT
 }
