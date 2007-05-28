@@ -691,13 +691,13 @@ sip_media_channel_get_session_handlers (TpSvcChannelInterfaceMediaSignalling *if
 
       g_ptr_array_add (ret, g_value_get_boxed (&handler));
     }
-  else
-    g_value_init (&handler, G_TYPE_NONE);
 
   tp_svc_channel_interface_media_signalling_return_from_get_session_handlers (
       context, ret);
 
-  g_value_unset (&handler);
+  if (G_IS_VALUE(&handler))
+    g_value_unset (&handler);
+
   g_ptr_array_free (ret, TRUE);
 }
 
