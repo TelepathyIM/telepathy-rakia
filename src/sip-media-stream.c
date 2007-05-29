@@ -901,9 +901,9 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
                                        const sdp_media_t *sdpmedia)
 {
   SIPMediaStreamPrivate *priv;
-  gboolean res = TRUE;
-  GPtrArray *codecs;
   GType codec_type;
+  GPtrArray *codecs;
+  GHashTable *opt_params;
 
   g_assert (SIP_IS_MEDIA_STREAM (stream));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
@@ -914,13 +914,14 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
 
   codecs = g_value_get_boxed (&priv->remote_codecs);
 
+  opt_params = g_hash_table_new (g_str_hash, g_str_equal);
+
   while (sdpmedia) {
     if (sdpmedia->m_type ==  sdp_media_audio ||
 	sdpmedia->m_type == sdp_media_video) {
       sdp_rtpmap_t *rtpmap = sdpmedia->m_rtpmaps;
       while (rtpmap) {
 	GValue codec = { 0, };
-        GHashTable *opt_params;
 
 	g_value_init (&codec, codec_type);
 	g_value_take_boxed (&codec,
@@ -928,7 +929,7 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
 	
         /* FIXME: parse the optional parameters line for the codec
          * and populate the hash table */
-        opt_params = g_hash_table_new (g_str_hash, g_str_equal);
+        g_assert (g_hash_table_size (opt_params) == 0);
 
 	/* RFC2327: see "m=" line definition 
 	 *  - note, 'encoding_params' is assumed to be channel
@@ -952,7 +953,7 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
 
 	g_ptr_array_add (codecs, g_value_get_boxed (&codec));
 
-        g_hash_table_destroy (opt_params);
+        g_hash_table_remove_all (opt_params);
 
 	rtpmap = rtpmap->rm_next;
       }
@@ -964,7 +965,9 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
     sdpmedia = sdpmedia->m_next;
   }
   
-  return res;
+  g_hash_table_destroy (opt_params);
+
+  return TRUE;
 }
 
 /**
