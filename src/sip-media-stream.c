@@ -901,14 +901,33 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
                                        const sdp_media_t *sdpmedia)
 {
   SIPMediaStreamPrivate *priv;
+  TpMediaStreamType tp_media_type;
   GType codec_type;
   GPtrArray *codecs;
   GHashTable *opt_params;
+  sdp_rtpmap_t *rtpmap;
 
   g_assert (SIP_IS_MEDIA_STREAM (stream));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   DEBUG ("enter");
+
+  g_return_val_if_fail (sdpmedia != NULL, FALSE);
+
+  switch (sdpmedia->m_type)
+    {
+    case sdp_media_audio:
+      tp_media_type = TP_MEDIA_STREAM_TYPE_AUDIO;
+      break;
+    case sdp_media_video:
+      tp_media_type = TP_MEDIA_STREAM_TYPE_VIDEO;
+      break;
+    default:
+      DEBUG("unsupported media type %s", sdpmedia->m_type_name);
+      return FALSE;
+    }
+
+  g_return_val_if_fail (tp_media_type != priv->media_type, FALSE);
 
   codec_type = sip_tp_codec_struct_type ();
 
@@ -916,54 +935,44 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
 
   opt_params = g_hash_table_new (g_str_hash, g_str_equal);
 
-  while (sdpmedia) {
-    if (sdpmedia->m_type ==  sdp_media_audio ||
-	sdpmedia->m_type == sdp_media_video) {
-      sdp_rtpmap_t *rtpmap = sdpmedia->m_rtpmaps;
-      while (rtpmap) {
-	GValue codec = { 0, };
+  rtpmap = sdpmedia->m_rtpmaps;
+  while (rtpmap)
+    {
+      GValue codec = { 0, };
 
-	g_value_init (&codec, codec_type);
-	g_value_take_boxed (&codec,
-			    dbus_g_type_specialized_construct (codec_type));
-	
-        /* FIXME: parse the optional parameters line for the codec
-         * and populate the hash table */
-        g_assert (g_hash_table_size (opt_params) == 0);
+      g_value_init (&codec, codec_type);
+      g_value_take_boxed (&codec,
+                          dbus_g_type_specialized_construct (codec_type));
 
-	/* RFC2327: see "m=" line definition 
-	 *  - note, 'encoding_params' is assumed to be channel
-	 *    count (i.e. channels in farsight) */
+      /* FIXME: parse the optional parameters line for the codec
+       * and populate the hash table */
+      g_assert (g_hash_table_size (opt_params) == 0);
 
-	dbus_g_type_struct_set (&codec,
-				/* payload type: */
-				0, rtpmap->rm_pt,
-				/* encoding name: */
-				1, rtpmap->rm_encoding,
-				/* media type */
-				2, (sdpmedia->m_type == sdp_media_audio ? 
-				    TP_MEDIA_STREAM_TYPE_AUDIO : TP_MEDIA_STREAM_TYPE_VIDEO),
-				/* clock-rate */
-				3, rtpmap->rm_rate,
-				/* number of supported channels: */
-				4, rtpmap->rm_params ? atoi(rtpmap->rm_params) : 0,
-				/* optional params: */
-				5, opt_params,
-				G_MAXUINT);
+      /* RFC2327: see "m=" line definition 
+       *  - note, 'encoding_params' is assumed to be channel
+       *    count (i.e. channels in farsight) */
 
-	g_ptr_array_add (codecs, g_value_get_boxed (&codec));
+      dbus_g_type_struct_set (&codec,
+                              /* payload type: */
+                              0, rtpmap->rm_pt,
+                              /* encoding name: */
+                              1, rtpmap->rm_encoding,
+                              /* media type */
+                              2, (guint)tp_media_type,
+                              /* clock-rate */
+                              3, rtpmap->rm_rate,
+                              /* number of supported channels: */
+                              4, rtpmap->rm_params ? atoi(rtpmap->rm_params) : 0,
+                              /* optional params: */
+                              5, opt_params,
+                              G_MAXUINT);
 
-        g_hash_table_remove_all (opt_params);
+      g_ptr_array_add (codecs, g_value_get_boxed (&codec));
 
-	rtpmap = rtpmap->rm_next;
-      }
-      
-      /* note: only describes the first matching audio/video media */
-      break;
+      g_hash_table_remove_all (opt_params);
+
+      rtpmap = rtpmap->rm_next;
     }
-
-    sdpmedia = sdpmedia->m_next;
-  }
   
   g_hash_table_destroy (opt_params);
 
