@@ -11,7 +11,42 @@ tp_caller_LDADD = \
 tp_caller_CFLAGS = \
     $(LIBTELEPATHY_CFLAGS)
 
+TESTS = 
+TWISTED_TESTS = \
+    test-register.py \
+    test-register-fail.py
+
+_check-twisted:
+	$(MAKE) check TESTS="$(TWISTED_TESTS)" TESTS_ENVIRONMENT=python
+
+check-twisted:
+	sh run-with-tmp-session-bus.sh $(MAKE) _check-twisted
+
+exec-with-log.sh: exec-with-log.sh.in
+	@sed -e "s|[@]abs_top_builddir[@]|@abs_top_builddir@|g" $< > $@
+
+%.conf: %.conf.in
+	@sed -e "s|[@]abs_top_builddir[@]|@abs_top_builddir@|g" $< > $@
+
+%.service: %.service.in
+	@sed -e "s|[@]abs_top_builddir[@]|@abs_top_builddir@|g" $< > $@
+
+# D-Bus service file for testing
+service_in_files = org.freedesktop.Telepathy.ConnectionManager.sofiasip.service.in
+service_files = $(service_in_files:.service.in=.service)
+
+# D-Bus config file for testing
+conf_in_files = run-with-tmp-session-bus.conf.in
+conf_files = $(conf_in_files:.conf.in=.conf)
+
+BUILT_SOURCES = $(service_files) $(conf_files) exec-with-log.sh
+
+EXTRA_DIST = $(service_in_files) $(conf_in_files) exec-with-log.sh.in
+
+CLEANFILES = $(BUILT_SOURCES) sofiasip-[1-9]*.log
+
 AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @SOFIA_SIP_UA_CFLAGS@ \
 	    -I $(top_srcdir)/src -I $(top_builddir)/src \
 	    @TELEPATHY_GLIB_CFLAGS@
 AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_SIP_UA_LIBS@
+

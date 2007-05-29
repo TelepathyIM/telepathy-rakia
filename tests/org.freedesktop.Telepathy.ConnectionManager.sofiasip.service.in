@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.freedesktop.Telepathy.ConnectionManager.sofiasip
+Exec=@abs_top_builddir@/tests/exec-with-log.sh

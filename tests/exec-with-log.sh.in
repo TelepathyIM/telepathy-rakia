@@ -1,0 +1,9 @@
+#!/bin/sh
+
+cd "@abs_top_builddir@/tests"
+
+export SOFIASIP_DEBUG=all SOFIASIP_PERSIST=1
+ulimit -c unlimited
+exec > sofiasip-$$.log 2>&1
+
+exec ../src/telepathy-sofiasip
