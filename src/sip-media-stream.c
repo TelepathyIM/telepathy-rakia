@@ -916,15 +916,20 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
       sdp_rtpmap_t *rtpmap = sdpmedia->m_rtpmaps;
       while (rtpmap) {
 	GValue codec = { 0, };
-	
+        GHashTable *opt_params;
+
 	g_value_init (&codec, sip_tp_codec_struct_type ());
 	g_value_take_boxed (&codec,
 			    dbus_g_type_specialized_construct (sip_tp_codec_struct_type ()));
 	
+        /* FIXME: parse the optional parameters line for the codec
+         * and populate the hash table */
+        opt_params = g_hash_table_new (g_str_hash, g_str_equal);
+
 	/* RFC2327: see "m=" line definition 
 	 *  - note, 'encoding_params' is assumed to be channel
-	 *    count (i.e. channels in farsight) */ 
-	
+	 *    count (i.e. channels in farsight) */
+
 	dbus_g_type_struct_set (&codec,
 				/* payload type: */
 				0, rtpmap->rm_pt,
@@ -938,11 +943,13 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
 				/* number of supported channels: */
 				4, rtpmap->rm_params ? atoi(rtpmap->rm_params) : 0,
 				/* optional params: */
-				5, g_hash_table_new (g_str_hash, g_str_equal),
+				5, opt_params,
 				G_MAXUINT);
-	
+
 	g_ptr_array_add (codecs, g_value_get_boxed (&codec));
-	
+
+        g_hash_table_destroy (opt_params);
+
 	rtpmap = rtpmap->rm_next;
       }
       
