@@ -20,6 +20,7 @@ _check-twisted:
 	$(MAKE) check TESTS="$(TWISTED_TESTS)" TESTS_ENVIRONMENT=python
 
 check-twisted:
+	chmod u+x *.sh
 	sh run-with-tmp-session-bus.sh $(MAKE) _check-twisted
 
 exec-with-log.sh: exec-with-log.sh.in
