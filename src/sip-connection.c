@@ -103,10 +103,18 @@ static gchar *priv_sip_strdup(const gchar *input)
   if (input == NULL)
     return NULL;
 
-  if (strncmp("sip:", input, 4) == 0 ||
-      strncmp("sips:", input, 5) == 0)
+  if (strncmp("gt:"    , input, 3) == 0) goto nochange;
+  if (strncmp("sip:"   , input, 4) == 0) goto nochange;
+  if (strncmp("tel:"   , input, 4) == 0) goto nochange;
+  if (strncmp("sips:"  , input, 5) == 0) goto nochange;
+  if (strncmp("skype:" , input, 6) == 0) goto nochange;
+  if (strncmp("jabber:", input, 7) == 0) goto nochange;
+  goto addsip;
+
+nochange:
     return g_strdup (input);
 
+addsip:
   return g_strdup_printf ("sip:%s", input);
 }
 
