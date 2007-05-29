@@ -903,10 +903,14 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
   SIPMediaStreamPrivate *priv;
   gboolean res = TRUE;
   GPtrArray *codecs;
+  GType codec_type;
+
   g_assert (SIP_IS_MEDIA_STREAM (stream));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   DEBUG ("enter");
+
+  codec_type = sip_tp_codec_struct_type ();
 
   codecs = g_value_get_boxed (&priv->remote_codecs);
 
@@ -918,9 +922,9 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
 	GValue codec = { 0, };
         GHashTable *opt_params;
 
-	g_value_init (&codec, sip_tp_codec_struct_type ());
+	g_value_init (&codec, codec_type);
 	g_value_take_boxed (&codec,
-			    dbus_g_type_specialized_construct (sip_tp_codec_struct_type ()));
+			    dbus_g_type_specialized_construct (codec_type));
 	
         /* FIXME: parse the optional parameters line for the codec
          * and populate the hash table */
