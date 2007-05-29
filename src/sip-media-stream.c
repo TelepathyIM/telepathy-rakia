@@ -831,13 +831,27 @@ priv_set_remote_candidates (SIPMediaStream *stream,
   GType candidate_type;
   GType transport_type;
   sdp_connection_t *sdp_conns;
+  guint port;
 
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  sdp_conns = sdp_media_connections (media);
-  if (sdp_conns == NULL || media->m_port == 0)
+  port = (guint) media->m_port;
+  if (port == 0)
     {
-      g_warning ("No valid remote candidates, unable to configure stream engine for sending.");
+      DEBUG("the stream is disabled remotely by setting the port to 0");
+      return FALSE;
+    }
+
+  if (media->m_proto != sdp_proto_rtp)
+    {
+      g_warning ("The remote protocol is not RTP/AVP");
+      return FALSE;
+    }
+
+  sdp_conns = sdp_media_connections (media);
+  if (sdp_conns == NULL)
+    {
+      g_warning ("No valid remote connections, unable to configure stream engine for sending.");
       return FALSE;
     }
 
@@ -849,19 +863,19 @@ priv_set_remote_candidates (SIPMediaStream *stream,
                       dbus_g_type_specialized_construct (transport_type));
 
   dbus_g_type_struct_set (&tp_transport,
-                          0, "0",         /* component number */
+                          0, 0,         /* component number */
                           1, sdp_conns->c_address,
-                          2, (guint)media->m_port,
-                          3, "UDP",
+                          2, port,
+                          3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
                           4, "RTP",
                           5, "AVP",
                           6, 0.0f, /* qvalue */
-                          7, "local",
-                          8, "",
-                          9, "",
+                          7, TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
+                          /* 8, "", */
+                          /* 9, "", */
                           G_MAXUINT);
 
-  DEBUG("address=<%s>, port=<%lu>", sdp_conns->c_address, media->m_port);
+  DEBUG("address=<%s>, port=<%u>", sdp_conns->c_address, port);
 
   tp_transports = g_ptr_array_sized_new (1);
   g_ptr_array_add (tp_transports, g_value_get_boxed (&tp_transport));
