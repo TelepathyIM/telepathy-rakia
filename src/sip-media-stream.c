@@ -106,6 +106,8 @@ struct _SIPMediaStreamPrivate
 
 static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
                                        const sdp_media_t *sdpmedia);
+static gboolean priv_set_remote_candidates (SIPMediaStream *stream,
+                                            const sdp_media_t *sdpmedia);
 static void push_remote_codecs (SIPMediaStream *stream);
 static void push_remote_candidates (SIPMediaStream *stream);
 static int priv_update_local_sdp(SIPMediaStream *stream);
@@ -791,65 +793,14 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
 {
   SIPMediaStreamPrivate *priv;
   gboolean res = TRUE;
-  GPtrArray *tp_candidates;
-  GValue tp_candidate = { 0, };
-  GPtrArray *tp_transports;
-  GValue tp_transport = { 0, };
-  unsigned long r_port = media->m_port;
-  sdp_connection_t *sdp_conns;
 
   DEBUG ("enter");
 
-  g_assert (SIP_IS_MEDIA_STREAM (stream));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
-
-  tp_candidates = g_value_get_boxed (&priv->remote_candidates);
-
-  g_value_init (&tp_candidate, sip_tp_candidate_struct_type ());
-  g_value_init (&tp_transport, sip_tp_transport_struct_type ());
 
   /* use the address from SDP c-line as the only remote candidate */
 
-  sdp_conns = sdp_media_connections(media);
-  if (sdp_conns && r_port > 0)
-    {
-      /* remote side does not support ICE/jingle */
-      g_value_take_boxed (&tp_transport,
-                          dbus_g_type_specialized_construct (sip_tp_transport_struct_type ()));
-
-      dbus_g_type_struct_set (&tp_transport,
-                              0, "0",         /* component number */
-                              1, sdp_conns->c_address,
-                              2, r_port,
-                              3, "UDP",
-                              4, "RTP",
-                              5, "AVP",
-                              6, 0.0f, /* qvalue */
-                              7, "local",
-                              8, "",
-                              9, "",
-                              G_MAXUINT);
-
-      DEBUG("c_address=<%s>, c_port=<%lu>", sdp_conns->c_address, r_port);
-
-      tp_transports = g_ptr_array_sized_new (1);
-      g_ptr_array_add (tp_transports, g_value_get_boxed (&tp_transport));
-
-      g_value_take_boxed (&tp_candidate,
-                          dbus_g_type_specialized_construct (sip_tp_candidate_struct_type ()));
-
-      dbus_g_type_struct_set (&tp_candidate,
-                              0, "L1", /* candidate id */
-                              1, tp_transports,
-                              G_MAXUINT);
-
-      g_ptr_array_add (tp_candidates, g_value_get_boxed (&tp_candidate));
-    }
-  else
-    {
-      g_warning ("No valid remote candidates, unable to configure stream engine for sending.");
-      res = FALSE;
-    }
+  res = priv_set_remote_candidates (stream, media);
 
   if (res == TRUE) {
     /* note: convert from sdp to priv->remote_codecs */
@@ -866,6 +817,70 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
   }
 
   return res;
+}
+
+static gboolean
+priv_set_remote_candidates (SIPMediaStream *stream,
+                            const sdp_media_t *media)
+{
+  SIPMediaStreamPrivate *priv;
+  GValue tp_candidate = { 0, };
+  GValue tp_transport = { 0, };
+  GPtrArray *tp_candidates;
+  GPtrArray *tp_transports;
+  GType candidate_type;
+  GType transport_type;
+  sdp_connection_t *sdp_conns;
+
+  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+
+  sdp_conns = sdp_media_connections (media);
+  if (sdp_conns == NULL || media->m_port == 0)
+    {
+      g_warning ("No valid remote candidates, unable to configure stream engine for sending.");
+      return FALSE;
+    }
+
+  transport_type = sip_tp_transport_struct_type ();
+
+  g_value_init (&tp_transport, transport_type);
+
+  g_value_take_boxed (&tp_transport,
+                      dbus_g_type_specialized_construct (transport_type));
+
+  dbus_g_type_struct_set (&tp_transport,
+                          0, "0",         /* component number */
+                          1, sdp_conns->c_address,
+                          2, (guint)media->m_port,
+                          3, "UDP",
+                          4, "RTP",
+                          5, "AVP",
+                          6, 0.0f, /* qvalue */
+                          7, "local",
+                          8, "",
+                          9, "",
+                          G_MAXUINT);
+
+  DEBUG("address=<%s>, port=<%lu>", sdp_conns->c_address, media->m_port);
+
+  tp_transports = g_ptr_array_sized_new (1);
+  g_ptr_array_add (tp_transports, g_value_get_boxed (&tp_transport));
+
+  candidate_type = sip_tp_candidate_struct_type ();
+
+  g_value_init (&tp_candidate, candidate_type);
+  g_value_take_boxed (&tp_candidate,
+                      dbus_g_type_specialized_construct (candidate_type));
+
+  dbus_g_type_struct_set (&tp_candidate,
+                          0, "L1", /* candidate id */
+                          1, tp_transports,
+                          G_MAXUINT);
+
+  tp_candidates = g_value_get_boxed (&priv->remote_candidates);
+
+  g_ptr_array_add (tp_candidates, g_value_get_boxed (&tp_candidate));
+  return TRUE;
 }
 
 static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
