@@ -978,17 +978,15 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
 void sip_media_stream_set_playing (SIPMediaStream *stream, gboolean playing)
 {
   SIPMediaStreamPrivate *priv;
-  g_assert (SIP_IS_MEDIA_STREAM (stream));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  g_debug ("emitting SetStreamPlaying signal with %d", playing);
+  DEBUG("set playing to %d", (int)playing);
+
   priv->playing = playing;
 
-  if (priv->ready_received) {
-    g_debug ("%s: emitting SetStreamPlaying TRUE", G_STRFUNC);
+  if (priv->ready_received)
     tp_svc_media_stream_handler_emit_set_stream_playing (
         (TpSvcMediaStreamHandler *)stream, playing);
-  }
 }
 
 /**
