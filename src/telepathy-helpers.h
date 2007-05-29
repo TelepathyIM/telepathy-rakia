@@ -27,7 +27,8 @@
 
 
 #define DEFINE_TP_STRUCT_TYPE(func, ...) \
-  GType func () /* G_GNUC_CONST */                      \
+  GType func (void) G_GNUC_CONST;                       \
+  GType func (void)                                     \
   {                                                     \
     static GType type = 0;                              \
     if (!type)                                          \
@@ -38,7 +39,8 @@
   }
 
 #define DEFINE_TP_LIST_TYPE(func, elem_type) \
-  GType func () /* G_GNUC_CONST */                      \
+  GType func (void) G_GNUC_CONST;                       \
+  GType func (void)                                     \
   {                                                     \
     static GType type = 0;                              \
     if (!type)                                          \
