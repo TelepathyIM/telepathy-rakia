@@ -66,6 +66,8 @@ gboolean sip_media_stream_is_ready (SIPMediaStream *self);
 void sip_media_stream_start_telephony_event (SIPMediaStream *self, guchar event);
 void sip_media_stream_stop_telephony_event  (SIPMediaStream *self);
 
+guint sip_tp_media_type (sdp_media_e sip_mtype);
+
 G_END_DECLS
 
 #endif /* #ifndef __SIP_MEDIA_STREAM_H__*/

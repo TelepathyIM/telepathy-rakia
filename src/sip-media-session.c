@@ -595,24 +595,6 @@ void sip_media_session_terminate (SIPMediaSession *session)
   g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ENDED, NULL);
 }
 
-/**
- * Converts a sofia-sip media type enum to Telepathy media type.
- * See <sofia-sip/sdp.h> and <telepathy-constants.h>.
- *
- * @return G_MAXUINT if the media type cannot be mapped
- */
-static guint priv_tp_media_type (sdp_media_e sip_mtype)
-{
-  switch (sip_mtype)
-    {
-      case sdp_media_audio: return TP_MEDIA_STREAM_TYPE_AUDIO;
-      case sdp_media_video: return TP_MEDIA_STREAM_TYPE_VIDEO; 
-      default: return G_MAXUINT;
-    }
-
-  g_assert_not_reached();
-}
-
 gboolean
 sip_media_session_set_remote_info (SIPMediaSession *session,
                                    const sdp_session_t* sdp)
@@ -636,7 +618,7 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
       SIPMediaStream *stream = NULL;
       guint media_type;
 
-      media_type = priv_tp_media_type (media->m_type);
+      media_type = sip_tp_media_type (media->m_type);
 
       if (i >= priv->streams->len)
 	stream = priv_create_media_stream (session, media_type);

@@ -901,7 +901,6 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
                                        const sdp_media_t *sdpmedia)
 {
   SIPMediaStreamPrivate *priv;
-  TpMediaStreamType tp_media_type;
   GType codec_type;
   GPtrArray *codecs;
   GHashTable *opt_params;
@@ -914,20 +913,7 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
 
   g_return_val_if_fail (sdpmedia != NULL, FALSE);
 
-  switch (sdpmedia->m_type)
-    {
-    case sdp_media_audio:
-      tp_media_type = TP_MEDIA_STREAM_TYPE_AUDIO;
-      break;
-    case sdp_media_video:
-      tp_media_type = TP_MEDIA_STREAM_TYPE_VIDEO;
-      break;
-    default:
-      DEBUG("unsupported media type %s", sdpmedia->m_type_name);
-      return FALSE;
-    }
-
-  g_return_val_if_fail (tp_media_type != priv->media_type, FALSE);
+  g_return_val_if_fail (sip_tp_media_type (sdpmedia->m_type) == priv->media_type, FALSE);
 
   codec_type = sip_tp_codec_struct_type ();
 
@@ -958,7 +944,7 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
                               /* encoding name: */
                               1, rtpmap->rm_encoding,
                               /* media type */
-                              2, (guint)tp_media_type,
+                              2, (guint)priv->media_type,
                               /* clock-rate */
                               3, rtpmap->rm_rate,
                               /* number of supported channels: */
@@ -977,6 +963,25 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
   g_hash_table_destroy (opt_params);
 
   return TRUE;
+}
+
+/**
+ * Converts a sofia-sip media type enum to Telepathy media type.
+ * See <sofia-sip/sdp.h> and <telepathy-constants.h>.
+ *
+ * @return G_MAXUINT if the media type cannot be mapped
+ */
+guint
+sip_tp_media_type (sdp_media_e sip_mtype)
+{
+  switch (sip_mtype)
+    {
+      case sdp_media_audio: return TP_MEDIA_STREAM_TYPE_AUDIO;
+      case sdp_media_video: return TP_MEDIA_STREAM_TYPE_VIDEO; 
+      default: return G_MAXUINT;
+    }
+
+  g_assert_not_reached();
 }
 
 /**
