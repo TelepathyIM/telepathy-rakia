@@ -527,7 +527,7 @@ error:
 gchar *
 sip_conn_domain_from_uri (const gchar *str)
 {
-  su_home_t *home = su_home_new (sizeof (su_home_t));
+  su_home_t home[1] = { SU_HOME_INIT (home) };
   url_t *url;
   gchar *domain;
 
@@ -537,7 +537,7 @@ sip_conn_domain_from_uri (const gchar *str)
   g_assert (url != NULL);
 
   domain = g_strdup (url->url_host);
-  su_home_unref (home);
+  su_home_deinit (home);
   return domain;
 }
 
