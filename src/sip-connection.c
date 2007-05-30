@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <dbus/dbus-glib-lowlevel.h>
@@ -770,38 +771,128 @@ sip_connection_get_interfaces (TpSvcConnection *iface,
 }
 
 
+static guchar *
+_urlencode (su_home_t *home, const gchar *string)
+{
+    guchar *a, *b;
+    guchar *new = su_zalloc (home, strlen (string) * 3 + 1);
+
+    for (a = (guchar *) string, b = new; *a; a++, b++)
+      {
+        if (isalnum(*a) || (*a == '.') || (*a == '-') || (*a == '+') || (*a == '_'))
+          {
+            *b = *a;
+          }
+        else
+          {
+            sprintf((gchar *) b, "%%%02x", (int) *a);
+            b += 2;
+          }
+      }
+    return new;
+}
+
+static gboolean
+_is_tel_num (const gchar *string)
+{
+    while (*string)
+      {
+        if (isalpha(*string) || (*string == '_'))
+            return FALSE;
+        string++;
+      }
+    return TRUE;
+}
+
+static gchar *
+_strip_tel_num (su_home_t *home, const gchar *string)
+{
+    gchar *a, *b;
+    gchar *new = su_zalloc (home, strlen (string) + 1);
+
+    for (a = (gchar *) string, b = new; *a; a++)
+      {
+        if (!isdigit(*a) && (*a != '-') && (*a != '+')) continue;
+        *(b++) = *a;
+      }
+    *b = 0;
+    return new;
+}
+
 static gchar *
 normalize_sipuri (TpHandleRepoIface *repo,
                   const gchar *sipuri,
                   gpointer context,
                   GError **error)
 {
-  /* FIXME:
-   * - guess whether it's a phone number or a SIP URI
-   * - prepend sip: etc.
-   * - perform case normalization etc.
-   */
+  su_home_t *home = su_home_new (sizeof (su_home_t));
+  url_t *url = NULL;;
+  gchar *retval = NULL;
+  char *c, *str;
 
-  if (strchr (sipuri, ':') == NULL)
+  g_assert (home);
+
+  url = url_make (home, sipuri);
+  if (!url) goto error;
+
+  /* we got username or phone number, local to our domain */
+  if ((url->url_scheme == NULL) && (url->url_user == NULL))
+      {
+        gchar *tmp;
+        if (_is_tel_num (sipuri))
+          {
+            tmp = su_sprintf (home, "sip:%s@%s", _strip_tel_num (home, sipuri),
+                "test.domain.com");
+          }
+        else
+          {
+            tmp = su_sprintf (home, "sip:%s@%s", sipuri, "test.domain.com");
+          }
+        url = url_make (home, tmp);
+        if (!url) goto error;
+      }
+
+  if (url_sanitize (url)) goto error;
+
+  // we only support sip, sips and tel schemes
+  if (strcmp(url->url_scheme, "sip") &&
+      strcmp(url->url_scheme, "sips") &&
+      strcmp(url->url_scheme, "tel"))
+        goto error;
+
+  for (c = (char *) url->url_host; *c; c++)
     {
-      g_debug ("%s has no ':', assuming user meant sip:%s", sipuri, sipuri);
-      return g_strdup_printf ("sip:%s", sipuri);
+      /* check for illegal characters */
+      if (!isalnum(*c) && (*c != '_') && (*c != '.') && (*c != '_'))
+          goto error;
+
+      /* convert host to lowercase */
+      *c = tolower (*c);
+    }
+  /* check that the hostname isn't empty */
+  if (c == url->url_host) goto error;
+
+  /* check that if we have '@', the username isn't empty, encode if needed  */
+  if (url->url_user)
+    {
+      if (url->url_user[0] == 0) goto error;
+      url->url_user = (char *) _urlencode (home, url->url_user);
     }
 
-  if (strncmp (sipuri, "sip:", 4) &&
-      strncmp (sipuri, "sips:", 5) &&
-      strncmp (sipuri, "tel:", 4))
-    {
-      g_debug ("%s: not a valid sip/sips/tel URI (%s)", G_STRFUNC, sipuri);
+  str = url_as_string (home, url);
+  if (NULL == str) goto error;
 
-      if (error)
-        *error = g_error_new (TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
-                              "invalid SIP URI");
+  retval = g_strdup (str);
+  su_free (home, str);
 
-      return NULL;
-    }
+error:
+  if (NULL == retval)
+      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+          "invalid SIP URI");
 
-  return g_strdup (sipuri);
+  /* success */
+  su_home_unref (home);
+  return retval;
 }
 
 
@@ -846,7 +937,7 @@ sip_connection_request_handles (TpSvcConnection *iface,
       g_error_free (error);
       return;
     }
-  
+ 
   if (repo == NULL)
     {
       tp_g_set_error_unsupported_handle_type (handle_type, &error);
