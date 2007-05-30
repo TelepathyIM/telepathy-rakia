@@ -555,8 +555,6 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
   SIPMediaSessionState state;
   GPtrArray *candidates;
   GValue candidate = { 0, };
-  GValueArray *transport;
-  const gchar *addr;
 
   g_assert (SIP_IS_MEDIA_STREAM (obj));
 
@@ -588,15 +586,6 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
       0, candidate_id,
       1, transports,
       G_MAXUINT);
-
-  transport = g_ptr_array_index (transports, 0);
-  addr = g_value_get_string (g_value_array_get_nth (transport, 1));
-  if (!strcmp (addr, "127.0.0.1"))
-    {
-      SESSION_DEBUG(priv->session, "ignoring native localhost candidate");
-      tp_svc_media_stream_handler_return_from_new_native_candidate (context);
-      return;
-    }
 
   g_ptr_array_add (candidates, g_value_get_boxed (&candidate));
 
