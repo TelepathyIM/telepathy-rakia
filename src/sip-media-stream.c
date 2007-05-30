@@ -772,11 +772,23 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
 
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
+  if (media->m_port == 0)
+    {
+      DEBUG("the stream is disabled remotely by setting the port to 0");
+      return FALSE;
+    }
+
+  if (media->m_proto != sdp_proto_rtp)
+    {
+      g_warning ("The remote protocol is not RTP/AVP");
+      return FALSE;
+    }
+
   /* use the address from SDP c-line as the only remote candidate */
 
   res = priv_set_remote_candidates (stream, media);
 
-  if (res == TRUE) {
+  if (res) {
     /* note: convert from sdp to priv->remote_codecs */
     res = priv_set_remote_codecs (stream, media);
   
@@ -809,25 +821,14 @@ priv_set_remote_candidates (SIPMediaStream *stream,
 
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  port = (guint) media->m_port;
-  if (port == 0)
-    {
-      DEBUG("the stream is disabled remotely by setting the port to 0");
-      return FALSE;
-    }
-
-  if (media->m_proto != sdp_proto_rtp)
-    {
-      g_warning ("The remote protocol is not RTP/AVP");
-      return FALSE;
-    }
-
   sdp_conns = sdp_media_connections (media);
   if (sdp_conns == NULL)
     {
       g_warning ("No valid remote connections, unable to configure stream engine for sending.");
       return FALSE;
     }
+
+  port = (guint) media->m_port;
 
   transport_type = sip_tp_transport_struct_type ();
 
