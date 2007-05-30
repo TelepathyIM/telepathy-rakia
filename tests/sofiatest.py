@@ -25,14 +25,17 @@ class SipProxy(sip.RegisterProxy):
 
 
 
-def go(register_cb):
-    params = {
-        'account': 'sip:testacc@127.0.0.1',
+def go(register_cb, params=None):
+    default_params = {
+        'account': 'testacc@127.0.0.1',
         'password': 'testpwd',
         'port': dbus.UInt32(9090),
     }
 
-    test = servicetest.create_test('sofiasip', 'sip', params)
+    if params is not None:
+        default_params.update(params)
+
+    test = servicetest.create_test('sofiasip', 'sip', default_params)
     test.data['sip'] = SipProxy()
     reactor.listenUDP(9090, test.data['sip'])
     test.data['sip'].registrar_handler = register_cb
