@@ -633,6 +633,7 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
 
       if (sip_media_stream_get_media_type (stream) != media_type)
         {
+          /* XXX: close this stream and create a new one in its place? */
           g_warning ("The peer has changed the media type, don't know what to do");
         }
       else if (sip_media_stream_set_remote_info (stream, media))
