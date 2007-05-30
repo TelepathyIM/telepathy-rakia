@@ -20,6 +20,8 @@
 #ifndef __SIP_CONNECTION_HELPERS_H__
 #define __SIP_CONNECTION_HELPERS_H__
 
+#include <glib.h>
+
 #include "sip-connection.h"
 #include "sip-sofia-decls.h"
 
@@ -43,6 +45,9 @@ void sip_conn_update_nua_keepalive_interval (SIPConnection *conn);
 void sip_conn_update_nua_contact_features (SIPConnection *conn);
 void sip_conn_update_stun_server (SIPConnection *conn);
 void sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server);
+
+gchar *sip_conn_normalize_uri (SIPConnection *conn, const gchar *sipuri, GError **error);
+gchar * sip_conn_domain_from_uri (const gchar *str);
 
 G_END_DECLS
 

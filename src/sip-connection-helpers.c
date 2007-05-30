@@ -19,6 +19,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <dbus/dbus-glib.h>
@@ -393,5 +394,150 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
               (sres_context_t *) conn,
               sres_type_a,
               stun_server);
+}
+
+static guchar *
+_urlencode (su_home_t *home, const gchar *string)
+{
+    guchar *a, *b;
+    guchar *new = su_zalloc (home, strlen (string) * 3 + 1);
+
+    for (a = (guchar *) string, b = new; *a; a++, b++)
+      {
+        if (isalnum(*a) || (*a == '.') || (*a == '-') || (*a == '+') || (*a == '_'))
+          {
+            *b = *a;
+          }
+        else
+          {
+            sprintf((gchar *) b, "%%%02x", (int) *a);
+            b += 2;
+          }
+      }
+    return new;
+}
+
+static gboolean
+_is_tel_num (const gchar *string)
+{
+    while (*string)
+      {
+        if (isalpha(*string) || (*string == '_'))
+            return FALSE;
+        string++;
+      }
+    return TRUE;
+}
+
+static gchar *
+_strip_tel_num (su_home_t *home, const gchar *string)
+{
+    gchar *a, *b;
+    gchar *new = su_zalloc (home, strlen (string) + 1);
+
+    for (a = (gchar *) string, b = new; *a; a++)
+      {
+        if (!isdigit(*a) && (*a != '-') && (*a != '+')) continue;
+        *(b++) = *a;
+      }
+    *b = 0;
+    return new;
+}
+
+gchar *
+sip_conn_normalize_uri (SIPConnection *conn,
+                        const gchar *sipuri,
+                        GError **error)
+{
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  su_home_t *home = su_home_new (sizeof (su_home_t));
+  url_t *url = NULL;;
+  gchar *retval = NULL;
+  char *c, *str;
+
+  g_assert (home);
+
+  url = url_make (home, sipuri);
+
+  g_debug ("str == %s, url == %p", sipuri, url);
+
+  /* we got username or phone number, local to our domain */
+  if ((url == NULL) ||
+      ((url->url_scheme == NULL) && (url->url_user == NULL)))
+      {
+        if (priv->domain == NULL)
+          {
+            g_debug ("local uri specified and we don't know local domain yet");
+            goto error;
+          }
+
+        if (_is_tel_num (sipuri))
+          {
+            url = url_format (home, "sip:%s@%s", _strip_tel_num (home, sipuri),
+                priv->domain);
+          }
+        else
+          {
+            url = url_format (home, "sip:%s@%s", _urlencode (home, sipuri),
+                priv->domain);
+          }
+        if (!url) goto error;
+      }
+
+  if (url_sanitize (url)) goto error;
+
+  /* scheme should've been set by now */
+  if (!url->url_scheme || (url->url_scheme[0] == 0))
+      goto error;
+
+  for (c = (char *) url->url_host; *c; c++)
+    {
+      /* check for illegal characters */
+      if (!isalnum(*c) && (*c != '_') && (*c != '.') && (*c != '_'))
+          goto error;
+
+      /* convert host to lowercase */
+      *c = tolower (*c);
+    }
+  /* check that the hostname isn't empty */
+  if (c == url->url_host) goto error;
+
+  /* check that if we have '@', the username isn't empty */
+  if (url->url_user)
+    {
+      if (url->url_user[0] == 0) goto error;
+    }
+
+  str = url_as_string (home, url);
+  if (NULL == str) goto error;
+
+  retval = g_strdup (str);
+  su_free (home, str);
+
+error:
+  if (NULL == retval)
+      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+          "invalid SIP URI");
+
+  /* success */
+  su_home_unref (home);
+  return retval;
+}
+
+gchar *
+sip_conn_domain_from_uri (const gchar *str)
+{
+  su_home_t *home = su_home_new (sizeof (su_home_t));
+  url_t *url;
+  gchar *domain;
+
+  g_assert (str != NULL);
+
+  url = url_make (home, str);
+  g_assert (url != NULL);
+
+  domain = g_strdup (url->url_host);
+  su_home_unref (home);
+  return domain;
 }
 

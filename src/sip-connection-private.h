@@ -40,6 +40,7 @@ struct _SIPConnectionPrivate
   TpChannelFactoryIface *media_factory;
 
   gchar *address;
+  gchar *domain;
   gchar *password;
   gchar *proxy;
   gchar *registrar;

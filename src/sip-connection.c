@@ -24,7 +24,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 
 #define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <dbus/dbus-glib-lowlevel.h>
@@ -175,6 +174,7 @@ sip_create_handle_repos (TpBaseConnection *conn,
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,
           "handle-type", TP_HANDLE_TYPE_CONTACT,
           "normalize-function", normalize_sipuri,
+          "default-normalize-context", conn,
           NULL);
   repos[TP_HANDLE_TYPE_LIST] =
       (TpHandleRepoIface *)g_object_new (TP_TYPE_STATIC_HANDLE_REPO,
@@ -222,7 +222,7 @@ sip_connection_set_property (GObject      *object,
   switch (property_id) {
   case PROP_ADDRESS: {
     /* just store the address, self_handle set in start_connecting */
-    priv->address = priv_sip_strdup (g_value_get_string (value));
+    priv->address = g_value_dup_string (value);
     break;
   }
   case PROP_PASSWORD: {
@@ -594,6 +594,7 @@ sip_connection_finalize (GObject *obj)
   su_home_unref (priv->sofia_home);
 
   g_free (priv->address);
+  g_free (priv->domain);
   g_free (priv->proxy);
   g_free (priv->registrar);
   g_free (priv->http_proxy);
@@ -649,9 +650,12 @@ sip_connection_start_connecting (TpBaseConnection *base,
           priv->address);
       return FALSE;
     }
-  DEBUG("self_handle = %d", base->self_handle);
 
   sip_address = tp_handle_inspect(contact_repo, base->self_handle);
+
+  DEBUG("self_handle = %d, sip_address = %s", base->self_handle, sip_address);
+
+  priv->domain = sip_conn_domain_from_uri (sip_address);
 
   /* step: create stack instance */
   priv->sofia_nua = nua_create (sofia_root,
@@ -770,129 +774,15 @@ sip_connection_get_interfaces (TpSvcConnection *iface,
   tp_svc_connection_return_from_get_interfaces (context, interfaces);
 }
 
-
-static guchar *
-_urlencode (su_home_t *home, const gchar *string)
-{
-    guchar *a, *b;
-    guchar *new = su_zalloc (home, strlen (string) * 3 + 1);
-
-    for (a = (guchar *) string, b = new; *a; a++, b++)
-      {
-        if (isalnum(*a) || (*a == '.') || (*a == '-') || (*a == '+') || (*a == '_'))
-          {
-            *b = *a;
-          }
-        else
-          {
-            sprintf((gchar *) b, "%%%02x", (int) *a);
-            b += 2;
-          }
-      }
-    return new;
-}
-
-static gboolean
-_is_tel_num (const gchar *string)
-{
-    while (*string)
-      {
-        if (isalpha(*string) || (*string == '_'))
-            return FALSE;
-        string++;
-      }
-    return TRUE;
-}
-
-static gchar *
-_strip_tel_num (su_home_t *home, const gchar *string)
-{
-    gchar *a, *b;
-    gchar *new = su_zalloc (home, strlen (string) + 1);
-
-    for (a = (gchar *) string, b = new; *a; a++)
-      {
-        if (!isdigit(*a) && (*a != '-') && (*a != '+')) continue;
-        *(b++) = *a;
-      }
-    *b = 0;
-    return new;
-}
-
 static gchar *
 normalize_sipuri (TpHandleRepoIface *repo,
                   const gchar *sipuri,
                   gpointer context,
                   GError **error)
 {
-  su_home_t *home = su_home_new (sizeof (su_home_t));
-  url_t *url = NULL;;
-  gchar *retval = NULL;
-  char *c, *str;
+    SIPConnection *conn = SIP_CONNECTION (context);
 
-  g_assert (home);
-
-  url = url_make (home, sipuri);
-  if (!url) goto error;
-
-  /* we got username or phone number, local to our domain */
-  if ((url->url_scheme == NULL) && (url->url_user == NULL))
-      {
-        gchar *tmp;
-        if (_is_tel_num (sipuri))
-          {
-            tmp = su_sprintf (home, "sip:%s@%s", _strip_tel_num (home, sipuri),
-                "test.domain.com");
-          }
-        else
-          {
-            tmp = su_sprintf (home, "sip:%s@%s", sipuri, "test.domain.com");
-          }
-        url = url_make (home, tmp);
-        if (!url) goto error;
-      }
-
-  if (url_sanitize (url)) goto error;
-
-  // we only support sip, sips and tel schemes
-  if (strcmp(url->url_scheme, "sip") &&
-      strcmp(url->url_scheme, "sips") &&
-      strcmp(url->url_scheme, "tel"))
-        goto error;
-
-  for (c = (char *) url->url_host; *c; c++)
-    {
-      /* check for illegal characters */
-      if (!isalnum(*c) && (*c != '_') && (*c != '.') && (*c != '_'))
-          goto error;
-
-      /* convert host to lowercase */
-      *c = tolower (*c);
-    }
-  /* check that the hostname isn't empty */
-  if (c == url->url_host) goto error;
-
-  /* check that if we have '@', the username isn't empty, encode if needed  */
-  if (url->url_user)
-    {
-      if (url->url_user[0] == 0) goto error;
-      url->url_user = (char *) _urlencode (home, url->url_user);
-    }
-
-  str = url_as_string (home, url);
-  if (NULL == str) goto error;
-
-  retval = g_strdup (str);
-  su_free (home, str);
-
-error:
-  if (NULL == retval)
-      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
-          "invalid SIP URI");
-
-  /* success */
-  su_home_unref (home);
-  return retval;
+    return sip_conn_normalize_uri (conn, sipuri, error);
 }
 
 
