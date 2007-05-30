@@ -201,8 +201,6 @@ sip_media_stream_constructor (GType type, guint n_props,
       dbus_g_type_specialized_construct (sip_tp_candidate_list_type ()));
 
   g_value_init (&priv->remote_codecs, sip_tp_codec_list_type ());
-  g_value_take_boxed (&priv->remote_codecs,
-      dbus_g_type_specialized_construct (sip_tp_codec_list_type ()));
 
   g_value_init (&priv->remote_candidates, sip_tp_candidate_list_type ());
   g_value_take_boxed (&priv->remote_candidates,
@@ -917,7 +915,13 @@ static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
 
   codec_type = sip_tp_codec_struct_type ();
 
-  codecs = g_value_get_boxed (&priv->remote_codecs);
+  /* TODO: save the old list of remote codecs in case we get a reject from
+   * the stream engine */
+  g_value_reset (&priv->remote_codecs);
+
+  codecs = dbus_g_type_specialized_construct (sip_tp_codec_list_type ());
+
+  g_value_take_boxed (&priv->remote_codecs, codecs);
 
   opt_params = g_hash_table_new (g_str_hash, g_str_equal);
 
