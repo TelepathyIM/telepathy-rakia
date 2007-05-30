@@ -914,13 +914,6 @@ static void priv_stream_new_active_candidate_pair_cb (SIPMediaStream *stream,
    *      but currently done in priv_stream_ready_cb() */
 }
 
-static void priv_stream_new_native_candidate_cb (SIPMediaStream *stream,
-						 const gchar *candidate_id,
-						 const GPtrArray *transports,
-						 SIPMediaSession *session)
-{
-}
-
 static void priv_session_media_state (SIPMediaSession *session, gboolean playing)
 {
   guint i;
@@ -1088,9 +1081,6 @@ static SIPMediaStream* priv_create_media_stream (SIPMediaSession *self, guint me
  
     g_signal_connect (stream, "new-active-candidate-pair",
 		      (GCallback) priv_stream_new_active_candidate_pair_cb,
-		      self);
-    g_signal_connect (stream, "new-native-candidate",
-		      (GCallback) priv_stream_new_native_candidate_cb,
 		      self);
     g_signal_connect (stream, "ready",
 		      (GCallback) priv_stream_ready_cb,

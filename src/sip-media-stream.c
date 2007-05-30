@@ -54,7 +54,6 @@ G_DEFINE_TYPE_WITH_CODE(SIPMediaStream,
 enum
 {
     SIG_NEW_ACTIVE_CANDIDATE_PAIR,
-    SIG_NEW_NATIVE_CANDIDATE,
     SIG_READY,
     SIG_SUPPORTED_CODECS,
 
@@ -346,15 +345,6 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                   _tpsip_marshal_VOID__STRING_STRING,
                   G_TYPE_NONE, 2, G_TYPE_STRING, G_TYPE_STRING);
 
-  signals[SIG_NEW_NATIVE_CANDIDATE] =
-    g_signal_new ("new-native-candidate",
-                  G_OBJECT_CLASS_TYPE (sip_media_stream_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  _tpsip_marshal_VOID__STRING_BOXED,
-                  G_TYPE_NONE, 2, G_TYPE_STRING, sip_tp_transport_list_type ());
-
   signals[SIG_READY] =
     g_signal_new ("ready",
                   G_OBJECT_CLASS_TYPE (sip_media_stream_class),
@@ -597,9 +587,6 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
     priv_generate_sdp(obj);
   }
   
-  g_signal_emit (obj, signals[SIG_NEW_NATIVE_CANDIDATE], 0,
-                 candidate_id, transports);
-
   tp_svc_media_stream_handler_return_from_new_native_candidate (context);
 }
 
