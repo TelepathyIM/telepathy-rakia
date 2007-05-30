@@ -404,7 +404,8 @@ _urlencode (su_home_t *home, const gchar *string)
 
     for (a = (guchar *) string, b = new; *a; a++, b++)
       {
-        if (isalnum(*a) || (*a == '.') || (*a == '-') || (*a == '+') || (*a == '_'))
+        if (g_ascii_isalnum(*a) || (*a == '.') || (*a == '-') ||
+            (*a == '+') || (*a == '_'))
           {
             *b = *a;
           }
@@ -422,8 +423,10 @@ _is_tel_num (const gchar *string)
 {
     while (*string)
       {
-        if (isalpha(*string) || (*string == '_'))
-            return FALSE;
+        if (!g_ascii_isdigit (*string) &&
+            !g_ascii_ispunct (*string) &&
+            !g_ascii_isspace (*string))
+                return FALSE;
         string++;
       }
     return TRUE;
@@ -437,7 +440,7 @@ _strip_tel_num (su_home_t *home, const gchar *string)
 
     for (a = (gchar *) string, b = new; *a; a++)
       {
-        if (!isdigit(*a) && (*a != '-') && (*a != '+')) continue;
+        if (!g_ascii_isdigit(*a) && (*a != '-') && (*a != '+')) continue;
         *(b++) = *a;
       }
     *b = 0;
@@ -450,7 +453,7 @@ sip_conn_normalize_uri (SIPConnection *conn,
                         GError **error)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
-  su_home_t *home = su_home_new (sizeof (su_home_t));
+  su_home_t home[1] = { SU_HOME_INIT (home) };
   url_t *url = NULL;;
   gchar *retval = NULL;
   char *c, *str;
@@ -458,8 +461,6 @@ sip_conn_normalize_uri (SIPConnection *conn,
   g_assert (home);
 
   url = url_make (home, sipuri);
-
-  g_debug ("str == %s, url == %p", sipuri, url);
 
   /* we got username or phone number, local to our domain */
   if ((url == NULL) ||
@@ -493,11 +494,11 @@ sip_conn_normalize_uri (SIPConnection *conn,
   for (c = (char *) url->url_host; *c; c++)
     {
       /* check for illegal characters */
-      if (!isalnum(*c) && (*c != '_') && (*c != '.') && (*c != '_'))
+      if (!g_ascii_isalnum(*c) && (*c != '_') && (*c != '.') && (*c != '_'))
           goto error;
 
       /* convert host to lowercase */
-      *c = tolower (*c);
+      *c = g_ascii_tolower (*c);
     }
   /* check that the hostname isn't empty */
   if (c == url->url_host) goto error;
@@ -512,7 +513,6 @@ sip_conn_normalize_uri (SIPConnection *conn,
   if (NULL == str) goto error;
 
   retval = g_strdup (str);
-  su_free (home, str);
 
 error:
   if (NULL == retval)
@@ -520,7 +520,7 @@ error:
           "invalid SIP URI");
 
   /* success */
-  su_home_unref (home);
+  su_home_deinit (home);
   return retval;
 }
 
