@@ -111,6 +111,8 @@ struct _SIPMediaSessionPrivate
   TpHandle peer;                        /** see gobj. prop. 'peer' */
   SIPMediaSessionState state;             /** see gobj. prop. 'state' */
   guint timer_id;
+  su_home_t *home;                      /** memory home for Sofia objects */
+  sdp_session_t *remote_sdp;            /** last received remote session */
   gboolean accepted;                    /**< session has been locally accepted for use */
   gboolean oa_pending;                  /**< offer/answer waiting to be sent */
   gboolean se_ready;                    /**< connection established with stream-engine */
@@ -141,7 +143,7 @@ static void sip_media_session_init (SIPMediaSession *obj)
   g_debug ("%s called", G_STRFUNC);
 
   /* allocate any data required by the object here */
-
+  priv->home = su_home_create ();
   priv->streams = g_ptr_array_sized_new (0);
 }
 
@@ -384,6 +386,8 @@ sip_media_session_finalize (GObject *object)
 
   g_ptr_array_free(priv->streams, TRUE);
 
+  su_home_unref (priv->home);
+
   DEBUG ("exit");
 }
 
@@ -607,7 +611,17 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
 
   DEBUG ("enter");
 
-  media = sdp->sdp_media;
+  if (sdp_session_cmp (priv->remote_sdp, sdp) == 0)
+    {
+      SESSION_DEBUG(session, "no session changes detected");
+      return TRUE;
+    }
+
+  /* Store the session description structure */
+  priv->remote_sdp = sdp_session_dup (priv->home, sdp);
+  g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
+
+  media = priv->remote_sdp->sdp_media;
 
   /* note: for each session, we maintain an ordered list of 
    *       streams (SDP m-lines) which are matched 1:1 to 
@@ -625,13 +639,17 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
       else 
 	stream = g_ptr_array_index(priv->streams, i);
 
-      g_debug ("Setting remote SDP for stream (%u:%p).", i, stream);	
-
       /* note: it is ok for the stream to be NULL (unsupported media type) */
       if (stream == NULL)
         goto next_media;
 
-      if (sip_media_stream_get_media_type (stream) != media_type)
+      DEBUG("setting remote SDP for stream (%u:%p).", i, stream);    
+
+      if (media->m_rejected)
+        {
+          DEBUG("the stream has been rejected, closing");
+        }
+      else if (sip_media_stream_get_media_type (stream) != media_type)
         {
           /* XXX: close this stream and create a new one in its place? */
           g_warning ("The peer has changed the media type, don't know what to do");

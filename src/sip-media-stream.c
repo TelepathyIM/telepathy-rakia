@@ -89,26 +89,32 @@ struct _SIPMediaStreamPrivate
   gboolean native_cands_prepared; /** all candidates discovered */
   gboolean native_codecs_prepared; /** all codecs discovered */
   gboolean playing;               /** stream set to playing */
+  gboolean sending;               /** stream set to sending */
 
   GValue native_codecs;           /** intersected codec list */
   GValue native_candidates;
 
-  GValue remote_codecs;
-  GValue remote_candidates;
+  const sdp_media_t *remote_media; /** pointer to the SDP media structure
+                                    *  owned by the session object */
+
+  guint remote_candidate_counter;
+  gchar *remote_candidate_id;
+
+  gchar *native_candidate_id;
+
   gboolean push_remote_requested;
-  gboolean remote_cands_sent;
 
   gboolean dispose_has_run;
 };
 
 #define SIP_MEDIA_STREAM_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_STREAM, SIPMediaStreamPrivate))
 
-static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
-                                       const sdp_media_t *sdpmedia);
-static gboolean priv_set_remote_candidates (SIPMediaStream *stream,
-                                            const sdp_media_t *sdpmedia);
 static void push_remote_codecs (SIPMediaStream *stream);
 static void push_remote_candidates (SIPMediaStream *stream);
+static void push_active_candidate_pair (SIPMediaStream *stream);
+static void priv_update_sending (SIPMediaStream *stream,
+                                 TpMediaStreamDirection direction,
+                                 guint pending_send_flags);
 static int priv_update_local_sdp(SIPMediaStream *stream);
 static void priv_generate_sdp (SIPMediaStream *stream);
 
@@ -167,12 +173,11 @@ DEFINE_TP_LIST_TYPE(sip_tp_codec_list_type,
  ***********************************************************************/
 
 static void
-sip_media_stream_init (SIPMediaStream *obj)
+sip_media_stream_init (SIPMediaStream *self)
 {
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
 
   /* allocate any data required by the object here */
-
   priv = NULL;
 }
 
@@ -190,6 +195,7 @@ sip_media_stream_constructor (GType type, guint n_props,
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (SIP_MEDIA_STREAM (obj));
 
   priv->playing = FALSE;
+  priv->sending = FALSE;
 
   g_value_init (&priv->native_codecs, sip_tp_codec_list_type ());
   g_value_take_boxed (&priv->native_codecs,
@@ -197,12 +203,6 @@ sip_media_stream_constructor (GType type, guint n_props,
 
   g_value_init (&priv->native_candidates, sip_tp_candidate_list_type ());
   g_value_take_boxed (&priv->native_candidates,
-      dbus_g_type_specialized_construct (sip_tp_candidate_list_type ()));
-
-  g_value_init (&priv->remote_codecs, sip_tp_codec_list_type ());
-
-  g_value_init (&priv->remote_candidates, sip_tp_candidate_list_type ());
-  g_value_take_boxed (&priv->remote_candidates,
       dbus_g_type_specialized_construct (sip_tp_candidate_list_type ()));
 
   priv->native_cands_prepared = FALSE;
@@ -396,8 +396,8 @@ sip_media_stream_finalize (GObject *object)
   g_value_unset (&priv->native_codecs);
   g_value_unset (&priv->native_candidates);
 
-  g_value_unset (&priv->remote_codecs);
-  g_value_unset (&priv->remote_candidates);
+  g_free (priv->native_candidate_id);
+  g_free (priv->remote_candidate_id);
 
   G_OBJECT_CLASS (sip_media_stream_parent_class)->finalize (object);
 
@@ -475,8 +475,6 @@ sip_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
 
   SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
   SIPMediaStreamPrivate *priv;
-
-  g_debug ("%s: unexpected - stream-engine called NativeCandidatesPrepared, possibly in non-libjingle mode", G_STRFUNC);
 
   g_assert (SIP_IS_MEDIA_STREAM (obj));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
@@ -566,10 +564,13 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
       return;
   }
 
+  g_free (priv->native_candidate_id);
+  priv->native_candidate_id = g_strdup (candidate_id);
+
   candidates = g_value_get_boxed (&priv->native_candidates);
 
   g_value_init (&candidate, sip_tp_candidate_struct_type ());
-  g_value_set_static_boxed (&candidate,
+  g_value_take_boxed (&candidate,
       dbus_g_type_specialized_construct (sip_tp_candidate_struct_type ()));
 
   dbus_g_type_struct_set (&candidate,
@@ -622,7 +623,7 @@ sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
 
   priv->ready_received = TRUE;
 
-  SESSION_DEBUG(priv->session, "putting list of all %d locally supported "
+  SESSION_DEBUG(priv->session, "putting list of %d locally supported "
                 "codecs from stream-engine into cache", codecs->len);
   g_value_init (&val, sip_tp_codec_list_type ());
   g_value_set_static_boxed (&val, codecs);
@@ -637,16 +638,12 @@ sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
   if (priv->push_remote_requested) {
     push_remote_candidates (obj);
     push_remote_codecs (obj);
+    priv->push_remote_requested = FALSE;
   }
 
   /* note: for inbound sessions, emit active candidate pair once 
            remote info is set */
-  if (priv->remote_cands_sent == TRUE) {
-    /* XXX: hack, find out the correct candidate ids from somewhere */
-    g_debug ("emitting SetActiveCandidatePair for L1-L1 (2)");
-    tp_svc_media_stream_handler_emit_set_active_candidate_pair (
-        iface, "L1", "L1");
-  }
+  push_active_candidate_pair (obj);
 
   tp_svc_media_stream_handler_return_from_ready (context);
 }
@@ -753,195 +750,117 @@ const char *sip_media_stream_local_sdp (SIPMediaStream *obj)
   return priv->stream_sdp;
 }
 
+static inline guint
+sip_tp_stream_direction_from_remote (sdp_mode_t mode)
+{
+  return ((mode & sdp_recvonly)? TP_MEDIA_STREAM_DIRECTION_SEND : 0)
+       | ((mode & sdp_sendonly)? TP_MEDIA_STREAM_DIRECTION_RECEIVE : 0);
+}
 
 /** 
  * Sets the remote candidates and codecs for this stream, as 
  * received via signaling.
  * 
- * Parses the SDP information, generated TP candidates and 
- * stores the information to 'priv->remote_candidates'.
+ * Parses the SDP information, updates TP remote candidates and
+ * codecs if the client is ready.
+ * 
+ * Note that the pointer to the media description structure is saved,
+ * implying that the structure shall not go away for the lifetime of
+ * the stream, preferably kept in the memory home attached to
+ * the session object. 
  */
 gboolean
 sip_media_stream_set_remote_info (SIPMediaStream *stream,
-                                  const sdp_media_t *media)
+                                  const sdp_media_t *new_media)
 {
   SIPMediaStreamPrivate *priv;
-  gboolean res = TRUE;
+  sdp_connection_t *sdp_conn;
+  const sdp_media_t *old_media;
+  gboolean transport_changed = TRUE;
+  guint old_direction;
+  guint new_direction;
 
   DEBUG ("enter");
 
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  if (media->m_port == 0)
+  /* Do sanity checks */
+
+  g_return_val_if_fail (new_media != NULL, FALSE);
+
+  if (new_media->m_rejected || new_media->m_port == 0)
     {
-      DEBUG("the stream is disabled remotely by setting the port to 0");
+      DEBUG("the stream is rejected remotely");
       return FALSE;
     }
 
-  if (media->m_proto != sdp_proto_rtp)
+  if (new_media->m_proto != sdp_proto_rtp)
     {
       g_warning ("The remote protocol is not RTP/AVP");
       return FALSE;
     }
 
-  /* use the address from SDP c-line as the only remote candidate */
-
-  res = priv_set_remote_candidates (stream, media);
-
-  if (res) {
-    /* note: convert from sdp to priv->remote_codecs */
-    res = priv_set_remote_codecs (stream, media);
-  
-    if (priv->ready_received) {
-      push_remote_candidates (stream);
-      push_remote_codecs (stream);
-    }
-    else {
-      /* cannot push until the local candidates are available */
-      priv->push_remote_requested = TRUE;
-    }
-  }
-
-  return res;
-}
-
-static gboolean
-priv_set_remote_candidates (SIPMediaStream *stream,
-                            const sdp_media_t *media)
-{
-  SIPMediaStreamPrivate *priv;
-  GValue tp_candidate = { 0, };
-  GValue tp_transport = { 0, };
-  GPtrArray *tp_candidates;
-  GPtrArray *tp_transports;
-  GType candidate_type;
-  GType transport_type;
-  sdp_connection_t *sdp_conns;
-  guint port;
-
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
-
-  sdp_conns = sdp_media_connections (media);
-  if (sdp_conns == NULL)
+  sdp_conn = sdp_media_connections (new_media);
+  if (sdp_conn == NULL)
     {
       g_warning ("No valid remote connections, unable to configure stream engine for sending.");
       return FALSE;
     }
 
-  port = (guint) media->m_port;
+  /* Check if there was any media update at all */
 
-  transport_type = sip_tp_transport_struct_type ();
+  old_media = priv->remote_media;
 
-  g_value_init (&tp_transport, transport_type);
-
-  g_value_take_boxed (&tp_transport,
-                      dbus_g_type_specialized_construct (transport_type));
-
-  dbus_g_type_struct_set (&tp_transport,
-                          0, 0,         /* component number */
-                          1, sdp_conns->c_address,
-                          2, port,
-                          3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
-                          4, "RTP",
-                          5, "AVP",
-                          6, 0.0f, /* qvalue */
-                          7, TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
-                          /* 8, "", */
-                          /* 9, "", */
-                          G_MAXUINT);
-
-  DEBUG("address=<%s>, port=<%u>", sdp_conns->c_address, port);
-
-  tp_transports = g_ptr_array_sized_new (1);
-  g_ptr_array_add (tp_transports, g_value_get_boxed (&tp_transport));
-
-  candidate_type = sip_tp_candidate_struct_type ();
-
-  g_value_init (&tp_candidate, candidate_type);
-  g_value_take_boxed (&tp_candidate,
-                      dbus_g_type_specialized_construct (candidate_type));
-
-  dbus_g_type_struct_set (&tp_candidate,
-                          0, "L1", /* candidate id */
-                          1, tp_transports,
-                          G_MAXUINT);
-
-  tp_candidates = g_value_get_boxed (&priv->remote_candidates);
-
-  g_ptr_array_add (tp_candidates, g_value_get_boxed (&tp_candidate));
-  return TRUE;
-}
-
-static gboolean priv_set_remote_codecs(SIPMediaStream *stream,
-                                       const sdp_media_t *sdpmedia)
-{
-  SIPMediaStreamPrivate *priv;
-  GType codec_type;
-  GPtrArray *codecs;
-  GHashTable *opt_params;
-  sdp_rtpmap_t *rtpmap;
-
-  g_assert (SIP_IS_MEDIA_STREAM (stream));
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
-
-  DEBUG ("enter");
-
-  g_return_val_if_fail (sdpmedia != NULL, FALSE);
-
-  g_return_val_if_fail (sip_tp_media_type (sdpmedia->m_type) == priv->media_type, FALSE);
-
-  codec_type = sip_tp_codec_struct_type ();
-
-  /* TODO: save the old list of remote codecs in case we get a reject from
-   * the stream engine */
-  g_value_reset (&priv->remote_codecs);
-
-  codecs = dbus_g_type_specialized_construct (sip_tp_codec_list_type ());
-
-  g_value_take_boxed (&priv->remote_codecs, codecs);
-
-  opt_params = g_hash_table_new (g_str_hash, g_str_equal);
-
-  rtpmap = sdpmedia->m_rtpmaps;
-  while (rtpmap)
+  if (sdp_media_cmp (old_media, new_media) == 0)
     {
-      GValue codec = { 0, };
-
-      g_value_init (&codec, codec_type);
-      g_value_take_boxed (&codec,
-                          dbus_g_type_specialized_construct (codec_type));
-
-      /* FIXME: parse the optional parameters line for the codec
-       * and populate the hash table */
-      g_assert (g_hash_table_size (opt_params) == 0);
-
-      /* RFC2327: see "m=" line definition 
-       *  - note, 'encoding_params' is assumed to be channel
-       *    count (i.e. channels in farsight) */
-
-      dbus_g_type_struct_set (&codec,
-                              /* payload type: */
-                              0, rtpmap->rm_pt,
-                              /* encoding name: */
-                              1, rtpmap->rm_encoding,
-                              /* media type */
-                              2, (guint)priv->media_type,
-                              /* clock-rate */
-                              3, rtpmap->rm_rate,
-                              /* number of supported channels: */
-                              4, rtpmap->rm_params ? atoi(rtpmap->rm_params) : 0,
-                              /* optional params: */
-                              5, opt_params,
-                              G_MAXUINT);
-
-      g_ptr_array_add (codecs, g_value_get_boxed (&codec));
-
-      g_hash_table_remove_all (opt_params);
-
-      rtpmap = rtpmap->rm_next;
+      DEBUG("no media changes detected for the stream");
+      return TRUE;
     }
-  
-  g_hash_table_destroy (opt_params);
+
+  /* Check in particular if the transport candidate needs to be changed */
+
+  if (old_media != NULL
+      && sdp_connection_cmp (sdp_media_connections (old_media), sdp_conn) == 0)
+    transport_changed = FALSE;
+
+  /* TODO: keep a pointer to old media and roll back
+   * if the session is rejected */
+
+  priv->remote_media = new_media;
+
+  old_direction = (old_media == NULL)
+        ? TP_MEDIA_STREAM_DIRECTION_NONE
+        : sip_tp_stream_direction_from_remote (old_media->m_mode);
+  new_direction = sip_tp_stream_direction_from_remote (new_media->m_mode);
+
+  /* Disable sending at this point if it will be disabled
+   * accordingly to the new direction */
+  priv_update_sending (stream, old_direction & new_direction, 0);
+
+  /* First add the new candidate, then update the codec set.
+   * The offerer isn't supposed to send us anything from the new transport
+   * until we accept; if it's the answer, both orderings have problems. */
+
+  if (transport_changed)
+    {
+     /* Make sure we stop sending before we use the new set of codecs
+      * intended for the new connection */
+      sip_media_stream_set_sending (stream, FALSE);
+
+      push_remote_candidates (stream);
+    }
+
+  push_remote_codecs (stream);
+
+  /* TODO: this will go to session change commit code */
+
+  /* note: for outbound sessions (for which remote cands become
+   *       available at a later stage), emit active candidate pair 
+   *       (and playing status?) once remote info set */
+  push_active_candidate_pair (stream);
+
+  /* Set the final direction and sending status */
+  sip_media_stream_set_direction (stream, new_direction, 0);
 
   return TRUE;
 }
@@ -966,22 +885,66 @@ sip_tp_media_type (sdp_media_e sip_mtype)
 }
 
 /**
- * Sets the media state to playing or disabled. When not playing,
- * received RTP packets are not played locally, nor recorded audio
- * is sent to the network.
+ * Sets the media state to playing or non-playing. When not playing,
+ * received RTP packets may not be played locally.
  */
 void sip_media_stream_set_playing (SIPMediaStream *stream, gboolean playing)
 {
   SIPMediaStreamPrivate *priv;
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  DEBUG("set playing to %d", (int)playing);
+  if (priv->playing == playing)
+    return;
+
+  DEBUG("set playing to %s", playing? "TRUE" : "FALSE");
 
   priv->playing = playing;
 
   if (priv->ready_received)
     tp_svc_media_stream_handler_emit_set_stream_playing (
         (TpSvcMediaStreamHandler *)stream, playing);
+}
+
+/**
+ * Sets the media state to sending or non-sending. When not sending,
+ * captured media are not sent over the network.
+ */
+void
+sip_media_stream_set_sending (SIPMediaStream *stream, gboolean sending)
+{
+  SIPMediaStreamPrivate *priv;
+  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+
+  if (priv->sending == sending)
+    return;
+
+  DEBUG("set sending to %s", sending? "TRUE" : "FALSE");
+
+  priv->sending = sending;
+
+  if (priv->ready_received)
+    tp_svc_media_stream_handler_emit_set_stream_sending (
+        (TpSvcMediaStreamHandler *)stream, sending);
+}
+
+static void
+priv_update_sending (SIPMediaStream *stream,
+                     TpMediaStreamDirection direction,
+                     guint pending_send_flags)
+{
+  sip_media_stream_set_sending (stream,
+        (direction & TP_MEDIA_STREAM_DIRECTION_SEND)
+        && !(pending_send_flags & TP_MEDIA_STREAM_PENDING_REMOTE_SEND));
+}
+
+void
+sip_media_stream_set_direction (SIPMediaStream *stream,
+                                TpMediaStreamDirection direction,
+                                guint pending_send_flags)
+{
+  priv_update_sending (stream, direction, pending_send_flags);
+
+  /* TODO: emit a GObject signal for the channel */
 }
 
 /**
@@ -1050,93 +1013,192 @@ static void push_remote_codecs (SIPMediaStream *stream)
   SIPMediaStreamPrivate *priv;
   SIPMediaSessionState state;
   GPtrArray *codecs;
+  GType codecs_type;
+  GType codec_type;
+  const sdp_media_t *sdpmedia;
+  const sdp_rtpmap_t *rtpmap;
+  GHashTable *opt_params;
 
   DEBUG ("enter");
 
-  g_assert (SIP_IS_MEDIA_STREAM (stream));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  g_assert (priv);
-  g_assert (priv->ready_received);
+  sdpmedia = priv->remote_media; 
+  if (sdpmedia == NULL)
+    {
+      DEBUG("remote media description is not received yet");
+      return;
+    }
 
-  g_object_get (priv->session, "state", &state, NULL);
+  if (!priv->ready_received)
+    {
+      DEBUG("the stream engine is not ready, SetRemoteCodecs is pending");
+      priv->push_remote_requested = TRUE;
+      return;
+    }
 
-  codecs = g_value_get_boxed (&priv->remote_codecs);
+  codec_type = sip_tp_codec_struct_type ();
+  codecs_type = sip_tp_codec_list_type ();
 
-  SESSION_DEBUG(priv->session, "passing %d remote codecs to stream-engine",
+  codecs = dbus_g_type_specialized_construct (codecs_type);
+
+  opt_params = g_hash_table_new (g_str_hash, g_str_equal);
+
+  rtpmap = sdpmedia->m_rtpmaps;
+  while (rtpmap)
+    {
+      GValue codec = { 0, };
+
+      g_value_init (&codec, codec_type);
+      g_value_take_boxed (&codec,
+                          dbus_g_type_specialized_construct (codec_type));
+
+      /* FIXME: parse the optional parameters line for the codec
+       * and populate the hash table */
+      g_assert (g_hash_table_size (opt_params) == 0);
+
+      /* RFC2327: see "m=" line definition 
+       *  - note, 'encoding_params' is assumed to be channel
+       *    count (i.e. channels in farsight) */
+
+      dbus_g_type_struct_set (&codec,
+                              /* payload type: */
+                              0, rtpmap->rm_pt,
+                              /* encoding name: */
+                              1, rtpmap->rm_encoding,
+                              /* media type */
+                              2, (guint)priv->media_type,
+                              /* clock-rate */
+                              3, rtpmap->rm_rate,
+                              /* number of supported channels: */
+                              4, rtpmap->rm_params ? atoi(rtpmap->rm_params) : 0,
+                              /* optional params: */
+                              5, opt_params,
+                              G_MAXUINT);
+
+      g_ptr_array_add (codecs, g_value_get_boxed (&codec));
+
+      g_hash_table_remove_all (opt_params);
+
+      rtpmap = rtpmap->rm_next;
+    }
+  
+  g_hash_table_destroy (opt_params);
+
+  SESSION_DEBUG(priv->session, "passing %d remote codecs to stream engine",
                 codecs->len);
 
   if (codecs->len > 0) {
     tp_svc_media_stream_handler_emit_set_remote_codecs (
         (TpSvcMediaStreamHandler *)stream, codecs);
-
-    /* XXX: would g_value_unset() be sufficient here? */
-    g_value_take_boxed (&priv->remote_codecs,
-                        dbus_g_type_specialized_construct (
-                                sip_tp_codec_list_type ()));
   }
+
+  g_boxed_free (codecs_type, codecs);
 }
 
 static void push_remote_candidates (SIPMediaStream *stream)
 {
   SIPMediaStreamPrivate *priv;
-  SIPMediaSessionState state;
-  GPtrArray *candidates;
-  guint i;
+  GValue transport = { 0, };
+  GPtrArray *transports;
+  GType transport_type;
+  GType transports_type;
+  const sdp_media_t *media;
+  const sdp_connection_t *sdp_conn;
+  gchar *candidate_id;
+  guint port;
 
-  DEBUG ("enter");
-
-  g_assert (SIP_IS_MEDIA_STREAM (stream));
+  DEBUG("enter");
 
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  g_assert (priv);
-  g_assert (priv->ready_received);
-
-  candidates = g_value_get_boxed (&priv->remote_candidates);
-
-  g_object_get (priv->session, "state", &state, NULL);
-  g_assert (state < SIP_MEDIA_SESSION_STATE_ENDED);
-
-  g_debug ("%s: number of candidates to push %d.", G_STRFUNC, candidates->len);
-
-  for (i = 0; i < candidates->len; i++)
+  media = priv->remote_media; 
+  if (media == NULL)
     {
-      GValueArray *candidate = g_ptr_array_index (candidates, i);
-      const gchar *candidate_id;
-      const GPtrArray *transports;
-
-      candidate_id = g_value_get_string (g_value_array_get_nth (candidate, 0));
-      transports = g_value_get_boxed (g_value_array_get_nth (candidate, 1));
-
-      SESSION_DEBUG(priv->session,
-                    "passing 1 remote candidate to stream-engine");
-
-      tp_svc_media_stream_handler_emit_add_remote_candidate (
-          (TpSvcMediaStreamHandler *)stream, candidate_id, transports);
+      DEBUG("remote media description is not received yet");
+      return;
     }
 
-  g_value_take_boxed (&priv->remote_candidates,
-      dbus_g_type_specialized_construct (sip_tp_candidate_list_type ()));
+  if (!priv->ready_received)
+    {
+      DEBUG("the stream engine is not ready, AddRemoteCandidate is pending");
+      priv->push_remote_requested = TRUE;
+      return;
+    }
 
-  priv->remote_cands_sent = TRUE;
+  /* use the address from SDP c-line as the only remote candidate */
 
-  /* note: for outbound sessions (for which remote cands become
-   *       available at a later stage), emit active candidate pair 
-   *       and playing status once remote info set */
+  sdp_conn = sdp_media_connections (media);
+  g_return_if_fail (sdp_conn != NULL);
 
-  if (priv->ready_received) {
-    /* XXX: hack, find out the correct candidate ids from somewhere */
-    g_debug ("%s: emitting SetActiveCandidatePair for L1-L1", G_STRFUNC);
-    tp_svc_media_stream_handler_emit_set_active_candidate_pair (
-        (TpSvcMediaStreamHandler *)stream, "L1", "L1");
-  }
+  port = (guint) media->m_port;
 
+  transport_type = sip_tp_transport_struct_type ();
+
+  g_value_init (&transport, transport_type);
+
+  g_value_take_boxed (&transport,
+                      dbus_g_type_specialized_construct (transport_type));
+
+  dbus_g_type_struct_set (&transport,
+                          0, 0,         /* component number */
+                          1, sdp_conn->c_address,
+                          2, port,
+                          3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
+                          4, "RTP",
+                          5, "AVP",
+                          /* 6, 0.0f, */
+                          7, TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
+                          /* 8, "", */
+                          /* 9, "", */
+                          G_MAXUINT);
+
+  DEBUG("remote address=<%s>, port=<%u>", sdp_conn->c_address, port);
+
+  transports_type = sip_tp_transport_list_type ();
+
+  transports = dbus_g_type_specialized_construct (transports_type);
+  g_ptr_array_add (transports, g_value_get_boxed (&transport));
+
+  /* TODO: save the old candidate ID until the session change is committed */
+  g_free (priv->remote_candidate_id);
+  candidate_id = g_strdup_printf ("L%u", ++priv->remote_candidate_counter);
+  priv->remote_candidate_id = candidate_id;
+
+  DEBUG("emitting AddRemoteCandidate for %s", candidate_id);
+
+  tp_svc_media_stream_handler_emit_add_remote_candidate (
+          (TpSvcMediaStreamHandler *)stream, candidate_id, transports);
+
+  g_boxed_free (transports_type, transports);
+
+#if 0
   if (priv->playing) {
     g_debug ("%s: emitting SetStreamPlaying TRUE", G_STRFUNC);
     tp_svc_media_stream_handler_emit_set_stream_playing (
         (TpSvcMediaStreamHandler *)stream, TRUE);
   }
+#endif
+}
+
+static void
+push_active_candidate_pair (SIPMediaStream *stream)
+{
+  SIPMediaStreamPrivate *priv;
+
+  DEBUG("enter");
+
+  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+
+  if (priv->ready_received
+      && priv->native_candidate_id != NULL
+      && priv->remote_candidate_id != NULL)
+    {
+      DEBUG("emitting SetActiveCandidatePair for %s-%s",
+            priv->native_candidate_id, priv->remote_candidate_id);
+      tp_svc_media_stream_handler_emit_set_active_candidate_pair (
+                stream, priv->native_candidate_id, priv->remote_candidate_id);
+    }
 }
 
 static const char* priv_media_type_to_str(guint media_type)
