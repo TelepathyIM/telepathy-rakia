@@ -663,6 +663,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
       priv->sofia,
       SOATAG_AF(SOA_AF_IP4_IP6),
       SIPTAG_FROM_STR(sip_address),
+      NUTAG_URL("sip:*:*"),
       NUTAG_USER_AGENT("Telepathy-SofiaSIP/" TELEPATHY_SIP_VERSION),
       NUTAG_ENABLEMESSAGE(1),
       NUTAG_ENABLEINVITE(1),
@@ -676,7 +677,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
       return FALSE;
     }
 
-  /* Take care about SIPS */
+  /* Take care about the proxy and contact URL */
   if (priv->proxy != NULL)
     {
       nua_set_params (priv->sofia_nua,
