@@ -1011,7 +1011,6 @@ static void priv_generate_sdp (SIPMediaStream *obj)
 static void push_remote_codecs (SIPMediaStream *stream)
 {
   SIPMediaStreamPrivate *priv;
-  SIPMediaSessionState state;
   GPtrArray *codecs;
   GType codecs_type;
   GType codec_type;
