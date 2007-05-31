@@ -109,7 +109,7 @@ struct _SIPMediaSessionPrivate
   gchar *id;                            /** see gobj. prop. 'session-id' */
   TpHandle initiator;                   /** see gobj. prop. 'initator' */
   TpHandle peer;                        /** see gobj. prop. 'peer' */
-  SIPMediaSessionState state;             /** see gobj. prop. 'state' */
+  SIPMediaSessionState state;           /** see gobj. prop. 'state' */
   guint timer_id;
   su_home_t *home;                      /** memory home for Sofia objects */
   sdp_session_t *remote_sdp;            /** last received remote session */
