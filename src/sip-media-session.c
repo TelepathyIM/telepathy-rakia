@@ -962,6 +962,9 @@ static void priv_offer_answer_step (SIPMediaSession *session)
                     NULL);
 
       nh = sip_conn_create_request_handle (conn, priv->peer);
+
+      g_object_unref (conn);
+
       if (nh != NULL) {
 
 	g_object_set (priv->channel, "nua-handle", nh, NULL);
