@@ -410,12 +410,15 @@ static void priv_emit_new_stream (SIPMediaSession *self,
 				  SIPMediaStream *stream)
 {
   gchar *object_path;
-  guint id, media_type;
+  guint id;
+  guint media_type;
+  guint direction;
 
   g_object_get (stream,
                 "object-path", &object_path,
                 "id", &id,
                 "media-type", &media_type,
+                "direction", &direction,
                 NULL);
 
   /* note: all of the streams are bidirectional from farsight's point of view, it's
@@ -423,7 +426,7 @@ static void priv_emit_new_stream (SIPMediaSession *self,
 
   tp_svc_media_session_handler_emit_new_stream_handler (
       (TpSvcMediaSessionHandler *)self, object_path, id, media_type,
-      TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL);
+      direction);
 
   g_free (object_path);
 }
