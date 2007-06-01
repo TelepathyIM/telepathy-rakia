@@ -143,7 +143,7 @@ static void sip_media_session_init (SIPMediaSession *obj)
 
   /* allocate any data required by the object here */
   priv->home = su_home_create ();
-  priv->streams = g_ptr_array_sized_new (0);
+  priv->streams = g_ptr_array_new ();
 }
 
 static GObject *
@@ -994,7 +994,7 @@ static void priv_offer_answer_step (SIPMediaSession *session)
 
 	/* note:  we need to be prepared to receive media right after the
 	 *       offer is sent, so we must set state to playing */
-	priv_session_media_state (session, 1);
+	priv_session_media_state (session, TRUE);
 	
 	nua_invite (nh,
 		    SOATAG_USER_SDP_STR(user_sdp->str),
@@ -1025,7 +1025,7 @@ static void priv_offer_answer_step (SIPMediaSession *session)
 	  priv->oa_pending = FALSE;
 	  
 	  /* note: we have accepted the call, set state to playing */ 
-	  priv_session_media_state (session, 1);
+	  priv_session_media_state (session, TRUE);
 	}
 	else
 	  g_warning ("Unable to answer to the incoming INVITE, channel handle not available.");
