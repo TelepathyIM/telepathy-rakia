@@ -56,6 +56,7 @@ enum
     SIG_NEW_ACTIVE_CANDIDATE_PAIR,
     SIG_READY,
     SIG_SUPPORTED_CODECS,
+    SIG_DIRECTION_CHANGED,
 
     SIG_LAST_SIGNAL
 };
@@ -408,6 +409,15 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                   NULL, NULL,
                   g_cclosure_marshal_VOID__BOXED,
                   G_TYPE_NONE, 1, sip_tp_codec_list_type ());
+
+  signals[SIG_DIRECTION_CHANGED] =
+    g_signal_new ("direction-changed",
+                  G_OBJECT_CLASS_TYPE (sip_media_stream_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+                  0,
+                  NULL, NULL,
+                  _tpsip_marshal_VOID__UINT_UINT,
+                  G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
 }
 
 void
@@ -1002,7 +1012,8 @@ sip_media_stream_set_direction (SIPMediaStream *stream,
 
   priv_update_sending (stream, direction, pending_send_flags);
 
-  /* TODO: emit a GObject signal for the channel */
+  g_signal_emit (stream, SIG_DIRECTION_CHANGED, 0,
+                 direction, pending_send_flags);
 }
 
 /**
