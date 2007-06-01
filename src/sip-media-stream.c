@@ -69,6 +69,8 @@ enum
   PROP_OBJECT_PATH,
   PROP_ID,
   PROP_MEDIA_TYPE,
+  PROP_DIRECTION,
+  PROP_PENDING_SEND_FLAGS,
   LAST_PROPERTY
 };
 
@@ -81,6 +83,8 @@ struct _SIPMediaStreamPrivate
   gchar *object_path;             /** see gobj. prop. 'object-path' */
   guint id;                       /** see gobj. prop. 'id' */
   guint media_type;               /** see gobj. prop. 'media-type' */
+  guint direction;                /** see gobj. prop. 'direction' */
+  guint pending_send_flags;       /** see gobj. prop. 'pending-send-flags' */
 
   gchar *stream_sdp;              /** SDP description of the stream */
   
@@ -226,7 +230,8 @@ sip_media_stream_get_property (GObject    *object,
   SIPMediaStream *stream = SIP_MEDIA_STREAM (object);
   SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  switch (property_id) {
+  switch (property_id)
+    {
     case PROP_MEDIA_SESSION:
       g_value_set_object (value, priv->session);
       break;
@@ -239,10 +244,15 @@ sip_media_stream_get_property (GObject    *object,
     case PROP_MEDIA_TYPE:
       g_value_set_uint (value, priv->media_type);
       break;
+    case PROP_DIRECTION:
+      g_value_set_uint (value, priv->direction);
+      break;
+    case PROP_PENDING_SEND_FLAGS:
+      g_value_set_uint (value, priv->pending_send_flags);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-      break;
-  }
+    }
 }
 
 static void
@@ -254,7 +264,8 @@ sip_media_stream_set_property (GObject      *object,
   SIPMediaStream *stream = SIP_MEDIA_STREAM (object);
   SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  switch (property_id) {
+  switch (property_id)
+    {
     case PROP_MEDIA_SESSION:
       priv->session = g_value_get_object (value);
       break;
@@ -268,10 +279,15 @@ sip_media_stream_set_property (GObject      *object,
     case PROP_MEDIA_TYPE:
       priv->media_type = g_value_get_uint (value);
       break;
+    case PROP_DIRECTION:
+      priv->direction = g_value_get_uint (value);
+      break;
+    case PROP_PENDING_SEND_FLAGS:
+      priv->pending_send_flags = g_value_get_uint (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-      break;
-  }
+    }
 }
 
 static void sip_media_stream_dispose (GObject *object);
@@ -334,6 +350,36 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                                   G_PARAM_STATIC_NAME |
                                   G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_MEDIA_TYPE, param_spec);
+
+  /* We don't change the following two as individual properties
+   * after construction, use sip_media_stream_set_direction() */
+
+  param_spec = g_param_spec_uint ("direction", "Stream direction",
+                                  "A value indicating the current "
+                                        "direction of the stream",
+                                  TP_MEDIA_STREAM_DIRECTION_NONE,
+                                  TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
+                                  TP_MEDIA_STREAM_DIRECTION_NONE,
+                                  G_PARAM_CONSTRUCT_ONLY |
+                                  G_PARAM_READWRITE |
+                                  G_PARAM_STATIC_NAME |
+                                  G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class, PROP_DIRECTION, param_spec);
+
+  param_spec = g_param_spec_uint ("pending-send-flags", "Pending send flags",
+                                  "Flags indicating the current "
+                                        "pending state of the stream",
+                                  0,
+                                  TP_MEDIA_STREAM_PENDING_LOCAL_SEND
+                                        | TP_MEDIA_STREAM_PENDING_REMOTE_SEND,
+                                  0,
+                                  G_PARAM_CONSTRUCT_ONLY |
+                                  G_PARAM_READWRITE |
+                                  G_PARAM_STATIC_NAME |
+                                  G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class,
+                                   PROP_PENDING_SEND_FLAGS,
+                                   param_spec);
 
   /* signals not exported by DBus interface */
   signals[SIG_NEW_ACTIVE_CANDIDATE_PAIR] =
@@ -942,6 +988,18 @@ sip_media_stream_set_direction (SIPMediaStream *stream,
                                 TpMediaStreamDirection direction,
                                 guint pending_send_flags)
 {
+  SIPMediaStreamPrivate *priv;
+  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+
+  DEBUG("enter");
+
+  if (priv->direction == direction
+      && priv->pending_send_flags == pending_send_flags)
+    return;
+
+  priv->direction = direction;
+  priv->pending_send_flags = pending_send_flags;
+
   priv_update_sending (stream, direction, pending_send_flags);
 
   /* TODO: emit a GObject signal for the channel */
