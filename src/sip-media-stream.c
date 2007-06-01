@@ -182,23 +182,6 @@ sip_media_stream_init (SIPMediaStream *self)
 {
   SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
 
-  /* allocate any data required by the object here */
-  priv = NULL;
-}
-
-static GObject *
-sip_media_stream_constructor (GType type, guint n_props,
-			      GObjectConstructParam *props)
-{
-  GObject *obj;
-  SIPMediaStreamPrivate *priv;
-  DBusGConnection *bus;
-
-  /* call base class constructor */
-  obj = G_OBJECT_CLASS (sip_media_stream_parent_class)->
-           constructor (type, n_props, props);
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (SIP_MEDIA_STREAM (obj));
-
   priv->playing = FALSE;
   priv->sending = FALSE;
 
@@ -214,6 +197,20 @@ sip_media_stream_constructor (GType type, guint n_props,
   priv->native_codecs_prepared = FALSE;
 
   priv->push_remote_requested = FALSE;
+}
+
+static GObject *
+sip_media_stream_constructor (GType type, guint n_props,
+			      GObjectConstructParam *props)
+{
+  GObject *obj;
+  SIPMediaStreamPrivate *priv;
+  DBusGConnection *bus;
+
+  /* call base class constructor */
+  obj = G_OBJECT_CLASS (sip_media_stream_parent_class)->
+           constructor (type, n_props, props);
+  priv = SIP_MEDIA_STREAM_GET_PRIVATE (SIP_MEDIA_STREAM (obj));
 
   /* go for the bus */
   bus = tp_get_bus ();
