@@ -1083,8 +1083,10 @@ static SIPMediaStream* priv_create_media_stream (SIPMediaSession *self, guint me
   if (media_type == TP_MEDIA_STREAM_TYPE_AUDIO ||
       media_type == TP_MEDIA_STREAM_TYPE_VIDEO) {
 
-    object_path = g_strdup_printf ("%s/MediaStream%d", priv->object_path, priv->streams->len);
-    
+    object_path = g_strdup_printf ("%s/MediaStream%u",
+                                   priv->object_path,
+                                   priv->streams->len);
+
     stream = g_object_new (SIP_TYPE_MEDIA_STREAM,
 			   "media-session", self,
 			   "media-type", media_type,
