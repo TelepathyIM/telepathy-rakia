@@ -103,7 +103,6 @@ typedef struct _SIPMediaSessionPrivate SIPMediaSessionPrivate;
 
 struct _SIPMediaSessionPrivate
 {
-  SIPConnection *conn;
   SIPMediaChannel *channel;             /** see gobj. prop. 'media-channel' */
   gchar *object_path;                   /** see gobj. prop. 'object-path' */
   gchar *id;                            /** see gobj. prop. 'session-id' */
@@ -158,8 +157,6 @@ sip_media_session_constructor (GType type, guint n_props,
   obj = G_OBJECT_CLASS (sip_media_session_parent_class)->
            constructor (type, n_props, props);
   priv = SIP_MEDIA_SESSION_GET_PRIVATE (SIP_MEDIA_SESSION (obj));
-
-  g_object_get (priv->channel, "connection", &priv->conn, NULL);
 
   priv->state = SIP_MEDIA_SESSION_STATE_PENDING_CREATED;
 
@@ -222,7 +219,7 @@ static void sip_media_session_set_property (GObject      *object,
 
   switch (property_id) {
     case PROP_MEDIA_CHANNEL:
-      priv->channel = g_value_get_object (value);
+      priv->channel = SIP_MEDIA_CHANNEL (g_value_dup_object (value));
       break;
     case PROP_OBJECT_PATH:
       g_free (priv->object_path);
@@ -350,16 +347,11 @@ sip_media_session_dispose (GObject *object)
 
   priv->dispose_has_run = TRUE;
 
-  if (priv->conn)
-    {
-      g_object_unref(priv->conn);
-      priv->conn = NULL;
-    }
-
-  if (priv->timer_id) {
+  if (priv->timer_id)
     g_source_remove (priv->timer_id);
-    priv->timer_id = 0;
-  }
+
+  if (priv->channel)
+    g_object_unref (priv->channel);
 
   if (G_OBJECT_CLASS (sip_media_session_parent_class)->dispose)
     G_OBJECT_CLASS (sip_media_session_parent_class)->dispose (object);
@@ -986,9 +978,14 @@ static void priv_offer_answer_step (SIPMediaSession *session)
 
     /* send an offer if the session was initiated by us */
     if (priv->initiator != priv->peer) {
+      SIPConnection *conn = NULL;
       nua_handle_t *nh;
 
-      nh = sip_conn_create_request_handle (priv->conn, priv->peer);
+      g_object_get (priv->channel,
+                    "connection", &conn,
+                    NULL);
+
+      nh = sip_conn_create_request_handle (conn, priv->peer);
       if (nh != NULL) {
 
 	g_object_set (priv->channel, "nua-handle", nh, NULL);

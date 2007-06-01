@@ -426,10 +426,10 @@ sip_media_channel_set_property (GObject     *object,
        * meaningfully changable on this channel, so we do nothing */
       break;
     case PROP_CONNECTION:
-      priv->conn = g_value_get_object (value);
+      priv->conn = SIP_CONNECTION (g_value_dup_object (value));
       break;
     case PROP_FACTORY:
-      priv->factory = g_value_get_object (value);
+      priv->factory = SIP_MEDIA_FACTORY (g_value_dup_object (value));
       break;
     case PROP_OBJECT_PATH:
       g_free (priv->object_path);
@@ -504,6 +504,12 @@ sip_media_channel_dispose (GObject *object)
 
   if (!priv->closed)
     sip_media_channel_close (self);
+
+  if (priv->factory)
+    g_object_unref (priv->factory);
+
+  if (priv->conn)
+    g_object_unref (priv->conn);
 
   /* closing the channel should have discarded the NUA handle */
   g_assert (priv->nua_op == NULL);
