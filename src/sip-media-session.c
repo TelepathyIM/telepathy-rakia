@@ -454,23 +454,6 @@ sip_media_session_ready (TpSvcMediaSessionHandler *iface,
 
   priv->se_ready = TRUE;
 
-#ifdef TP_API_0_12    
-  {
-    gchar *object_path;
-    guint id;
-
-    g_object_get (priv->stream, 
-		  "object-path", &object_path, 
-		  "id", &id,
-		  NULL);
-
-    tp_svc_media_session_handler_emit_new_media_stream_handler (
-        (TpSvcMediaSessionHandler *)self, object_path, TP_MEDIA_STREAM_TYPE_AUDIO,
-        TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL);
-
-    g_free (object_path);
-  }
-#else
   /* note: streams are generated in priv_create_media_stream() */
 
   for (i = 0; i < priv->streams->len; i++) {
@@ -479,8 +462,6 @@ sip_media_session_ready (TpSvcMediaSessionHandler *iface,
       priv_emit_new_stream (obj, stream);
   }
   
-#endif
-
   DEBUG ("exit");
 
   tp_svc_media_session_handler_return_from_ready (context);
