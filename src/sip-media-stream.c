@@ -56,6 +56,7 @@ enum
     SIG_NEW_ACTIVE_CANDIDATE_PAIR,
     SIG_READY,
     SIG_SUPPORTED_CODECS,
+    SIG_STATE_CHANGED,
     SIG_DIRECTION_CHANGED,
 
     SIG_LAST_SIGNAL
@@ -407,6 +408,15 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                   g_cclosure_marshal_VOID__BOXED,
                   G_TYPE_NONE, 1, sip_tp_codec_list_type ());
 
+  signals[SIG_STATE_CHANGED] =
+    g_signal_new ("state-changed",
+                  G_OBJECT_CLASS_TYPE (sip_media_stream_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+                  0,
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__UINT,
+                  G_TYPE_NONE, 1, G_TYPE_UINT);
+
   signals[SIG_DIRECTION_CHANGED] =
     g_signal_new ("direction-changed",
                   G_OBJECT_CLASS_TYPE (sip_media_stream_class),
@@ -727,7 +737,7 @@ sip_media_stream_stream_state (TpSvcMediaStreamHandler *iface,
 
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
-  sip_media_session_stream_state (priv->session, priv->id, state);
+  g_signal_emit (obj, signals[SIG_STATE_CHANGED], 0, state);
 
   tp_svc_media_stream_handler_return_from_stream_state (context);
 }

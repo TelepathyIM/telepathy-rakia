@@ -906,14 +906,6 @@ sip_media_channel_set_remote_info (SIPMediaChannel *chan,
   return res;
 }
 
-void sip_media_channel_stream_state (SIPMediaChannel *chan,
-                                     guint id,
-                                     guint state)
-{
-  tp_svc_channel_type_streamed_media_emit_stream_state_changed(
-      (TpSvcChannelTypeStreamedMedia *)chan, id, state);
-}
-
 void
 sip_media_channel_peer_error (SIPMediaChannel *self,
                               guint status,

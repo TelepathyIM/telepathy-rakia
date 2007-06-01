@@ -667,16 +667,6 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
   return res;
 }
 
-void sip_media_session_stream_state (SIPMediaSession *sess,
-                                     guint stream_id,
-                                     guint state)
-{
-  SIPMediaSessionPrivate *priv;
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (sess);
-  g_assert (priv);
-  sip_media_channel_stream_state (priv->channel, stream_id, state);
-}
-
 DEFINE_TP_STRUCT_TYPE(sip_tp_stream_struct_type,
                       G_TYPE_UINT,
                       G_TYPE_UINT,
@@ -1055,16 +1045,25 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
 }
 
 static void
+priv_stream_state_changed_cb (SIPMediaStream *stream,
+                              guint state,
+                              SIPMediaChannel *channel)
+{
+  g_assert (SIP_IS_MEDIA_CHANNEL (channel));
+  tp_svc_channel_type_streamed_media_emit_stream_state_changed(
+        channel,
+        sip_media_stream_get_id (stream), state);
+}
+
+static void
 priv_stream_direction_changed_cb (SIPMediaStream *stream,
                                   guint direction,
                                   guint pending_send_flags,
-                                  SIPMediaSession *session)
+                                  SIPMediaChannel *channel)
 {
-  SIPMediaSessionPrivate *priv;
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-
+  g_assert (SIP_IS_MEDIA_CHANNEL (channel));
   tp_svc_channel_type_streamed_media_emit_stream_direction_changed (
-        priv->channel,
+        channel,
         sip_media_stream_get_id (stream), direction, pending_send_flags);
 }
 
@@ -1105,9 +1104,12 @@ static SIPMediaStream* priv_create_media_stream (SIPMediaSession *self, guint me
     g_signal_connect (stream, "supported-codecs",
 		      (GCallback) priv_stream_supported_codecs_cb,
 		      self);
+    g_signal_connect (stream, "state-changed",
+                      (GCallback) priv_stream_state_changed_cb,
+                      priv->channel);
     g_signal_connect (stream, "direction-changed",
                       (GCallback) priv_stream_direction_changed_cb,
-                      self);
+                      priv->channel);
 
     if (priv->se_ready == TRUE) {
       priv_emit_new_stream (self, stream);

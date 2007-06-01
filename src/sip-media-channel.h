@@ -75,9 +75,6 @@ void sip_media_channel_respond_to_invite (SIPMediaChannel *self,
 					  TpHandle handle);
 gboolean sip_media_channel_set_remote_info (SIPMediaChannel *chan,
                                             const sdp_session_t *r_sdp);
-void sip_media_channel_stream_state (SIPMediaChannel *chan,
-                                     guint stream_id,
-                                     guint state);
 void sip_media_channel_peer_error (SIPMediaChannel *self,
                                    guint status,
                                    const char* message);
