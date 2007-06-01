@@ -773,6 +773,13 @@ sip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
  ***********************************************************************/
 
 guint
+sip_media_stream_get_id (SIPMediaStream *self)
+{
+  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  return priv->id;
+}
+
+guint
 sip_media_stream_get_media_type (SIPMediaStream *self)
 {
   SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
