@@ -716,7 +716,8 @@ priv_add_stream_list_entry (GPtrArray *list,
   guint id;
   TpMediaStreamType type = TP_MEDIA_STREAM_TYPE_AUDIO;
   TpMediaStreamState connection_state = TP_MEDIA_STREAM_STATE_CONNECTED;
-  /* CombinedStreamDirection combined_direction; */
+  TpMediaStreamDirection direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+  guint pending_send_flags = 0;
 
   g_assert(stream != NULL);
 
@@ -724,7 +725,8 @@ priv_add_stream_list_entry (GPtrArray *list,
                 "id", &id,
                 "media-type", &type,
                 /* XXX: add to sip-stream -> "connection-state", &connection_state, */
-                /* "combined-direction", &combined_direction,*/
+                "direction", &direction,
+                "pending-send-flags", &pending_send_flags,
                 NULL);
 
   stream_type = sip_tp_stream_struct_type ();
@@ -738,8 +740,8 @@ priv_add_stream_list_entry (GPtrArray *list,
                           1, priv->peer,
                           2, type,
                           3, connection_state,
-                          4, TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
-                          5, 0,   /* no pending send */
+                          4, direction,
+                          5, pending_send_flags,
                           G_MAXUINT);
 
   g_ptr_array_add (list, g_value_get_boxed (&entry));
