@@ -783,6 +783,23 @@ void sip_media_session_accept (SIPMediaSession *self, gboolean accept)
     priv_offer_answer_step (self);
 }
 
+void
+sip_media_session_reject (SIPMediaSession *self,
+                          gint status,
+                          const char *message)
+{
+  nua_handle_t *handle;
+
+  if (message != NULL && !message[0])
+    message = NULL;
+
+  DEBUG("responding: %03d %s", status, message == NULL? "" : message);
+
+  handle = priv_get_nua_handle_for_session (self);
+  if (handle)
+    nua_respond (handle, status, message, TAG_END());
+}
+
 static SIPMediaStream *
 sip_media_session_get_stream (SIPMediaSession *self,
                               guint stream_id,
