@@ -418,6 +418,32 @@ _urlencode (su_home_t *home, const gchar *string)
     return new;
 }
 
+/* unescape characters that don't need escaping */
+static guchar *
+_urldecode (su_home_t *home, const gchar *string)
+{
+    guchar *a, *b;
+    guchar *new = su_zalloc (home, strlen (string) + 1);
+
+    for (a = (guchar *) string, b = new; *a; a++, b++)
+      {
+        if ((*a == '%') && g_ascii_isxdigit(a[1]) && g_ascii_isxdigit(a[2]))
+          {
+            gchar tmp[3] = { a[1], a[2], 0 };
+            guchar x = (guchar) (strtoul(tmp, NULL, 16) % 256);
+            if (g_ascii_isalnum(x) || (x == '.') || (x == '-') ||
+                (x == '+') || (x == '_'))
+              {
+                *b = x;
+                a += 2;
+                continue;
+              }
+          }
+        *b = *a;
+      }
+    return new;
+}
+
 static gboolean
 _is_tel_num (const gchar *string)
 {
@@ -465,25 +491,32 @@ sip_conn_normalize_uri (SIPConnection *conn,
   /* we got username or phone number, local to our domain */
   if ((url == NULL) ||
       ((url->url_scheme == NULL) && (url->url_user == NULL)))
-      {
-        if (priv->domain == NULL)
-          {
-            g_debug ("local uri specified and we don't know local domain yet");
-            goto error;
-          }
+    {
+      if (priv->domain == NULL)
+        {
+          g_debug ("local uri specified and we don't know local domain yet");
+          goto error;
+        }
 
-        if (_is_tel_num (sipuri))
-          {
-            url = url_format (home, "sip:%s@%s", _strip_tel_num (home, sipuri),
-                priv->domain);
-          }
-        else
-          {
-            url = url_format (home, "sip:%s@%s", _urlencode (home, sipuri),
-                priv->domain);
-          }
-        if (!url) goto error;
-      }
+      if (_is_tel_num (sipuri))
+        {
+          url = url_format (home, "sip:%s@%s", _strip_tel_num (home, sipuri),
+              priv->domain);
+        }
+      else
+        {
+          url = url_format (home, "sip:%s@%s", _urlencode (home, sipuri),
+              priv->domain);
+        }
+      if (!url) goto error;
+    }
+  else
+    {
+      if ((url != NULL) && (url->url_user != NULL))
+        {
+          url->url_user = (char *) _urldecode (home, url->url_user);
+        }
+    }
 
   if (url_sanitize (url)) goto error;
 
