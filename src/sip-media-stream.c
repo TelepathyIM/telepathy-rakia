@@ -53,7 +53,6 @@ G_DEFINE_TYPE_WITH_CODE(SIPMediaStream,
 /* signal enum */
 enum
 {
-    SIG_NEW_ACTIVE_CANDIDATE_PAIR,
     SIG_READY,
     SIG_SUPPORTED_CODECS,
     SIG_STATE_CHANGED,
@@ -381,15 +380,6 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                                    param_spec);
 
   /* signals not exported by DBus interface */
-  signals[SIG_NEW_ACTIVE_CANDIDATE_PAIR] =
-    g_signal_new ("new-active-candidate-pair",
-                  G_OBJECT_CLASS_TYPE (sip_media_stream_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  _tpsip_marshal_VOID__STRING_STRING,
-                  G_TYPE_NONE, 2, G_TYPE_STRING, G_TYPE_STRING);
-
   signals[SIG_READY] =
     g_signal_new ("ready",
                   G_OBJECT_CLASS_TYPE (sip_media_stream_class),
@@ -563,15 +553,8 @@ sip_media_stream_new_active_candidate_pair (TpSvcMediaStreamHandler *iface,
                                             const gchar *remote_candidate_id,
                                             DBusGMethodInvocation *context)
 {
-  SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
-  SIPMediaStreamPrivate *priv;
-
-  g_assert (SIP_IS_MEDIA_STREAM (obj));
-
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
-
-  g_signal_emit (obj, signals[SIG_NEW_ACTIVE_CANDIDATE_PAIR], 0,
-                 native_candidate_id, remote_candidate_id);
+  DEBUG("stream engine reported new active candidate pair %s-%s",
+        native_candidate_id, remote_candidate_id);
 
   tp_svc_media_stream_handler_return_from_new_active_candidate_pair (context);
 }

@@ -878,28 +878,6 @@ static nua_handle_t *priv_get_nua_handle_for_session (SIPMediaSession *session)
   return tmp;
 }
 
-static void priv_stream_new_active_candidate_pair_cb (SIPMediaStream *stream,
-						      const gchar *native_candidate_id,
-						      const gchar *remote_candidate_id,
-						      SIPMediaSession *session)
-{
-  SIPMediaSessionPrivate *priv;
-
-  g_assert (SIP_IS_MEDIA_SESSION (session));
-
-  DEBUG ("enter");
-
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-
-  /* g_assert (priv->state < SIP_MEDIA_SESSION_STATE_ACTIVE); */
-
-  SESSION_DEBUG(session, "stream-engine reported a new active candidate pair [\"%s\" - \"%s\"]",
-                native_candidate_id, remote_candidate_id);
-
-  /* XXX: active candidate pair, requires signaling action, 
-   *      but currently done in priv_stream_ready_cb() */
-}
-
 static void priv_session_media_state (SIPMediaSession *session, gboolean playing)
 {
   guint i;
@@ -1096,9 +1074,6 @@ static SIPMediaStream* priv_create_media_stream (SIPMediaSession *self, guint me
 
     g_free (object_path);
  
-    g_signal_connect (stream, "new-active-candidate-pair",
-		      (GCallback) priv_stream_new_active_candidate_pair_cb,
-		      self);
     g_signal_connect (stream, "ready",
 		      (GCallback) priv_stream_ready_cb,
 		      self);
