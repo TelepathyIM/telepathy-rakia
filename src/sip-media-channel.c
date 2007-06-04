@@ -1115,44 +1115,45 @@ sip_media_channel_add_member (GObject *iface,
 
   DEBUG("enter");
 
-  g_debug ("mixin->self_handle=%d, priv->creator=%d, handle=%d", 
-	   mixin->self_handle, priv->creator, handle);
-  
+  DEBUG("mixin->self_handle=%d, priv->creator=%d, handle=%d", 
+	mixin->self_handle, priv->creator, handle);
+
   /* case a: outgoing call (we are the initiator, a new handle added) */
   if (mixin->self_handle == priv->creator &&
-      mixin->self_handle != handle) {
+      mixin->self_handle != handle)
+    {
+      TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
+      TpIntSet *lset, *rset;
 
-    TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
-    TpIntSet *lset, *rset;
+      DEBUG("making outbound call - setting peer handle to %u", handle);
 
-    DEBUG("making outbound call - setting peer handle to %u", handle);
+      priv_create_session (self, handle, FALSE);
 
-    priv_create_session (self, handle, FALSE);
+      /* make remote pending */
+      rset = tp_intset_new ();
+      lset = tp_intset_new ();
+      tp_intset_add (lset, mixin->self_handle);
+      tp_intset_add (rset, handle);
+      tp_group_mixin_change_members (iface, "", lset, NULL, NULL, rset, 0, 0);
+      tp_intset_destroy (lset);
+      tp_intset_destroy (rset);
 
-    /* make remote pending */
-    rset = tp_intset_new ();
-    lset = tp_intset_new ();
-    tp_intset_add (lset, mixin->self_handle);
-    tp_intset_add (rset, handle);
-    tp_group_mixin_change_members (iface, "", lset, NULL, NULL, rset, 0, 0);
-    tp_intset_destroy (lset);
-    tp_intset_destroy (rset);
-
-    /* and update flags accordingly */
-    tp_group_mixin_change_flags (iface,
+      /* and update flags accordingly */
+      tp_group_mixin_change_flags (iface,
         TP_CHANNEL_GROUP_FLAG_CAN_ADD | TP_CHANNEL_GROUP_FLAG_CAN_REMOVE |
         TP_CHANNEL_GROUP_FLAG_CAN_RESCIND,
         0);
-  }
-  /* case b: an incoming invite */
-  else {
-    if (priv->session &&
-	handle == mixin->self_handle &&
-	tp_handle_set_is_member (mixin->local_pending, handle)) {
 
+      return TRUE;
+    }
+  /* case b: an incoming invite */
+  else if (priv->session &&
+	   handle == mixin->self_handle &&
+	   tp_handle_set_is_member (mixin->local_pending, handle))
+    {
       TpIntSet *set;
 
-      g_debug ("%s - accepting an incoming invite", G_STRFUNC);
+      DEBUG("accepting an incoming invite");
 
       set = tp_intset_new ();
       tp_intset_add (set, mixin->self_handle);
@@ -1161,9 +1162,12 @@ sip_media_channel_add_member (GObject *iface,
 
       sip_media_session_accept (priv->session, TRUE);
 
+      return TRUE;
     }
-  }
-  return TRUE;
+
+  g_set_error (error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+               "Can't map this member change to protocol behavior");
+  return FALSE;
 }
 
 static gint
