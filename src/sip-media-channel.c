@@ -38,7 +38,6 @@
 #include "sip-media-session.h"
 #include "sip-media-stream.h"
 
-#include "signals-marshal.h"
 #include "telepathy-helpers.h"
 
 #define DEBUG_FLAG SIP_DEBUG_MEDIA
@@ -63,17 +62,6 @@ G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_PROPERTIES_INTERFACE,
       tp_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
-
-/* signal enum */
-enum
-{
-    SIG_NEW_MEDIA_SESSION_HANDLER = 1,
-    SIG_PROPERTIES_CHANGED,
-    SIG_PROPERTY_FLAGS_CHANGED,
-    SIG_LAST
-};
-
-static guint signals[SIG_LAST] = {0};
 
 /* properties */
 enum
@@ -337,15 +325,6 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
                                   G_PARAM_STATIC_NAME |
                                   G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_STUN_PORT, param_spec);
-
-  signals[SIG_NEW_MEDIA_SESSION_HANDLER] =
-    g_signal_new ("new-media-session-handler",
-                  G_OBJECT_CLASS_TYPE (sip_media_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  _tpsip_marshal_VOID__INT_STRING_STRING,
-                  G_TYPE_NONE, 3, G_TYPE_UINT, DBUS_TYPE_G_OBJECT_PATH, G_TYPE_STRING);
 }
 
 static void
