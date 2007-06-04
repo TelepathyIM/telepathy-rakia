@@ -205,10 +205,16 @@ gboolean sip_media_channel_add_member (GObject *iface,
                                        TpHandle handle,
                                        const gchar *message,
                                        GError **error);
-static gboolean priv_media_channel_remove_member (GObject *iface,
-                                                  TpHandle handle,
-                                                  const gchar *message,
-                                                  GError **error);
+static gboolean sip_media_channel_remove_member (GObject *iface,
+                                                 TpHandle handle,
+                                                 const gchar *message,
+                                                 GError **error);
+static gboolean sip_media_channel_remove_member_with_reason (
+                                                 GObject *iface,
+                                                 TpHandle handle,
+                                                 const gchar *message,
+                                                 guint reason,
+                                                 GError **error);
 
 static void
 sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
@@ -231,7 +237,9 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
   tp_group_mixin_class_init (object_class,
                              G_STRUCT_OFFSET (SIPMediaChannelClass, group_class),
                              sip_media_channel_add_member,
-                             priv_media_channel_remove_member);
+                             sip_media_channel_remove_member);
+  tp_group_mixin_class_set_remove_with_reason_func(object_class,
+                             sip_media_channel_remove_member_with_reason);
 
   g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
       "handle-type");
@@ -1160,14 +1168,89 @@ sip_media_channel_add_member (GObject *iface,
   return TRUE;
 }
 
-static gboolean
-priv_media_channel_remove_member (GObject *obj,
-                                  TpHandle handle,
-                                  const gchar *message,
-                                  GError **error)
+static gint
+sip_status_from_tp_reason (TpChannelGroupChangeReason reason)
 {
-  /* XXX: no implemented */
-  g_assert_not_reached ();
+  switch (reason)
+    {
+    case TP_CHANNEL_GROUP_CHANGE_REASON_NONE:
+      return 603;       /* Decline */
+    case TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER:
+    case TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE:
+      return 480;       /* Temporarily Unavailable */
+    case TP_CHANNEL_GROUP_CHANGE_REASON_BUSY:
+      return 486;       /* Busy Here */
+    case TP_CHANNEL_GROUP_CHANGE_REASON_PERMISSION_DENIED:
+    case TP_CHANNEL_GROUP_CHANGE_REASON_BANNED:
+      return 403;       /* Forbidden */
+    case TP_CHANNEL_GROUP_CHANGE_REASON_INVALID_CONTACT:
+      return 404;       /* Not Found */
+    default:
+      return 500;       /* Server Internal Error */
+    }
+}
+
+static gboolean
+sip_media_channel_remove_member (GObject *obj,
+                                 TpHandle handle,
+                                 const gchar *message,
+                                 GError **error)
+{
+  return sip_media_channel_remove_member_with_reason (
+                obj,
+                handle,
+                message,
+                TP_CHANNEL_GROUP_CHANGE_REASON_NONE,
+                error);
+}
+
+static gboolean
+sip_media_channel_remove_member_with_reason (GObject *obj,
+                                             TpHandle handle,
+                                             const gchar *message,
+                                             guint reason,
+                                             GError **error)
+{
+  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (obj);
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
+
+  /* We handle only one case: removal of the self handle from local pending
+   * due to the user rejecting the call */
+  if (priv->session &&
+      handle == mixin->self_handle &&
+      tp_handle_set_is_member (mixin->local_pending, handle))
+    {
+      TpIntSet *set;
+      gint status;
+
+      status = sip_status_from_tp_reason (reason);
+
+      /* XXX: raise NotAvailable if it's the wrong state? */
+      sip_media_session_reject (priv->session, status, message);
+
+      set = tp_intset_new ();
+      tp_intset_add (set, handle);
+      tp_group_mixin_change_members (obj,
+                                     message,
+                                     NULL, /* add */ 
+                                     set,  /* remove */
+                                     NULL, /* add local pending */
+                                     NULL, /* add remote pending */ 
+                                     0,    /* actor */
+                                     reason);
+      tp_intset_destroy (set);
+
+      /* no more adding to this channel */
+      tp_group_mixin_change_flags (obj,
+                                   0,
+                                   TP_CHANNEL_GROUP_FLAG_CAN_ADD);
+
+      return TRUE;
+    }
+
+  g_set_error (error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+               "Can't map this member change to protocol behavior");
   return FALSE;
 }
 
