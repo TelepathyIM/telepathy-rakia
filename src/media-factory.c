@@ -350,17 +350,6 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
       return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
     }
 
-  /* we support either empty calls (add the remote user later) or, as a
-   * shortcut, adding the remote user immediately. In the latter case
-   * you can't call yourself, though
-   */
-  if (handle_type != TP_HANDLE_TYPE_NONE
-      && (handle_type != TP_HANDLE_TYPE_CONTACT
-          || handle == conn->self_handle))
-    {
-      return TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
-    }
-
   chan = (TpChannelIface *) sip_media_factory_new_channel (
                                 fac, conn->self_handle, request);
 

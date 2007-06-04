@@ -731,6 +731,16 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
   g_assert (SIP_IS_MEDIA_CHANNEL (self));
 
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  if (contact_handle == ((TpBaseConnection*) priv->conn)->self_handle)
+    {
+      error = g_error_new (TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+          "you cannot call yourself");
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+      return;
+    }
+
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
 
