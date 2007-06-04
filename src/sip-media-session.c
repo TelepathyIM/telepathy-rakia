@@ -988,7 +988,6 @@ static void priv_offer_answer_step (SIPMediaSession *session)
 }
 
 static void priv_stream_ready_cb (SIPMediaStream *stream,
-				  const GPtrArray *codecs,
 				  SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv;
@@ -1005,7 +1004,7 @@ static void priv_stream_ready_cb (SIPMediaStream *stream,
 }
 
 static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
-					     const GPtrArray *codecs,
+					     guint num_codecs,
 					     SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv;

@@ -386,8 +386,8 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                   G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
                   0,
                   NULL, NULL,
-                  g_cclosure_marshal_VOID__BOXED,
-                  G_TYPE_NONE, 1, sip_tp_codec_list_type ());
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
 
   signals[SIG_SUPPORTED_CODECS] =
     g_signal_new ("supported-codecs",
@@ -395,8 +395,8 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                   G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
                   0,
                   NULL, NULL,
-                  g_cclosure_marshal_VOID__BOXED,
-                  G_TYPE_NONE, 1, sip_tp_codec_list_type ());
+                  g_cclosure_marshal_VOID__UINT,
+                  G_TYPE_NONE, 1, G_TYPE_UINT);
 
   signals[SIG_STATE_CHANGED] =
     g_signal_new ("state-changed",
@@ -750,13 +750,13 @@ sip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
   g_assert (SIP_IS_MEDIA_STREAM (obj));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
-  SESSION_DEBUG(priv->session, "got codec intersection containing %d "
+  SESSION_DEBUG(priv->session, "got codec intersection containing %u "
                 "codecs from stream-engine", codecs->len);
 
   /* store the intersection for later on */
   g_value_set_boxed (&priv->native_codecs, codecs);
 
-  g_signal_emit (obj, signals[SIG_SUPPORTED_CODECS], 0, codecs);
+  g_signal_emit (obj, signals[SIG_SUPPORTED_CODECS], 0, codecs->len);
 
   tp_svc_media_stream_handler_return_from_supported_codecs (context);
 }
@@ -1066,7 +1066,7 @@ static void priv_generate_sdp (SIPMediaStream *obj)
   priv->sdp_generated = TRUE;
 
   codecs = g_value_get_boxed (&priv->native_codecs);
-  g_signal_emit (obj, signals[SIG_READY], 0, codecs);
+  g_signal_emit (obj, signals[SIG_READY], 0);
 }
 
 /**
