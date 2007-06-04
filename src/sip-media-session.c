@@ -975,8 +975,6 @@ static void priv_offer_answer_step (SIPMediaSession *session)
 	
 	nua_invite (nh,
 		    SOATAG_USER_SDP_STR(user_sdp->str),
-		    SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
-		    SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
 		    TAG_END());
 
         /* The reference is now kept by the channel */
