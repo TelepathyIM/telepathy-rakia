@@ -22,6 +22,10 @@
 #include <telepathy-glib/interfaces.h>
 #include <string.h>
 #include "media-factory.h"
+#include "sip-connection.h"
+
+#define DEBUG_FLAG SIP_DEBUG_CONNECTION
+#include "debug.h"
 
 static void factory_iface_init (gpointer, gpointer);
 
@@ -275,8 +279,9 @@ channel_closed (SIPMediaChannel *chan, gpointer user_data)
  * Creates a new empty SIPMediaChannel.
  */
 SIPMediaChannel *
-sip_media_factory_new_channel (SIPMediaFactory *fac, TpHandle creator,
-    nua_handle_t *nh, gpointer request)
+sip_media_factory_new_channel (SIPMediaFactory *fac,
+                               TpHandle creator,
+                               gpointer request)
 {
   TpBaseConnection *conn;
   SIPMediaFactoryPrivate *priv;
@@ -292,16 +297,7 @@ sip_media_factory_new_channel (SIPMediaFactory *fac, TpHandle creator,
   object_path = g_strdup_printf ("%s/MediaChannel%u", conn->object_path,
       priv->channel_index++);
 
-  if (nh)
-    {
-      g_debug ("%s: object path %s (created by #%d, NUA handle %p)", G_STRFUNC,
-          object_path, creator, nh);
-    }
-  else
-    {
-      g_debug ("%s: object path %s (created by #%d, no NUA handle yet)",
-          G_STRFUNC, object_path, creator);
-    }
+  DEBUG("channel object path %s (created by #%d)", object_path, creator);
 
   if (priv->stun_server != NULL)
     {
@@ -313,7 +309,6 @@ sip_media_factory_new_channel (SIPMediaFactory *fac, TpHandle creator,
                        "factory", fac,
                        "object-path", object_path,
                        "creator", creator,
-                       "nua-handle", nh,
                        "nat-traversal", nat_traversal,
                        NULL);
 
@@ -366,8 +361,8 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
       return TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
     }
 
-  chan = (TpChannelIface *)sip_media_factory_new_channel (fac,
-      conn->self_handle, NULL, request);
+  chan = (TpChannelIface *) sip_media_factory_new_channel (
+                                fac, conn->self_handle, request);
 
   if (handle_type == TP_HANDLE_TYPE_CONTACT)
     {

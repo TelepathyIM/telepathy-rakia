@@ -504,12 +504,12 @@ priv_i_invite (int status,
     /* Accordingly to lassis, NewChannel has to be emitted
      * with the null handle for incoming calls */
     channel = sip_media_factory_new_channel (
-        SIP_MEDIA_FACTORY (priv->media_factory), 0, nh, NULL);
+        SIP_MEDIA_FACTORY (priv->media_factory), 0, NULL);
     if (channel)
       {
-        /* this causes the channel to reference the handle, so we can
+        /* this causes the channel to reference the Telepathy handle, so we can
          * discard our reference afterwards */
-        sip_media_channel_respond_to_invite (channel, handle);
+        sip_media_channel_respond_to_invite (channel, nh, handle);
       }
     else
       g_warning ("Creation of SIP media channel failed");

@@ -38,8 +38,6 @@
 #include "sip-media-session.h"
 #include "sip-media-channel.h"
 #include "sip-media-stream.h"
-#include "sip-connection.h"
-#include "sip-connection-helpers.h"
 #include "telepathy-helpers.h"
 
 #define DEBUG_FLAG SIP_DEBUG_MEDIA
@@ -68,6 +66,7 @@ enum
 {
   PROP_MEDIA_CHANNEL = 1,
   PROP_OBJECT_PATH,
+  PROP_NUA_OP,
   PROP_SESSION_ID,
   PROP_INITIATOR,
   PROP_PEER,
@@ -105,6 +104,7 @@ struct _SIPMediaSessionPrivate
 {
   SIPMediaChannel *channel;             /** see gobj. prop. 'media-channel' */
   gchar *object_path;                   /** see gobj. prop. 'object-path' */
+  nua_handle_t *nua_op;                 /** see gobj. prop. 'nua-handle' */
   gchar *id;                            /** see gobj. prop. 'session-id' */
   TpHandle initiator;                   /** see gobj. prop. 'initator' */
   TpHandle peer;                        /** see gobj. prop. 'peer' */
@@ -132,7 +132,6 @@ static void sip_media_session_set_property (GObject      *object,
 static gboolean priv_timeout_session (gpointer data);
 static SIPMediaStream* priv_create_media_stream (SIPMediaSession *session, guint media_type);
 
-static nua_handle_t *priv_get_nua_handle_for_session (SIPMediaSession *session);
 static void priv_offer_answer_step (SIPMediaSession *session);
 
 static void sip_media_session_init (SIPMediaSession *obj)
@@ -165,6 +164,21 @@ sip_media_session_constructor (GType type, guint n_props,
    *       request ... thus oa_pending is TRUE at start */
   priv->oa_pending = TRUE;
 
+  if (priv->nua_op)
+    {
+      nua_hmagic_t *nua_op_magic;
+
+      g_assert (priv->channel != NULL);
+
+      /* migrating a NUA handle between two active media channels
+       * makes no sense either */
+      nua_op_magic = nua_handle_magic (priv->nua_op);
+      g_return_val_if_fail (nua_op_magic == NULL || nua_op_magic == priv->channel, NULL);
+
+      /* tell the NUA that we're handling this call */
+      nua_handle_bind (priv->nua_op, priv->channel);
+    }
+
   bus = tp_get_bus ();
   dbus_g_connection_register_g_object (bus, priv->object_path, obj);
 
@@ -185,6 +199,9 @@ static void sip_media_session_get_property (GObject    *object,
       break;
     case PROP_OBJECT_PATH:
       g_value_set_string (value, priv->object_path);
+      break;
+    case PROP_NUA_OP:
+      g_value_set_pointer (value, priv->nua_op);
       break;
     case PROP_SESSION_ID:
       g_value_set_string (value, priv->id);
@@ -224,6 +241,13 @@ static void sip_media_session_set_property (GObject      *object,
     case PROP_OBJECT_PATH:
       g_free (priv->object_path);
       priv->object_path = g_value_dup_string (value);
+      break;
+    case PROP_NUA_OP:
+      /* you can only set the NUA handle once - migrating a media session
+       * between two NUA handles makes no sense */
+      g_return_if_fail (priv->nua_op == NULL);
+      priv->nua_op = g_value_get_pointer (value);
+      nua_handle_ref (priv->nua_op);
       break;
     case PROP_SESSION_ID:
       g_free (priv->id);
@@ -287,6 +311,15 @@ sip_media_session_class_init (SIPMediaSessionClass *sip_media_session_class)
                                     G_PARAM_STATIC_NAME |
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_OBJECT_PATH, param_spec);
+
+  param_spec = g_param_spec_pointer("nua-handle", "Sofia-SIP NUA operator handle",
+                                    "NUA stack operation handle associated "
+                                    "with this media session.",
+                                    G_PARAM_CONSTRUCT_ONLY |
+                                    G_PARAM_READWRITE |
+                                    G_PARAM_STATIC_NAME |
+                                    G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class, PROP_NUA_OP, param_spec);
 
   param_spec = g_param_spec_string ("session-id", "Session ID",
                                     "A unique session identifier used "
@@ -369,6 +402,9 @@ sip_media_session_finalize (GObject *object)
   /* free any data held directly by the object here */
 
   G_OBJECT_CLASS (sip_media_session_parent_class)->finalize (object);
+
+  /* terminating the session should have discarded the NUA handle */
+  g_assert (priv->nua_op == NULL);
 
   for (i = 0; i < priv->streams->len; i++) {
     SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
@@ -563,14 +599,17 @@ void sip_media_session_terminate (SIPMediaSession *session)
     return;
 
   if (priv->state == SIP_MEDIA_SESSION_STATE_PENDING_INITIATED ||
-      priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE) {
-    nua_handle_t *nh = priv_get_nua_handle_for_session (session);
-    if (nh != NULL)
+      priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE)
+    if (priv->nua_op != NULL)
       {
-        DEBUG("sending SIP BYE (handle %p)", nh);
-        nua_bye (nh, TAG_END());
+        DEBUG("sending SIP BYE (handle %p)", priv->nua_op);
+        nua_bye (priv->nua_op, TAG_END());
+
+        g_assert (nua_handle_magic (priv->nua_op) == priv->channel);
+        nua_handle_bind (priv->nua_op, NULL);
+        nua_handle_unref (priv->nua_op);
+        priv->nua_op = NULL;
       }
-  }
 
   g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ENDED, NULL);
 }
@@ -788,16 +827,15 @@ sip_media_session_reject (SIPMediaSession *self,
                           gint status,
                           const char *message)
 {
-  nua_handle_t *handle;
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
 
   if (message != NULL && !message[0])
     message = NULL;
 
   DEBUG("responding: %03d %s", status, message == NULL? "" : message);
 
-  handle = priv_get_nua_handle_for_session (self);
-  if (handle)
-    nua_respond (handle, status, message, TAG_END());
+  if (priv->nua_op)
+    nua_respond (priv->nua_op, status, message, TAG_END());
 }
 
 static SIPMediaStream *
@@ -884,17 +922,6 @@ sip_media_session_stop_telephony_event  (SIPMediaSession *self,
  * Helper functions follow (not based on generated templates)
  ***********************************************************************/
 
-static nua_handle_t *priv_get_nua_handle_for_session (SIPMediaSession *session)
-{
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  nua_handle_t *tmp = NULL;
-
-  if (priv->channel) 
-    g_object_get (priv->channel, "nua-handle", &tmp, NULL);
-
-  return tmp;
-}
-
 static void priv_session_media_state (SIPMediaSession *session, gboolean playing)
 {
   guint i;
@@ -948,59 +975,40 @@ static void priv_offer_answer_step (SIPMediaSession *session)
     }
 
     /* send an offer if the session was initiated by us */
-    if (priv->initiator != priv->peer) {
-      SIPConnection *conn = NULL;
-      nua_handle_t *nh;
-
-      g_object_get (priv->channel,
-                    "connection", &conn,
-                    NULL);
-
-      nh = sip_conn_create_request_handle (conn, priv->peer);
-
-      g_object_unref (conn);
-
-      if (nh != NULL) {
-
-	g_object_set (priv->channel, "nua-handle", nh, NULL);
+    if (priv->initiator != priv->peer)
+      {
+        g_return_if_fail (priv->nua_op != NULL);
 
 	/* note:  we need to be prepared to receive media right after the
 	 *       offer is sent, so we must set state to playing */
 	priv_session_media_state (session, TRUE);
-	
-	nua_invite (nh,
+
+	nua_invite (priv->nua_op,
 		    SOATAG_USER_SDP_STR(user_sdp->str),
 		    TAG_END());
 
-        /* The reference is now kept by the channel */
-        nua_handle_unref (nh);
-
 	priv->oa_pending = FALSE;
       }
-      else 
-	g_warning ("Unable to create the request handle, probably due to invalid destination URI");
-    }
-    else {
-      /* note: only send a reply if session is locally accepted */
-      if (priv->accepted == TRUE) {
-	nua_handle_t *handle = priv_get_nua_handle_for_session(session);
-	g_debug("Answering with SDP: <<<%s>>>.", user_sdp->str);
-	if (handle) {
-	  nua_respond (handle, 200, sip_200_OK,
-		       SOATAG_USER_SDP_STR (user_sdp->str),
-		       SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
-		       SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
-		       TAG_END());
-	  
-	  priv->oa_pending = FALSE;
-	  
-	  /* note: we have accepted the call, set state to playing */ 
-	  priv_session_media_state (session, TRUE);
-	}
-	else
-	  g_warning ("Unable to answer to the incoming INVITE, channel handle not available.");
+    /* note: only send a reply if session is locally accepted */
+    else if (priv->accepted == TRUE)
+      {
+        if (priv->nua_op)
+          {
+            DEBUG("Answering with SDP: {\n%s}", user_sdp->str);
+            nua_respond (priv->nua_op, 200, sip_200_OK,
+                         SOATAG_USER_SDP_STR (user_sdp->str),
+                         SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
+                         SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
+                         TAG_END());
+
+            priv->oa_pending = FALSE;
+
+            /* note: we have accepted the call, set state to playing */ 
+            priv_session_media_state (session, TRUE);
+          }
+        else
+          g_warning ("Unable to answer to the incoming INVITE, request handle not available");
       }
-    }
   }
 }
 

@@ -23,7 +23,6 @@
 
 #include <telepathy-glib/channel-factory-iface.h>
 
-#include "sip-connection-sofia.h"
 #include "sip-media-channel.h"
 
 G_BEGIN_DECLS
@@ -72,8 +71,7 @@ SIPMediaChannel *sip_media_factory_get_only_channel (
     TpChannelFactoryIface *iface);
 
 SIPMediaChannel *sip_media_factory_new_channel (
-    SIPMediaFactory *fac, TpHandle creator, nua_handle_t *nh,
-    gpointer request);
+    SIPMediaFactory *fac, TpHandle creator, gpointer request);
 
 G_END_DECLS
 

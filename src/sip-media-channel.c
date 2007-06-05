@@ -39,6 +39,7 @@
 #include "sip-media-stream.h"
 
 #include "telepathy-helpers.h"
+#include "sip-connection-helpers.h"
 
 #define DEBUG_FLAG SIP_DEBUG_MEDIA
 #include "debug.h"
@@ -73,7 +74,6 @@ enum
   PROP_HANDLE_TYPE,
   PROP_HANDLE,
   PROP_CREATOR,
-  PROP_NUA_OP,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
   PROP_STUN_SERVER,
@@ -109,7 +109,6 @@ struct _SIPMediaChannelPrivate
   SIPMediaSession *session;
   gchar *object_path;
   TpHandle creator;
-  nua_handle_t *nua_op;
 };
 
 #define SIP_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_CHANNEL, SIPMediaChannelPrivate))
@@ -198,6 +197,7 @@ static void sip_media_channel_set_property (GObject     *object,
 					    GParamSpec   *pspec);
 
 static void priv_create_session (SIPMediaChannel *channel,
+                                 nua_handle_t *nh,
                                  TpHandle peer,
                                  gboolean remote_initiated);
 static void priv_destroy_session(SIPMediaChannel *channel);
@@ -294,13 +294,6 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
                                   G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_CREATOR, param_spec);
 
-  param_spec = g_param_spec_pointer("nua-handle", "Sofia-SIP NUA operator handle",
-                                    "Handle associated with this media channel.",
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_NUA_OP, param_spec);
-
   param_spec = g_param_spec_string ("nat-traversal", "NAT traversal mechanism",
                                     "A string representing the type of NAT "
                                     "traversal that should be performed for "
@@ -362,9 +355,6 @@ sip_media_channel_get_property (GObject    *object,
     case PROP_CREATOR:
       g_value_set_uint (value, priv->creator);
       break;
-    case PROP_NUA_OP:
-      g_value_set_pointer (value, priv->nua_op);
-      break;
     default:
       /* the NAT_TRAVERSAL property lives in the mixin */
       {
@@ -421,33 +411,6 @@ sip_media_channel_set_property (GObject     *object,
     case PROP_CREATOR:
       priv->creator = g_value_get_uint (value);
       break;
-    case PROP_NUA_OP:
-      {
-        nua_handle_t *new_nua_op = g_value_get_pointer (value);
-
-        g_debug ("%s: channel %p: assigning NUA handle %p", G_STRFUNC, object,
-            new_nua_op);
-
-        /* you can only set the NUA handle once - migrating a media channel
-         * between two NUA handles makes no sense */
-        g_return_if_fail (priv->nua_op == NULL);
-
-        if (new_nua_op)
-          {
-            nua_hmagic_t *nua_op_chan = nua_handle_magic (new_nua_op);
-
-            /* migrating a NUA handle between two active media channels
-             * makes no sense either */
-            g_return_if_fail (nua_op_chan == NULL || nua_op_chan == chan);
-
-            nua_handle_ref (new_nua_op);
-
-            /* tell the NUA that we're handling this call */
-            nua_handle_bind (new_nua_op, chan);
-          }
-        priv->nua_op = new_nua_op;
-      }
-      break;
     default:
       /* the NAT_TRAVERSAL property lives in the mixin */
       {
@@ -493,9 +456,6 @@ sip_media_channel_dispose (GObject *object)
 
   if (priv->conn)
     g_object_unref (priv->conn);
-
-  /* closing the channel should have discarded the NUA handle */
-  g_assert (priv->nua_op == NULL);
 
   if (G_OBJECT_CLASS (sip_media_channel_parent_class)->dispose)
     G_OBJECT_CLASS (sip_media_channel_parent_class)->dispose (object);
@@ -559,14 +519,6 @@ sip_media_channel_close (SIPMediaChannel *obj)
     sip_media_session_terminate (priv->session);
     g_assert (priv->session == NULL);
   }
-
-  if (priv->nua_op)
-    {
-      g_assert (nua_handle_magic (priv->nua_op) == obj);
-      nua_handle_bind (priv->nua_op, NULL);
-      nua_handle_unref (priv->nua_op);
-      priv->nua_op = NULL;
-    }
 
   tp_svc_channel_emit_closed ((TpSvcChannel *)obj);
 
@@ -827,23 +779,25 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
  */
 void
 sip_media_channel_respond_to_invite (SIPMediaChannel *self, 
+                                     nua_handle_t *nh,
                                      TpHandle handle)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
   GObject *obj = G_OBJECT (self);
+  TpHandleRepoIface *contact_repo;
   TpIntSet *set;
  
   DEBUG("enter");
 
   priv->creator = handle;
 
-  g_message ("%s: adding handle %d (%s)", 
-	     G_STRFUNC,
-             handle,
-	     tp_handle_inspect (contact_repo, handle));
+  contact_repo = tp_base_connection_get_handles (
+        (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
+
+  DEBUG("adding handle %d (%s)", 
+        handle,
+	tp_handle_inspect (contact_repo, handle));
 
   set = tp_intset_new ();
   tp_intset_add (set, handle);
@@ -852,7 +806,7 @@ sip_media_channel_respond_to_invite (SIPMediaChannel *self,
 
   if (priv->session == NULL)
     {
-      priv_create_session (self, handle, TRUE);
+      priv_create_session (self, nh, handle, TRUE);
     
       /* note: start the local stream-engine; once the local 
        *       candidate are ready, reply with nua_respond() 
@@ -1025,6 +979,7 @@ static void priv_session_stream_added_cb (SIPMediaSession *session,
  */
 static void
 priv_create_session (SIPMediaChannel *channel,
+                     nua_handle_t *nh,
                      TpHandle peer,
                      gboolean remote_initiated)
 {
@@ -1055,6 +1010,7 @@ priv_create_session (SIPMediaChannel *channel,
   session = g_object_new (SIP_TYPE_MEDIA_SESSION,
                           "media-channel", channel,
                           "object-path", object_path,
+                          "nua-handle", nh,
                           "session-id", sid,
                           "initiator", initiator,
                           "peer", peer,
@@ -1120,10 +1076,13 @@ sip_media_channel_add_member (GObject *iface,
     {
       TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
       TpIntSet *lset, *rset;
+      nua_handle_t *nh;
 
       DEBUG("making outbound call - setting peer handle to %u", handle);
 
-      priv_create_session (self, handle, FALSE);
+      nh = sip_conn_create_request_handle (priv->conn, handle);
+      priv_create_session (self, nh, handle, FALSE);
+      nua_handle_unref (nh);
 
       /* make remote pending */
       rset = tp_intset_new ();

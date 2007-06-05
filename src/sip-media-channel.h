@@ -26,7 +26,10 @@
 #include <telepathy-glib/group-mixin.h>
 #include <telepathy-glib/properties-mixin.h>
 
+#include "sip-sofia-decls.h"
+
 #include <sofia-sip/sdp.h>
+
 
 G_BEGIN_DECLS
 
@@ -71,7 +74,8 @@ void sip_media_channel_close (SIPMediaChannel *self);
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
-void sip_media_channel_respond_to_invite (SIPMediaChannel *self, 
+void sip_media_channel_respond_to_invite (SIPMediaChannel *self,
+                                          nua_handle_t *nh,
 					  TpHandle handle);
 gboolean sip_media_channel_set_remote_info (SIPMediaChannel *chan,
                                             const sdp_session_t *r_sdp);
