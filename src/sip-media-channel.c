@@ -205,11 +205,7 @@ gboolean sip_media_channel_add_member (GObject *iface,
                                        TpHandle handle,
                                        const gchar *message,
                                        GError **error);
-static gboolean sip_media_channel_remove_member (GObject *iface,
-                                                 TpHandle handle,
-                                                 const gchar *message,
-                                                 GError **error);
-static gboolean sip_media_channel_remove_member_with_reason (
+static gboolean sip_media_channel_remove_with_reason (
                                                  GObject *iface,
                                                  TpHandle handle,
                                                  const gchar *message,
@@ -237,9 +233,9 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
   tp_group_mixin_class_init (object_class,
                              G_STRUCT_OFFSET (SIPMediaChannelClass, group_class),
                              sip_media_channel_add_member,
-                             sip_media_channel_remove_member);
+                             NULL);
   tp_group_mixin_class_set_remove_with_reason_func(object_class,
-                             sip_media_channel_remove_member_with_reason);
+                             sip_media_channel_remove_with_reason);
 
   g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
       "handle-type");
@@ -1193,25 +1189,11 @@ sip_status_from_tp_reason (TpChannelGroupChangeReason reason)
 }
 
 static gboolean
-sip_media_channel_remove_member (GObject *obj,
-                                 TpHandle handle,
-                                 const gchar *message,
-                                 GError **error)
-{
-  return sip_media_channel_remove_member_with_reason (
-                obj,
-                handle,
-                message,
-                TP_CHANNEL_GROUP_CHANGE_REASON_NONE,
-                error);
-}
-
-static gboolean
-sip_media_channel_remove_member_with_reason (GObject *obj,
-                                             TpHandle handle,
-                                             const gchar *message,
-                                             guint reason,
-                                             GError **error)
+sip_media_channel_remove_with_reason (GObject *obj,
+                                      TpHandle handle,
+                                      const gchar *message,
+                                      guint reason,
+                                      GError **error)
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (obj);
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
