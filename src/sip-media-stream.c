@@ -1290,6 +1290,7 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
   SIPMediaStreamPrivate *priv;
   gchar *tmpa_str = NULL, *tmpb_str;
   gchar *aline_str = NULL, *cline_str = NULL, *mline_str = NULL, *malines_str = NULL;
+  const gchar *dirline;
   GValue transport = { 0 };
   GValue codec = { 0, };
   GValue candidate = { 0 };
@@ -1368,7 +1369,24 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
      * relay attributes */
   }
 
-  malines_str = g_strdup ("");
+  switch (priv->direction)
+    {
+    case TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL:
+      dirline = "";
+      break;
+    case TP_MEDIA_STREAM_DIRECTION_SEND:
+      dirline = "a=sendonly\r\n";
+      break;
+    case TP_MEDIA_STREAM_DIRECTION_RECEIVE:
+      dirline = "a=recvonly\r\n";
+      break;
+    case TP_MEDIA_STREAM_DIRECTION_NONE:
+      dirline = "a=inactive\r\n";
+      break;
+    default:
+      g_assert_not_reached();
+    }
+  malines_str = g_strdup(dirline);
 
   for (i = 0; i < codecs->len; i++) {
     guint co_id, co_type, co_clockrate, co_channels;
