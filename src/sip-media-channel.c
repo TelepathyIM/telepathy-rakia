@@ -1120,6 +1120,8 @@ sip_media_channel_add_member (GObject *iface,
       return TRUE;
     }
 
+  g_assert_not_reached();
+
   g_set_error (error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
                "Can't map this member change to protocol behavior");
   return FALSE;
@@ -1191,6 +1193,8 @@ sip_media_channel_remove_with_reason (GObject *obj,
 
       return TRUE;
     }
+
+  g_assert_not_reached();
 
   g_set_error (error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
                "Can't map this member change to protocol behavior");
