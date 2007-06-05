@@ -64,12 +64,6 @@ void sip_media_factory_session_id_register (SIPMediaFactory *fac,
 void sip_media_factory_session_id_unregister (SIPMediaFactory *fac,
     const gchar *sid);
 
-/* temporary compatibility with code assuming we will never have multiple
- * media channels
- */
-SIPMediaChannel *sip_media_factory_get_only_channel (
-    TpChannelFactoryIface *iface);
-
 SIPMediaChannel *sip_media_factory_new_channel (
     SIPMediaFactory *fac, TpHandle creator, gpointer request);
 
