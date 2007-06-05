@@ -141,7 +141,6 @@ static void sip_media_session_init (SIPMediaSession *obj)
   g_debug ("%s called", G_STRFUNC);
 
   /* allocate any data required by the object here */
-  priv->home = su_home_create ();
   priv->streams = g_ptr_array_new ();
 }
 
@@ -414,7 +413,8 @@ sip_media_session_finalize (GObject *object)
 
   g_ptr_array_free(priv->streams, TRUE);
 
-  su_home_unref (priv->home);
+  if (priv->home != NULL)
+    su_home_unref (priv->home);
 
   DEBUG ("exit");
 }
@@ -634,7 +634,15 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
       return TRUE;
     }
 
+  /* Deallocate the old session */
+  if (priv->remote_sdp != NULL)
+    {
+      g_assert (priv->home != NULL);
+      su_home_unref (priv->home);
+    }
+
   /* Store the session description structure */
+  priv->home = su_home_create ();
   priv->remote_sdp = sdp_session_dup (priv->home, sdp);
   g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
 
