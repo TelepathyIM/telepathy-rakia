@@ -598,18 +598,20 @@ void sip_media_session_terminate (SIPMediaSession *session)
   if (priv->state == SIP_MEDIA_SESSION_STATE_ENDED)
     return;
 
-  if (priv->state == SIP_MEDIA_SESSION_STATE_PENDING_INITIATED ||
-      priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE)
-    if (priv->nua_op != NULL)
-      {
-        DEBUG("sending SIP BYE (handle %p)", priv->nua_op);
-        nua_bye (priv->nua_op, TAG_END());
+  if (priv->nua_op != NULL)
+    {
+      if (priv->state == SIP_MEDIA_SESSION_STATE_PENDING_INITIATED ||
+          priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE)
+        {
+          DEBUG("sending SIP BYE (handle %p)", priv->nua_op);
+          nua_bye (priv->nua_op, TAG_END());
+        }
 
-        g_assert (nua_handle_magic (priv->nua_op) == priv->channel);
-        nua_handle_bind (priv->nua_op, NULL);
-        nua_handle_unref (priv->nua_op);
-        priv->nua_op = NULL;
-      }
+      g_assert (nua_handle_magic (priv->nua_op) == priv->channel);
+      nua_handle_bind (priv->nua_op, NULL);
+      nua_handle_unref (priv->nua_op);
+      priv->nua_op = NULL;
+    }
 
   g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ENDED, NULL);
 }
