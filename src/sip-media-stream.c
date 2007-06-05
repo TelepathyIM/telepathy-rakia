@@ -1286,10 +1286,14 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
 {
   static const char c_sdp_version[] = "v=0\r\n"; 
   static const char c_crlf[] = "\r\n";
+  static const char c_bline_no_rtcp[] = "b=RS:0\r\nb=RR:0\r\n";
 
   SIPMediaStreamPrivate *priv;
   gchar *tmpa_str = NULL, *tmpb_str;
-  gchar *aline_str = NULL, *cline_str = NULL, *mline_str = NULL, *malines_str = NULL;
+  gchar *aline_str = NULL;
+  gchar *cline_str = NULL;
+  gchar *mline_str = NULL;
+  gchar *malines_str = NULL;
   const gchar *dirline;
   GValue transport = { 0 };
   GValue codec = { 0, };
@@ -1437,7 +1441,12 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
                 ca_id, tr_addr, tr_port, debug_tp_protocols[tr_proto],
                 tr_pref, debug_tp_transports[tr_type], tr_user, tr_pass);
 
-  tmpa_str = g_strconcat(c_sdp_version, mline_str, c_crlf, cline_str, malines_str, NULL);
+  tmpa_str = g_strconcat(c_sdp_version,
+                         mline_str, c_crlf,
+                         cline_str,
+                         c_bline_no_rtcp,
+                         malines_str,
+                         NULL);
 
   g_free(priv->stream_sdp);
   priv->stream_sdp = tmpa_str;
