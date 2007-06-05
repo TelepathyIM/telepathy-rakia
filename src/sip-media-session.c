@@ -809,17 +809,18 @@ gboolean sip_media_session_list_streams (SIPMediaSession *session,
   return TRUE;
 }
 
-void sip_media_session_accept (SIPMediaSession *self, gboolean accept)
+void sip_media_session_accept (SIPMediaSession *self)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
-  gboolean p = priv->accepted;
 
-  g_debug ("%s: accepting session: %d", G_STRFUNC, accept);
+  if (priv->accepted)
+    return;
 
-  priv->accepted = accept;
+  SESSION_DEBUG(self, "accepting the session");
 
-  if (accept != p)
-    priv_offer_answer_step (self);
+  priv->accepted = TRUE;
+
+  priv_offer_answer_step (self);
 }
 
 void
@@ -832,7 +833,7 @@ sip_media_session_reject (SIPMediaSession *self,
   if (message != NULL && !message[0])
     message = NULL;
 
-  DEBUG("responding: %03d %s", status, message == NULL? "" : message);
+  SESSION_DEBUG(self, "responding: %03d %s", status, message == NULL? "" : message);
 
   if (priv->nua_op)
     nua_respond (priv->nua_op, status, message, TAG_END());

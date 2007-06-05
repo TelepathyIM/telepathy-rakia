@@ -1115,7 +1115,7 @@ sip_media_channel_add_member (GObject *iface,
       tp_group_mixin_change_members (iface, "", set, NULL, NULL, NULL, 0, 0);
       tp_intset_destroy (set);
 
-      sip_media_session_accept (priv->session, TRUE);
+      sip_media_session_accept (priv->session);
 
       return TRUE;
     }
