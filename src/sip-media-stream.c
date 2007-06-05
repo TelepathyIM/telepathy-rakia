@@ -1284,9 +1284,10 @@ return "-";
 */
 static int priv_update_local_sdp(SIPMediaStream *stream)
 {
+  static const char c_sdp_version[] = "v=0\r\n"; 
+  static const char c_crlf[] = "\r\n";
+
   SIPMediaStreamPrivate *priv;
-  const char *c_sdp_version = "v=0\r\n"; 
-  const char *c_crlf = "\r\n";
   gchar *tmpa_str = NULL, *tmpb_str;
   gchar *aline_str = NULL, *cline_str = NULL, *mline_str = NULL, *malines_str = NULL;
   GValue transport = { 0 };
