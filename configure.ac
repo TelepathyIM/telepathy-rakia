@@ -76,12 +76,6 @@ PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.5.13])
 AC_SUBST(TELEPATHY_GLIB_CFLAGS)
 AC_SUBST(TELEPATHY_GLIB_LIBS)
 
-dnl Check for Telepathy client library (needed for some test apps)
-PKG_CHECK_MODULES(LIBTELEPATHY, [libtelepathy], have_libtelepathy=yes, have_libtelepathy=no)
-AC_SUBST(LIBTELEPATHY_CFLAGS)
-AC_SUBST(LIBTELEPATHY_LIBS)
-AM_CONDITIONAL(HAVE_LIBTELEPATHY, test x$have_libtelepathy = xyes)
-
 AC_OUTPUT( Makefile \
 src/Makefile \
 m4/Makefile \
