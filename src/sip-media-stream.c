@@ -1143,11 +1143,10 @@ static void push_remote_codecs (SIPMediaStream *stream)
 
       g_ptr_array_add (codecs, g_value_get_boxed (&codec));
 
-      g_hash_table_remove_all (opt_params);
-
       rtpmap = rtpmap->rm_next;
     }
   
+  g_assert (g_hash_table_size (opt_params) == 0);
   g_hash_table_destroy (opt_params);
 
   SESSION_DEBUG(priv->session, "passing %d remote codecs to stream engine",
