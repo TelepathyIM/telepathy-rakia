@@ -48,12 +48,13 @@ static void channel_iface_init (gpointer, gpointer);
 static void media_signalling_iface_init (gpointer, gpointer);
 static void streamed_media_iface_init (gpointer, gpointer);
 static void dtmf_iface_init (gpointer, gpointer);
+static void override_group_mixin_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP,
-      tp_group_mixin_iface_init);
+      override_group_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MEDIA_SIGNALLING,
       media_signalling_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DTMF,
@@ -732,15 +733,6 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (contact_handle == ((TpBaseConnection*) priv->conn)->self_handle)
-    {
-      error = g_error_new (TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
-          "you cannot call yourself");
-      dbus_g_method_return_error (context, error);
-      g_error_free (error);
-      return;
-    }
-
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
 
@@ -1065,6 +1057,48 @@ priv_destroy_session(SIPMediaChannel *channel)
   g_object_unref (session);
 }
 
+
+/* Check that self_handle is not already in the members. If it is,
+ * we're trying to call ourselves. */
+static void
+_check_add_members (TpSvcChannelInterfaceGroup *obj,
+                    const GArray *contacts,
+                    const gchar *message,
+                    DBusGMethodInvocation *context)
+{
+  TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
+  guint i;
+  TpHandle handle;
+  GError *error = NULL;
+
+  for (i = 0; i < contacts->len; i++)
+    {
+      handle = g_array_index (contacts, TpHandle, i);
+      if (handle != mixin->self_handle)
+          continue;
+
+      if (tp_handle_set_is_member (mixin->members, handle))
+        {
+          DEBUG ("attempted to add self_handle into the mixin again");
+          g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_HANDLE,
+            "you cannot call yourself");
+        }
+    }
+
+  if (error == NULL)
+      tp_group_mixin_add_members ((GObject *) obj, contacts, message, &error);
+
+  if (error == NULL)
+    {
+      tp_svc_channel_interface_group_return_from_add_members (context);
+    }
+  else
+    {
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+    }
+}
+
 gboolean
 sip_media_channel_add_member (GObject *iface,
                               TpHandle handle,
@@ -1326,3 +1360,16 @@ dtmf_iface_init (gpointer g_iface, gpointer iface_data)
   IMPLEMENT(stop_tone);
 #undef IMPLEMENT
 }
+
+static void
+override_group_mixin_iface_init (gpointer g_iface, gpointer iface_data)
+{
+  TpSvcChannelInterfaceGroupClass *klass =
+      (TpSvcChannelInterfaceGroupClass *)g_iface;
+
+  tp_group_mixin_iface_init (g_iface, iface_data);
+
+  tp_svc_channel_interface_group_implement_add_members (klass,
+      _check_add_members);
+}
+
