@@ -70,7 +70,7 @@ BUILT_SOURCES = \
 		sip-connection-enumtypes.c
 
 libtpsip_convenience_la_SOURCES = \
-    sip-decl-sofia.h \
+    sip-sofia-decls.h \
     sip-text-channel.h \
     sip-text-channel.c \
     sip-media-channel.h \
