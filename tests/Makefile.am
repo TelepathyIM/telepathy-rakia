@@ -30,6 +30,6 @@ conf_files = $(conf_in_files:.conf.in=.conf)
 
 BUILT_SOURCES = $(service_files) $(conf_files) exec-with-log.sh
 
-EXTRA_DIST = $(service_in_files) $(conf_in_files) exec-with-log.sh.in
+EXTRA_DIST = $(TWISTED_TESTS) $(service_in_files) $(conf_in_files) exec-with-log.sh.in
 
 CLEANFILES = $(BUILT_SOURCES) sofiasip-[1-9]*.log
