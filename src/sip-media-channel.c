@@ -48,13 +48,13 @@ static void channel_iface_init (gpointer, gpointer);
 static void media_signalling_iface_init (gpointer, gpointer);
 static void streamed_media_iface_init (gpointer, gpointer);
 static void dtmf_iface_init (gpointer, gpointer);
-static void override_group_mixin_iface_init (gpointer, gpointer);
+static void priv_group_mixin_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP,
-      override_group_mixin_iface_init);
+      priv_group_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MEDIA_SIGNALLING,
       media_signalling_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DTMF,
@@ -1061,7 +1061,7 @@ priv_destroy_session(SIPMediaChannel *channel)
 /* Check that self_handle is not already in the members. If it is,
  * we're trying to call ourselves. */
 static void
-_check_add_members (TpSvcChannelInterfaceGroup *obj,
+priv_add_members (TpSvcChannelInterfaceGroup *obj,
                     const GArray *contacts,
                     const gchar *message,
                     DBusGMethodInvocation *context)
@@ -1074,10 +1074,9 @@ _check_add_members (TpSvcChannelInterfaceGroup *obj,
   for (i = 0; i < contacts->len; i++)
     {
       handle = g_array_index (contacts, TpHandle, i);
-      if (handle != mixin->self_handle)
-          continue;
 
-      if (tp_handle_set_is_member (mixin->members, handle))
+      if (handle == mixin->self_handle &&
+          tp_handle_set_is_member (mixin->members, handle))
         {
           DEBUG ("attempted to add self_handle into the mixin again");
           g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_HANDLE,
@@ -1362,7 +1361,7 @@ dtmf_iface_init (gpointer g_iface, gpointer iface_data)
 }
 
 static void
-override_group_mixin_iface_init (gpointer g_iface, gpointer iface_data)
+priv_group_mixin_iface_init (gpointer g_iface, gpointer iface_data)
 {
   TpSvcChannelInterfaceGroupClass *klass =
       (TpSvcChannelInterfaceGroupClass *)g_iface;
@@ -1370,6 +1369,6 @@ override_group_mixin_iface_init (gpointer g_iface, gpointer iface_data)
   tp_group_mixin_iface_init (g_iface, iface_data);
 
   tp_svc_channel_interface_group_implement_add_members (klass,
-      _check_add_members);
+      priv_add_members);
 }
 
