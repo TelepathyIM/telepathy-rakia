@@ -38,9 +38,6 @@ Media sessions
 - enable session timers if the remote endpoint supports it
 - verify correct operation with a remote node utilizing 
   early media
-- implement code for removing group members
-    - see sip-media-channel.c:priv_media_channel_remove_member()
-- implement StreamHandler.CodecChoice()
 
 Presence and messaging
 -----------------------
@@ -66,8 +63,7 @@ Presence and messaging
 Test programs
 -------------
 
-- tp_caller is an ugly hack, major refactoring needed
-- unit tests for basic functionality (creation and removal of
+- In progress: unit tests for basic functionality (creation and removal of
   conn.mgr etc objects, registration, calling to itself, etc)
 
 Plugin interface
