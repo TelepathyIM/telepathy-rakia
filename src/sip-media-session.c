@@ -628,12 +628,6 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
 
   DEBUG ("enter");
 
-  if (sdp_session_cmp (priv->remote_sdp, sdp) == 0)
-    {
-      SESSION_DEBUG(session, "no session changes detected");
-      return TRUE;
-    }
-
   /* Deallocate the old session */
   if (priv->remote_sdp != NULL)
     {
