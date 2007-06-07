@@ -782,7 +782,7 @@ sip_media_stream_get_media_type (SIPMediaStream *self)
 void
 sip_media_stream_close (SIPMediaStream *self)
 {
-  tp_svc_media_stream_handler_emit_close ((TpSvcMediaStreamHandler *) self);
+  tp_svc_media_stream_handler_emit_close (self);
 }
 
 /**

@@ -682,8 +682,6 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
       /* There have been problems with the stream update, kill the stream */
       /* XXX: fast and furious, not tested */
       sip_media_stream_close (stream);
-      g_object_unref (stream);
-      g_ptr_array_index(priv->streams, i) = NULL;
 
     next_media:
       media = media->m_next;
@@ -709,8 +707,6 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
             {
               g_message ("closing a mismatched stream %u", i);
               sip_media_stream_close (stream);
-              g_object_unref (stream);
-              g_ptr_array_index(priv->streams, i) = NULL;
             }
         }
       while (++i < priv->streams->len);
@@ -1031,6 +1027,26 @@ static void priv_offer_answer_step (SIPMediaSession *session)
   }
 }
 
+static void
+priv_stream_close_cb (SIPMediaStream *stream,
+                      SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv;
+  guint id;
+
+  DEBUG("enter");
+
+  g_assert (SIP_IS_MEDIA_SESSION (session));
+  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+
+  id = sip_media_stream_get_id (stream);
+  g_return_if_fail (g_ptr_array_index(priv->streams, id) == stream);
+
+  g_object_unref (stream);
+
+  g_ptr_array_index(priv->streams, id) = NULL;
+}
+
 static void priv_stream_ready_cb (SIPMediaStream *stream,
 				  SIPMediaSession *session)
 {
@@ -1117,6 +1133,9 @@ static SIPMediaStream* priv_create_media_stream (SIPMediaSession *self, guint me
 
     g_free (object_path);
  
+    g_signal_connect (stream, "close",
+                      (GCallback) priv_stream_close_cb,
+                      self);
     g_signal_connect (stream, "ready",
 		      (GCallback) priv_stream_ready_cb,
 		      self);
