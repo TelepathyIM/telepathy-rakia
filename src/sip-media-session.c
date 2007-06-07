@@ -398,6 +398,8 @@ sip_media_session_finalize (GObject *object)
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
   guint i;
 
+  DEBUG ("enter");
+
   /* free any data held directly by the object here */
 
   G_OBJECT_CLASS (sip_media_session_parent_class)->finalize (object);
@@ -407,8 +409,11 @@ sip_media_session_finalize (GObject *object)
 
   for (i = 0; i < priv->streams->len; i++) {
     SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
-    if (stream)
-      g_object_unref (stream);
+    if (stream != NULL)
+      {
+        g_warning ("Stream %u (%p) left over, reaping", i, stream);
+        g_object_unref (stream);
+      }
   }
 
   g_ptr_array_free(priv->streams, TRUE);
@@ -592,11 +597,21 @@ static gboolean priv_timeout_session (gpointer data)
 void sip_media_session_terminate (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  
+  guint i;
+
   DEBUG ("enter");
 
   if (priv->state == SIP_MEDIA_SESSION_STATE_ENDED)
     return;
+
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      SIPMediaStream *stream;
+      stream = g_ptr_array_index (priv->streams, i);
+      if (stream != NULL)
+        sip_media_stream_close (stream);
+      g_assert (g_ptr_array_index (priv->streams, i) == NULL);
+    }
 
   if (priv->nua_op != NULL)
     {
