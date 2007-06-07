@@ -696,10 +696,24 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
     }
 
   g_assert(media == NULL);
-  if (i != priv->streams->len)
+  g_assert(i <= priv->streams->len);
+  if (i < priv->streams->len)
     {
       g_warning ("There were %u parsed SDP m-lines but we have %u stream entries - "
                  "is someone failing to comply with RFCs?", i, priv->streams->len);
+      do
+        {
+          SIPMediaStream *stream;
+          stream = g_ptr_array_index(priv->streams, i);
+          if (stream != NULL)
+            {
+              g_message ("closing a mismatched stream %u", i);
+              sip_media_stream_close (stream);
+              g_object_unref (stream);
+              g_ptr_array_index(priv->streams, i) = NULL;
+            }
+        }
+      while (++i < priv->streams->len);
     }
 
   /* XXX: hmm, this is not the correct place really */
