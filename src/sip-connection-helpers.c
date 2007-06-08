@@ -396,16 +396,76 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
               stun_server);
 }
 
+static gboolean
+priv_is_user_unreserved (unsigned char x)
+{
+    switch (x)
+      {
+        case '_':
+        case '.':
+        case '!':
+        case '~':
+        case '*':
+        case '\'':
+        case '(':
+        case ')':
+        case '&':
+        case '=':
+        case '+':
+        case '$':
+        case ',':
+        case ':':
+        case '?':
+        case ';':
+        case '/':
+          return TRUE;
+          break;
+        default:
+          return g_ascii_isalnum (x);
+      }
+}
+
+static gboolean
+priv_is_host (unsigned char x)
+{
+    switch (x)
+      {
+        case '.':
+        case '-':
+          return TRUE;
+          break;
+        default:
+          return g_ascii_isalnum (x);
+      }
+}
+
+static gboolean
+priv_is_tel_digit (unsigned char x)
+{
+    switch (x)
+      {
+        case '+':
+        case '-':
+        case '.':
+        case '/':
+        case '(':
+        case ')':
+          return TRUE;
+          break;
+        default:
+          return g_ascii_isdigit (x);
+      }
+}
+
 static guchar *
-_urlencode (su_home_t *home, const gchar *string)
+priv_user_encode (su_home_t *home, const gchar *string)
 {
     guchar *a, *b;
     guchar *new = su_zalloc (home, strlen (string) * 3 + 1);
 
     for (a = (guchar *) string, b = new; *a; a++, b++)
       {
-        if (g_ascii_isalnum(*a) || (*a == '.') || (*a == '-') ||
-            (*a == '+') || (*a == '_'))
+        if (priv_is_user_unreserved (*a))
           {
             *b = *a;
           }
@@ -420,7 +480,7 @@ _urlencode (su_home_t *home, const gchar *string)
 
 /* unescape characters that don't need escaping */
 static guchar *
-_urldecode (su_home_t *home, const gchar *string)
+priv_user_decode (su_home_t *home, const gchar *string)
 {
     guchar *a, *b;
     guchar *new = su_zalloc (home, strlen (string) + 1);
@@ -431,8 +491,7 @@ _urldecode (su_home_t *home, const gchar *string)
           {
             gchar tmp[3] = { a[1], a[2], 0 };
             guchar x = (guchar) (strtoul(tmp, NULL, 16) % 256);
-            if (g_ascii_isalnum(x) || (x == '.') || (x == '-') ||
-                (x == '+') || (x == '_'))
+            if (priv_is_user_unreserved (x))
               {
                 *b = x;
                 a += 2;
@@ -445,7 +504,7 @@ _urldecode (su_home_t *home, const gchar *string)
 }
 
 static gboolean
-_is_tel_num (const gchar *string)
+priv_is_tel_num (const gchar *string)
 {
     while (*string)
       {
@@ -459,14 +518,14 @@ _is_tel_num (const gchar *string)
 }
 
 static gchar *
-_strip_tel_num (su_home_t *home, const gchar *string)
+priv_strip_tel_num (su_home_t *home, const gchar *string)
 {
     gchar *a, *b;
     gchar *new = su_zalloc (home, strlen (string) + 1);
 
     for (a = (gchar *) string, b = new; *a; a++)
       {
-        if (!g_ascii_isdigit(*a) && (*a != '-') && (*a != '+')) continue;
+        if (!priv_is_tel_digit (*a)) continue;
         *(b++) = *a;
       }
     *b = 0;
@@ -498,14 +557,16 @@ sip_conn_normalize_uri (SIPConnection *conn,
           goto error;
         }
 
-      if (_is_tel_num (sipuri))
+      if (priv_is_tel_num (sipuri))
         {
-          url = url_format (home, "sip:%s@%s", _strip_tel_num (home, sipuri),
+          url = url_format (home, "sip:%s@%s",
+              priv_strip_tel_num (home, sipuri),
               priv->domain);
         }
       else
         {
-          url = url_format (home, "sip:%s@%s", _urlencode (home, sipuri),
+          url = url_format (home, "sip:%s@%s",
+              priv_user_encode (home, sipuri),
               priv->domain);
         }
       if (!url) goto error;
@@ -514,20 +575,21 @@ sip_conn_normalize_uri (SIPConnection *conn,
     {
       if ((url != NULL) && (url->url_user != NULL))
         {
-          url->url_user = (char *) _urldecode (home, url->url_user);
+          url->url_user = (char *) priv_user_decode (home, url->url_user);
         }
     }
 
   if (url_sanitize (url)) goto error;
 
-  /* scheme should've been set by now */
-  if (!url->url_scheme || (url->url_scheme[0] == 0))
+  /* scheme and host should've been set by now */
+  if (!url->url_scheme || (url->url_scheme[0] == 0) ||
+      !url->url_host || (url->url_host[0] == 0))
       goto error;
 
   for (c = (char *) url->url_host; *c; c++)
     {
       /* check for illegal characters */
-      if (!g_ascii_isalnum(*c) && (*c != '_') && (*c != '.') && (*c != '_'))
+      if (!priv_is_host (*c))
           goto error;
 
       /* convert host to lowercase */
