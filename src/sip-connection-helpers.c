@@ -401,6 +401,7 @@ priv_is_user_unreserved (unsigned char x)
 {
     switch (x)
       {
+        case '-':
         case '_':
         case '.':
         case '!':
