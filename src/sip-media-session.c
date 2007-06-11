@@ -643,7 +643,7 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
 
   DEBUG ("enter");
 
-  g_return_val_if_fail (sdp_session_cmp (priv->remote_sdp, sdp), TRUE);
+  g_assert (sdp_session_cmp (priv->remote_sdp, sdp));
 
   /* Deallocate the old session */
   if (priv->remote_sdp != NULL)
