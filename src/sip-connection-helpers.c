@@ -349,8 +349,8 @@ sip_conn_set_stun_server_address (SIPConnection *conn, const gchar *address)
   sip_conn_update_stun_server (conn);
 }
 
-void
-_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **answers)
+static void
+priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **answers)
 {
   SIPConnection *conn = SIP_CONNECTION (ctx);
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
@@ -390,10 +390,74 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
   DEBUG("creating a new resolver query for STUN host name %s", stun_server);
 
   sres_query (priv->sofia_resolver,
-              _stun_resolver_cb,
+              priv_stun_resolver_cb,
               (sres_context_t *) conn,
               sres_type_a,
               stun_server);
+}
+
+static void
+priv_stun_discover_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **answers)
+{
+  SIPConnection *conn = SIP_CONNECTION (ctx);
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  sres_record_t *ans = NULL;
+
+  if (NULL != answers)
+    {
+      int i;
+      for (i = 0; NULL != answers[i]; i++)
+        {
+          if (0 != answers[i]->sr_record->r_status)
+              continue;
+
+          if ((NULL == ans) ||
+              (answers[i]->sr_srv->srv_priority > ans->sr_srv->srv_priority))
+                  ans = answers[i];
+        }
+    }
+
+  if (NULL != ans)
+    {
+      DEBUG ("Discovery got STUN server %s : %u",
+          ans->sr_srv->srv_target, priv->stun_port);
+      priv->stun_port = ans->sr_srv->srv_port;
+      sip_conn_resolv_stun_server (conn, ans->sr_srv->srv_target);
+    }
+
+  sres_free_answers (priv->sofia_resolver, answers);
+}
+
+void
+sip_conn_discover_stun_server (SIPConnection *conn)
+{
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  char *srv_domain;
+
+  if (NULL == priv->domain)
+    {
+      DEBUG("unknown domain, not making STUN SRV lookup");
+      return;
+    }
+
+  if (NULL == priv->sofia_resolver)
+    {
+      priv->sofia_resolver =
+        sres_resolver_create (priv->sofia->sofia_root, NULL, TAG_END());
+    }
+  g_return_if_fail (priv->sofia_resolver != NULL);
+
+  DEBUG("creating a new STUN SRV query for domain %s", priv->domain);
+
+  srv_domain = g_strdup_printf ("_stun._udp.%s", priv->domain);
+
+  sres_query (priv->sofia_resolver,
+              priv_stun_discover_cb,
+              (sres_context_t *) conn,
+              sres_type_srv,
+              srv_domain);
+
+  g_free (srv_domain);
 }
 
 static gboolean

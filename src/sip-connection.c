@@ -696,7 +696,10 @@ sip_connection_start_connecting (TpBaseConnection *base,
   sip_conn_update_nua_outbound (self);
   sip_conn_update_nua_keepalive_interval (self);
   sip_conn_update_nua_contact_features (self);
-  sip_conn_update_stun_server (self);
+  if (priv->stun_server != NULL)
+      sip_conn_update_stun_server (self);
+  else
+      sip_conn_discover_stun_server (self);
 
   g_message ("Sofia-SIP NUA at address %p (SIP URI: %s)", 
 	     priv->sofia_nua, sip_address);
