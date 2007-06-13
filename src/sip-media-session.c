@@ -111,8 +111,10 @@ struct _SIPMediaSessionPrivate
   TpHandle peer;                        /** see gobj. prop. 'peer' */
   SIPMediaSessionState state;           /** see gobj. prop. 'state' */
   guint timer_id;
-  su_home_t *home;                      /** memory home for Sofia objects */
+  su_home_t *home;                      /** Sofia memory home for remote SDP session structure */
+  su_home_t *backup_home;               /** Sofia memory home for previous generation remote SDP session*/
   sdp_session_t *remote_sdp;            /** last received remote session */
+  sdp_session_t *backup_remote_sdp;     /** previous remote session */
   gboolean accepted;                    /**< session has been locally accepted for use */
   gboolean oa_pending;                  /**< offer/answer waiting to be sent */
   gboolean se_ready;                    /**< connection established with stream-engine */
@@ -421,6 +423,8 @@ sip_media_session_finalize (GObject *object)
 
   if (priv->home != NULL)
     su_home_unref (priv->home);
+  if (priv->backup_home != NULL)
+    su_home_unref (priv->backup_home);
 
   DEBUG ("exit");
 }
@@ -646,11 +650,22 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
 
   g_assert (sdp_session_cmp (priv->remote_sdp, sdp));
 
-  /* Deallocate the old session */
+  /* Delete a backup session structure */
+  if (priv->backup_remote_sdp != NULL)
+    {
+      priv->backup_remote_sdp = NULL;
+      g_assert (priv->backup_home != NULL);
+      su_home_unref (priv->backup_home);
+      priv->backup_home = NULL;
+    }
+  /* Back up the old session.
+   * The streams still need the old media descriptions */
   if (priv->remote_sdp != NULL)
     {
       g_assert (priv->home != NULL);
-      su_home_unref (priv->home);
+      g_assert (priv->backup_home == NULL);
+      priv->backup_home = priv->home;
+      priv->backup_remote_sdp = priv->remote_sdp;
     }
 
   /* Store the session description structure */
