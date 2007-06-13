@@ -3,6 +3,7 @@
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005,2006,2007 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
+ *   @author Mikhail Zabaluev <first.surname@nokia.com>
  *
  * Based on telepathy-gabble implementation (gabble-media-session).
  *   @author Ole Andre Vadla Ravnaas <ole.andre.ravnaas@collabora.co.uk>
