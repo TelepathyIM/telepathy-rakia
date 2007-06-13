@@ -941,9 +941,11 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
     tp_group_mixin_change_members ((GObject *)channel,
         "", NULL, set, NULL, NULL, 0, 0);
 
+#if 0
     /* update flags accordingly -- allow adding, deny removal */
     tp_group_mixin_change_flags ((GObject *)channel,
         TP_CHANNEL_GROUP_FLAG_CAN_ADD, TP_CHANNEL_GROUP_FLAG_CAN_REMOVE);
+#endif
 
     priv_destroy_session (channel);
     sip_media_channel_close (channel);
