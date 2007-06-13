@@ -1,7 +1,7 @@
 /*
  * sip-media-stream.c - Source for SIPMediaStream
  * Copyright (C) 2006 Collabora Ltd.
- * Copyright (C) 2006 Nokia Corporation
+ * Copyright (C) 2006,2007 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
  *
  * Based on telepathy-gabble implementation (gabble-media-stream).
