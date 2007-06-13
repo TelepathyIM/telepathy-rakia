@@ -554,8 +554,26 @@ sip_media_stream_new_active_candidate_pair (TpSvcMediaStreamHandler *iface,
                                             const gchar *remote_candidate_id,
                                             DBusGMethodInvocation *context)
 {
+  SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
+  SIPMediaStreamPrivate *priv;
+
+  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+
   DEBUG("stream engine reported new active candidate pair %s-%s",
         native_candidate_id, remote_candidate_id);
+
+  if (priv->remote_candidate_id == NULL
+      || strcmp (priv->remote_candidate_id, remote_candidate_id))
+    {
+      GError *err;
+      err = g_error_new (TP_ERRORS,
+                         TP_ERROR_INVALID_ARGUMENT,
+                         "Remote candidate ID does not match the locally "
+                                "stored data");
+      dbus_g_method_return_error (context, err);
+      g_error_free (err);
+      return;
+    }
 
   tp_svc_media_stream_handler_return_from_new_active_candidate_pair (context);
 }
