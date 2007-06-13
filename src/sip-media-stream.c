@@ -647,6 +647,8 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   SESSION_DEBUG(priv->session, "put 1 native candidate from stream-engine into cache");
 
+  push_active_candidate_pair (obj);
+
   if (candidates->len > 1 &&
       priv->native_codecs_prepared == TRUE &&
       priv->sdp_generated != TRUE) {
