@@ -30,6 +30,31 @@ def lazy(func):
     handler.__name__ = func.__name__
     return handler
 
+def match(type, **kw):
+    def decorate(func):
+        def handler(event, data):
+            if event.type != type:
+                return False
+
+            for key, value in kw.iteritems():
+                if not hasattr(event, key):
+                    return False
+
+                if getattr(event, key) != value:
+                    return False
+
+            return func(event, data)
+
+        handler.__name__ = func.__name__
+        return handler
+
+    return decorate
+
+class Event:
+    def __init__(self, type, **kw):
+        self.__dict__.update(kw)
+        self.type = type
+
 class EventTest:
     """Somewhat odd event dispatcher for asynchronous tests.
 
@@ -81,9 +106,12 @@ class EventTest:
 
         if self.verbose:
             print 'got event:'
+            print '- type: %s' % event.type
 
-            for item in event:
-                print '- %s' % pprint.pformat(item)
+            for key in dir(event):
+                if key != 'type' and not key.startswith('_'):
+                    print '- %s: %s' % (
+                        key, pprint.pformat(getattr(event, key)))
 
         try:
             ret = self.queue[0](event, self.data)
@@ -148,10 +176,10 @@ def call_async(test, proxy, method, *args, **kw):
     resulting method return/error."""
 
     def reply_func(*ret):
-        test.handle_event(('dbus-return', method) + ret)
+        test.handle_event(Event('dbus-return', method=method, value=ret))
 
     def error_func(err):
-        test.handle_event(('dbus-error', method, err))
+        test.handle_event(Event('dbus-error', method=method, error=err))
 
     method_proxy = getattr(proxy, method)
     kw.update({'reply_handler': reply_func, 'error_handler': error_func})
@@ -159,37 +187,36 @@ def call_async(test, proxy, method, *args, **kw):
 
 
 def create_test(name, proto, params):
-    test = {}
-
-    test['bus'] = dbus.SessionBus()
-    test['cm'] = test['bus'].get_object(
+    test = EventTest()
+    bus = dbus.SessionBus()
+    cm = bus.get_object(
         tp_name_prefix + '.ConnectionManager.%s' % name,
         tp_path_prefix + '/ConnectionManager/%s' % name)
-    test['cm_iface'] = dbus.Interface(test['cm'],
-        tp_name_prefix + '.ConnectionManager')
+    cm_iface = dbus.Interface(cm, tp_name_prefix + '.ConnectionManager')
 
-    connection_name, connection_path = test['cm_iface'].RequestConnection(
+    connection_name, connection_path = cm_iface.RequestConnection(
         proto, params)
-    test['conn'] = test['cm']._bus.get_object(connection_name, connection_path)
+    conn = bus.get_object(connection_name, connection_path)
+    conn_iface = dbus.Interface(conn, tp_name_prefix + '.Connection')
 
-    test['conn_iface'] = dbus.Interface(test['conn'], tp_name_prefix + '.Connection')
+    for name in ('bus', 'cm', 'cm_iface', 'conn', 'conn_iface'):
+        test.data[name] = locals()[name]
 
-    test['handler'] = EventTest()
-
-    test['bus'].add_signal_receiver(
-        handler_function=lambda *args, **kw:
-            test['handler'].handle_event((
-                'dbus-signal', unwrap(kw['path']), kw['member'],
-                map(unwrap, args))),
-
-        named_service=test['cm']._named_service,
+    bus.add_signal_receiver(
+        lambda *args, **kw:
+            test.handle_event(
+                Event('dbus-signal',
+                    path=unwrap(kw['path'])[len(tp_path_prefix):],
+                    signal=kw['member'], args=map(unwrap, args))),
+        None,       # signal name
+        None,       # interface
+        cm._named_service,
         path_keyword='path',
-        member_keyword='member'
+        member_keyword='member',
+        byte_arrays=True
         )
 
-    test['handler'].data = test
-    test['test'] = test
-    return test['handler']
+    return test
 
 
 def run_test(handler):

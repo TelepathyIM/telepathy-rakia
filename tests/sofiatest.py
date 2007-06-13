@@ -35,9 +35,9 @@ def go(register_cb, params=None):
     if params is not None:
         default_params.update(params)
 
-    test = servicetest.create_test('sofiasip', 'sip', default_params)
-    test.data['sip'] = SipProxy()
-    reactor.listenUDP(9090, test.data['sip'])
-    test.data['sip'].registrar_handler = register_cb
-    servicetest.run_test(test)
+    handler = servicetest.create_test('sofiasip', 'sip', default_params)
+    handler.data['sip'] = SipProxy()
+    reactor.listenUDP(9090, handler.data['sip'])
+    handler.data['sip'].registrar_handler = register_cb
+    servicetest.run_test(handler)
 

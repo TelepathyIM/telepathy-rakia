@@ -1,21 +1,14 @@
-from servicetest import unwrap
+from servicetest import unwrap, match
 from sofiatest import go
 
 import dbus
 
+@match('dbus-signal', signal='StatusChanged', args=[1, 1])
 def expect_connecting(event, data):
-    if event[2] != 'StatusChanged':
-        return False
-
-    assert event[3][0] == 1
     return True
 
+@match('dbus-signal', signal='StatusChanged', args=[0, 1])
 def expect_connected(event, data):
-    if event[2] != 'StatusChanged':
-        return False
-
-    assert event[3][0] == 0
-
     tests = [
         ('test', 'sip:test@127.0.0.1'),
         ('+123 / 45-67-89', 'sip:+123/45-67-89@127.0.0.1'),
@@ -36,14 +29,11 @@ def expect_connected(event, data):
             print a, b
             raise Exception("test failed")
 
-    data['conn'].Disconnect()
+    data['conn_iface'].Disconnect()
     return True
 
+@match('dbus-signal', signal='StatusChanged', args=[2, 1])
 def expect_disconnected(event, data):    
-    if event[2] != 'StatusChanged':
-        return False
-        
-    assert event[3][0] == 2
     return True
 
 def register_cb(message, host, port):
