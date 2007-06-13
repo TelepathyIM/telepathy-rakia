@@ -476,7 +476,7 @@ priv_stun_discover_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
   if (NULL != ans)
     {
       DEBUG ("Discovery got STUN server %s : %u",
-          ans->sr_srv->srv_target, priv->stun_port);
+          ans->sr_srv->srv_target, ans->sr_srv->srv_port);
       priv->stun_port = ans->sr_srv->srv_port;
       sip_conn_resolv_stun_server (conn, ans->sr_srv->srv_target);
     }
