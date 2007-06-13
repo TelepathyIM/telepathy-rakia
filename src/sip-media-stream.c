@@ -1184,8 +1184,12 @@ static void push_remote_codecs (SIPMediaStream *stream)
 static void push_remote_candidates (SIPMediaStream *stream)
 {
   SIPMediaStreamPrivate *priv;
-  GValue transport = { 0, };
+  GValue candidate = { 0 };
+  GValue transport = { 0 };
+  GPtrArray *candidates;
   GPtrArray *transports;
+  GType candidate_type;
+  GType candidates_type;
   GType transport_type;
   GType transports_type;
   const sdp_media_t *media;
@@ -1206,7 +1210,7 @@ static void push_remote_candidates (SIPMediaStream *stream)
 
   if (!priv->ready_received)
     {
-      DEBUG("the stream engine is not ready, AddRemoteCandidate is pending");
+      DEBUG("the stream engine is not ready, SetRemoteCandidateList is pending");
       priv->push_remote_requested = TRUE;
       return;
     }
@@ -1219,12 +1223,9 @@ static void push_remote_candidates (SIPMediaStream *stream)
   port = (guint) media->m_port;
 
   transport_type = sip_tp_transport_struct_type ();
-
   g_value_init (&transport, transport_type);
-
   g_value_take_boxed (&transport,
                       dbus_g_type_specialized_construct (transport_type));
-
   dbus_g_type_struct_set (&transport,
                           0, 0,         /* component number */
                           1, sdp_conn->c_address,
@@ -1241,20 +1242,32 @@ static void push_remote_candidates (SIPMediaStream *stream)
   DEBUG("remote address=<%s>, port=<%u>", sdp_conn->c_address, port);
 
   transports_type = sip_tp_transport_list_type ();
-
   transports = dbus_g_type_specialized_construct (transports_type);
   g_ptr_array_add (transports, g_value_get_boxed (&transport));
 
-  /* TODO: save the old candidate ID until the session change is committed */
   g_free (priv->remote_candidate_id);
   candidate_id = g_strdup_printf ("L%u", ++priv->remote_candidate_counter);
   priv->remote_candidate_id = candidate_id;
 
-  DEBUG("emitting AddRemoteCandidate for %s", candidate_id);
+  candidate_type = sip_tp_candidate_struct_type ();
+  g_value_init (&candidate, candidate_type);
+  g_value_take_boxed (&candidate,
+                      dbus_g_type_specialized_construct (candidate_type));
+  dbus_g_type_struct_set (&candidate,
+      0, candidate_id,
+      1, transports,
+      G_MAXUINT);
 
-  tp_svc_media_stream_handler_emit_add_remote_candidate (
-          (TpSvcMediaStreamHandler *)stream, candidate_id, transports);
+  candidates_type = sip_tp_candidate_list_type ();
+  candidates = dbus_g_type_specialized_construct (candidates_type);
+  g_ptr_array_add (candidates, g_value_get_boxed (&candidate));
 
+  DEBUG("emitting SetRemoteCandidateList with %s", candidate_id);
+
+  tp_svc_media_stream_handler_emit_set_remote_candidate_list (
+          (TpSvcMediaStreamHandler *)stream, candidates);
+
+  g_boxed_free (candidates_type, candidates);
   g_boxed_free (transports_type, transports);
 
 #if 0
