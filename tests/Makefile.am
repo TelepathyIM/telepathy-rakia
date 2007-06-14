@@ -2,7 +2,8 @@ TESTS =
 TWISTED_TESTS = \
     test-register.py \
     test-register-fail.py \
-    test-handle-normalisation.py
+    test-handle-normalisation.py \
+    test-message.py
 
 _check-twisted:
 	$(MAKE) check TESTS="$(TWISTED_TESTS)" TESTS_ENVIRONMENT=python

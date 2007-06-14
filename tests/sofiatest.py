@@ -23,6 +23,13 @@ class SipProxy(sip.RegisterProxy):
             else:
                 self.unauthorized(message, host, port)
 
+    def handle_request(self, message, addr):
+        if message.method == 'REGISTER':
+            return sip.RegisterProxy.handle_request(self, message, addr)
+        if message.method == 'MESSAGE':
+            self.test_handler.handle_event(servicetest.Event('sip-message',
+                uri=str(message.uri), headers=message.headers, body=message.body,
+                sip_message=message))
 
 
 def go(register_cb, params=None):
@@ -37,6 +44,7 @@ def go(register_cb, params=None):
 
     handler = servicetest.create_test('sofiasip', 'sip', default_params)
     handler.data['sip'] = SipProxy()
+    handler.data['sip'].test_handler = handler
     reactor.listenUDP(9090, handler.data['sip'])
     handler.data['sip'].registrar_handler = register_cb
     servicetest.run_test(handler)
