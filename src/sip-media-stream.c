@@ -387,7 +387,7 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
 
   param_spec = g_param_spec_uint ("pending-send-flags", "Pending send flags",
                                   "Flags indicating the current "
-                                        "pending state of the stream",
+                                        "pending send state of the stream",
                                   0,
                                   TP_MEDIA_STREAM_PENDING_LOCAL_SEND
                                         | TP_MEDIA_STREAM_PENDING_REMOTE_SEND,
