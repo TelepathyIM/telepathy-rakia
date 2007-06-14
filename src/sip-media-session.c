@@ -784,7 +784,7 @@ priv_add_stream_list_entry (GPtrArray *list,
   g_object_get (stream,
                 "id", &id,
                 "media-type", &type,
-                /* XXX: add to sip-stream -> "connection-state", &connection_state, */
+                "state", &connection_state,
                 "direction", &direction,
                 "pending-send-flags", &pending_send_flags,
                 NULL);

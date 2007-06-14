@@ -71,6 +71,7 @@ enum
   PROP_OBJECT_PATH,
   PROP_ID,
   PROP_MEDIA_TYPE,
+  PROP_STATE,
   PROP_DIRECTION,
   PROP_PENDING_SEND_FLAGS,
   LAST_PROPERTY
@@ -85,6 +86,7 @@ struct _SIPMediaStreamPrivate
   gchar *object_path;             /** see gobj. prop. 'object-path' */
   guint id;                       /** see gobj. prop. 'id' */
   guint media_type;               /** see gobj. prop. 'media-type' */
+  guint state;                    /** see gobj. prop. 'state' */
   guint direction;                /** see gobj. prop. 'direction' */
   guint pending_send_flags;       /** see gobj. prop. 'pending-send-flags' */
 
@@ -243,6 +245,9 @@ sip_media_stream_get_property (GObject    *object,
     case PROP_MEDIA_TYPE:
       g_value_set_uint (value, priv->media_type);
       break;
+    case PROP_STATE:
+      g_value_set_uint (value, priv->state);
+      break;
     case PROP_DIRECTION:
       g_value_set_uint (value, priv->direction);
       break;
@@ -277,6 +282,9 @@ sip_media_stream_set_property (GObject      *object,
       break;
     case PROP_MEDIA_TYPE:
       priv->media_type = g_value_get_uint (value);
+      break;
+    case PROP_STATE:
+      priv->state = g_value_get_uint (value);
       break;
     case PROP_DIRECTION:
       priv->direction = g_value_get_uint (value);
@@ -352,6 +360,18 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
 
   /* We don't change the following two as individual properties
    * after construction, use sip_media_stream_set_direction() */
+
+  param_spec = g_param_spec_uint ("state", "Connection state",
+                                  "Connection state of the media stream",
+                                  TP_MEDIA_STREAM_STATE_DISCONNECTED,
+                                  TP_MEDIA_STREAM_STATE_CONNECTED,
+                                  TP_MEDIA_STREAM_STATE_DISCONNECTED,
+                                  G_PARAM_READWRITE |
+                                  G_PARAM_STATIC_NAME |
+                                  G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class,
+                                   PROP_STATE,
+                                   param_spec);
 
   param_spec = g_param_spec_uint ("direction", "Stream direction",
                                   "A value indicating the current "
@@ -736,12 +756,14 @@ sip_media_stream_stream_state (TpSvcMediaStreamHandler *iface,
 
   SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
   SIPMediaStreamPrivate *priv;
-
-  g_assert (SIP_IS_MEDIA_STREAM (obj));
-
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
-  g_signal_emit (obj, signals[SIG_STATE_CHANGED], 0, state);
+  if (priv->state != state)
+    {
+      DEBUG("changing stream state from %u to %u", priv->state, state);
+      priv->state = state;
+      g_signal_emit (obj, signals[SIG_STATE_CHANGED], 0, state);
+    }
 
   tp_svc_media_stream_handler_return_from_stream_state (context);
 }
@@ -1060,18 +1082,6 @@ sip_media_stream_stop_telephony_event  (SIPMediaStream *self)
   tp_svc_media_stream_handler_emit_stop_telephony_event (
         (TpSvcMediaStreamHandler *)self);
 }
-
-#if 0
-static void priv_session_stream_state_changed_cb (SIPMediaSession *session,
-						  GParamSpec *arg1,
-						  SIPMediaStream *stream)
-{
-  SIPMediaSessionState state;
-
-  g_object_get (session, "state", &state, NULL);
-  g_debug ("stream state cb: session js-state to %d.", state);
-}
-#endif
 
 static void priv_generate_sdp (SIPMediaStream *obj)
 {
