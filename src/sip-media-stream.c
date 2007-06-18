@@ -627,7 +627,6 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
   SIPMediaStreamPrivate *priv;
-  SIPMediaSessionState state;
   GPtrArray *candidates;
   GValue candidate = { 0, };
 
@@ -635,21 +634,12 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
-  g_object_get (priv->session, "state", &state, NULL);
-
-  /* FIXME: maybe this should be an assertion in case the channel
-   * isn't closed early enough right now? */
-  if (state > SIP_MEDIA_SESSION_STATE_ACTIVE) {
-    g_debug ("%s: state > SIP_MEDIA_SESSION_STATE_ACTIVE, doing nothing", G_STRFUNC);
-    tp_svc_media_stream_handler_return_from_new_native_candidate (context);
-    return;
-  }
-
-  if (priv->sdp_generated == TRUE) {
-    g_debug ("%s: SDP for stream already generated, ignoring candidate '%s'", G_STRFUNC, candidate_id);
+  if (priv->sdp_generated)
+    {
+      g_message ("Stream %u: SDP already generated, ignoring candidate '%s'", priv->id, candidate_id);
       tp_svc_media_stream_handler_return_from_new_native_candidate (context);
       return;
-  }
+    }
 
   g_free (priv->native_candidate_id);
   priv->native_candidate_id = g_strdup (candidate_id);
