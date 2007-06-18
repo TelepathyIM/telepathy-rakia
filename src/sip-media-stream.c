@@ -1092,7 +1092,6 @@ sip_media_stream_stop_telephony_event  (SIPMediaStream *self)
 static void priv_generate_sdp (SIPMediaStream *obj)
 {
   SIPMediaStreamPrivate *priv;
-  GPtrArray *codecs;
 
   g_assert (SIP_IS_MEDIA_STREAM (obj));
 
@@ -1102,7 +1101,6 @@ static void priv_generate_sdp (SIPMediaStream *obj)
 
   priv->sdp_generated = TRUE;
 
-  codecs = g_value_get_boxed (&priv->native_codecs);
   g_signal_emit (obj, signals[SIG_READY], 0);
 }
 
