@@ -471,7 +471,8 @@ priv_i_invite (int status,
 
   if (nh_magic == SIP_NH_EXPIRED)
     {
-      g_message ("ignoring incoming invite on a destroyed media channel");
+      g_message ("incoming INVITE for a destroyed media channel");
+      nua_respond (nh, 481, "Call Does Not Exist", TAG_END());
       return;
     }
 
@@ -493,8 +494,8 @@ priv_i_invite (int status,
 
     if (!handle)
       {
-        g_warning ("Got an incoming INVITE with invalid sender information");
-        /* XXX: respond with the bad news? */
+        g_message ("incoming INVITE with invalid sender information");
+        nua_respond (nh, 400, "Invalid From address", TAG_END());
         return;
       }
 
@@ -512,7 +513,10 @@ priv_i_invite (int status,
         sip_media_channel_receive_invite (channel, nh, handle);
       }
     else
-      g_warning ("Creation of SIP media channel failed");
+      {
+        g_warning ("creation of SIP media channel failed");
+        nua_respond (nh, 500, sip_500_Internal_server_error, TAG_END());
+      }
 
     tp_handle_unref (contact_repo, handle);
   }
