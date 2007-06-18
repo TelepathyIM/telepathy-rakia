@@ -1054,7 +1054,6 @@ sip_media_stream_set_direction (SIPMediaStream *stream,
 gboolean sip_media_stream_is_ready (SIPMediaStream *self)
 {
   SIPMediaStreamPrivate *priv;
-  g_assert (SIP_IS_MEDIA_STREAM (self));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
   g_assert (!priv->sdp_generated || priv->ready_received);
   return priv->sdp_generated;
