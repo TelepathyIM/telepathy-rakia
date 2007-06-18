@@ -327,9 +327,9 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
 
 static void
 sip_media_channel_get_property (GObject    *object,
-                                   guint       property_id,
-                                   GValue     *value,
-                                   GParamSpec *pspec)
+                                guint       property_id,
+                                GValue     *value,
+                                GParamSpec *pspec)
 {
   SIPMediaChannel *chan = SIP_MEDIA_CHANNEL (object);
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (chan);

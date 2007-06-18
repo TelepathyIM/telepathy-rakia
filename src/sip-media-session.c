@@ -416,7 +416,7 @@ sip_media_session_finalize (GObject *object)
     SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
     if (stream != NULL)
       {
-        g_warning ("Stream %u (%p) left over, reaping", i, stream);
+        g_warning ("stream %u (%p) left over, reaping", i, stream);
         g_object_unref (stream);
       }
   }
@@ -697,7 +697,7 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
   /* The Sofia stack ought to make sure we get only updated sessions */
   g_assert (sdp_session_cmp (priv->remote_sdp, sdp));
 
-  /* Delete a backup session structure */
+  /* Delete a backup session structure, if any */
   if (priv->backup_remote_sdp != NULL)
     {
       priv->backup_remote_sdp = NULL;
@@ -776,7 +776,7 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
 
   if (!has_supported_media)
     {
-      g_warning ("No supported media in the session, aborting.");
+      g_warning ("no supported media in the session, aborting");
       res = FALSE;
     }
 
@@ -1346,7 +1346,6 @@ priv_stream_close_cb (SIPMediaStream *stream,
 
   DEBUG("enter");
 
-  g_assert (SIP_IS_MEDIA_SESSION (session));
   priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   id = sip_media_stream_get_id (stream);
