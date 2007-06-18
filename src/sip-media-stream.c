@@ -667,14 +667,9 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   SESSION_DEBUG(priv->session, "put 1 native candidate from stream-engine into cache");
 
-  push_active_candidate_pair (obj);
+  if (priv->native_codecs_prepared)
+    priv_generate_sdp (obj);
 
-  if (candidates->len > 1 &&
-      priv->native_codecs_prepared == TRUE &&
-      priv->sdp_generated != TRUE) {
-    priv_generate_sdp(obj);
-  }
-  
   tp_svc_media_stream_handler_return_from_new_native_candidate (context);
 }
 
@@ -717,10 +712,8 @@ sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
   g_value_copy (&val, &priv->native_codecs);
 
   priv->native_codecs_prepared = TRUE;
-  if (priv->native_cands_prepared == TRUE &&
-      priv->sdp_generated != TRUE) {
-    priv_generate_sdp(obj);
-  }
+  if (priv->native_cands_prepared)
+    priv_generate_sdp (obj);
 
   if (priv->push_remote_requested) {
     push_remote_candidates (obj);
@@ -1089,19 +1082,19 @@ sip_media_stream_stop_telephony_event  (SIPMediaStream *self)
         (TpSvcMediaStreamHandler *)self);
 }
 
-static void priv_generate_sdp (SIPMediaStream *obj)
+static void
+priv_generate_sdp (SIPMediaStream *self)
 {
-  SIPMediaStreamPrivate *priv;
+  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
 
-  g_assert (SIP_IS_MEDIA_STREAM (obj));
+  if (priv->sdp_generated)
+    return;
 
-  priv_update_local_sdp (obj);
-
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv_update_local_sdp (self);
 
   priv->sdp_generated = TRUE;
 
-  g_signal_emit (obj, signals[SIG_READY], 0);
+  g_signal_emit (self, signals[SIG_READY], 0);
 }
 
 /**
