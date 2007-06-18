@@ -554,9 +554,11 @@ sip_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
   
   priv->native_cands_prepared = TRUE;
-  if (priv->native_codecs_prepared == TRUE) {
-    priv_generate_sdp(obj);
-  }
+
+  push_active_candidate_pair (obj);
+
+  if (priv->native_codecs_prepared)
+    priv_generate_sdp (obj);
 
   tp_svc_media_stream_handler_return_from_native_candidates_prepared (context);
 }
