@@ -863,9 +863,14 @@ sip_tp_stream_direction_from_remote (sdp_mode_t mode)
  * Note that the pointer to the media description structure is saved,
  * implying that the structure shall not go away for the lifetime of
  * the stream, preferably kept in the memory home attached to
- * the session object. 
+ * the session object.
+ *
+ * @return 1 if the remote information has been updated and a matching
+ *           from the stream engine is pending,
+ *         0 if no changes in remote media description have been detected,
+ *         a negative value if the update is not acceptable. 
  */
-gboolean
+gint
 sip_media_stream_set_remote_info (SIPMediaStream *stream,
                                   const sdp_media_t *new_media)
 {
@@ -882,25 +887,25 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
 
   /* Do sanity checks */
 
-  g_return_val_if_fail (new_media != NULL, FALSE);
+  g_return_val_if_fail (new_media != NULL, -1);
 
   if (new_media->m_rejected || new_media->m_port == 0)
     {
       DEBUG("the stream is rejected remotely");
-      return FALSE;
+      return -1;
     }
 
   if (new_media->m_proto != sdp_proto_rtp)
     {
-      g_warning ("The remote protocol is not RTP/AVP");
-      return FALSE;
+      g_warning ("Stream %u: the remote protocol is not RTP/AVP", priv->id);
+      return -1;
     }
 
   sdp_conn = sdp_media_connections (new_media);
   if (sdp_conn == NULL)
     {
-      g_warning ("No valid remote connections, unable to configure stream engine for sending.");
-      return FALSE;
+      g_warning ("Stream %u: no valid remote connections", priv->id);
+      return -1;
     }
 
   /* Check if there was any media update at all */
@@ -910,7 +915,7 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
   if (sdp_media_cmp (old_media, new_media) == 0)
     {
       DEBUG("no media changes detected for the stream");
-      return TRUE;
+      return 0;
     }
 
   /* Check in particular if the transport candidate needs to be changed */
@@ -956,9 +961,10 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
   push_active_candidate_pair (stream);
 
   /* Set the final direction and sending status */
+  /* XXX: don't set to sending until the incoming call session is accepted */
   sip_media_stream_set_direction (stream, new_direction, 0);
 
-  return TRUE;
+  return 1;
 }
 
 /**

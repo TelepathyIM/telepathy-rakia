@@ -39,6 +39,7 @@
 #include "sip-media-session.h"
 #include "sip-media-channel.h"
 #include "sip-media-stream.h"
+#include "sip-connection-helpers.h"
 #include "telepathy-helpers.h"
 
 #define DEBUG_FLAG SIP_DEBUG_MEDIA
@@ -81,18 +82,22 @@ static guint signals[SIG_LAST_SIGNAL] = {0};
 
 /**
  * StreamEngine session states:
- * - pending-created, objects created, local cand/codec query ongoing
- * - pending-initiated, 'Ready' signal received
- * - active, remote codecs delivered to StreamEngine (note,
+ * - created, objects created, local cand/codec query ongoing
+ * - invite-sent, an INVITE with local SDP sent, awaiting response
+ * - invite-received, a remote INVITE received, response is pending
+ * - active, codecs and candidate pairs have been negotiated (note,
  *   SteamEngine might still fail to verify connectivity and report
  *   an error)
+ * - reinvite-received, a remote re-INVITE received, response is pending
  * - ended, session has ended
  */
 static const char* session_states[] =
 {
-    "pending-created",
-    "pending-initiated",
+    "created",
+    "invite-sent",
+    "invite-received",
     "active",
+    "reinvite-received",
     "ended"
 };
 
@@ -110,6 +115,9 @@ struct _SIPMediaSessionPrivate
   TpHandle initiator;                   /** see gobj. prop. 'initator' */
   TpHandle peer;                        /** see gobj. prop. 'peer' */
   SIPMediaSessionState state;           /** see gobj. prop. 'state' */
+  nua_saved_event_t saved_event[1];     /** Saved incoming request event */
+  gint local_non_ready;                 /** number of streams with local information update pending */
+  gint remote_non_ready;                /** number of streams with remote information update pending */
   guint timer_id;
   su_home_t *home;                      /** Sofia memory home for remote SDP session structure */
   su_home_t *backup_home;               /** Sofia memory home for previous generation remote SDP session*/
@@ -132,16 +140,22 @@ static void sip_media_session_set_property (GObject      *object,
 					    guint         property_id,
 					    const GValue *value,
 					    GParamSpec   *pspec);
+
+static void sip_media_session_set_state (SIPMediaSession *session,
+                                         SIPMediaSessionState prev_state);
 static gboolean priv_timeout_session (gpointer data);
 static SIPMediaStream* priv_create_media_stream (SIPMediaSession *session, guint media_type);
 
-static void priv_offer_answer_step (SIPMediaSession *session);
+static void priv_request_response_step (SIPMediaSession *session);
+
+static void priv_save_event (SIPMediaSession *self);
+static void priv_zap_event (SIPMediaSession *self);
 
 static void sip_media_session_init (SIPMediaSession *obj)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (obj);
 
-  g_debug ("%s called", G_STRFUNC);
+  priv->state = SIP_MEDIA_SESSION_STATE_CREATED;
 
   /* allocate any data required by the object here */
   priv->streams = g_ptr_array_new ();
@@ -158,8 +172,6 @@ sip_media_session_constructor (GType type, guint n_props,
   obj = G_OBJECT_CLASS (sip_media_session_parent_class)->
            constructor (type, n_props, props);
   priv = SIP_MEDIA_SESSION_GET_PRIVATE (SIP_MEDIA_SESSION (obj));
-
-  priv->state = SIP_MEDIA_SESSION_STATE_PENDING_CREATED;
 
   /* note: session is always created to either create a new outbound
    *       request for a media channel, or to respond to an incoming 
@@ -223,10 +235,6 @@ static void sip_media_session_get_property (GObject    *object,
   }
 }
 
-static void priv_session_state_changed (SIPMediaSession *session,
-					SIPMediaSessionState prev_state,
-					SIPMediaSessionState new_state);
-
 static void sip_media_session_set_property (GObject      *object,
 					    guint         property_id,
 					    const GValue *value,
@@ -234,7 +242,6 @@ static void sip_media_session_set_property (GObject      *object,
 {
   SIPMediaSession *session = SIP_MEDIA_SESSION (object);
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  SIPMediaSessionState prev_state;
 
   switch (property_id) {
     case PROP_MEDIA_CHANNEL:
@@ -262,12 +269,7 @@ static void sip_media_session_set_property (GObject      *object,
       priv->peer = g_value_get_uint (value);
       break;
     case PROP_STATE:
-      prev_state = priv->state;
-      priv->state = g_value_get_uint (value);
-
-      if (priv->state != prev_state)
-        priv_session_state_changed (session, prev_state, priv->state);
-
+      sip_media_session_set_state (session, g_value_get_uint (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -418,8 +420,9 @@ sip_media_session_finalize (GObject *object)
         g_object_unref (stream);
       }
   }
-
   g_ptr_array_free(priv->streams, TRUE);
+
+  priv_zap_event (self);
 
   if (priv->home != NULL)
     su_home_unref (priv->home);
@@ -524,27 +527,44 @@ sip_media_session_get_peer (SIPMediaSession *session)
   return priv->peer;
 }
 
-static void priv_session_state_changed (SIPMediaSession *session,
-					SIPMediaSessionState prev_state,
-					SIPMediaSessionState new_state)
+static void
+sip_media_session_set_state (SIPMediaSession *session,
+                             SIPMediaSessionState new_state)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
+  if (priv->state == new_state)
+    return;
+
   SESSION_DEBUG(session, "state changed from %s to %s",
-                session_states[prev_state],
+                session_states[priv->state],
                 session_states[new_state]);
 
-  if (new_state == SIP_MEDIA_SESSION_STATE_PENDING_INITIATED)
+  priv->state = new_state;
+
+  switch (new_state)
     {
+    case SIP_MEDIA_SESSION_STATE_CREATED:
+      break;
+    case SIP_MEDIA_SESSION_STATE_ENDED:
+      /* TODO: hide sip_media_session_terminate() under this case */
+      break;
+    case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+    case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
       priv->timer_id =
         g_timeout_add (DEFAULT_SESSION_TIMEOUT, priv_timeout_session, session);
-    }
-  else if (new_state == SIP_MEDIA_SESSION_STATE_ACTIVE)
-    {
-      if (priv->timer_id) {
-	g_source_remove (priv->timer_id);
-	priv->timer_id = 0;
-      }
+      break;
+    case SIP_MEDIA_SESSION_STATE_ACTIVE:
+      if (priv->timer_id)
+        {
+	  g_source_remove (priv->timer_id);
+	  priv->timer_id = 0;
+        }
+      break;
+
+    /* Don't add default because we want to be warned by the compiler
+     * about unhandled states */
     }
 }
 
@@ -576,25 +596,24 @@ sip_media_session_debug (SIPMediaSession *session,
 static gboolean priv_timeout_session (gpointer data)
 {
   SIPMediaSession *session = data;
-  TpIntSet *set;
-  TpHandle peer;
+  SIPMediaSessionPrivate *priv;
 
   DEBUG("session timed out");
-  if (session)
+
+  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session); 
+
+  if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_SENT)
     {
-      SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session); 
-
-      peer = sip_media_session_get_peer (session);
-
+      TpIntSet *set;
       set = tp_intset_new ();
-      tp_intset_add (set, peer);
+      tp_intset_add (set, sip_media_session_get_peer (session));
       tp_group_mixin_change_members ((GObject *)priv->channel, "Timed out",
                                      NULL, set, NULL, NULL, 0,
                                      TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER);
       tp_intset_destroy (set);
-
-      sip_media_session_terminate (session);
     }
+
+  sip_media_session_terminate (session);
 
   return FALSE;
 }
@@ -620,14 +639,41 @@ void sip_media_session_terminate (SIPMediaSession *session)
 
   if (priv->nua_op != NULL)
     {
-      if (priv->state == SIP_MEDIA_SESSION_STATE_PENDING_INITIATED ||
-          priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE)
+      g_assert (nua_handle_magic (priv->nua_op) == priv->channel);
+
+      switch (priv->state)
         {
-          DEBUG("sending SIP BYE (handle %p)", priv->nua_op);
+        case SIP_MEDIA_SESSION_STATE_ACTIVE:
+          DEBUG("sending BYE");
           nua_bye (priv->nua_op, TAG_END());
+          break;
+        case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+          DEBUG("sending CANCEL");
+          nua_cancel (priv->nua_op, TAG_END());
+          break;
+        case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+          DEBUG("sending the 480 response to an incoming INVITE");
+          nua_respond (priv->nua_op, 480, "Terminated", TAG_END());
+          break;
+        case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+          DEBUG("sending the 480 response to an incoming re-INVITE");
+          {
+            msg_t *msg;
+
+            msg = (priv->saved_event[0])
+                        ? nua_saved_event_request (priv->saved_event) : NULL;
+                
+            nua_respond (priv->nua_op, 480, "Terminated",
+                         TAG_IF(msg, NUTAG_WITH(msg)),
+                         TAG_END());
+          }
+          DEBUG("sending BYE to terminate the call itself");
+          nua_bye (priv->nua_op, TAG_END());
+          break;
+        default:
+          /* let the Sofia stack decide what do to */;
         }
 
-      g_assert (nua_handle_magic (priv->nua_op) == priv->channel);
       nua_handle_bind (priv->nua_op, NULL);
       nua_handle_unref (priv->nua_op);
       priv->nua_op = NULL;
@@ -642,12 +688,13 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
   const sdp_media_t *media;
-  guint supported_media_cnt = 0;
+  gboolean has_supported_media = FALSE;
   guint i;
   gboolean res = TRUE;
 
   DEBUG ("enter");
 
+  /* The Sofia stack ought to make sure we get only updated sessions */
   g_assert (sdp_session_cmp (priv->remote_sdp, sdp));
 
   /* Delete a backup session structure */
@@ -672,6 +719,8 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
   priv->home = su_home_create ();
   priv->remote_sdp = sdp_session_dup (priv->home, sdp);
   g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
+
+  g_assert (priv->remote_non_ready == 0);
 
   media = priv->remote_sdp->sdp_media;
 
@@ -706,10 +755,15 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
           /* XXX: close this stream and create a new one in its place? */
           g_warning ("The peer has changed the media type, don't know what to do");
         }
-      else if (sip_media_stream_set_remote_info (stream, media))
+      else
         {
-          ++supported_media_cnt;
-          goto next_media;
+          gint update_res = sip_media_stream_set_remote_info (stream, media);
+          if (update_res >= 0)
+            {
+              priv->remote_non_ready += update_res; 
+              has_supported_media = TRUE;
+              goto next_media;
+            }
         }
 
       /* There have been problems with the stream update, kill the stream */
@@ -720,7 +774,7 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
       media = media->m_next;
     }
 
-  if (supported_media_cnt == 0)
+  if (!has_supported_media)
     {
       g_warning ("No supported media in the session, aborting.");
       res = FALSE;
@@ -744,9 +798,6 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
         }
       while (++i < priv->streams->len);
     }
-
-  /* XXX: hmm, this is not the correct place really */
-  g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ACTIVE, NULL);
 
   DEBUG ("exit");
 
@@ -856,6 +907,65 @@ gboolean sip_media_session_list_streams (SIPMediaSession *session,
   return TRUE;
 }
 
+static void
+priv_save_event (SIPMediaSession *self)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  SIPConnection *conn = NULL;
+
+  priv_zap_event (self);
+
+  g_object_get (priv->channel, "connection", &conn, NULL);
+
+  g_return_if_fail (conn != NULL);
+
+  sip_conn_save_event (conn, priv->saved_event);
+
+#ifdef ENABLE_DEBUG
+  {
+    nua_event_data_t const *ev_data = nua_event_data (priv->saved_event);
+    g_assert (ev_data != NULL);
+    DEBUG("saved the last event: %s %hd %s", nua_event_name (ev_data->e_event), ev_data->e_status, ev_data->e_phrase);
+  }
+#endif
+}
+
+static void
+priv_zap_event (SIPMediaSession *self)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+
+  if (priv->saved_event[0])
+    {
+      nua_event_data_t const *ev_data = nua_event_data (priv->saved_event);
+      g_assert (ev_data != NULL);
+      g_warning ("zapping unhandled saved event '%s'", nua_event_name (ev_data->e_event));
+      nua_destroy_event (priv->saved_event);
+    }
+}
+
+void
+sip_media_session_receive_invite (SIPMediaSession *self)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+
+  g_return_if_fail (priv->state == SIP_MEDIA_SESSION_STATE_CREATED);  
+
+  g_object_set (self, "state", SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED, NULL);
+}
+
+void
+sip_media_session_receive_reinvite (SIPMediaSession *self)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+
+  g_return_if_fail (priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE);  
+
+  priv_save_event (self);
+
+  g_object_set (self, "state", SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED, NULL);
+}
+
 void sip_media_session_accept (SIPMediaSession *self)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
@@ -867,7 +977,7 @@ void sip_media_session_accept (SIPMediaSession *self)
 
   priv->accepted = TRUE;
 
-  priv_offer_answer_step (self);
+  priv_request_response_step (self);
 }
 
 void
@@ -982,24 +1092,190 @@ static void priv_session_media_state (SIPMediaSession *session, gboolean playing
   }
 }
 
-/**
- * Sends an outbound offer/answer if all streams of the session
- * are prepared.
- * 
- * Following inputs are considered in decision making:
- *  - status of local streams (set up with stream-engine)
- *  - whether session is locally accepted
- *  - whether we are the initiator or not
- *  - whether an offer/answer step is pending (either initial,
- *    or a requested update to the session state)  
- */
-static void priv_offer_answer_step (SIPMediaSession *session)
+static void
+priv_session_rollback (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  msg_t *msg;
+
+  DEBUG("enter");
+
+  /* FIXME: implement */
+  g_assert_not_reached();
+
+  /* TODO: call some reduced routine extracted from
+   * sip_media_session_set_remote_info() to restore
+   * the backup remote media state */
+
+  msg = (priv->saved_event[0])
+        ? nua_saved_event_request (priv->saved_event) : NULL;
+
+  nua_respond (priv->nua_op, 488, sip_488_Not_acceptable,
+               TAG_IF(msg, NUTAG_WITH(msg)),
+               TAG_END());
+
+  if (priv->saved_event[0])
+    nua_destroy_event (priv->saved_event);
+
+  g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ACTIVE, NULL);
+}
+
+static gboolean
+priv_session_local_sdp (SIPMediaSession *session, GString *user_sdp)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  gboolean has_supported_media = FALSE;
   guint i;
-  gint non_ready_streams = 0;
+
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
+      if (stream)
+        {
+          user_sdp = g_string_append (user_sdp,
+                                      sip_media_stream_local_sdp (stream));
+          has_supported_media = TRUE;
+        }
+      else
+        { 
+          user_sdp = g_string_append (user_sdp, "m=unknown 0 -/-");
+        }
+    }
+
+  return has_supported_media;
+}
+
+static void
+priv_session_invite (SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  GString *user_sdp;
+
+  g_return_if_fail (priv->nua_op != NULL);
+
+  user_sdp = g_string_new (NULL);
+
+  if (priv_session_local_sdp (session, user_sdp))
+    {
+      nua_invite (priv->nua_op,
+                  SOATAG_USER_SDP_STR(user_sdp->str),
+                  NUTAG_AUTOANSWER(0),
+                  TAG_END());
+      g_object_set (session,
+                    "state", SIP_MEDIA_SESSION_STATE_INVITE_SENT,
+                    NULL);
+    }
+  else
+    g_warning ("cannot send a valid SDP answer, are there no streams?");
+
+  g_string_free (user_sdp, TRUE);
+}
+
+static void
+priv_session_respond (SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  GString *user_sdp;
+
+  g_return_if_fail (priv->nua_op != NULL);
+
+  user_sdp = g_string_new (NULL);
+
+  if (priv_session_local_sdp (session, user_sdp))
+    {
+      msg_t *msg;
+
+      msg = (priv->saved_event[0])
+                ? nua_saved_event_request (priv->saved_event) : NULL;
+
+      DEBUG("answering with SDP: {\n%s}", user_sdp->str);
+
+      nua_respond (priv->nua_op, 200, sip_200_OK,
+                   TAG_IF(msg, NUTAG_WITH(msg)),
+                   SOATAG_USER_SDP_STR (user_sdp->str),
+                   SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
+                   SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
+                   NUTAG_AUTOANSWER(0),
+                   TAG_END());
+
+      if (priv->saved_event[0])
+        nua_destroy_event (priv->saved_event);
+
+      g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ACTIVE, NULL);
+    }
+  else
+    {
+      g_warning ("cannot respond with a valid SDP answer, were all streams closed?");
+
+      priv_session_rollback (session);
+    }
+
+  g_string_free (user_sdp, TRUE);
+}
+
+/**
+ * Sends requests and responses with an outbound offer/answer
+ * if all streams of the session are prepared.
+ * 
+ * Following inputs are considered in decision making:
+ *  - state of the session (is remote INVITE being handled)  
+ *  - status of local streams (set up with stream-engine)
+ *  - whether session is locally accepted
+ */
+static void
+priv_request_response_step (SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   DEBUG ("enter");
+
+  switch (priv->state)
+    {
+    case SIP_MEDIA_SESSION_STATE_CREATED:
+      if (priv->local_non_ready == 0)
+        {
+          /* note:  we need to be prepared to receive media right after the
+           *       offer is sent, so we must set state to playing */
+          priv_session_media_state (session, TRUE);
+
+          priv_session_invite (session);
+        }
+      break;
+    case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+      if (priv->remote_non_ready == 0)
+        {
+          g_assert (priv->local_non_ready == 0);
+          g_object_set (session,
+                        "state", SIP_MEDIA_SESSION_STATE_ACTIVE,
+                        NULL);
+        }
+      break;
+    case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+      /* TODO: if the call has not yet been accepted locally
+       * and the remote endpoint supports 100rel, send them
+       * an early session answer in a reliable 183 response */
+      if (priv->accepted
+          && priv->remote_non_ready == 0
+          && priv->local_non_ready == 0)
+        {
+          priv_session_respond (session);
+
+          /* note: we have accepted the call, set state to playing */ 
+          priv_session_media_state (session, TRUE);
+        }
+      break;
+    case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+      if (priv->remote_non_ready == 0
+          && priv->local_non_ready == 0)
+        priv_session_respond (session);
+      break;
+    default:
+      g_assert_not_reached ();
+    }
+
+#if 0
+  guint i;
+  gint non_ready_streams = 0;
 
   /* step: check status of streams */
   for (i = 0; i < priv->streams->len; i++) {
@@ -1058,6 +1334,7 @@ static void priv_offer_answer_step (SIPMediaSession *session)
           g_warning ("Unable to answer to the incoming INVITE, request handle not available");
       }
   }
+#endif
 }
 
 static void
@@ -1075,6 +1352,12 @@ priv_stream_close_cb (SIPMediaStream *stream,
   id = sip_media_stream_get_id (stream);
   g_return_if_fail (g_ptr_array_index(priv->streams, id) == stream);
 
+  if (!sip_media_stream_is_ready (stream))
+    {
+      g_assert (priv->local_non_ready > 0);
+      --priv->local_non_ready;
+    }
+
   g_object_unref (stream);
 
   g_ptr_array_index(priv->streams, id) = NULL;
@@ -1085,15 +1368,14 @@ static void priv_stream_ready_cb (SIPMediaStream *stream,
 {
   SIPMediaSessionPrivate *priv;
 
-  g_assert (SIP_IS_MEDIA_SESSION (session));
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
- 
   DEBUG ("enter");
 
-  if (priv->state < SIP_MEDIA_SESSION_STATE_PENDING_INITIATED)
-    g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_PENDING_INITIATED, NULL);
+  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  priv_offer_answer_step (session);
+  g_assert (priv->local_non_ready > 0);
+  --priv->local_non_ready;
+
+  priv_request_response_step (session);
 }
 
 static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
@@ -1106,13 +1388,36 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
 
   priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  if (priv->initiator != priv->peer)
+  g_assert (priv->remote_non_ready > 0);
+  --priv->remote_non_ready;
+
+  if (num_codecs == 0)
     {
-      SESSION_DEBUG(session,
-                    "session not initiated by peer so we're "
-                    "not preparing an accept message");
-      return;
+      /* This remote media description got no codec intersection. */
+      switch (priv->state)
+        {
+        case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+        case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+          /* No initial codec intersection, drop the stream. */
+          sip_media_stream_close (stream);
+          break;
+        case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+          /* In this case, we have the stream negotiated already,
+           * and we don't want to close it just because the remote party
+           * offers a different set of codecs.
+           * Roll back the whole session to the previously negotiated state. */
+          priv_session_rollback (session);
+          return;
+        case SIP_MEDIA_SESSION_STATE_ACTIVE:
+          /* This must come as a result of a rollback done in the
+           * SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED case above */
+          return;
+        default:
+          g_assert_not_reached();
+        }
     }
+
+  priv_request_response_step (session);
 }
 
 static void
@@ -1181,6 +1486,9 @@ static SIPMediaStream* priv_create_media_stream (SIPMediaSession *self, guint me
     g_signal_connect (stream, "direction-changed",
                       (GCallback) priv_stream_direction_changed_cb,
                       priv->channel);
+
+    g_assert (priv->local_non_ready >= 0);
+    ++priv->local_non_ready;
 
     if (priv->se_ready == TRUE) {
       priv_emit_new_stream (self, stream);

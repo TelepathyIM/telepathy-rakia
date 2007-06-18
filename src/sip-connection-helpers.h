@@ -47,7 +47,20 @@ void sip_conn_update_stun_server (SIPConnection *conn);
 void sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server);
 void sip_conn_discover_stun_server (SIPConnection *conn);
 
-gchar *sip_conn_normalize_uri (SIPConnection *conn, const gchar *sipuri, GError **error);
+/***********************************************************************
+ * Functions for saving NUA events
+ ***********************************************************************/
+
+void sip_conn_save_event (SIPConnection *conn,
+                          nua_saved_event_t ret_saved [1]);
+
+/***********************************************************************
+ * SIP URI helpers *
+ ***********************************************************************/
+
+gchar * sip_conn_normalize_uri (SIPConnection *conn,
+                                const gchar *sipuri,
+                                GError **error);
 gchar * sip_conn_domain_from_uri (const gchar *str);
 
 G_END_DECLS

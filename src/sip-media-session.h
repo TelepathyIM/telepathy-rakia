@@ -27,9 +27,11 @@
 G_BEGIN_DECLS
 
 typedef enum {
-    SIP_MEDIA_SESSION_STATE_PENDING_CREATED = 0,
-    SIP_MEDIA_SESSION_STATE_PENDING_INITIATED,
+    SIP_MEDIA_SESSION_STATE_CREATED = 0,
+    SIP_MEDIA_SESSION_STATE_INVITE_SENT,
+    SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED,
     SIP_MEDIA_SESSION_STATE_ACTIVE,
+    SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
     SIP_MEDIA_SESSION_STATE_ENDED
 } SIPMediaSessionState;
 
@@ -78,6 +80,8 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
 					    GError **error);
 gboolean sip_media_session_list_streams (SIPMediaSession *session,
 					 GPtrArray **ret);
+void sip_media_session_receive_invite (SIPMediaSession *self);
+void sip_media_session_receive_reinvite (SIPMediaSession *self);
 void sip_media_session_accept (SIPMediaSession *self);
 void sip_media_session_reject (SIPMediaSession *self,
                                gint status,

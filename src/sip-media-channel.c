@@ -777,12 +777,13 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
  ***********************************************************************/
 
 /**
- * Invite the given handle to this channel
+ * Handle an incoming INVITE, normally called just after the channel
+ * has been created.
  */
 void
-sip_media_channel_respond_to_invite (SIPMediaChannel *self, 
-                                     nua_handle_t *nh,
-                                     TpHandle handle)
+sip_media_channel_receive_invite (SIPMediaChannel *self, 
+                                  nua_handle_t *nh,
+                                  TpHandle handle)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
@@ -816,6 +817,8 @@ sip_media_channel_respond_to_invite (SIPMediaChannel *self,
        *       with the tp-0.13 API, the streams need to be created
        *       based on remote SDP (see sip_media_session_set_remote_info()) */
     }
+  else
+    g_warning ("session already exists");
 
   /* XXX: should be attached more data than just the handle? 
    * - yes, we need to be able to access all the <op,handle> pairs */
@@ -825,6 +828,19 @@ sip_media_channel_respond_to_invite (SIPMediaChannel *self,
   tp_intset_add (set, mixin->self_handle);
   tp_group_mixin_change_members (obj, "", NULL, NULL, set, NULL, 0, 0);
   tp_intset_destroy (set);
+}
+
+/**
+ * Handle an incoming re-INVITE request.
+ */
+void
+sip_media_channel_receive_reinvite (SIPMediaChannel *self)
+{
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  g_return_if_fail (priv->session != NULL);
+
+  sip_media_session_receive_reinvite (priv->session);
 }
 
 gboolean
@@ -1029,6 +1045,9 @@ priv_create_session (SIPMediaChannel *channel,
 
   /* keep a list of media session ids */
   sip_media_factory_session_id_register (priv->factory, sid, channel);
+
+  if (remote_initiated)
+    sip_media_session_receive_invite (session);
 
   tp_svc_channel_interface_media_signalling_emit_new_session_handler (
       (TpSvcChannelInterfaceMediaSignalling *)channel, object_path, "rtp");

@@ -478,7 +478,7 @@ priv_i_invite (int status,
   if (nh_magic != NULL) {
     /* case 1: we already have a channel for this NH */
     channel = SIP_MEDIA_CHANNEL (nh_magic);
-    g_warning ("Got a re-INVITE for NUA handle %p", nh);
+    sip_media_channel_receive_reinvite (channel);
   }
   else {
     /* case 2: we haven't seen this media session before, so we should
@@ -509,7 +509,7 @@ priv_i_invite (int status,
       {
         /* this causes the channel to reference the Telepathy handle, so we can
          * discard our reference afterwards */
-        sip_media_channel_respond_to_invite (channel, nh, handle);
+        sip_media_channel_receive_invite (channel, nh, handle);
       }
     else
       g_warning ("Creation of SIP media channel failed");

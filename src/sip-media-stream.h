@@ -60,8 +60,8 @@ void sip_media_stream_close (SIPMediaStream *self);
 guint sip_media_stream_get_id (SIPMediaStream *self);
 guint sip_media_stream_get_media_type (SIPMediaStream *self);
 const char *sip_media_stream_local_sdp (SIPMediaStream *self);
-gboolean sip_media_stream_set_remote_info (SIPMediaStream *self,
-                                           const sdp_media_t *media);
+gint sip_media_stream_set_remote_info (SIPMediaStream *self,
+                                       const sdp_media_t *media);
 void sip_media_stream_set_playing (SIPMediaStream *self, gboolean playing);
 void sip_media_stream_set_sending (SIPMediaStream *self, gboolean sending);
 void sip_media_stream_set_direction (SIPMediaStream *stream,

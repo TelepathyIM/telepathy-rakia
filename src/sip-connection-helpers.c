@@ -124,6 +124,14 @@ sip_conn_create_request_handle (SIPConnection *conn,
   return result;
 }
 
+void
+sip_conn_save_event (SIPConnection *conn,
+                     nua_saved_event_t ret_saved [1])
+{
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  nua_save_event (priv->sofia_nua, ret_saved);
+}
+
 static GHashTable*
 priv_nua_get_outbound_options (nua_t* nua)
 {

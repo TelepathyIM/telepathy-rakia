@@ -74,9 +74,10 @@ void sip_media_channel_close (SIPMediaChannel *self);
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
-void sip_media_channel_respond_to_invite (SIPMediaChannel *self,
-                                          nua_handle_t *nh,
-					  TpHandle handle);
+void sip_media_channel_receive_invite   (SIPMediaChannel *self,
+                                         nua_handle_t *nh,
+                                         TpHandle handle);
+void sip_media_channel_receive_reinvite (SIPMediaChannel *self);
 gboolean sip_media_channel_set_remote_info (SIPMediaChannel *chan,
                                             const sdp_session_t *r_sdp);
 void sip_media_channel_peer_error (SIPMediaChannel *self,
