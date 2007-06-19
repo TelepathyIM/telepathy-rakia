@@ -116,6 +116,7 @@ struct _SIPMediaSessionPrivate
   nua_saved_event_t saved_event[1];     /** Saved incoming request event */
   gint local_non_ready;                 /** number of streams with local information update pending */
   gint remote_non_ready;                /** number of streams with remote information update pending */
+  guint catcher_id;
   guint timer_id;
   su_home_t *home;                      /** Sofia memory home for remote SDP session structure */
   su_home_t *backup_home;               /** Sofia memory home for previous generation remote SDP session*/
@@ -140,6 +141,7 @@ static void sip_media_session_set_property (GObject      *object,
 
 static void priv_session_state_changed (SIPMediaSession *session,
                                         SIPMediaSessionState prev_state);
+static gboolean priv_catch_remote_nonupdate (gpointer data);
 static gboolean priv_timeout_session (gpointer data);
 static SIPMediaStream* priv_create_media_stream (SIPMediaSession *session, guint media_type);
 
@@ -360,6 +362,9 @@ sip_media_session_dispose (GObject *object)
 
   priv->dispose_has_run = TRUE;
 
+  if (priv->catcher_id)
+    g_source_remove (priv->catcher_id);
+
   if (priv->timer_id)
     g_source_remove (priv->timer_id);
 
@@ -525,9 +530,11 @@ priv_session_state_changed (SIPMediaSession *session,
     case SIP_MEDIA_SESSION_STATE_ENDED:
       /* TODO: hide sip_media_session_terminate() under this case */
       break;
-    case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
     case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
     case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+      priv->catcher_id = g_idle_add (priv_catch_remote_nonupdate, session);
+      /* Fall through to the next case */
+    case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
       priv->timer_id =
         g_timeout_add (DEFAULT_SESSION_TIMEOUT, priv_timeout_session, session);
       break;
@@ -568,6 +575,19 @@ sip_media_session_debug (SIPMediaSession *session,
       buf);
 }
 #endif /* ENABLE_DEBUG */
+
+static gboolean
+priv_catch_remote_nonupdate (gpointer data)
+{
+  SIPMediaSession *session = data;
+
+  DEBUG("called");
+
+  /* Should do the right thing if there were no remote media updates */
+  priv_request_response_step (session);
+
+  return FALSE;
+}
 
 static gboolean priv_timeout_session (gpointer data)
 {
@@ -672,6 +692,13 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
 
   /* The Sofia stack ought to make sure we get only updated sessions */
   g_assert (sdp_session_cmp (priv->remote_sdp, sdp));
+
+  /* Remove the non-update catcher because we've got an update */
+  if (priv->catcher_id)
+    {
+      g_source_remove (priv->catcher_id);
+      priv->catcher_id = 0;
+    }
 
   /* Delete a backup session structure, if any */
   if (priv->backup_remote_sdp != NULL)
