@@ -355,9 +355,12 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
   SIPConnection *conn = SIP_CONNECTION (ctx);
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
 
-  if ((NULL != answers) && (NULL != answers[0]) && (0 == answers[0]->sr_record->r_status))
+  if ((NULL != answers) && (NULL != answers[0]) &&
+      (0 == answers[0]->sr_record->r_status) && (sres_type_a == answers[0]->sr_record->r_type))
     sip_conn_set_stun_server_address (conn,
                                       inet_ntoa (answers[0]->sr_a->a_addr));
+  else
+    g_debug ("Couldn't resolv STUN server address, ignoring.");
 
   sres_free_answers (priv->sofia_resolver, answers);
 }
