@@ -630,12 +630,8 @@ priv_i_state (int status,
 
   switch ((enum nua_callstate)ss_state) {
   case nua_callstate_received:
-    /* In auto-alert mode, we don't need to call nua_respond(), see NUTAG_AUTOALERT() */
-    nua_respond(nh, SIP_180_RINGING, TAG_END());
-    break;
-
   case nua_callstate_early:
-    /* nua_respond(nh, SIP_200_OK, TAG_END()); */
+    break;
     
   case nua_callstate_completing:
     /* In auto-ack mode, we don't need to call nua_ack(), see NUTAG_AUTOACK() */

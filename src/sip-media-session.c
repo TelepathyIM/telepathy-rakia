@@ -956,6 +956,9 @@ sip_media_session_receive_invite (SIPMediaSession *self)
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
 
   g_return_if_fail (priv->state == SIP_MEDIA_SESSION_STATE_CREATED);  
+  g_return_if_fail (priv->nua_op != NULL);
+
+  nua_respond (priv->nua_op, SIP_180_RINGING, TAG_END());
 
   g_object_set (self, "state", SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED, NULL);
 }
