@@ -936,6 +936,8 @@ priv_save_event (SIPMediaSession *self)
 
   sip_conn_save_event (conn, priv->saved_event);
 
+  g_object_unref (conn);
+
 #ifdef ENABLE_DEBUG
   {
     nua_event_data_t const *ev_data = nua_event_data (priv->saved_event);
