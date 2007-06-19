@@ -138,8 +138,8 @@ static void sip_media_session_set_property (GObject      *object,
 					    const GValue *value,
 					    GParamSpec   *pspec);
 
-static void sip_media_session_set_state (SIPMediaSession *session,
-                                         SIPMediaSessionState prev_state);
+static void priv_session_state_changed (SIPMediaSession *session,
+                                        SIPMediaSessionState prev_state);
 static gboolean priv_timeout_session (gpointer data);
 static SIPMediaStream* priv_create_media_stream (SIPMediaSession *session, guint media_type);
 
@@ -255,7 +255,7 @@ static void sip_media_session_set_property (GObject      *object,
       priv->peer = g_value_get_uint (value);
       break;
     case PROP_STATE:
-      sip_media_session_set_state (session, g_value_get_uint (value));
+      priv_session_state_changed (session, g_value_get_uint (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -504,8 +504,8 @@ sip_media_session_get_peer (SIPMediaSession *session)
 }
 
 static void
-sip_media_session_set_state (SIPMediaSession *session,
-                             SIPMediaSessionState new_state)
+priv_session_state_changed (SIPMediaSession *session,
+                            SIPMediaSessionState new_state)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
