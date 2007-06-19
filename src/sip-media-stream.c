@@ -91,8 +91,7 @@ struct _SIPMediaStreamPrivate
   guint pending_send_flags;       /** see gobj. prop. 'pending-send-flags' */
 
   gchar *stream_sdp;              /** SDP description of the stream */
-  
-  gboolean sdp_generated;
+
   gboolean ready_received;        /** our ready method has been called */
   gboolean native_cands_prepared; /** all candidates discovered */
   gboolean native_codecs_prepared; /** all codecs discovered */
@@ -634,7 +633,7 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
-  if (priv->sdp_generated)
+  if (priv->stream_sdp != NULL)
     {
       g_message ("Stream %u: SDP already generated, ignoring candidate '%s'", priv->id, candidate_id);
       tp_svc_media_stream_handler_return_from_new_native_candidate (context);
@@ -820,14 +819,7 @@ sip_media_stream_close (SIPMediaStream *self)
 const char *sip_media_stream_local_sdp (SIPMediaStream *obj)
 {
   SIPMediaStreamPrivate *priv;
-  g_assert (SIP_IS_MEDIA_STREAM (obj));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
-
-  if (priv->sdp_generated != TRUE) {
-    g_warning ("Stream not in ready state, cannot describe SDP.");
-    return NULL;
-  }
-
   return priv->stream_sdp;
 }
 
@@ -1055,8 +1047,8 @@ gboolean sip_media_stream_is_ready (SIPMediaStream *self)
 {
   SIPMediaStreamPrivate *priv;
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
-  g_assert (!priv->sdp_generated || priv->ready_received);
-  return priv->sdp_generated;
+  g_assert (priv->stream_sdp == NULL || priv->ready_received);
+  return (priv->stream_sdp != NULL);
 }
 
 void
@@ -1078,12 +1070,12 @@ priv_generate_sdp (SIPMediaStream *self)
 {
   SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
 
-  if (priv->sdp_generated)
+  if (priv->stream_sdp != NULL)
     return;
 
   priv_update_local_sdp (self);
 
-  priv->sdp_generated = TRUE;
+  g_assert (priv->stream_sdp != NULL);
 
   g_signal_emit (self, signals[SIG_READY], 0);
 }
