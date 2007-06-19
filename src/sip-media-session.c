@@ -583,6 +583,10 @@ priv_catch_remote_nonupdate (gpointer data)
 
   DEBUG("called");
 
+  /* Accordingly to the last experimental data, non-modifying INVITEs
+   * cause the stack to emit nua_i_state nonetheless */
+  g_assert_not_reached();
+
   /* TODO: figure out what happens in the 3pcc scenario when we get
    * an INVITE but no session offer */
 
@@ -693,14 +697,19 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
 
   DEBUG ("enter");
 
-  /* The Sofia stack ought to make sure we get only updated sessions */
-  g_assert (sdp_session_cmp (priv->remote_sdp, sdp));
-
   /* Remove the non-update catcher because we've got an update */
   if (priv->catcher_id)
     {
       g_source_remove (priv->catcher_id);
       priv->catcher_id = 0;
+    }
+
+  /* Handle session non-updates */
+  if (!sdp_session_cmp (priv->remote_sdp, sdp))
+    {
+      /* Should do the proper response etc. */
+      priv_request_response_step (session);
+      return res;
     }
 
   /* Delete a backup session structure, if any */
