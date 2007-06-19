@@ -1008,7 +1008,6 @@ priv_create_session (SIPMediaChannel *channel,
   SIPMediaSession *session;
   gchar *object_path;
   const gchar *sid = NULL;
-  TpHandle initiator;
 
   DEBUG("enter");
 
@@ -1020,19 +1019,16 @@ priv_create_session (SIPMediaChannel *channel,
 
   object_path = g_strdup_printf ("%s/MediaSession%u", priv->object_path, peer);
 
-  initiator = (remote_initiated)? peer : conn->self_handle; 
-
   /* allocate a hash-entry for the new media session */
   sid = sip_media_factory_session_id_allocate (priv->factory);
 
-  DEBUG("allocating session, initiator=%u, peer=%u.", initiator, peer);
+  DEBUG("allocating session, peer=%u.", peer);
 
   session = g_object_new (SIP_TYPE_MEDIA_SESSION,
                           "media-channel", channel,
                           "object-path", object_path,
                           "nua-handle", nh,
                           "session-id", sid,
-                          "initiator", initiator,
                           "peer", peer,
                           NULL);
 

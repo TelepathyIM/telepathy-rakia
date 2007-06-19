@@ -70,7 +70,6 @@ enum
   PROP_OBJECT_PATH,
   PROP_NUA_OP,
   PROP_SESSION_ID,
-  PROP_INITIATOR,
   PROP_PEER,
   PROP_STATE,
   LAST_PROPERTY
@@ -112,7 +111,6 @@ struct _SIPMediaSessionPrivate
   gchar *object_path;                   /** see gobj. prop. 'object-path' */
   nua_handle_t *nua_op;                 /** see gobj. prop. 'nua-handle' */
   gchar *id;                            /** see gobj. prop. 'session-id' */
-  TpHandle initiator;                   /** see gobj. prop. 'initator' */
   TpHandle peer;                        /** see gobj. prop. 'peer' */
   SIPMediaSessionState state;           /** see gobj. prop. 'state' */
   nua_saved_event_t saved_event[1];     /** Saved incoming request event */
@@ -220,9 +218,6 @@ static void sip_media_session_get_property (GObject    *object,
     case PROP_SESSION_ID:
       g_value_set_string (value, priv->id);
       break;
-    case PROP_INITIATOR:
-      g_value_set_uint (value, priv->initiator);
-      break;
     case PROP_PEER:
       g_value_set_uint (value, priv->peer);
       break;
@@ -261,9 +256,6 @@ static void sip_media_session_set_property (GObject      *object,
     case PROP_SESSION_ID:
       g_free (priv->id);
       priv->id = g_value_dup_string (value);
-      break;
-    case PROP_INITIATOR:
-      priv->initiator = g_value_get_uint (value);
       break;
     case PROP_PEER:
       priv->peer = g_value_get_uint (value);
@@ -334,16 +326,6 @@ sip_media_session_class_init (SIPMediaSessionClass *sip_media_session_class)
                                     G_PARAM_STATIC_NAME |
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_SESSION_ID, param_spec);
-
-  param_spec = g_param_spec_uint ("initiator", "Session initiator",
-                                  "The TpHandle representing the contact "
-                                  "who initiated the session.",
-                                  0, G_MAXUINT32, 0,
-                                  G_PARAM_CONSTRUCT_ONLY |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_INITIATOR, param_spec);
 
   param_spec = g_param_spec_uint ("peer", "Session peer",
                                   "The TpHandle representing the contact "
