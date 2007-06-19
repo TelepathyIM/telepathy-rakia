@@ -989,14 +989,10 @@ static void priv_session_stream_added_cb (SIPMediaSession *session,
 }
 
 /**
- * create_session
+ * priv_create_session:
  *
  * Creates a SIPMediaSession object for given peer.
- *
- * If "remoteurl" is set to NULL, a unique session identifier is 
- * generated and the "initiator" property of the newly created
- * SIPMediaSession is set to our own handle.
- */
+ **/
 static void
 priv_create_session (SIPMediaChannel *channel,
                      nua_handle_t *nh,
