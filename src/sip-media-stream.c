@@ -635,7 +635,7 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   if (priv->stream_sdp != NULL)
     {
-      g_message ("Stream %u: SDP already generated, ignoring candidate '%s'", priv->id, candidate_id);
+      g_message ("Stream %u: SDP already generated, ignoring native candidate '%s'", priv->id, candidate_id);
       tp_svc_media_stream_handler_return_from_new_native_candidate (context);
       return;
     }
@@ -656,7 +656,7 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   g_ptr_array_add (candidates, g_value_get_boxed (&candidate));
 
-  SESSION_DEBUG(priv->session, "put 1 native candidate from stream-engine into cache");
+  SESSION_DEBUG(priv->session, "put native candidate '%s' from stream-engine into cache", candidate_id);
 
   if (priv->native_codecs_prepared)
     priv_generate_sdp (obj);
