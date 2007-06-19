@@ -1179,6 +1179,8 @@ priv_session_invite (SIPMediaSession *session)
     {
       nua_invite (priv->nua_op,
                   SOATAG_USER_SDP_STR(user_sdp->str),
+                  SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
+                  SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
                   NUTAG_AUTOANSWER(0),
                   TAG_END());
       g_object_set (session,
