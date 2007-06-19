@@ -122,7 +122,6 @@ struct _SIPMediaSessionPrivate
   sdp_session_t *remote_sdp;            /** last received remote session */
   sdp_session_t *backup_remote_sdp;     /** previous remote session */
   gboolean accepted;                    /**< session has been locally accepted for use */
-  gboolean oa_pending;                  /**< offer/answer waiting to be sent */
   gboolean se_ready;                    /**< connection established with stream-engine */
   gboolean dispose_has_run;
   GPtrArray *streams;
@@ -170,11 +169,6 @@ sip_media_session_constructor (GType type, guint n_props,
   obj = G_OBJECT_CLASS (sip_media_session_parent_class)->
            constructor (type, n_props, props);
   priv = SIP_MEDIA_SESSION_GET_PRIVATE (SIP_MEDIA_SESSION (obj));
-
-  /* note: session is always created to either create a new outbound
-   *       request for a media channel, or to respond to an incoming 
-   *       request ... thus oa_pending is TRUE at start */
-  priv->oa_pending = TRUE;
 
   if (priv->nua_op)
     {
