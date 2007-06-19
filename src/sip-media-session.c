@@ -56,8 +56,6 @@ G_DEFINE_TYPE_WITH_CODE(SIPMediaSession,
 
 #define DEFAULT_SESSION_TIMEOUT 50000
 
-#define SIP_MEDIA_SESSION_EXPIRES 120
-
 /* signal enum */
 enum
 {
@@ -1219,8 +1217,6 @@ priv_session_respond (SIPMediaSession *session)
                    SOATAG_USER_SDP_STR (user_sdp->str),
                    SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
                    SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
-                   NUTAG_SESSION_TIMER(SIP_MEDIA_SESSION_EXPIRES),
-                   NUTAG_SESSION_REFRESHER(nua_remote_refresher),
                    NUTAG_AUTOANSWER(0),
                    TAG_END());
 
