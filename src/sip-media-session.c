@@ -1188,7 +1188,7 @@ priv_session_invite (SIPMediaSession *session)
                     NULL);
     }
   else
-    g_warning ("cannot send a valid SDP answer, are there no streams?");
+    g_warning ("cannot send a valid SDP offer, are there no streams?");
 
   g_string_free (user_sdp, TRUE);
 }
