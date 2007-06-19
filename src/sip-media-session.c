@@ -1254,69 +1254,6 @@ priv_request_response_step (SIPMediaSession *session)
     default:
       g_assert_not_reached ();
     }
-
-#if 0
-  guint i;
-  gint non_ready_streams = 0;
-
-  /* step: check status of streams */
-  for (i = 0; i < priv->streams->len; i++) {
-    SIPMediaStream *stream = g_ptr_array_index(priv->streams, i);
-    if (stream &&
-	sip_media_stream_is_ready (stream) != TRUE)
-      ++non_ready_streams;
-  }
-
-  /* step: if all stream are ready, send an offer/answer */
-  if (non_ready_streams == 0 &&
-      priv->oa_pending) {
-    GString *user_sdp = g_string_sized_new (0);
-
-    for (i = 0; i < priv->streams->len; i++) {
-      SIPMediaStream *stream = g_ptr_array_index(priv->streams, i);
-      if (stream)
-	user_sdp = g_string_append (user_sdp, sip_media_stream_local_sdp(stream));
-      else 
-	user_sdp = g_string_append (user_sdp, "m=unknown 0 -/-");
-    }
-
-    /* send an offer if the session was initiated by us */
-    if (priv->initiator != priv->peer)
-      {
-        g_return_if_fail (priv->nua_op != NULL);
-
-	/* note:  we need to be prepared to receive media right after the
-	 *       offer is sent, so we must set state to playing */
-	priv_session_media_state (session, TRUE);
-
-	nua_invite (priv->nua_op,
-		    SOATAG_USER_SDP_STR(user_sdp->str),
-		    TAG_END());
-
-	priv->oa_pending = FALSE;
-      }
-    /* note: only send a reply if session is locally accepted */
-    else if (priv->accepted == TRUE)
-      {
-        if (priv->nua_op)
-          {
-            DEBUG("Answering with SDP: {\n%s}", user_sdp->str);
-            nua_respond (priv->nua_op, 200, sip_200_OK,
-                         SOATAG_USER_SDP_STR (user_sdp->str),
-                         SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
-                         SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
-                         TAG_END());
-
-            priv->oa_pending = FALSE;
-
-            /* note: we have accepted the call, set state to playing */ 
-            priv_session_media_state (session, TRUE);
-          }
-        else
-          g_warning ("Unable to answer to the incoming INVITE, request handle not available");
-      }
-  }
-#endif
 }
 
 static void
