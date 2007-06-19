@@ -583,6 +583,9 @@ priv_catch_remote_nonupdate (gpointer data)
 
   DEBUG("called");
 
+  /* TODO: figure out what happens in the 3pcc scenario when we get
+   * an INVITE but no session offer */
+
   /* Should do the right thing if there were no remote media updates */
   priv_request_response_step (session);
 
