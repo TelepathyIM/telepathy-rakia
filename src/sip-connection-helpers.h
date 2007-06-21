@@ -63,10 +63,6 @@ gchar * sip_conn_normalize_uri (SIPConnection *conn,
                                 GError **error);
 gchar * sip_conn_domain_from_uri (const gchar *str);
 
-gchar * sip_conn_convert_to_utf8 (const char *original,
-                                  size_t length,
-                                  const char *charset);
-
 G_END_DECLS
 
 #endif /* #ifndef __SIP_CONNECTION_HELPERS_H__*/

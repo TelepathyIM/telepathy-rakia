@@ -551,22 +551,16 @@ priv_i_message (int status,
       const char *charset = NULL;
       if (sip->sip_content_type && sip->sip_content_type->c_params != 0)
         {
-          int i;
-          for (i = 0; sip->sip_content_type->c_params[i]; i++)
-            {
-              if (!strncmp ("charset=", sip->sip_content_type->c_params[i], 8))
-                {
-                  charset = sip->sip_content_type->c_params[i] + 8;
-                  break;
-                }
-            }
+          charset = msg_params_find (sip->sip_content_type->c_params, "charset=");
         }
 
       /* Default charset is UTF-8, we only need to convert if it's a different one */
-      if (charset && g_strcasecmp (charset, "UTF-8"))
+      if (charset && g_ascii_strcasecmp (charset, "UTF-8"))
         {
-          text = sip_conn_convert_to_utf8 (sip->sip_payload->pl_data,
-              sip->sip_payload->pl_len, charset);
+          gsize in_len, out_len;
+          text = g_convert (sip->sip_payload->pl_data, sip->sip_payload->pl_len,
+              "UTF-8", charset, &in_len, &out_len, NULL);
+
           if (NULL == text)
             {
               /* XXX: respond with the bad news? */
