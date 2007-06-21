@@ -24,7 +24,6 @@
 
 #include "sip-connection-sofia.h"
 #include "sip-connection-private.h"
-#include "sip-connection-helpers.h"
 #include "media-factory.h"
 #include "text-factory.h"
 
