@@ -887,12 +887,7 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
   TpHandle peer;
   guint reason = TP_CHANNEL_GROUP_CHANGE_REASON_ERROR;
  
-  DEBUG("enter");
-
-  g_message ("%s: peer responded with error %u %s",
-	     G_STRFUNC,
-	     status,
-	     message);
+  DEBUG("peer responded with error %u %s", status, message);
 
   g_return_if_fail (priv->session != NULL);
 
