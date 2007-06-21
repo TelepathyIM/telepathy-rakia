@@ -540,7 +540,9 @@ priv_i_message (int status,
   /* Block anything else except text/plain messages (like isComposings) */
   if (sip->sip_content_type && (strcmp("text/plain", sip->sip_content_type->c_type)))
     {
-      /* XXX: respond with the bad news? */
+      nua_respond (nh, SIP_415_UNSUPPORTED_MEDIA,
+                   SIPTAG_ACCEPT_STR("text/plain"),
+                   TAG_END());
       return;
     }
 
@@ -556,13 +558,22 @@ priv_i_message (int status,
       /* Default charset is UTF-8, we only need to convert if it's a different one */
       if (charset && g_ascii_strcasecmp (charset, "UTF-8"))
         {
+          GError *error;
           gsize in_len, out_len;
           text = g_convert (sip->sip_payload->pl_data, sip->sip_payload->pl_len,
-              "UTF-8", charset, &in_len, &out_len, NULL);
+              "UTF-8", charset, &in_len, &out_len, &error);
 
-          if ((NULL == text) || (in_len != sip->sip_payload->pl_len))
+          if (text == NULL)
             {
-              /* XXX: respond with the bad news? */
+              nua_respond (nh, 500, error->message, TAG_END());
+              g_error_free (error);
+              return;
+            }
+          if (in_len != sip->sip_payload->pl_len)
+            {
+              nua_respond (nh, 400, "Incomplete character sequence at the "
+                                    "end of the message body",
+                           TAG_END());
               return;
             }
         }
@@ -602,8 +613,8 @@ priv_i_message (int status,
     }
   else
     {
-      /* XXX: respond with the bad news? */
       g_warning ("Incoming message has invalid sender information, ignoring it");
+      nua_respond (nh, 400, "Invalid From address", TAG_END());
     }
 
   g_free (text);
