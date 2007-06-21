@@ -561,7 +561,7 @@ priv_i_message (int status,
           text = g_convert (sip->sip_payload->pl_data, sip->sip_payload->pl_len,
               "UTF-8", charset, &in_len, &out_len, NULL);
 
-          if (NULL == text)
+          if ((NULL == text) || (in_len != sip->sip_payload->pl_len))
             {
               /* XXX: respond with the bad news? */
               return;

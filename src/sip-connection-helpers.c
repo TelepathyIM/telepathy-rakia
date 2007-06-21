@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <iconv.h>
 
 #define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <dbus/dbus-glib.h>
@@ -35,7 +34,6 @@
 #include <sofia-sip/sip.h>
 #include <sofia-sip/sip_header.h>
 
-#include "sip-connection-helpers.h"
 #include "sip-connection-private.h"
 
 #define DEBUG_FLAG SIP_DEBUG_CONNECTION
