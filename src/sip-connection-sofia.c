@@ -24,6 +24,7 @@
 
 #include "sip-connection-sofia.h"
 #include "sip-connection-private.h"
+#include "sip-connection-helpers.h"
 #include "media-factory.h"
 #include "text-factory.h"
 
@@ -535,6 +536,7 @@ priv_i_message (int status,
   SIPTextChannel *channel;
   TpHandleRepoIface *contact_repo;
   TpHandle handle;
+  char *text = NULL;
 
   /* Block anything else except text/plain messages (like isComposings) */
   if (sip->sip_content_type && (strcmp("text/plain", sip->sip_content_type->c_type)))
@@ -543,6 +545,45 @@ priv_i_message (int status,
       return;
     }
 
+  /* If there is some text, assure it's in UTF-8 encoding */
+  if (sip->sip_payload && sip->sip_payload->pl_len > 0)
+    {
+      const char *charset = NULL;
+      if (sip->sip_content_type && sip->sip_content_type->c_params != 0)
+        {
+          int i;
+          for (i = 0; sip->sip_content_type->c_params[i]; i++)
+            {
+              if (!strncmp ("charset=", sip->sip_content_type->c_params[i], 8))
+                {
+                  charset = sip->sip_content_type->c_params[i] + 8;
+                  break;
+                }
+            }
+        }
+
+      /* Default charset is UTF-8, we only need to convert if it's a different one */
+      if (charset && g_strcasecmp (charset, "UTF-8"))
+        {
+          text = sip_conn_convert_to_utf8 (sip->sip_payload->pl_data,
+              sip->sip_payload->pl_len, charset);
+          if (NULL == text)
+            {
+              /* XXX: respond with the bad news? */
+              return;
+            }
+        }
+      else
+        {
+          text = g_strndup (sip->sip_payload->pl_data, sip->sip_payload->pl_len);
+        }
+    }
+  else
+    {
+      text = g_strdup ("");
+    }
+
+
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
 
@@ -550,8 +591,6 @@ priv_i_message (int status,
 
   if (handle)
     {
-      char *text;
-
       DEBUG("Got incoming message from <%s>", 
 	    tp_handle_inspect (contact_repo, handle));
 
@@ -564,16 +603,8 @@ priv_i_message (int status,
           g_assert (channel != NULL);
         }
 
-      /* XXX: look into sip->sip_content_type->c_params and try to convert from any non-UTF8 encoding? */
-
-      if (sip->sip_payload && sip->sip_payload->pl_len > 0)
-        text = g_strndup (sip->sip_payload->pl_data, sip->sip_payload->pl_len);
-      else
-        text = g_strdup ("");
-
       sip_text_channel_receive (channel, handle, text);
 
-      g_free (text);
       tp_handle_unref (contact_repo, handle);
     }
   else
@@ -581,6 +612,8 @@ priv_i_message (int status,
       /* XXX: respond with the bad news? */
       g_warning ("Incoming message has invalid sender information, ignoring it");
     }
+
+  g_free (text);
 }
 
 static void

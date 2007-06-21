@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <iconv.h>
 
 #define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <dbus/dbus-glib.h>
@@ -766,5 +767,43 @@ sip_conn_domain_from_uri (const gchar *str)
   domain = g_strdup (url->url_host);
   su_home_deinit (home);
   return domain;
+}
+
+gchar *
+sip_conn_convert_to_utf8 (const char *original, size_t length, const char *charset)
+{
+#define TMP_BUF_LEN 8192
+  unsigned char tmp[TMP_BUF_LEN];
+  char *from, *to;
+  size_t from_len, to_len, ret;
+  GString *str;
+  iconv_t ctx = iconv_open ("UTF-8", charset);
+
+  if (-1 == (int) ctx)
+      return NULL;
+
+  str = g_string_sized_new (length);
+  from = (char *) original;
+  from_len = length;
+
+  while (from_len > 0)
+    {
+      to = (char *) tmp;
+      to_len = TMP_BUF_LEN;
+      memset (to, 0, to_len);
+      ret = iconv (ctx, &from, &from_len, &to, &to_len);
+      g_string_append_len (str, (char *) tmp, TMP_BUF_LEN - to_len);
+      if (ret == (size_t) -1)
+        {
+          if (errno == E2BIG) continue;
+          iconv_close (ctx);
+          g_string_free (str, TRUE);
+          return NULL;
+        }
+    }
+
+  g_string_append_c (str, 0);
+  iconv_close (ctx);
+  return g_string_free (str, FALSE);
 }
 

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from servicetest import unwrap, match, tp_name_prefix
 from sofiatest import go
 
@@ -57,21 +59,7 @@ def expect_message_again(event, data):
 def expect_sent(event, data):
     url = twisted.protocols.sip.parseURL('sip:testacc@127.0.0.1')
     msg = twisted.protocols.sip.Request('MESSAGE', url)
-    msg.body = 'Hi'
-    msg.addHeader('from', '<sip:other.user@somewhere.else.com>;tag=XYZ')
-    msg.addHeader('to', '<sip:user@127.0.0.1>')
-    msg.addHeader('cseq', '42 MESSAGE')
-    msg.addHeader('allow', 'INVITE ACK BYE MESSAGE')
-    msg.addHeader('content-type', 'text/plain')
-    msg.addHeader('content-length', '2')
-    msg.addHeader('call-id', data['prevhdr']['call-id'][0])
-    msg.addHeader('via', 'SIP/2.0/UDP 127.0.0.1;branch=ABCXYZ')
-
-    destVia = twisted.protocols.sip.parseViaHeader(data['prevhdr']['via'][0])
-    host = destVia.received or destVia.host
-    port = destVia.rport or destVia.port or self.PORT
-    destAddr = twisted.protocols.sip.URL(host=host, port=port)
-    data['sip'].sendMessage(destAddr, msg)
+    send_message(data, 'Hi')
     return True
 
 @match('dbus-signal', signal='NewChannel')
@@ -90,6 +78,24 @@ def expect_msg_recv(event, data):
     if event.args[5] != 'Hi':
         return False
 
+    send_message(data, 'ŠĐČĆŽ'.decode('utf-8').encode('windows-1250'), 'windows-1250')
+    return True
+
+# Test conversion from different encodings
+
+@match('dbus-signal', signal='Received')
+def expect_msg_recv_cp1250(event, data):
+    if event.args[5] != 'ŠĐČĆŽ'.decode('utf-8'):
+        return False
+
+    send_message(data, 'こんにちは'.decode('utf-8').encode('EUC-JP'), 'EUC-JP')
+    return True
+
+@match('dbus-signal', signal='Received')
+def expect_msg_recv_euc_jp(event, data):
+    if event.args[5] != 'こんにちは'.decode('utf-8'):
+        return False
+
     data['conn_iface'].Disconnect()
     return True
 
@@ -97,8 +103,33 @@ def expect_msg_recv(event, data):
 def expect_disconnected(event, data):
     return True
 
-
 def register_cb(message, host, port):
+    return True
+
+cseq_num = 1
+def send_message(data, body, encoding=None):
+    global cseq_num
+    cseq_num += 1
+    url = twisted.protocols.sip.parseURL('sip:testacc@127.0.0.1')
+    msg = twisted.protocols.sip.Request('MESSAGE', url)
+    msg.body = body
+    msg.addHeader('from', '<sip:other.user@somewhere.else.com>;tag=XYZ')
+    msg.addHeader('to', '<sip:user@127.0.0.1>')
+    msg.addHeader('cseq', '%d MESSAGE' % cseq_num)
+    msg.addHeader('allow', 'INVITE ACK BYE MESSAGE')
+    if encoding is None:
+        msg.addHeader('content-type', 'text/plain')
+    else:
+        msg.addHeader('content-type', 'text/plain; charset=%s' % encoding)
+    msg.addHeader('content-length', '%d' % len(msg.body))
+    msg.addHeader('call-id', data['prevhdr']['call-id'][0])
+    msg.addHeader('via', 'SIP/2.0/UDP 127.0.0.1;branch=ABCXYZ')
+
+    destVia = twisted.protocols.sip.parseViaHeader(data['prevhdr']['via'][0])
+    host = destVia.received or destVia.host
+    port = destVia.rport or destVia.port or self.PORT
+    destAddr = twisted.protocols.sip.URL(host=host, port=port)
+    data['sip'].sendMessage(destAddr, msg)
     return True
 
 if __name__ == '__main__':
