@@ -613,7 +613,7 @@ priv_i_message (int status,
     }
   else
     {
-      g_warning ("Incoming message has invalid sender information, ignoring it");
+      g_warning ("Incoming message has invalid sender information");
       nua_respond (nh, 400, "Invalid From address", TAG_END());
     }
 
