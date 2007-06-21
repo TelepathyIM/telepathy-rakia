@@ -626,34 +626,35 @@ priv_i_state (int status,
   int ss_state = nua_callstate_init;
   SIPMediaChannel *channel;
 
-  tl_gets(tags, 
-	  NUTAG_CALLSTATE_REF(ss_state),
-	  NUTAG_OFFER_RECV_REF(offer_recv),
-	  NUTAG_ANSWER_RECV_REF(answer_recv),
-	  SOATAG_REMOTE_SDP_REF(r_sdp),
-	  TAG_END());
-
   if (nh_magic == SIP_NH_EXPIRED)
     {
-      g_message ("ignoring state change %03d '%s', received for a "
-          "destroyed media channel", status, phrase);
+      g_message ("state change %03d '%s', received for a "
+          "destroyed media channel, ignored", status, phrase);
       return;
     }
 
-  /* might be NULL */
+  DEBUG("nua_i_state: %03d %s", status, phrase);
+
   channel = nh_magic;
-
-  g_message("sofiasip: nua_state_changed: %03d %s", status, phrase);
-
-  if (r_sdp) {
-    g_return_if_fail(answer_recv || offer_recv);
-    if (channel) {
-      if (!sip_media_channel_set_remote_info (channel, r_sdp))
-        {
-          sip_media_channel_close (channel);
-        }
+  if (channel == NULL)
+    {
+      g_warning ("nua_i_state received for an unknown handle %p, ignored", nh);
+      return;
     }
-  }
+
+  tl_gets(tags,
+          NUTAG_CALLSTATE_REF(ss_state),
+          NUTAG_OFFER_RECV_REF(offer_recv),
+          NUTAG_ANSWER_RECV_REF(answer_recv),
+          SOATAG_REMOTE_SDP_REF(r_sdp),
+          TAG_END());
+
+  if (r_sdp)
+    {
+      g_return_if_fail(answer_recv || offer_recv);
+      if (!sip_media_channel_set_remote_info (channel, r_sdp))
+        sip_media_channel_close (channel);
+    }
 
   switch ((enum nua_callstate)ss_state) {
   case nua_callstate_received:
@@ -665,9 +666,7 @@ priv_i_state (int status,
     break;
 
   case nua_callstate_ready:
-    /* XXX -> note: only print if state has changed */
-    g_message ("sofiasip: call nh=%p is active => '%s'", 
-	       nh, nua_callstate_name (ss_state));
+    DEBUG("call nh=%p is active => '%s'", nh, nua_callstate_name (ss_state));
     break;
 
   case nua_callstate_terminated:
