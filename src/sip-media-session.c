@@ -509,6 +509,21 @@ sip_media_session_get_peer (SIPMediaSession *session)
 }
 
 static void
+priv_close_all_streams (SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  guint i;
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      SIPMediaStream *stream;
+      stream = g_ptr_array_index (priv->streams, i);
+      if (stream != NULL)
+        sip_media_stream_close (stream);
+      g_assert (g_ptr_array_index (priv->streams, i) == NULL);
+    }
+}
+
+static void
 priv_session_state_changed (SIPMediaSession *session,
                             SIPMediaSessionState new_state)
 {
@@ -528,7 +543,14 @@ priv_session_state_changed (SIPMediaSession *session,
     case SIP_MEDIA_SESSION_STATE_CREATED:
       break;
     case SIP_MEDIA_SESSION_STATE_ENDED:
-      /* TODO: hide sip_media_session_terminate() under this case */
+      priv_close_all_streams (session);
+      DEBUG("destroying the NUA handle %p", priv->nua_op);
+      if (priv->nua_op != NULL)
+        {
+          nua_handle_bind (priv->nua_op, SIP_NH_EXPIRED);
+          nua_handle_destroy (priv->nua_op);
+          priv->nua_op = NULL;
+        }
       break;
     case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
     case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
@@ -624,21 +646,13 @@ static gboolean priv_timeout_session (gpointer data)
 void sip_media_session_terminate (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  guint i;
 
   DEBUG ("enter");
 
   if (priv->state == SIP_MEDIA_SESSION_STATE_ENDED)
     return;
 
-  for (i = 0; i < priv->streams->len; i++)
-    {
-      SIPMediaStream *stream;
-      stream = g_ptr_array_index (priv->streams, i);
-      if (stream != NULL)
-        sip_media_stream_close (stream);
-      g_assert (g_ptr_array_index (priv->streams, i) == NULL);
-    }
+  priv_close_all_streams (session);
 
   if (priv->nua_op != NULL)
     {
@@ -676,10 +690,6 @@ void sip_media_session_terminate (SIPMediaSession *session)
         default:
           /* let the Sofia stack decide what do to */;
         }
-
-      nua_handle_bind (priv->nua_op, NULL);
-      nua_handle_unref (priv->nua_op);
-      priv->nua_op = NULL;
     }
 
   g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ENDED, NULL);
