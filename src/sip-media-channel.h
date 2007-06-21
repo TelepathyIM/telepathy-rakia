@@ -74,6 +74,7 @@ void sip_media_channel_close (SIPMediaChannel *self);
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
+void sip_media_channel_terminated (SIPMediaChannel *self);
 void sip_media_channel_receive_invite   (SIPMediaChannel *self,
                                          nua_handle_t *nh,
                                          TpHandle handle);

@@ -526,6 +526,22 @@ sip_media_channel_close (SIPMediaChannel *obj)
   return;
 }
 
+void
+sip_media_channel_terminated (SIPMediaChannel *self)
+{
+  SIPMediaChannelPrivate *priv;
+
+  DEBUG("enter");
+
+  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  if (priv->session)
+    {
+      g_object_set (priv->session,
+                    "state", SIP_MEDIA_SESSION_STATE_ENDED,
+                    NULL);
+    }
+}
 
 /**
  * sip_media_channel_get_channel_type

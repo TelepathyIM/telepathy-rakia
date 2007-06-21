@@ -670,11 +670,11 @@ priv_i_state (int status,
     break;
 
   case nua_callstate_terminated:
-    if (nh) {
-      g_message ("sofiasip: call nh=%p is terminated", nh);
-      if (channel)
-        sip_media_channel_close (channel);
-    }
+    if (nh)
+      {
+        DEBUG("call nh=%p is terminated", nh);
+        sip_media_channel_terminated (channel);
+      }
     break;
 
   default:
