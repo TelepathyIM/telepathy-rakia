@@ -453,7 +453,6 @@ priv_r_message (int status,
     sip_text_channel_emit_message_status (channel, nh, status);
 }
 
-
 static void
 priv_i_invite (int status,
                char const *phrase,
@@ -520,6 +519,30 @@ priv_i_invite (int status,
 
     tp_handle_unref (contact_repo, handle);
   }
+}
+
+static void
+priv_i_cancel (nua_t *nua,
+               SIPConnection *self,
+               nua_handle_t *nh,
+               nua_hmagic_t *nh_magic,
+               sip_t const *sip,
+               tagi_t tags[])
+{
+  if (nh_magic == NULL)
+    {
+      g_message ("nua_i_cancel received for an unknown handle");
+      /* nua_respond (nh, SIP_500_INTERNAL_SERVER_ERROR, TAG_END()); */
+      return;
+    }
+  if (nh_magic == SIP_NH_EXPIRED)
+    {
+      g_message ("CANCEL received for a destroyed media channel");
+      /* nua_respond (nh, 481, "Call Does Not Exist", TAG_END()); */
+      return;
+    }
+
+  sip_media_channel_peer_cancel (SIP_MEDIA_CHANNEL (nh_magic));
 }
 
 static void
@@ -783,7 +806,7 @@ sip_connection_sofia_callback(nua_event_t event,
     break;
 
   case nua_i_cancel:
-    /* self_i_cancel(nua, self, nh, sip, tags); */
+    priv_i_cancel (nua, self, nh, nh_magic, sip, tags);
     break;
 
   case nua_i_error:

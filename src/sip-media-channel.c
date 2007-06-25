@@ -926,6 +926,26 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
   tp_intset_destroy (set);
 }
 
+void
+sip_media_channel_peer_cancel (SIPMediaChannel *self)
+{
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
+  TpIntSet *set;
+  TpHandle peer;
+
+  g_return_if_fail (priv->session != NULL);
+
+  peer = sip_media_session_get_peer (priv->session);
+
+  set = tp_intset_new ();
+  tp_intset_add (set, peer);
+  tp_intset_add (set, mixin->self_handle);
+  tp_group_mixin_change_members ((GObject *) self, "Cancelled",
+      NULL, set, NULL, NULL, peer, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+  tp_intset_destroy (set);
+}
+
 /***********************************************************************
  * Set: Helper functions follow (not based on generated templates)
  ***********************************************************************/

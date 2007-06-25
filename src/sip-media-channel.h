@@ -84,6 +84,7 @@ gboolean sip_media_channel_set_remote_info (SIPMediaChannel *chan,
 void sip_media_channel_peer_error (SIPMediaChannel *self,
                                    guint status,
                                    const char* message);
+void sip_media_channel_peer_cancel (SIPMediaChannel *self);
 
 G_END_DECLS
 
