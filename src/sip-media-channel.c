@@ -172,9 +172,13 @@ sip_media_channel_constructor (GType type, guint n_props,
                        contact_repo,
                        conn->self_handle);
 
-  /* automatically add creator to channel, if defined */
+  /* reference the creator handle and add it to the channel automatically */
   if (priv->creator) {
-    TpIntSet *set = tp_intset_new ();
+    TpIntSet *set;
+
+    tp_handle_ref (contact_repo, priv->creator);
+
+    set = tp_intset_new ();
     tp_intset_add (set, priv->creator);
     tp_group_mixin_change_members (obj, "", set, NULL, NULL, NULL, 0, 0);
     tp_intset_destroy (set);
@@ -451,6 +455,18 @@ sip_media_channel_dispose (GObject *object)
 
   if (!priv->closed)
     sip_media_channel_close (self);
+
+  if (priv->creator)
+    {
+      TpBaseConnection *conn = (TpBaseConnection *)(priv->conn);
+      TpHandleRepoIface *contact_repo;
+      contact_repo = tp_base_connection_get_handles (conn,
+                                                     TP_HANDLE_TYPE_CONTACT);
+#if 0
+      /* XXX: this causes an assert in tp_group_mixin_finalize(); bug? */
+      tp_handle_unref (contact_repo, priv->creator);
+#endif
+    }
 
   if (priv->factory)
     g_object_unref (priv->factory);
@@ -1031,25 +1047,29 @@ priv_create_session (SIPMediaChannel *channel,
                      gboolean remote_initiated)
 {
   SIPMediaChannelPrivate *priv;
-  TpBaseConnection *conn;
   SIPMediaSession *session;
+  TpBaseConnection *conn;
+  TpHandleRepoIface *contact_repo;
   gchar *object_path;
   const gchar *sid = NULL;
 
   DEBUG("enter");
 
-  g_assert (SIP_IS_MEDIA_CHANNEL (channel));
-
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
-  conn = (TpBaseConnection *)(priv->conn);
   g_assert (priv->session == NULL);
+  conn = (TpBaseConnection *)(priv->conn);
+  contact_repo = tp_base_connection_get_handles (conn,
+      TP_HANDLE_TYPE_CONTACT);
 
   object_path = g_strdup_printf ("%s/MediaSession%u", priv->object_path, peer);
 
   /* allocate a hash-entry for the new media session */
   sid = sip_media_factory_session_id_allocate (priv->factory);
 
-  DEBUG("allocating session, peer=%u.", peer);
+  DEBUG("allocating session, peer=%u", peer);
+
+  /* The channel manages references to the peer handle for the session */
+  tp_handle_ref (contact_repo, peer);
 
   session = g_object_new (SIP_TYPE_MEDIA_SESSION,
                           "media-channel", channel,
@@ -1085,6 +1105,8 @@ priv_destroy_session(SIPMediaChannel *channel)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
   SIPMediaSession *session;
+  TpBaseConnection *conn;
+  TpHandleRepoIface *contact_repo;
   gchar *sid = NULL;
 
   DEBUG("enter");
@@ -1096,6 +1118,12 @@ priv_destroy_session(SIPMediaChannel *channel)
   g_object_get (session, "session-id", &sid, NULL);
   sip_media_factory_session_id_unregister(priv->factory, sid);
   g_free (sid);
+
+  /* Release the peer handle */
+  conn = (TpBaseConnection *)(priv->conn);
+  contact_repo = tp_base_connection_get_handles (conn,
+      TP_HANDLE_TYPE_CONTACT);
+  tp_handle_unref (contact_repo, sip_media_session_get_peer (session));
 
   priv->session = NULL;
   g_object_unref (session);
