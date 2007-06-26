@@ -462,10 +462,7 @@ sip_media_channel_dispose (GObject *object)
       TpHandleRepoIface *contact_repo;
       contact_repo = tp_base_connection_get_handles (conn,
                                                      TP_HANDLE_TYPE_CONTACT);
-#if 0
-      /* XXX: this causes an assert in tp_group_mixin_finalize(); bug? */
       tp_handle_unref (contact_repo, priv->creator);
-#endif
     }
 
   if (priv->factory)
@@ -823,12 +820,12 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
   TpHandleRepoIface *contact_repo;
   TpIntSet *set;
  
-  DEBUG("enter");
-
-  priv->creator = handle;
-
   contact_repo = tp_base_connection_get_handles (
         (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
+
+  tp_handle_ref (contact_repo, handle);
+
+  priv->creator = handle;
 
   DEBUG("adding handle %d (%s)", 
         handle,
