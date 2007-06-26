@@ -1161,7 +1161,12 @@ sip_media_channel_add_member (GObject *iface,
       lset = tp_intset_new ();
       tp_intset_add (lset, mixin->self_handle);
       tp_intset_add (rset, handle);
-      tp_group_mixin_change_members (iface, "", lset, NULL, NULL, rset, 0, 0);
+      tp_group_mixin_change_members (iface, "Sending INVITE",
+                                     lset,      /* add */
+                                     NULL,      /* remove */
+                                     NULL,      /* local pending */
+                                     rset,      /* remote pending */
+                                     0, 0);
       tp_intset_destroy (lset);
       tp_intset_destroy (rset);
 
@@ -1184,8 +1189,13 @@ sip_media_channel_add_member (GObject *iface,
       g_assert (handle == mixin->self_handle);
 
       set = tp_intset_new ();
-      tp_intset_add (set, mixin->self_handle);
-      tp_group_mixin_change_members (iface, "", set, NULL, NULL, NULL, 0, 0);
+      tp_intset_add (set, handle);
+      tp_group_mixin_change_members (iface, "Incoming call accepted",
+                                     set,       /* add */
+                                     NULL,      /* remove */
+                                     NULL,      /* local pending */
+                                     NULL,      /* remote pending */
+                                     0, 0);
       tp_intset_destroy (set);
 
       sip_media_session_accept (priv->session);
