@@ -65,7 +65,7 @@ void sip_media_factory_session_id_unregister (SIPMediaFactory *fac,
     const gchar *sid);
 
 SIPMediaChannel *sip_media_factory_new_channel (
-    SIPMediaFactory *fac, TpHandle creator, gpointer request);
+    SIPMediaFactory *fac, gpointer request);
 
 G_END_DECLS
 

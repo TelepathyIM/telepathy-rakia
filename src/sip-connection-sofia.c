@@ -501,14 +501,10 @@ priv_i_invite (int status,
     DEBUG("Got incoming invite from <%s>", 
           tp_handle_inspect (contact_repo, handle));
 
-    /* Accordingly to lassis, NewChannel has to be emitted
-     * with the null handle for incoming calls */
     channel = sip_media_factory_new_channel (
-        SIP_MEDIA_FACTORY (priv->media_factory), 0, NULL);
+                SIP_MEDIA_FACTORY (priv->media_factory), NULL);
     if (channel)
       {
-        /* this causes the channel to reference the Telepathy handle, so we can
-         * discard our reference afterwards */
         sip_media_channel_receive_invite (channel, nh, handle);
       }
     else

@@ -74,7 +74,6 @@ enum
   PROP_CHANNEL_TYPE,
   PROP_HANDLE_TYPE,
   PROP_HANDLE,
-  PROP_CREATOR,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
   PROP_STUN_SERVER,
@@ -109,7 +108,6 @@ struct _SIPMediaChannelPrivate
   SIPMediaFactory *factory;
   SIPMediaSession *session;
   gchar *object_path;
-  TpHandle creator;
 };
 
 #define SIP_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_CHANNEL, SIPMediaChannelPrivate))
@@ -171,18 +169,6 @@ sip_media_channel_constructor (GType type, guint n_props,
                        G_STRUCT_OFFSET (SIPMediaChannel, group),
                        contact_repo,
                        conn->self_handle);
-
-  /* reference the creator handle and add it to the channel automatically */
-  if (priv->creator) {
-    TpIntSet *set;
-
-    tp_handle_ref (contact_repo, priv->creator);
-
-    set = tp_intset_new ();
-    tp_intset_add (set, priv->creator);
-    tp_group_mixin_change_members (obj, "", set, NULL, NULL, NULL, 0, 0);
-    tp_intset_destroy (set);
-  }
 
   /* allow member adding */
   tp_group_mixin_change_flags (obj, TP_CHANNEL_GROUP_FLAG_CAN_ADD, 0);
@@ -289,16 +275,6 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_CHANNEL_TYPE, param_spec);
 
-  param_spec = g_param_spec_uint ("creator", "Channel creator",
-                                  "The TpHandle representing the contact "
-                                  "who created the channel.",
-                                  0, G_MAXUINT32, 0,
-                                  G_PARAM_CONSTRUCT_ONLY |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_CREATOR, param_spec);
-
   param_spec = g_param_spec_string ("nat-traversal", "NAT traversal mechanism",
                                     "A string representing the type of NAT "
                                     "traversal that should be performed for "
@@ -357,9 +333,6 @@ sip_media_channel_get_property (GObject    *object,
     case PROP_HANDLE_TYPE:
       g_value_set_uint (value, TP_HANDLE_TYPE_NONE);
       break;
-    case PROP_CREATOR:
-      g_value_set_uint (value, priv->creator);
-      break;
     default:
       /* the NAT_TRAVERSAL property lives in the mixin */
       {
@@ -413,9 +386,6 @@ sip_media_channel_set_property (GObject     *object,
       g_free (priv->object_path);
       priv->object_path = g_value_dup_string (value);
       break;
-    case PROP_CREATOR:
-      priv->creator = g_value_get_uint (value);
-      break;
     default:
       /* the NAT_TRAVERSAL property lives in the mixin */
       {
@@ -455,15 +425,6 @@ sip_media_channel_dispose (GObject *object)
 
   if (!priv->closed)
     sip_media_channel_close (self);
-
-  if (priv->creator)
-    {
-      TpBaseConnection *conn = (TpBaseConnection *)(priv->conn);
-      TpHandleRepoIface *contact_repo;
-      contact_repo = tp_base_connection_get_handles (conn,
-                                                     TP_HANDLE_TYPE_CONTACT);
-      tp_handle_unref (contact_repo, priv->creator);
-    }
 
   if (priv->factory)
     g_object_unref (priv->factory);
@@ -818,23 +779,10 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
   GObject *obj = G_OBJECT (self);
   TpHandleRepoIface *contact_repo;
-  TpIntSet *set;
+  TpIntSet *member_set, *pending_set;
  
   contact_repo = tp_base_connection_get_handles (
         (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
-
-  tp_handle_ref (contact_repo, handle);
-
-  priv->creator = handle;
-
-  DEBUG("adding handle %d (%s)", 
-        handle,
-	tp_handle_inspect (contact_repo, handle));
-
-  set = tp_intset_new ();
-  tp_intset_add (set, handle);
-  tp_group_mixin_change_members (obj, "", set, NULL, NULL, NULL, 0, 0);
-  tp_intset_destroy (set);
 
   if (priv->session == NULL)
     {
@@ -852,11 +800,27 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
   /* XXX: should be attached more data than just the handle? 
    * - yes, we need to be able to access all the <op,handle> pairs */
 
-  /* add self_handle to local pending */
-  set = tp_intset_new ();
-  tp_intset_add (set, mixin->self_handle);
-  tp_group_mixin_change_members (obj, "", NULL, NULL, set, NULL, 0, 0);
-  tp_intset_destroy (set);
+  DEBUG("adding handle %d (%s)", 
+        handle,
+        tp_handle_inspect (contact_repo, handle));
+
+  /* add the peer to channel members and self_handle to local pending */
+
+  member_set = tp_intset_new ();
+  tp_intset_add (member_set, handle);
+
+  pending_set = tp_intset_new ();
+  tp_intset_add (pending_set, mixin->self_handle);
+
+  tp_group_mixin_change_members (obj, "INVITE received",
+                                 member_set,    /* add */
+                                 NULL,          /* remove */
+                                 pending_set,   /* local pending */
+                                 NULL,          /* remote pending */
+                                 0, 0);         /* irrelevant */
+
+  tp_intset_destroy (member_set);
+  tp_intset_destroy (pending_set);
 }
 
 /**
@@ -1177,14 +1141,10 @@ sip_media_channel_add_member (GObject *iface,
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (iface);
 
-  DEBUG("enter");
-
-  DEBUG("mixin->self_handle=%d, priv->creator=%d, handle=%d", 
-	mixin->self_handle, priv->creator, handle);
+  DEBUG("mixin->self_handle=%d, handle=%d", mixin->self_handle, handle);
 
   /* case a: outgoing call (we are the initiator, a new handle added) */
-  if (mixin->self_handle == priv->creator &&
-      mixin->self_handle != handle)
+  if (mixin->self_handle != handle)
     {
       TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
       TpIntSet *lset, *rset;
@@ -1215,12 +1175,13 @@ sip_media_channel_add_member (GObject *iface,
     }
   /* case b: an incoming invite */
   else if (priv->session &&
-	   handle == mixin->self_handle &&
 	   tp_handle_set_is_member (mixin->local_pending, handle))
     {
       TpIntSet *set;
 
       DEBUG("accepting an incoming invite");
+
+      g_assert (handle == mixin->self_handle);
 
       set = tp_intset_new ();
       tp_intset_add (set, mixin->self_handle);

@@ -280,12 +280,11 @@ channel_closed (SIPMediaChannel *chan, gpointer user_data)
  */
 SIPMediaChannel *
 sip_media_factory_new_channel (SIPMediaFactory *fac,
-                               TpHandle creator,
                                gpointer request)
 {
-  TpBaseConnection *conn;
   SIPMediaFactoryPrivate *priv;
   SIPMediaChannel *chan;
+  TpBaseConnection *conn;
   gchar *object_path;
   const gchar *nat_traversal = "none";
 
@@ -297,7 +296,7 @@ sip_media_factory_new_channel (SIPMediaFactory *fac,
   object_path = g_strdup_printf ("%s/MediaChannel%u", conn->object_path,
       priv->channel_index++);
 
-  DEBUG("channel object path %s (created by #%d)", object_path, creator);
+  DEBUG("channel object path %s", object_path);
 
   if (priv->stun_server != NULL)
     {
@@ -308,7 +307,6 @@ sip_media_factory_new_channel (SIPMediaFactory *fac,
                        "connection", priv->conn,
                        "factory", fac,
                        "object-path", object_path,
-                       "creator", creator,
                        "nat-traversal", nat_traversal,
                        NULL);
 
@@ -341,8 +339,6 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
                           GError **error)
 {
   SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-  TpBaseConnection *conn = (TpBaseConnection *)(priv->conn);
   TpChannelIface *chan;
 
   if (strcmp (chan_type, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA))
@@ -350,8 +346,7 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
       return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
     }
 
-  chan = (TpChannelIface *) sip_media_factory_new_channel (
-                                fac, conn->self_handle, request);
+  chan = (TpChannelIface *) sip_media_factory_new_channel (fac, request);
 
   if (handle_type == TP_HANDLE_TYPE_CONTACT)
     {
