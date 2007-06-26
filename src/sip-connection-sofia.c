@@ -598,6 +598,14 @@ priv_i_message (int status,
         }
       else
         {
+          if (!g_utf8_validate (sip->sip_payload->pl_data,
+                                sip->sip_payload->pl_len,
+                                NULL))
+            {
+              nua_respond (nh, 400, "Invalid characters in the message body",
+                           TAG_END());
+              return;
+            }
           text = g_strndup (sip->sip_payload->pl_data, sip->sip_payload->pl_len);
         }
     }
