@@ -632,7 +632,7 @@ static gboolean priv_timeout_session (gpointer data)
       TpIntSet *set;
       set = tp_intset_new ();
       tp_intset_add (set, priv->peer);
-      tp_group_mixin_change_members ((GObject *)priv->channel, "Timed out",
+      tp_group_mixin_change_members (G_OBJECT (priv->channel), "Timed out",
                                      NULL, set, NULL, NULL, 0,
                                      TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER);
       tp_intset_destroy (set);
