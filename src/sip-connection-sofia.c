@@ -593,7 +593,7 @@ priv_i_message (int status,
               nua_respond (nh, 400, "Incomplete character sequence at the "
                                     "end of the message body",
                            TAG_END());
-              return;
+              goto end;
             }
         }
       else
@@ -636,6 +636,7 @@ priv_i_message (int status,
       nua_respond (nh, 400, "Invalid From address", TAG_END());
     }
 
+end:
   g_free (text);
 }
 
