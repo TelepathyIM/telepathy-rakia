@@ -42,11 +42,6 @@ Media sessions
 Presence and messaging
 -----------------------
 
-- check that content type of receivng messages is "text/plain" before
-  forwarding; or parse the MIME payload and try to find a "text/plain" part
-- send back an error code for unsupported message body types
-- make sure that body character sets other than ASCII and UTF-8 are supported
-  or at least detected
 - implement Connection.Interface.Presense.AddStatus()
 - implement Connection.Interface.Presense.SetStatus()
 - implement Connection.Interface.Presense.RemoveStatus()
