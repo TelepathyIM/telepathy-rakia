@@ -527,7 +527,7 @@ sip_conn_discover_stun_server (SIPConnection *conn)
 }
 
 static gboolean
-priv_is_user_unreserved (unsigned char x)
+priv_is_user_unreserved (gchar x)
 {
     switch (x)
       {
@@ -550,28 +550,26 @@ priv_is_user_unreserved (unsigned char x)
         case ';':
         case '/':
           return TRUE;
-          break;
         default:
           return g_ascii_isalnum (x);
       }
 }
 
 static gboolean
-priv_is_host (unsigned char x)
+priv_is_host (gchar x)
 {
     switch (x)
       {
         case '.':
         case '-':
           return TRUE;
-          break;
         default:
           return g_ascii_isalnum (x);
       }
 }
 
 static gboolean
-priv_is_tel_digit (unsigned char x)
+priv_is_tel_digit (gchar x)
 {
     switch (x)
       {
@@ -582,7 +580,6 @@ priv_is_tel_digit (unsigned char x)
         case '(':
         case ')':
           return TRUE;
-          break;
         default:
           return g_ascii_isdigit (x);
       }
@@ -591,47 +588,60 @@ priv_is_tel_digit (unsigned char x)
 static guchar *
 priv_user_encode (su_home_t *home, const gchar *string)
 {
-    guchar *a, *b;
-    guchar *new = su_zalloc (home, strlen (string) * 3 + 1);
+    const gchar *a;
+    gchar *b;
+    gchar *res = su_zalloc (home, strlen (string) * 3 + 1);
 
-    for (a = (guchar *) string, b = new; *a; a++, b++)
+    g_return_val_if_fail (res != NULL, NULL);
+
+    a = string;
+    b = res;
+    while (*a)
       {
         if (priv_is_user_unreserved (*a))
           {
-            *b = *a;
+            *b++ = *a++;
           }
         else
           {
-            sprintf((gchar *) b, "%%%02x", (int) *a);
-            b += 2;
+            snprintf (b, 3, "%%%02x", (guint) *a);
+            ++a;
+            b += 3;
           }
       }
-    return new;
+
+    return res;
 }
 
 /* unescape characters that don't need escaping */
-static guchar *
+static gchar *
 priv_user_decode (su_home_t *home, const gchar *string)
 {
-    guchar *a, *b;
-    guchar *new = su_zalloc (home, strlen (string) + 1);
+    const gchar *a;
+    gchar *b;
+    gchar *res = su_zalloc (home, strlen (string) + 1);
 
-    for (a = (guchar *) string, b = new; *a; a++, b++)
+    g_return_val_if_fail (res != NULL, NULL);
+
+    a = string;
+    b = res;
+    while (*a)
       {
-        if ((*a == '%') && g_ascii_isxdigit(a[1]) && g_ascii_isxdigit(a[2]))
+        if ((a[0] == '%') && g_ascii_isxdigit(a[1]) && g_ascii_isxdigit(a[2]))
           {
             gchar tmp[3] = { a[1], a[2], 0 };
-            guchar x = (guchar) (strtoul(tmp, NULL, 16) % 256);
+            gchar x = (gchar) (strtoul (tmp, NULL, 16));
             if (priv_is_user_unreserved (x))
               {
-                *b = x;
-                a += 2;
+                *b++ = x;
+                a += 3;
                 continue;
               }
           }
-        *b = *a;
+        *b++ = *a++;
       }
-    return new;
+
+    return res;
 }
 
 static gboolean
@@ -651,16 +661,21 @@ priv_is_tel_num (const gchar *string)
 static gchar *
 priv_strip_tel_num (su_home_t *home, const gchar *string)
 {
-    gchar *a, *b;
-    gchar *new = su_zalloc (home, strlen (string) + 1);
+    const gchar *a;
+    gchar *b;
+    gchar *res = su_zalloc (home, strlen (string) + 1);
 
-    for (a = (gchar *) string, b = new; *a; a++)
+    g_return_val_if_fail (res != NULL, NULL);
+
+    b = res;
+    for (a = string; *a; a++)
       {
-        if (!priv_is_tel_digit (*a)) continue;
-        *(b++) = *a;
+        if (priv_is_tel_digit (*a))
+          *b++ = *a;
       }
-    *b = 0;
-    return new;
+    *b = '\0';
+
+    return res;
 }
 
 gchar *
