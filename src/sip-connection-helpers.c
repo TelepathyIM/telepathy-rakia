@@ -613,13 +613,13 @@ priv_user_encode (su_home_t *home, const gchar *string)
           }
         else
           {
-            snprintf (b, 3, "%%%02x", (guint) *a);
+            snprintf (b, 4, "%%%02x", (guint) *a);
             ++a;
             b += 3;
           }
       }
 
-    return res;
+    return (guchar *) res;
 }
 
 /* unescape characters that don't need escaping */
