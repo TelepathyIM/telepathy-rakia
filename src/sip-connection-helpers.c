@@ -406,89 +406,98 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
               stun_server);
 }
 
-static int
-priv_srv_weight_compare (gconstpointer a, gconstpointer b)
-{
-  sres_record_t *r = *((sres_record_t **) a);
-  sres_record_t *s = *((sres_record_t **) b);
-
-  return r->sr_srv->srv_weight - s->sr_srv->srv_weight;
-}
-
 static void
-priv_stun_discover_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **answers)
+priv_stun_discover_cb (sres_context_t *ctx,
+                       sres_query_t *query,
+                       sres_record_t **answers)
 {
   SIPConnection *conn = SIP_CONNECTION (ctx);
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
-  sres_record_t *ans = NULL;
+  sres_srv_record_t *sel = NULL;
+  int n_sel_items = 0;
+  int i;
 
-  if (NULL != answers)
+  if (answers == NULL)
+    return;
+
+  for (i = 0; NULL != answers[i]; i++)
     {
-      int i;
-      int n_sel_items = 0;
+      if (answers[i]->sr_record->r_status != 0)
+        continue;
+      if (G_UNLIKELY (answers[i]->sr_record->r_type != sres_type_srv))
+        continue;
+
+      if (sel == NULL
+          || (answers[i]->sr_srv->srv_priority < sel->srv_priority))
+        {
+          sel = answers[i]->sr_srv;
+          n_sel_items = 1;
+        }
+      else if (answers[i]->sr_srv->srv_priority == sel->srv_priority)
+        {
+          n_sel_items++;
+        }
+    }
+
+  if (n_sel_items > 1)
+    {
+      /* Random selection procedure as recommended in RFC 2782 */
+      GArray *items = g_array_sized_new (FALSE,
+                                         TRUE,
+                                         sizeof (sres_srv_record_t *),
+                                         n_sel_items);
+      int sum = 0;
+      int dice;
+      sres_srv_record_t *rec;
+
+      g_assert (sel != NULL);
 
       for (i = 0; NULL != answers[i]; i++)
         {
-          if (0 != answers[i]->sr_record->r_status)
-              continue;
+          if (answers[i]->sr_record->r_status != 0)
+            continue;
+          if (G_UNLIKELY (answers[i]->sr_record->r_type != sres_type_srv))
+            continue;
 
-          if ((NULL == ans) ||
-              (answers[i]->sr_srv->srv_priority > ans->sr_srv->srv_priority))
-            {
-              ans = answers[i];
-              n_sel_items = 1;
-            }
+          rec = answers[i]->sr_srv; 
+          if (rec->srv_priority != sel->srv_priority)
+            continue;
+
+          if (rec->srv_weight == 0)
+            g_array_prepend_val (items, rec);
           else
-            {
-              if (answers[i]->sr_srv->srv_priority == ans->sr_srv->srv_priority)
-                  n_sel_items++;
-            }
+            g_array_append_val (items, rec);
         }
 
-      if (n_sel_items > 1)
+      g_assert (n_sel_items == items->len);
+
+      for (i = 0; i < n_sel_items; i++)
         {
-          GPtrArray *items = g_ptr_array_sized_new (n_sel_items);
-          int total_weight = 0;
-          int random_weight;
-
-          for (i = 0; NULL != answers[i]; i++)
-              if (answers[i]->sr_srv->srv_priority == ans->sr_srv->srv_priority)
-                  g_ptr_array_add (items, answers[i]);
-
-          g_assert (n_sel_items == items->len);
-
-          g_ptr_array_sort (items, priv_srv_weight_compare);
-
-          for (i = 0; i < n_sel_items; i++)
-            {
-              sres_record_t *res = g_ptr_array_index (items, i);
-              res->sr_srv->srv_weight += total_weight;
-              total_weight = res->sr_srv->srv_weight;
-            }
-
-          random_weight = g_random_int_range (0, total_weight + 1);
-
-          for (i = 0; i < n_sel_items; i++)
-            {
-              sres_record_t *res = g_ptr_array_index (items, i);
-              if (res->sr_srv->srv_weight >= random_weight)
-                {
-                  ans = res;
-                  break;
-                }
-            }
-
-          g_ptr_array_free (items, TRUE);
+          rec = g_array_index (items, sres_srv_record_t *, i);
+          sum = (rec->srv_weight += sum);
         }
 
+      dice = g_random_int_range (0, sum + 1);
+
+      for (i = 0; i < n_sel_items; i++)
+        {
+          rec = g_array_index (items, sres_srv_record_t *, i);
+          if (rec->srv_weight >= dice)
+            {
+              sel = rec;
+              break;
+            }
+        }
+
+      g_array_free (items, TRUE);
     }
 
-  if (NULL != ans)
+  if (sel != NULL)
     {
-      DEBUG ("Discovery got STUN server %s : %u",
-          ans->sr_srv->srv_target, ans->sr_srv->srv_port);
-      priv->stun_port = ans->sr_srv->srv_port;
-      sip_conn_resolv_stun_server (conn, ans->sr_srv->srv_target);
+      DEBUG ("discovery got STUN server %s:%u",
+             sel->srv_target, sel->srv_port);
+      priv->stun_port = sel->srv_port;
+      sip_conn_resolv_stun_server (conn, sel->srv_target);
     }
 
   sres_free_answers (priv->sofia_resolver, answers);
