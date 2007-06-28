@@ -88,7 +88,13 @@ sip_conn_create_register_handle (SIPConnection *conn,
   to = priv_sip_to_url_make (conn, temphome, contact);
 
   if (to)
-    result = nua_handle (priv->sofia_nua, NULL, SIPTAG_TO(to), TAG_END());
+    {
+      if (priv->auth_user)
+        {
+          to->a_url->url_user = su_strdup (temphome, priv->auth_user);
+        }
+      result = nua_handle (priv->sofia_nua, NULL, SIPTAG_TO(to), TAG_END());
+    }
 
   su_home_deinit (temphome);
 
@@ -509,7 +515,7 @@ sip_conn_discover_stun_server (SIPConnection *conn)
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
   char *srv_domain;
 
-  if (NULL == priv->domain)
+  if ((NULL == priv->account_url) || (NULL == priv->account_url->url_host))
     {
       DEBUG("unknown domain, not making STUN SRV lookup");
       return;
@@ -522,9 +528,9 @@ sip_conn_discover_stun_server (SIPConnection *conn)
     }
   g_return_if_fail (priv->sofia_resolver != NULL);
 
-  DEBUG("creating a new STUN SRV query for domain %s", priv->domain);
+  DEBUG("creating a new STUN SRV query for domain %s", priv->account_url->url_host);
 
-  srv_domain = g_strdup_printf ("_stun._udp.%s", priv->domain);
+  srv_domain = g_strdup_printf ("_stun._udp.%s", priv->account_url->url_host);
 
   sres_query (priv->sofia_resolver,
               priv_stun_discover_cb,
@@ -706,7 +712,7 @@ sip_conn_normalize_uri (SIPConnection *conn,
   if ((url == NULL) ||
       ((url->url_scheme == NULL) && (url->url_user == NULL)))
     {
-      if (priv->domain == NULL)
+      if ((priv->account_url == NULL) || (priv->account_url->url_host == NULL))
         {
           g_debug ("local uri specified and we don't know local domain yet");
           goto error;
@@ -716,13 +722,13 @@ sip_conn_normalize_uri (SIPConnection *conn,
         {
           url = url_format (home, "sip:%s@%s",
               priv_strip_tel_num (home, sipuri),
-              priv->domain);
+              priv->account_url->url_host);
         }
       else
         {
           url = url_format (home, "sip:%s@%s",
               priv_user_encode (home, sipuri),
-              priv->domain);
+              priv->account_url->url_host);
         }
       if (!url) goto error;
     }
@@ -772,22 +778,5 @@ error:
   /* success */
   su_home_deinit (home);
   return retval;
-}
-
-gchar *
-sip_conn_domain_from_uri (const gchar *str)
-{
-  su_home_t home[1] = { SU_HOME_INIT (home) };
-  url_t *url;
-  gchar *domain;
-
-  g_assert (str != NULL);
-
-  url = url_make (home, str);
-  g_assert (url != NULL);
-
-  domain = g_strdup (url->url_host);
-  su_home_deinit (home);
-  return domain;
 }
 

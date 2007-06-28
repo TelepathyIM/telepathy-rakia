@@ -73,6 +73,7 @@ static GObjectClass *parent_class=NULL;
 enum
 {
   PROP_ADDRESS = 1,      /**< public SIP address (SIP URI) */
+  PROP_AUTH_USER,        /**< account username (if different from public address userinfo part) */
   PROP_PASSWORD,         /**< account password (for registration) */
 
   PROP_PROXY,            /**< outbound SIP proxy (SIP URI) */
@@ -225,6 +226,11 @@ sip_connection_set_property (GObject      *object,
     priv->address = g_value_dup_string (value);
     break;
   }
+  case PROP_AUTH_USER: {
+    g_free(priv->auth_user);
+    priv->auth_user = g_value_dup_string (value);
+    break;
+  }
   case PROP_PASSWORD: {
     g_free(priv->password);
     priv->password = g_value_dup_string (value);
@@ -316,6 +322,10 @@ sip_connection_get_property (GObject      *object,
   switch (property_id) {
   case PROP_ADDRESS: {
     g_value_set_string (value, priv->address);
+    break;
+  }
+  case PROP_AUTH_USER: {
+    g_value_set_string (value, priv->auth_user);
     break;
   }
   case PROP_PASSWORD: {
@@ -427,6 +437,14 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                    NULL, /*default value*/
                                    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
   INST_PROP(PROP_ADDRESS);
+
+  param_spec = g_param_spec_string("auth-user",
+                                   "Auth username",
+                                   "Username to use when registering (if different "
+                                   "than userinfo part of public SIP address)",
+                                   NULL, /*default value*/
+                                   G_PARAM_READWRITE);
+  INST_PROP(PROP_AUTH_USER);
 
   param_spec = g_param_spec_string("password",
                                    "SIP account password",
@@ -594,7 +612,8 @@ sip_connection_finalize (GObject *obj)
   su_home_unref (priv->sofia_home);
 
   g_free (priv->address);
-  g_free (priv->domain);
+  g_free (priv->auth_user);
+  g_free (priv->password);
   g_free (priv->proxy);
   g_free (priv->registrar);
   g_free (priv->http_proxy);
@@ -655,7 +674,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
 
   DEBUG("self_handle = %d, sip_address = %s", base->self_handle, sip_address);
 
-  priv->domain = sip_conn_domain_from_uri (sip_address);
+  priv->account_url = url_make (priv->sofia_home, sip_address);
 
   /* step: create stack instance */
   priv->sofia_nua = nua_create (sofia_root,
@@ -669,6 +688,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
       NUTAG_ENABLEINVITE(1),
       NUTAG_AUTOALERT(0),
       NUTAG_AUTOANSWER(0),
+      NUTAG_M_USERNAME(priv->account_url->url_user),
       TAG_NULL());
   if (priv->sofia_nua == NULL)
     {

@@ -31,6 +31,7 @@ struct _SIPConnectionPrivate
   su_home_t *sofia_home;
   nua_handle_t *register_op;
   sres_resolver_t *sofia_resolver;
+  url_t *account_url;
 
   gchar *registrar_realm;
   gchar *last_auth;
@@ -40,7 +41,7 @@ struct _SIPConnectionPrivate
   TpChannelFactoryIface *media_factory;
 
   gchar *address;
-  gchar *domain;
+  gchar *auth_user;
   gchar *password;
   gchar *proxy;
   gchar *registrar;

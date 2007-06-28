@@ -61,7 +61,6 @@ void sip_conn_save_event (SIPConnection *conn,
 gchar * sip_conn_normalize_uri (SIPConnection *conn,
                                 const gchar *sipuri,
                                 GError **error);
-gchar * sip_conn_domain_from_uri (const gchar *str);
 
 G_END_DECLS
 

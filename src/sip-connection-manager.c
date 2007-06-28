@@ -40,6 +40,7 @@ G_DEFINE_TYPE(SIPConnectionManager, sip_connection_manager,
 
 typedef struct {
     gchar *account;
+    gchar *auth_user;
     gchar *password;
     gchar *registrar;
     gchar *proxy_host;
@@ -68,6 +69,7 @@ free_params (void *p)
   SIPConnParams *params = (SIPConnParams *)p;
 
   g_free (params->account);
+  g_free (params->auth_user);
   g_free (params->password);
   g_free (params->registrar);
   g_free (params->proxy_host);
@@ -82,6 +84,7 @@ free_params (void *p)
 
 enum {
     SIP_CONN_PARAM_ACCOUNT = 0,
+    SIP_CONN_PARAM_AUTH_USER,
     SIP_CONN_PARAM_PASSWORD,
     SIP_CONN_PARAM_REGISTRAR,
     SIP_CONN_PARAM_PROXY_HOST,
@@ -104,6 +107,9 @@ static const TpCMParamSpec sip_params[] = {
     { "account", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_REQUIRED | TP_CONN_MGR_PARAM_FLAG_REGISTER,
       NULL, G_STRUCT_OFFSET (SIPConnParams, account) },
+    /* Username to register with, if different than in the account URI */
+    { "auth-user", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
+      0, NULL, G_STRUCT_OFFSET (SIPConnParams, auth_user) },
     /* Password */
     { "password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, /* according to the .manager file this is 
@@ -437,6 +443,9 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   g_object_set (connection, "proxy", proxy, NULL);
   g_free (proxy);
+
+  SET_PROPERTY_IF_PARAM_SET ("auth-user", SIP_CONN_PARAM_AUTH_USER,
+      params->auth_user);
 
   SET_PROPERTY_IF_PARAM_SET ("password", SIP_CONN_PARAM_PASSWORD,
       params->password);
