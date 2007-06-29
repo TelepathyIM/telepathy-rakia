@@ -1017,7 +1017,9 @@ priv_update_sending (SIPMediaStream *stream,
 {
   sip_media_stream_set_sending (stream,
         (direction & TP_MEDIA_STREAM_DIRECTION_SEND)
-        && !(pending_send_flags & TP_MEDIA_STREAM_PENDING_REMOTE_SEND));
+        && !(pending_send_flags
+             & (TP_MEDIA_STREAM_PENDING_REMOTE_SEND
+                | TP_MEDIA_STREAM_PENDING_LOCAL_SEND)));
 }
 
 void
