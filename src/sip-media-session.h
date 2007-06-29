@@ -31,6 +31,7 @@ typedef enum {
     SIP_MEDIA_SESSION_STATE_INVITE_SENT,
     SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED,
     SIP_MEDIA_SESSION_STATE_ACTIVE,
+    SIP_MEDIA_SESSION_STATE_REINVITE_SENT,
     SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
     SIP_MEDIA_SESSION_STATE_ENDED
 } SIPMediaSessionState;
@@ -80,6 +81,10 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
 					    GError **error);
 gboolean sip_media_session_list_streams (SIPMediaSession *session,
 					 GPtrArray **ret);
+gboolean sip_media_session_request_stream_direction (SIPMediaSession *session,
+                                                     guint stream_id,
+                                                     guint direction,
+                                                     GError **error);
 void sip_media_session_receive_invite (SIPMediaSession *self);
 void sip_media_session_receive_reinvite (SIPMediaSession *self);
 void sip_media_session_accept (SIPMediaSession *self);

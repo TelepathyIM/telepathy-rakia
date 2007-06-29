@@ -87,6 +87,7 @@ static guint signals[SIG_LAST_SIGNAL] = {0};
  * - active, codecs and candidate pairs have been negotiated (note,
  *   SteamEngine might still fail to verify connectivity and report
  *   an error)
+ * - reinvite-sent, a local re-INVITE sent, response is pending
  * - reinvite-received, a remote re-INVITE received, response is pending
  * - ended, session has ended
  */
@@ -96,6 +97,7 @@ static const char* session_states[] =
     "invite-sent",
     "invite-received",
     "active",
+    "reinvite-sent",
     "reinvite-received",
     "ended"
 };
@@ -122,10 +124,11 @@ struct _SIPMediaSessionPrivate
   su_home_t *backup_home;               /** Sofia memory home for previous generation remote SDP session*/
   sdp_session_t *remote_sdp;            /** last received remote session */
   sdp_session_t *backup_remote_sdp;     /** previous remote session */
+  GPtrArray *streams;
   gboolean accepted;                    /**< session has been locally accepted for use */
   gboolean se_ready;                    /**< connection established with stream-engine */
+  gboolean pending_offer;               /**< local media have been changed, but a re-INVITE is pending */
   gboolean dispose_has_run;
-  GPtrArray *streams;
 };
 
 #define SIP_MEDIA_SESSION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_SESSION, SIPMediaSessionPrivate))
@@ -139,14 +142,19 @@ static void sip_media_session_set_property (GObject      *object,
 					    const GValue *value,
 					    GParamSpec   *pspec);
 
+static SIPMediaStream *
+sip_media_session_get_stream (SIPMediaSession *self,
+                              guint stream_id,
+                              GError **error);
+
 static void priv_session_state_changed (SIPMediaSession *session,
                                         SIPMediaSessionState prev_state);
 static gboolean priv_catch_remote_nonupdate (gpointer data);
 static gboolean priv_timeout_session (gpointer data);
 static SIPMediaStream* priv_create_media_stream (SIPMediaSession *session, guint media_type);
-
 static void priv_request_response_step (SIPMediaSession *session);
-
+static void priv_session_invite (SIPMediaSession *session, gboolean reinvite);
+static void priv_local_media_changed (SIPMediaSession *session);
 static void priv_save_event (SIPMediaSession *self);
 static void priv_zap_event (SIPMediaSession *self);
 
@@ -557,6 +565,7 @@ priv_session_state_changed (SIPMediaSession *session,
       priv->catcher_id = g_idle_add (priv_catch_remote_nonupdate, session);
       /* Fall through to the next case */
     case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+    case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
       priv->timer_id =
         g_timeout_add (DEFAULT_SESSION_TIMEOUT, priv_timeout_session, session);
       break;
@@ -565,6 +574,10 @@ priv_session_state_changed (SIPMediaSession *session,
         {
 	  g_source_remove (priv->timer_id);
 	  priv->timer_id = 0;
+        }
+      if (priv->pending_offer)
+        {
+          priv_session_invite (session, TRUE);
         }
       break;
 
@@ -661,6 +674,7 @@ void sip_media_session_terminate (SIPMediaSession *session)
       switch (priv->state)
         {
         case SIP_MEDIA_SESSION_STATE_ACTIVE:
+        case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
           DEBUG("sending BYE");
           nua_bye (priv->nua_op, TAG_END());
           break;
@@ -903,6 +917,8 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
     priv_add_stream_list_entry (*ret, stream, session);
   }
 
+  priv_local_media_changed (session);
+
   return TRUE;
 }
 
@@ -928,6 +944,35 @@ gboolean sip_media_session_list_streams (SIPMediaSession *session,
       if (stream)
 	priv_add_stream_list_entry (*ret, stream, session);
     }
+
+  return TRUE;
+}
+
+gboolean
+sip_media_session_request_stream_direction (SIPMediaSession *self,
+                                            guint stream_id,
+                                            guint direction,
+                                            GError **error)
+{
+  SIPMediaStream *stream;
+  guint old_direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+  guint pending_send_flags = 0;
+
+  stream = sip_media_session_get_stream (self, stream_id, error);
+  if (stream == NULL)
+    return FALSE;
+
+  g_object_get (stream, "direction", &old_direction, NULL);
+
+  SESSION_DEBUG(self, "stream %u direction change requested: %u -> %u", stream_id, old_direction, direction);
+
+  /* Set pending send flag if we're going to start sending */
+  if (direction & ~old_direction & TP_MEDIA_STREAM_DIRECTION_SEND)
+    pending_send_flags = TP_MEDIA_STREAM_PENDING_REMOTE_SEND; 
+
+  sip_media_stream_set_direction (stream, direction, pending_send_flags);
+
+  priv_local_media_changed (self);
 
   return TRUE;
 }
@@ -1123,6 +1168,34 @@ static void priv_session_media_state (SIPMediaSession *session, gboolean playing
 }
 
 static void
+priv_local_media_changed (SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+
+  switch (priv->state)
+    {
+    case SIP_MEDIA_SESSION_STATE_CREATED:
+    case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+      /* The changes will be sent due next outgoing INVITE or response */
+      break;
+    case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+    case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
+      /* Cannot send another offer right now */
+      priv->pending_offer = TRUE;
+      break;
+    case SIP_MEDIA_SESSION_STATE_ACTIVE:
+      if (priv->local_non_ready == 0)
+        priv_session_invite (session, TRUE);
+      else
+        priv->pending_offer = TRUE;
+      break;
+    default:
+      g_assert_not_reached();
+    }
+}
+
+static void
 priv_session_rollback (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
@@ -1157,6 +1230,8 @@ priv_session_local_sdp (SIPMediaSession *session, GString *user_sdp)
   gboolean has_supported_media = FALSE;
   guint i;
 
+  g_return_val_if_fail (priv->local_non_ready != 0, FALSE);
+
   for (i = 0; i < priv->streams->len; i++)
     {
       SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
@@ -1176,10 +1251,12 @@ priv_session_local_sdp (SIPMediaSession *session, GString *user_sdp)
 }
 
 static void
-priv_session_invite (SIPMediaSession *session)
+priv_session_invite (SIPMediaSession *session, gboolean reinvite)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
   GString *user_sdp;
+
+  DEBUG("enter");
 
   g_return_if_fail (priv->nua_op != NULL);
 
@@ -1193,8 +1270,10 @@ priv_session_invite (SIPMediaSession *session)
                   SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
                   NUTAG_AUTOANSWER(0),
                   TAG_END());
+      priv->pending_offer = FALSE;
       g_object_set (session,
-                    "state", SIP_MEDIA_SESSION_STATE_INVITE_SENT,
+                    "state", reinvite? SIP_MEDIA_SESSION_STATE_REINVITE_SENT
+                                     : SIP_MEDIA_SESSION_STATE_INVITE_SENT,
                     NULL);
     }
   else
@@ -1270,10 +1349,11 @@ priv_request_response_step (SIPMediaSession *session)
            *       offer is sent, so we must set state to playing */
           priv_session_media_state (session, TRUE);
 
-          priv_session_invite (session);
+          priv_session_invite (session, FALSE);
         }
       break;
     case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+    case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
       if (priv->remote_non_ready == 0)
         {
           g_assert (priv->local_non_ready == 0);
@@ -1300,6 +1380,12 @@ priv_request_response_step (SIPMediaSession *session)
       if (priv->remote_non_ready == 0
           && priv->local_non_ready == 0)
         priv_session_respond (session);
+      break;
+    case SIP_MEDIA_SESSION_STATE_ACTIVE:
+      if (priv->pending_offer && priv->local_non_ready == 0)
+        {
+          priv_session_invite (session, TRUE);
+        }
       break;
     default:
       g_assert_not_reached ();
@@ -1369,20 +1455,25 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
           /* No initial codec intersection, drop the stream. */
           sip_media_stream_close (stream);
           break;
+        case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
+          /* Weird codec set received on our reinvite, what shall we do? */
+          sip_media_stream_close (stream);
+          break;
         case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
           /* In this case, we have the stream negotiated already,
            * and we don't want to close it just because the remote party
            * offers a different set of codecs.
            * Roll back the whole session to the previously negotiated state. */
           priv_session_rollback (session);
-          return;
+          break;
         case SIP_MEDIA_SESSION_STATE_ACTIVE:
           /* This must come as a result of a rollback done in the
            * SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED case above */
-          return;
+          break;
         default:
           g_assert_not_reached();
         }
+      return;
     }
 
   priv_request_response_step (session);

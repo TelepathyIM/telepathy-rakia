@@ -938,7 +938,7 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
   push_active_candidate_pair (stream);
 
   /* Set the final direction and sending status */
-  /* XXX: don't set to sending until the incoming call session is accepted */
+  /* XXX: don't set to sending until the call session is active */
   sip_media_stream_set_direction (stream, new_direction, 0);
 
   return 1;
@@ -1033,9 +1033,13 @@ sip_media_stream_set_direction (SIPMediaStream *stream,
   priv->direction = direction;
   priv->pending_send_flags = pending_send_flags;
 
+  /* TODO: SDP should not be cached, but created on demand */
+  if (priv->native_cands_prepared && priv->native_codecs_prepared)
+    priv_update_local_sdp (stream);
+
   priv_update_sending (stream, direction, pending_send_flags);
 
-  g_signal_emit (stream, SIG_DIRECTION_CHANGED, 0,
+  g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
                  direction, pending_send_flags);
 }
 
