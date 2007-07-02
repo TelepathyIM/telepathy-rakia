@@ -1236,7 +1236,9 @@ priv_session_local_sdp (SIPMediaSession *session, GString *user_sdp)
   gboolean has_supported_media = FALSE;
   guint i;
 
-  g_return_val_if_fail (priv->local_non_ready != 0, FALSE);
+  g_return_val_if_fail (priv->local_non_ready == 0, FALSE);
+
+  g_string_append (user_sdp, "v=0\r\n");
 
   for (i = 0; i < priv->streams->len; i++)
     {
@@ -1249,7 +1251,7 @@ priv_session_local_sdp (SIPMediaSession *session, GString *user_sdp)
         }
       else
         { 
-          user_sdp = g_string_append (user_sdp, "m=unknown 0 -/-");
+          user_sdp = g_string_append (user_sdp, "m=unknown 0 -/-\r\n");
         }
     }
 
