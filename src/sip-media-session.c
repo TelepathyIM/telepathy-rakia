@@ -710,13 +710,14 @@ void sip_media_session_terminate (SIPMediaSession *session)
 }
 
 gboolean
-sip_media_session_set_remote_info (SIPMediaSession *session,
+sip_media_session_set_remote_media (SIPMediaSession *session,
                                    const sdp_session_t* sdp)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
   const sdp_media_t *media;
   gboolean has_supported_media = FALSE;
   guint i;
+  gboolean authoritative;
   gboolean res = TRUE;
 
   DEBUG ("enter");
@@ -761,6 +762,9 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
 
   g_assert (priv->remote_non_ready == 0);
 
+  authoritative = (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
+                   || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
+
   media = priv->remote_sdp->sdp_media;
 
   /* note: for each session, we maintain an ordered list of 
@@ -796,7 +800,9 @@ sip_media_session_set_remote_info (SIPMediaSession *session,
         }
       else
         {
-          gint update_res = sip_media_stream_set_remote_info (stream, media);
+          gint update_res = sip_media_stream_set_remote_media (stream,
+                                                               media,
+                                                               authoritative);
           if (update_res >= 0)
             {
               priv->remote_non_ready += update_res; 
@@ -1207,7 +1213,7 @@ priv_session_rollback (SIPMediaSession *session)
   g_assert_not_reached();
 
   /* TODO: call some reduced routine extracted from
-   * sip_media_session_set_remote_info() to restore
+   * sip_media_session_set_remote_media() to restore
    * the backup remote media state */
 
   msg = (priv->saved_event[0])

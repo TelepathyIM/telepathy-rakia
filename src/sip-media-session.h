@@ -73,7 +73,7 @@ GType sip_tp_stream_list_type (void) G_GNUC_CONST;
 
 TpHandle sip_media_session_get_peer (SIPMediaSession *session);
 void sip_media_session_terminate (SIPMediaSession *session);
-gboolean sip_media_session_set_remote_info (SIPMediaSession *chan,
+gboolean sip_media_session_set_remote_media (SIPMediaSession *chan,
                                             const sdp_session_t* r_sdp);
 gboolean sip_media_session_request_streams (SIPMediaSession *session,
 					    const GArray *media_types,

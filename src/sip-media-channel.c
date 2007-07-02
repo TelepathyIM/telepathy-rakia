@@ -812,7 +812,7 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
        *       candidate are ready, reply with nua_respond() 
        *
        *       with the tp-0.13 API, the streams need to be created
-       *       based on remote SDP (see sip_media_session_set_remote_info()) */
+       *       based on remote SDP (see sip_media_session_set_remote_media()) */
     }
   else
     g_warning ("session already exists");
@@ -866,7 +866,7 @@ sip_media_channel_set_remote_info (SIPMediaChannel *chan,
   DEBUG("enter");
 
   if (priv->session) {
-    res = sip_media_session_set_remote_info (priv->session, r_sdp);
+    res = sip_media_session_set_remote_media (priv->session, r_sdp);
   }
 
   DEBUG ("exit");

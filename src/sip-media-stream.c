@@ -852,8 +852,9 @@ sip_tp_stream_direction_from_remote (sdp_mode_t mode)
  *         a negative value if the update is not acceptable. 
  */
 gint
-sip_media_stream_set_remote_info (SIPMediaStream *stream,
-                                  const sdp_media_t *new_media)
+sip_media_stream_set_remote_media (SIPMediaStream *stream,
+                                   const sdp_media_t *new_media,
+                                   gboolean authoritative)
 {
   SIPMediaStreamPrivate *priv;
   sdp_connection_t *sdp_conn;
@@ -910,10 +911,12 @@ sip_media_stream_set_remote_info (SIPMediaStream *stream,
 
   priv->remote_media = new_media;
 
-  old_direction = (old_media == NULL)
-        ? TP_MEDIA_STREAM_DIRECTION_NONE
-        : sip_tp_stream_direction_from_remote (old_media->m_mode);
+  old_direction = priv->direction;
   new_direction = sip_tp_stream_direction_from_remote (new_media->m_mode);
+
+  /* Make sure the answer can only remove sending or receiving bits */
+  if (!authoritative)
+    new_direction &= old_direction;
 
   /* Disable sending at this point if it will be disabled
    * accordingly to the new direction */
