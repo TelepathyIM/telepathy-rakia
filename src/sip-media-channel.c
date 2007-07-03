@@ -670,11 +670,35 @@ sip_media_channel_list_streams (TpSvcChannelTypeStreamedMedia *iface,
  * on interface org.freedesktop.Telepathy.Channel.Type.StreamedMedia
  */
 static void
-sip_media_channel_remove_streams (TpSvcChannelTypeStreamedMedia *self,
+sip_media_channel_remove_streams (TpSvcChannelTypeStreamedMedia *iface,
                                   const GArray *streams,
                                   DBusGMethodInvocation *context)
 {
-  /* FIXME: stub */
+  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
+  SIPMediaChannelPrivate *priv;
+  GError *error = NULL;
+
+  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  if (priv->session != NULL)
+    {
+       sip_media_session_remove_streams(priv->session,
+                                        streams,
+                                        &error);
+    }
+  else
+    {
+      error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+                           "No session is available");
+    }
+
+  if (error != NULL)
+    {
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+      return;
+    }
+
   tp_svc_channel_type_streamed_media_return_from_remove_streams (context);
 }
 

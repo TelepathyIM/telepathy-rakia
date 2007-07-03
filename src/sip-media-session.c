@@ -928,6 +928,31 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
   return TRUE;
 }
 
+gboolean
+sip_media_session_remove_streams (SIPMediaSession *self,
+                                  const GArray *stream_ids,
+                                  GError **error)
+{
+  SIPMediaStream *stream;
+  guint stream_id;
+  guint i;
+
+  DEBUG ("enter");
+
+  for (i = 0; i < stream_ids->len; i++)
+    {
+      stream_id = g_array_index (stream_ids, guint, i);
+      stream = sip_media_session_get_stream (self, stream_id, error);
+      if (stream == NULL)
+        return FALSE;
+      sip_media_stream_close (stream);
+    }
+
+  priv_local_media_changed (self);
+
+  return TRUE;
+}
+
 /**
  * Returns a list of pointers to SIPMediaStream objects 
  * associated with this session.

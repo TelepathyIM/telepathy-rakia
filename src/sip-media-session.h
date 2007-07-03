@@ -79,6 +79,9 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
 					    const GArray *media_types,
 					    GPtrArray **ret,
 					    GError **error);
+gboolean sip_media_session_remove_streams (SIPMediaSession *session,
+                                           const GArray *stream_ids,
+                                           GError **error);
 gboolean sip_media_session_list_streams (SIPMediaSession *session,
 					 GPtrArray **ret);
 gboolean sip_media_session_request_stream_direction (SIPMediaSession *session,
