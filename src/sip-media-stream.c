@@ -890,9 +890,12 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
       return -1;
     }
 
-  /* Check if there was any media update at all */
-
+  /* Note: always update the pointer to the current media structure
+   * because of memory management done in the session object */
   old_media = priv->remote_media;
+  priv->remote_media = new_media;
+
+  /* Check if there was any media update at all */
 
   if (sdp_media_cmp (old_media, new_media) == 0)
     {
@@ -905,8 +908,6 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
   if (old_media != NULL
       && sdp_connection_cmp (sdp_media_connections (old_media), sdp_conn) == 0)
     transport_changed = FALSE;
-
-  priv->remote_media = new_media;
 
   old_direction = priv->direction;
   new_direction = sip_tp_stream_direction_from_remote (new_media->m_mode);
