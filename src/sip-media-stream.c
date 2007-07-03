@@ -1484,7 +1484,6 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
 
   g_free(priv->stream_sdp);
   priv->stream_sdp = tmpa_str;
-  DEBUG("Updated stream SDP:{\n%s}", priv->stream_sdp);
 
   g_free(tr_addr);
   g_free(tr_user);

@@ -1255,6 +1255,8 @@ priv_session_local_sdp (SIPMediaSession *session, GString *user_sdp)
         }
     }
 
+  SESSION_DEBUG(session, "generated SDP: {\n%s}", user_sdp->str);
+
   return has_supported_media;
 }
 
@@ -1306,8 +1308,6 @@ priv_session_respond (SIPMediaSession *session)
 
       msg = (priv->saved_event[0])
                 ? nua_saved_event_request (priv->saved_event) : NULL;
-
-      DEBUG("answering with SDP: {\n%s}", user_sdp->str);
 
       nua_respond (priv->nua_op, 200, sip_200_OK,
                    TAG_IF(msg, NUTAG_WITH(msg)),
