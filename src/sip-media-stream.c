@@ -906,9 +906,6 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
       && sdp_connection_cmp (sdp_media_connections (old_media), sdp_conn) == 0)
     transport_changed = FALSE;
 
-  /* TODO: keep a pointer to old media and roll back
-   * if the session is rejected */
-
   priv->remote_media = new_media;
 
   old_direction = priv->direction;
