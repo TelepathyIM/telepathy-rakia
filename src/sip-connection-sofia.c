@@ -161,13 +161,17 @@ priv_handle_auth (SIPConnection* self,
 
       g_debug ("sofiasip: using the primary auth credentials");
 
-      /* use the userpart in "From" header */
-      if (sipfrom && sipfrom->a_url)
-        user = sipfrom->a_url->url_user;
-
-      /* alternatively use the userpart in "To" header */
-      if (!user && sipto && sipto->a_url)
-        user = sipto->a_url->url_user;
+      if (priv->auth_user)
+          /* use authentication username if provided */
+          user = priv->auth_user;
+      else if (sipfrom && sipfrom->a_url)
+          /* or use the userpart in "From" header */
+          user = sipfrom->a_url->url_user;
+      else if (sipto && sipto->a_url)
+          /* alternatively use the userpart in "To" header */
+          user = sipto->a_url->url_user;
+      else
+          g_assert_not_reached ();
 
       password = priv->password;
     }

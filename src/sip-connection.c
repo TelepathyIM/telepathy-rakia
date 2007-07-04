@@ -676,6 +676,8 @@ sip_connection_start_connecting (TpBaseConnection *base,
 
   priv->account_url = url_make (priv->sofia_home, sip_address);
 
+  g_assert (priv->account_url != NULL);
+
   /* step: create stack instance */
   priv->sofia_nua = nua_create (sofia_root,
       sip_connection_sofia_callback,

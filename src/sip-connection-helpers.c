@@ -88,13 +88,7 @@ sip_conn_create_register_handle (SIPConnection *conn,
   to = priv_sip_to_url_make (conn, temphome, contact);
 
   if (to)
-    {
-      if (priv->auth_user)
-        {
-          to->a_url->url_user = su_strdup (temphome, priv->auth_user);
-        }
       result = nua_handle (priv->sofia_nua, NULL, SIPTAG_TO(to), TAG_END());
-    }
 
   su_home_deinit (temphome);
 
