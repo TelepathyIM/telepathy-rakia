@@ -285,7 +285,7 @@ sip_connection_set_property (GObject      *object,
     break;
   }
   case PROP_STUN_SERVER: {
-    sip_conn_resolv_stun_server (self, g_value_get_string (value));
+    priv->stun_server = g_value_dup_string (value);
     break;
   }
   case PROP_EXTRA_AUTH_USER: {
@@ -719,7 +719,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
   sip_conn_update_nua_keepalive_interval (self);
   sip_conn_update_nua_contact_features (self);
   if (priv->stun_server != NULL)
-      sip_conn_update_stun_server (self);
+      sip_conn_resolv_stun_server (self, priv->stun_server);
   else
       sip_conn_discover_stun_server (self);
 
