@@ -361,11 +361,33 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
 {
   SIPConnection *conn = SIP_CONNECTION (ctx);
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  sres_a_record_t *ans = NULL;
 
-  if ((NULL != answers) && (NULL != answers[0]) &&
-      (0 == answers[0]->sr_record->r_status) && (sres_type_a == answers[0]->sr_record->r_type))
+  if (NULL != answers)
+    {
+      int i;
+      GPtrArray *items = g_ptr_array_sized_new (1);
+
+      for (i = 0; NULL != answers[i]; i++)
+        {
+          if ((0 == answers[i]->sr_record->r_status)
+              && (sres_type_a == answers[i]->sr_record->r_type))
+            {
+              g_ptr_array_add (items, answers[i]->sr_a);
+            }
+        }
+
+      if (items->len > 0)
+        {
+          ans = g_ptr_array_index (items, g_random_int_range (0, items->len));
+        }
+
+      g_ptr_array_free (items, TRUE);
+    }
+
+  if (NULL != ans)
     sip_conn_set_stun_server_address (conn,
-                                      inet_ntoa (answers[0]->sr_a->a_addr));
+                                      inet_ntoa (ans->a_addr));
   else
     g_debug ("Couldn't resolv STUN server address, ignoring.");
 
