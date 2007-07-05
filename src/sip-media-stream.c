@@ -1045,6 +1045,8 @@ sip_media_stream_set_direction (SIPMediaStream *stream,
       && priv->pending_send_flags == pending_send_flags)
     return;
 
+  DEBUG("setting direction %u, pending send flags %u", direction, pending_send_flags);
+
   priv->direction = direction;
   priv->pending_send_flags = pending_send_flags;
 
