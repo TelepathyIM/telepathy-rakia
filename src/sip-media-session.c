@@ -151,7 +151,9 @@ static void priv_session_state_changed (SIPMediaSession *session,
                                         SIPMediaSessionState prev_state);
 static gboolean priv_catch_remote_nonupdate (gpointer data);
 static gboolean priv_timeout_session (gpointer data);
-static SIPMediaStream* priv_create_media_stream (SIPMediaSession *session, guint media_type);
+static SIPMediaStream* priv_create_media_stream (SIPMediaSession *session,
+                                                 guint media_type,
+                                                 guint pending_send_flags);
 static void priv_request_response_step (SIPMediaSession *session);
 static void priv_session_invite (SIPMediaSession *session, gboolean reinvite);
 static void priv_local_media_changed (SIPMediaSession *session);
@@ -711,7 +713,7 @@ void sip_media_session_terminate (SIPMediaSession *session)
 
 gboolean
 sip_media_session_set_remote_media (SIPMediaSession *session,
-                                   const sdp_session_t* sdp)
+                                    const sdp_session_t* sdp)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
   const sdp_media_t *media;
@@ -779,7 +781,11 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
       media_type = sip_tp_media_type (media->m_type);
 
       if (i >= priv->streams->len)
-	stream = priv_create_media_stream (session, media_type);
+	stream = priv_create_media_stream (
+                        session,
+                        media_type,
+                        (priv->accepted)?
+                                0 : TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
       else 
 	stream = g_ptr_array_index(priv->streams, i);
 
@@ -918,7 +924,9 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
     guint media_type = g_array_index (media_types, guint, i);
     SIPMediaStream *stream;
 
-    stream = priv_create_media_stream (session, media_type);
+    stream = priv_create_media_stream (session,
+                                       media_type,
+                                       TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
 
     priv_add_stream_list_entry (*ret, stream, session);
   }
@@ -1075,6 +1083,8 @@ sip_media_session_receive_reinvite (SIPMediaSession *self)
 void sip_media_session_accept (SIPMediaSession *self)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  SIPMediaStream *stream;
+  guint i;
 
   if (priv->accepted)
     return;
@@ -1084,6 +1094,19 @@ void sip_media_session_accept (SIPMediaSession *self)
   priv->accepted = TRUE;
 
   priv_request_response_step (self);
+
+  /* Clear the local pending send flags, enabling sending */
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      stream = g_ptr_array_index(priv->streams, i);
+      if (stream != NULL)
+        {
+          guint direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+          g_object_get (stream, "direction", &direction, NULL);
+          if (direction & TP_MEDIA_STREAM_DIRECTION_SEND)
+            sip_media_stream_set_direction (stream, direction, 0);
+        }
+    }
 }
 
 void
@@ -1188,14 +1211,16 @@ sip_media_session_stop_telephony_event  (SIPMediaSession *self,
 
 static void priv_session_media_state (SIPMediaSession *session, gboolean playing)
 {
-  guint i;
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  SIPMediaStream *stream;
+  guint i;
 
-  for (i = 0; i < priv->streams->len; i++) {
-    SIPMediaStream *stream = g_ptr_array_index(priv->streams, i);
-    if (stream)
-      sip_media_stream_set_playing (stream, playing);
-  }
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      stream = g_ptr_array_index(priv->streams, i);
+      if (stream != NULL)
+        sip_media_stream_set_playing (stream, playing);
+    }
 }
 
 static void
@@ -1535,7 +1560,10 @@ priv_stream_direction_changed_cb (SIPMediaStream *stream,
         sip_media_stream_get_id (stream), direction, pending_send_flags);
 }
 
-static SIPMediaStream* priv_create_media_stream (SIPMediaSession *self, guint media_type)
+static SIPMediaStream*
+priv_create_media_stream (SIPMediaSession *self,
+                          guint media_type,
+                          guint pending_send_flags)
 {
   SIPMediaSessionPrivate *priv;
   gchar *object_path;
@@ -1559,6 +1587,7 @@ static SIPMediaStream* priv_create_media_stream (SIPMediaSession *self, guint me
 			   "media-type", media_type,
 			   "object-path", object_path,
 			   "id", priv->streams->len,
+                           "pending-send-flags", pending_send_flags,
 			   NULL);
 
     g_free (object_path);

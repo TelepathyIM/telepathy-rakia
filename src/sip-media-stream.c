@@ -862,6 +862,7 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
   gboolean transport_changed = TRUE;
   guint old_direction;
   guint new_direction;
+  guint pending_local_send;
 
   DEBUG ("enter");
 
@@ -926,9 +927,14 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
         transport_changed = FALSE;
     }
 
+  pending_local_send
+        = priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
+
   /* Disable sending at this point if it will be disabled
    * accordingly to the new direction */
-  priv_update_sending (stream, old_direction & new_direction, 0);
+  priv_update_sending (stream,
+                       old_direction & new_direction,
+                       pending_local_send);
 
   /* First add the new candidate, then update the codec set.
    * The offerer isn't supposed to send us anything from the new transport
@@ -953,8 +959,7 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
   push_active_candidate_pair (stream);
 
   /* Set the final direction and sending status */
-  /* XXX: don't set to sending until the call session is active */
-  sip_media_stream_set_direction (stream, new_direction, 0);
+  sip_media_stream_set_direction (stream, new_direction, pending_local_send);
 
   return 1;
 }
