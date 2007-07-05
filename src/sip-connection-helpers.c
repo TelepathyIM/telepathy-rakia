@@ -616,32 +616,32 @@ priv_is_tel_digit (gchar x)
       }
 }
 
-static guchar *
+static gchar *
 priv_user_encode (su_home_t *home, const gchar *string)
 {
-    const gchar *a;
-    gchar *b;
-    gchar *res = su_zalloc (home, strlen (string) * 3 + 1);
+  const gchar *a;
+  gchar *b;
+  gchar *res = su_zalloc (home, strlen (string) * 3 + 1);
 
-    g_return_val_if_fail (res != NULL, NULL);
+  g_return_val_if_fail (res != NULL, NULL);
 
-    a = string;
-    b = res;
-    while (*a)
-      {
-        if (priv_is_user_unreserved (*a))
-          {
-            *b++ = *a++;
-          }
-        else
-          {
-            snprintf (b, 4, "%%%02x", (guint) *a);
-            ++a;
-            b += 3;
-          }
-      }
+  a = string;
+  b = res;
+  while (*a)
+    {
+      if (priv_is_user_unreserved (*a))
+        {
+          *b++ = *a++;
+        }
+      else
+        {
+          snprintf (b, 4, "%%%02x", (guint) *a);
+          ++a;
+          b += 3;
+        }
+    }
 
-    return (guchar *) res;
+  return res;
 }
 
 /* unescape characters that don't need escaping */
