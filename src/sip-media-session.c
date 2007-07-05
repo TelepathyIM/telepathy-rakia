@@ -1001,13 +1001,16 @@ sip_media_session_request_stream_direction (SIPMediaSession *self,
   if (stream == NULL)
     return FALSE;
 
-  g_object_get (stream, "direction", &old_direction, NULL);
+  g_object_get (stream,
+                "direction", &old_direction,
+                "pending-send-flags", &pending_send_flags,
+                NULL);
 
   SESSION_DEBUG(self, "stream %u direction change requested: %u -> %u", stream_id, old_direction, direction);
 
   /* Set pending send flag if we're going to start sending */
   if (direction & ~old_direction & TP_MEDIA_STREAM_DIRECTION_SEND)
-    pending_send_flags = TP_MEDIA_STREAM_PENDING_REMOTE_SEND; 
+    pending_send_flags |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
 
   sip_media_stream_set_direction (stream, direction, pending_send_flags);
 
