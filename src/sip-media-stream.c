@@ -903,18 +903,28 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
       return 0;
     }
 
-  /* Check in particular if the transport candidate needs to be changed */
-
-  if (old_media != NULL
-      && sdp_connection_cmp (sdp_media_connections (old_media), sdp_conn) == 0)
-    transport_changed = FALSE;
-
-  old_direction = priv->direction;
   new_direction = sip_tp_stream_direction_from_remote (new_media->m_mode);
 
-  /* Make sure the answer can only remove sending or receiving bits */
+  /* Make sure the answer can only remove sending or receiving bits
+   * of the offer */
   if (!authoritative)
-    new_direction &= old_direction;
+    new_direction &= priv->direction;
+
+  /* Check if the transport candidate and stream direction
+   * need to be changed */
+
+  if (old_media == NULL)
+    {
+      /* we regard the previously effective remote direction here */
+      old_direction = TP_MEDIA_STREAM_DIRECTION_NONE;
+    }
+  else
+    {
+      old_direction = priv->direction;
+
+      if (!sdp_connection_cmp (sdp_media_connections (old_media), sdp_conn))
+        transport_changed = FALSE;
+    }
 
   /* Disable sending at this point if it will be disabled
    * accordingly to the new direction */
