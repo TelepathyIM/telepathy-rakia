@@ -1041,8 +1041,6 @@ sip_media_stream_set_direction (SIPMediaStream *stream,
   SIPMediaStreamPrivate *priv;
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  DEBUG("enter");
-
   if (priv->direction == direction
       && priv->pending_send_flags == pending_send_flags)
     return;

@@ -885,17 +885,10 @@ sip_media_channel_set_remote_media (SIPMediaChannel *chan,
                                     const sdp_session_t* r_sdp)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
-  gboolean res = FALSE;
 
-  DEBUG("enter");
+  g_return_val_if_fail (priv->session != NULL, FALSE);
 
-  if (priv->session) {
-    res = sip_media_session_set_remote_media (priv->session, r_sdp);
-  }
-
-  DEBUG ("exit");
-
-  return res;
+  return sip_media_session_set_remote_media (priv->session, r_sdp);
 }
 
 void
