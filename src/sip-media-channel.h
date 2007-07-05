@@ -79,8 +79,8 @@ void sip_media_channel_receive_invite   (SIPMediaChannel *self,
                                          nua_handle_t *nh,
                                          TpHandle handle);
 void sip_media_channel_receive_reinvite (SIPMediaChannel *self);
-gboolean sip_media_channel_set_remote_info (SIPMediaChannel *chan,
-                                            const sdp_session_t *r_sdp);
+gboolean sip_media_channel_set_remote_media (SIPMediaChannel *chan,
+                                             const sdp_session_t *r_sdp);
 void sip_media_channel_peer_error (SIPMediaChannel *self,
                                    guint status,
                                    const char* message);

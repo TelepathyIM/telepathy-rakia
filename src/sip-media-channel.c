@@ -881,8 +881,8 @@ sip_media_channel_receive_reinvite (SIPMediaChannel *self)
 }
 
 gboolean
-sip_media_channel_set_remote_info (SIPMediaChannel *chan,
-                                   const sdp_session_t* r_sdp)
+sip_media_channel_set_remote_media (SIPMediaChannel *chan,
+                                    const sdp_session_t* r_sdp)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
   gboolean res = FALSE;
