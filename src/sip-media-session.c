@@ -568,6 +568,10 @@ priv_session_state_changed (SIPMediaSession *session,
       /* Fall through to the next case */
     case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
     case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
+      if (priv->timer_id)
+        {
+          g_source_remove (priv->timer_id);
+        }
       priv->timer_id =
         g_timeout_add (DEFAULT_SESSION_TIMEOUT, priv_timeout_session, session);
       break;
@@ -1077,7 +1081,14 @@ sip_media_session_receive_reinvite (SIPMediaSession *self)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
 
-  g_return_if_fail (priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE);  
+  /* Note: the Sofia-SIP stack is supposed to weed out wrongly sequenced
+   * INVITE requests with session offers; here we may have a case
+   * when the processing of the response did not complete before we
+   * return back to active */
+
+  g_return_if_fail (priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE
+                    || priv->state == SIP_MEDIA_SESSION_STATE_INVITE_SENT
+                    || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_SENT);
 
   priv_save_event (self);
 
