@@ -1014,7 +1014,8 @@ sip_media_session_request_stream_direction (SIPMediaSession *self,
 
   sip_media_stream_set_direction (stream, direction, pending_send_flags);
 
-  priv_local_media_changed (self);
+  if (direction != old_direction)
+    priv_local_media_changed (self);
 
   return TRUE;
 }
