@@ -980,14 +980,16 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
                 "peer", &peer,
                 NULL);
 
-  set = tp_intset_new ();
-
   if (state == SIP_MEDIA_SESSION_STATE_ACTIVE) {
+    set = tp_intset_new ();
+
     /* add the peer to the member list */
     tp_intset_add (set, peer);
 
     tp_group_mixin_change_members ((GObject *)channel,
         "", set, NULL, NULL, NULL, 0, 0);
+
+    tp_intset_destroy (set);
 
     /* update flags accordingly -- allow removal, deny adding and rescinding */
     tp_group_mixin_change_flags ((GObject *)channel,
@@ -996,11 +998,15 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 				     TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
   }
   else if (state == SIP_MEDIA_SESSION_STATE_ENDED) {
+    set = tp_intset_new ();
+
     /* remove us and the peer from the member list */
     tp_intset_add (set, mixin->self_handle);
     tp_intset_add (set, peer);
     tp_group_mixin_change_members ((GObject *)channel,
         "", NULL, set, NULL, NULL, 0, 0);
+
+    tp_intset_destroy (set);
 
 #if 0
     /* update flags accordingly -- allow adding, deny removal */
@@ -1011,10 +1017,6 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
     priv_destroy_session (channel);
     sip_media_channel_close (channel);
   }
-
-  tp_intset_destroy (set);
-
-  DEBUG ("exit");
 }
 
 static void priv_session_stream_added_cb (SIPMediaSession *session,
