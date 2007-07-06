@@ -1525,11 +1525,11 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
         {
         case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
         case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-          /* No initial codec intersection, drop the stream. */
+          DEBUG("no codec intersection, closing the stream");
           sip_media_stream_close (stream);
           break;
         case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
-          /* Weird codec set received on our reinvite, what shall we do? */
+          g_warning ("re-INVITE got a response with a non-intersecting codec set");
           sip_media_stream_close (stream);
           break;
         case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
