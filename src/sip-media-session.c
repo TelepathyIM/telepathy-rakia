@@ -813,7 +813,7 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
                                                                authoritative);
           if (update_res >= 0)
             {
-              g_assert (sip_media_stream_is_codec_intersect_pending (stream));
+              g_assert (update_res == 0 || sip_media_stream_is_codec_intersect_pending (stream));
               priv->remote_non_ready += update_res; 
               has_supported_media = TRUE;
               goto next_media;
