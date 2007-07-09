@@ -1248,7 +1248,9 @@ priv_local_media_changed (SIPMediaSession *session)
     case SIP_MEDIA_SESSION_STATE_CREATED:
     case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
     case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-      /* The changes will be sent due next outgoing INVITE or response */
+      /* The changes will be sent when all streams are ready;
+       * check if now's the time */
+      priv_request_response_step (session);
       break;
     case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
     case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
