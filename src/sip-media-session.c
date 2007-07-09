@@ -502,8 +502,6 @@ sip_media_session_ready (TpSvcMediaSessionHandler *iface,
       priv_emit_new_stream (obj, stream);
   }
   
-  DEBUG ("exit");
-
   tp_svc_media_session_handler_return_from_ready (context);
 }
 
@@ -1413,7 +1411,7 @@ priv_request_response_step (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  DEBUG ("enter");
+  DEBUG ("enter, local non ready %d, remote non ready %d", priv->local_non_ready, priv->remote_non_ready);
 
   switch (priv->state)
     {
