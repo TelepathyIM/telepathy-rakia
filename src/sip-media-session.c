@@ -813,6 +813,7 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
                                                                authoritative);
           if (update_res >= 0)
             {
+              g_assert (sip_media_stream_is_codec_intersect_pending (stream));
               priv->remote_non_ready += update_res; 
               has_supported_media = TRUE;
               goto next_media;
@@ -1483,6 +1484,13 @@ priv_stream_close_cb (SIPMediaStream *stream,
     {
       g_assert (priv->local_non_ready > 0);
       --priv->local_non_ready;
+      DEBUG("stream wasn't ready, decrement the local non ready counter to %d", priv->local_non_ready);
+    }
+  if (sip_media_stream_is_codec_intersect_pending (stream))
+    {
+      g_assert (priv->remote_non_ready > 0);
+      --priv->remote_non_ready;
+      DEBUG("codec intersection was pending, decrement the remote non ready counter to %d", priv->remote_non_ready);
     }
 
   g_object_unref (stream);
@@ -1514,6 +1522,8 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
   g_assert (SIP_IS_MEDIA_SESSION (session));
 
   priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+
+  g_assert (!sip_media_stream_is_codec_intersect_pending (stream));
 
   g_assert (priv->remote_non_ready > 0);
   --priv->remote_non_ready;

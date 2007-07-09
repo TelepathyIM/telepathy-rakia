@@ -776,18 +776,20 @@ sip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
    * - emit SupportedCodecs
    */ 
 
-  SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
+  SIPMediaStream *self = SIP_MEDIA_STREAM (iface);
   SIPMediaStreamPrivate *priv;
-  g_assert (SIP_IS_MEDIA_STREAM (obj));
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
 
   SESSION_DEBUG(priv->session, "got codec intersection containing %u "
                 "codecs from stream-engine", codecs->len);
 
+  g_assert (priv->codec_intersect_pending);
+  priv->codec_intersect_pending = FALSE;
+
   /* store the intersection for later on */
   g_value_set_boxed (&priv->native_codecs, codecs);
 
-  g_signal_emit (obj, signals[SIG_SUPPORTED_CODECS], 0, codecs->len);
+  g_signal_emit (self, signals[SIG_SUPPORTED_CODECS], 0, codecs->len);
 
   tp_svc_media_stream_handler_return_from_supported_codecs (context);
 }
@@ -951,6 +953,8 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
 
   push_remote_codecs (stream);
 
+  priv->codec_intersect_pending = TRUE;
+
   /* TODO: this will go to session change commit code */
 
   /* note: for outbound sessions (for which remote cands become
@@ -1075,6 +1079,13 @@ gboolean sip_media_stream_is_ready (SIPMediaStream *self)
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
   g_assert (priv->stream_sdp == NULL || priv->ready_received);
   return (priv->stream_sdp != NULL);
+}
+
+gboolean
+sip_media_stream_is_codec_intersect_pending (SIPMediaStream *self)
+{
+  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  return priv->codec_intersect_pending;
 }
 
 void
