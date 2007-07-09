@@ -24,9 +24,6 @@
  */
 
 #include "debug.h"
-#ifdef ENABLE_DEBUG
-#include <mcheck.h>
-#endif
 
 #include "sip-connection-manager.h"
 #include <telepathy-glib/run.h>
@@ -43,8 +40,6 @@ int
 main (int argc, char** argv)
 {
 #ifdef ENABLE_DEBUG
-  mtrace ();
-
   sip_debug_set_flags_from_env ();
 
   if (g_getenv ("SOFIASIP_PERSIST"))
