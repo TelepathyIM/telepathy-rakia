@@ -1538,11 +1538,10 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
            * offers a different set of codecs.
            * Roll back the whole session to the previously negotiated state. */
           priv_session_rollback (session);
-          break;
+          return;
         default:
           g_assert_not_reached();
         }
-      return;
     }
 
   priv_request_response_step (session);
