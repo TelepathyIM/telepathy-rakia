@@ -92,11 +92,6 @@ struct _SIPMediaStreamPrivate
 
   gchar *stream_sdp;              /** SDP description of the stream */
 
-  gboolean ready_received;        /** our ready method has been called */
-  gboolean native_cands_prepared; /** all candidates discovered */
-  gboolean native_codecs_prepared; /** all codecs discovered */
-  gboolean playing;               /** stream set to playing */
-  gboolean sending;               /** stream set to sending */
 
   GValue native_codecs;           /** intersected codec list */
   GValue native_candidates;
@@ -109,9 +104,14 @@ struct _SIPMediaStreamPrivate
 
   gchar *native_candidate_id;
 
-  gboolean push_remote_requested;
-
-  gboolean dispose_has_run;
+  gboolean ready_received               : 1; /** our ready method has been called */
+  gboolean playing                      : 1; /** stream set to playing */
+  gboolean sending                      : 1; /** stream set to sending */
+  gboolean native_cands_prepared        : 1; /** all candidates discovered */
+  gboolean native_codecs_prepared       : 1; /** all codecs discovered */
+  gboolean push_remote_requested        : 1; /** remote info signals are pending */
+  gboolean codec_intersect_pending      : 1; /** codec intersection is pending */
+  gboolean dispose_has_run              : 1;
 };
 
 #define SIP_MEDIA_STREAM_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_STREAM, SIPMediaStreamPrivate))
