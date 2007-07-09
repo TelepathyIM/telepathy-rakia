@@ -685,12 +685,13 @@ sip_connection_start_connecting (TpBaseConnection *base,
       SOATAG_AF(SOA_AF_IP4_IP6),
       SIPTAG_FROM_STR(sip_address),
       NUTAG_URL("sip:*:*"),
+      NUTAG_M_USERNAME(priv->account_url->url_user),
       NUTAG_USER_AGENT("Telepathy-SofiaSIP/" TELEPATHY_SIP_VERSION),
       NUTAG_ENABLEMESSAGE(1),
       NUTAG_ENABLEINVITE(1),
       NUTAG_AUTOALERT(0),
       NUTAG_AUTOANSWER(0),
-      NUTAG_M_USERNAME(priv->account_url->url_user),
+      NUTAG_APPL_METHOD("MESSAGE"),
       TAG_NULL());
   if (priv->sofia_nua == NULL)
     {

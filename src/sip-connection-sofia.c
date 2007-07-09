@@ -565,6 +565,7 @@ priv_i_message (int status,
     {
       nua_respond (nh, SIP_415_UNSUPPORTED_MEDIA,
                    SIPTAG_ACCEPT_STR("text/plain"),
+                   NUTAG_WITH_THIS(nua),
                    TAG_END());
       return;
     }
@@ -588,7 +589,9 @@ priv_i_message (int status,
 
           if (text == NULL)
             {
-              nua_respond (nh, 500, error->message, TAG_END());
+              nua_respond (nh, 500, error->message,
+                           NUTAG_WITH_THIS(nua),
+                           TAG_END());
               g_error_free (error);
               return;
             }
@@ -596,6 +599,7 @@ priv_i_message (int status,
             {
               nua_respond (nh, 400, "Incomplete character sequence at the "
                                     "end of the message body",
+                           NUTAG_WITH_THIS(nua),
                            TAG_END());
               goto end;
             }
@@ -607,6 +611,7 @@ priv_i_message (int status,
                                 NULL))
             {
               nua_respond (nh, 400, "Invalid characters in the message body",
+                           NUTAG_WITH_THIS(nua),
                            TAG_END());
               return;
             }
@@ -617,7 +622,6 @@ priv_i_message (int status,
     {
       text = g_strdup ("");
     }
-
 
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
@@ -641,11 +645,15 @@ priv_i_message (int status,
       sip_text_channel_receive (channel, handle, text);
 
       tp_handle_unref (contact_repo, handle);
+
+      nua_respond (nh, SIP_200_OK, NUTAG_WITH_THIS(nua), TAG_END());
     }
   else
     {
       g_warning ("Incoming message has invalid sender information");
-      nua_respond (nh, 400, "Invalid From address", TAG_END());
+      nua_respond (nh, 400, "Invalid From address",
+                   NUTAG_WITH_THIS(nua),
+                   TAG_END());
     }
 
 end:
