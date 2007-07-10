@@ -1317,7 +1317,7 @@ priv_session_local_sdp (SIPMediaSession *session, GString *user_sdp)
         }
       else
         { 
-          user_sdp = g_string_append (user_sdp, "m=unknown 0 -/-\r\n");
+          user_sdp = g_string_append (user_sdp, "m=audio 0 RTP/AVP 0\r\n");
         }
     }
 
