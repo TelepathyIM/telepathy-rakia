@@ -764,8 +764,6 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
   priv->remote_sdp = sdp_session_dup (priv->home, sdp);
   g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
 
-  g_assert (priv->remote_non_ready == 0);
-
   authoritative = (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
                    || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
 
@@ -808,13 +806,19 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
         }
       else
         {
-          gint update_res = sip_media_stream_set_remote_media (stream,
-                                                               media,
-                                                               authoritative);
+          gint update_res;
+          gboolean was_not_ready;
+
+          was_not_ready = sip_media_stream_is_codec_intersect_pending (stream);
+
+          update_res = sip_media_stream_set_remote_media (stream,
+                                                          media,
+                                                          authoritative);
           if (update_res >= 0)
             {
               g_assert (update_res == 0 || sip_media_stream_is_codec_intersect_pending (stream));
-              priv->remote_non_ready += update_res; 
+              if (!was_not_ready)
+                priv->remote_non_ready += update_res;
               has_supported_media = TRUE;
               goto next_media;
             }
