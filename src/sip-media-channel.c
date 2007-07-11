@@ -1129,7 +1129,7 @@ priv_destroy_session(SIPMediaChannel *channel)
   g_object_unref (session);
 }
 
-
+#if 0
 /* Check that self_handle is not already in the members. If it is,
  * we're trying to call ourselves. */
 static void
@@ -1169,6 +1169,7 @@ priv_add_members (TpSvcChannelInterfaceGroup *obj,
       g_error_free (error);
     }
 }
+#endif
 
 gboolean
 sip_media_channel_add_member (GObject *iface,
@@ -1448,7 +1449,9 @@ priv_group_mixin_iface_init (gpointer g_iface, gpointer iface_data)
 
   tp_group_mixin_iface_init (g_iface, iface_data);
 
+#if 0
   tp_svc_channel_interface_group_implement_add_members (klass,
       priv_add_members);
+#endif
 }
 
