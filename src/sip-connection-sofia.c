@@ -861,6 +861,10 @@ sip_connection_sofia_callback(nua_event_t event,
     priv_r_message(status, phrase, nua, self, nh, sip, tags);
     break;
 
+  case nua_r_cancel:
+    /* priv_r_cancel (status, phrase, nua, self, nh, sip, tags); */
+    break;
+
   case nua_r_refer:
     /* self_r_refer(status, phrase, nua, self, nh, sip, tags); */
     break;
