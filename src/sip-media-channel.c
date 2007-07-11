@@ -1218,14 +1218,13 @@ sip_media_channel_add_member (GObject *iface,
       return TRUE;
     }
   /* case b: an incoming invite */
-  else if (priv->session &&
-	   tp_handle_set_is_member (mixin->local_pending, handle))
+  if (tp_handle_set_is_member (mixin->local_pending, handle))
     {
       TpIntSet *set;
 
       DEBUG("accepting an incoming invite");
 
-      g_assert (handle == mixin->self_handle);
+      g_return_val_if_fail (priv->session != NULL, FALSE);
 
       set = tp_intset_new ();
       tp_intset_add (set, handle);
@@ -1242,10 +1241,12 @@ sip_media_channel_add_member (GObject *iface,
       return TRUE;
     }
 
-  g_assert_not_reached();
+  /* This can only legitimately happen if the user is trying to call themselves */
+  g_message ("unsupported member change requested for a media channel");
 
-  g_set_error (error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
-               "Can't map this member change to protocol behavior");
+  g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+               "Can't map requested member change to protocol behavior"
+               " -- trying to call yourself?");
   return FALSE;
 }
 
