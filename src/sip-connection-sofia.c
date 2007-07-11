@@ -538,11 +538,13 @@ priv_i_cancel (nua_t *nua,
   if (nh_magic == SIP_NH_EXPIRED)
     {
       g_message ("CANCEL received for a destroyed media channel");
-      /* nua_respond (nh, 481, "Call Does Not Exist", TAG_END()); */
+      /* nua_respond (nh, SIP_481_NO_CALL, TAG_END()); */
       return;
     }
 
   sip_media_channel_peer_cancel (SIP_MEDIA_CHANNEL (nh_magic));
+
+  /* nua_respond (nh, SIP_200_OK, TAG_END()); */
 }
 
 static void
