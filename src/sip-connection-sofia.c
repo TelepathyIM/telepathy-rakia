@@ -678,17 +678,9 @@ priv_i_state (int status,
   int ss_state = nua_callstate_init;
   SIPMediaChannel *channel;
 
-  if (nh_magic == SIP_NH_EXPIRED)
-    {
-      g_message ("state change %03d '%s', received for a "
-          "destroyed media channel, ignored", status, phrase);
-      return;
-    }
-
   DEBUG("nua_i_state: %03d %s", status, phrase);
 
-  channel = nh_magic;
-  if (channel == NULL)
+  if (nh_magic == NULL)
     {
       g_warning ("nua_i_state received for an unknown handle %p, ignored", nh);
       return;
@@ -700,6 +692,18 @@ priv_i_state (int status,
           NUTAG_ANSWER_RECV_REF(answer_recv),
           SOATAG_REMOTE_SDP_REF(r_sdp),
           TAG_END());
+
+  if (nh_magic == SIP_NH_EXPIRED)
+    {
+      g_message ("call state change %03d '%s' received for a "
+          "destroyed media channel (handle %p), BYE off", status, phrase, nh);
+      if (ss_state != nua_callstate_terminated)
+        nua_bye (nh, TAG_END());
+      /* Destroy it? */
+      return;
+    }
+
+  channel = nh_magic;
 
   if (r_sdp)
     {
