@@ -896,6 +896,7 @@ sip_connection_sofia_callback(nua_event_t event,
          *       be safely destroyed */
         g_message ("NOTE: destroying NUA handle %p (its associated "
             "channel has already gone away)", nh);
+        nua_handle_ref (nh);
         nua_handle_destroy (nh);
       }
 
