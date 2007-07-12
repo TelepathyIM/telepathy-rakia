@@ -848,12 +848,10 @@ sip_tp_stream_direction_from_remote (sdp_mode_t mode)
  * the stream, preferably kept in the memory home attached to
  * the session object.
  *
- * @return 1 if the remote information has been updated and a matching
- *           from the stream engine is pending,
- *         0 if no changes in remote media description have been detected,
- *         a negative value if the update is not acceptable. 
+ * @return TRUE if the remote information has been accepted,
+ *         FALSE if the update is not acceptable.
  */
-gint
+gboolean
 sip_media_stream_set_remote_media (SIPMediaStream *stream,
                                    const sdp_media_t *new_media,
                                    gboolean authoritative)
@@ -877,20 +875,20 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
   if (new_media->m_rejected || new_media->m_port == 0)
     {
       DEBUG("the stream is rejected remotely");
-      return -1;
+      return FALSE;
     }
 
   if (new_media->m_proto != sdp_proto_rtp)
     {
       g_warning ("Stream %u: the remote protocol is not RTP/AVP", priv->id);
-      return -1;
+      return FALSE;
     }
 
   sdp_conn = sdp_media_connections (new_media);
   if (sdp_conn == NULL)
     {
       g_warning ("Stream %u: no valid remote connections", priv->id);
-      return -1;
+      return FALSE;
     }
 
   /* Note: always update the pointer to the current media structure
@@ -903,7 +901,7 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
   if (sdp_media_cmp (old_media, new_media) == 0)
     {
       DEBUG("no media changes detected for the stream");
-      return 0;
+      return TRUE;
     }
 
   new_direction = sip_tp_stream_direction_from_remote (new_media->m_mode);
@@ -965,7 +963,7 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
   /* Set the final direction and sending status */
   sip_media_stream_set_direction (stream, new_direction, pending_local_send);
 
-  return 1;
+  return TRUE;
 }
 
 /**

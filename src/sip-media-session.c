@@ -117,7 +117,6 @@ struct _SIPMediaSessionPrivate
   SIPMediaSessionState state;           /** see gobj. prop. 'state' */
   nua_saved_event_t saved_event[1];     /** Saved incoming request event */
   gint local_non_ready;                 /** number of streams with local information update pending */
-  gint remote_non_ready;                /** number of streams with remote information update pending */
   guint catcher_id;
   guint timer_id;
   su_home_t *home;                      /** Sofia memory home for remote SDP session structure */
@@ -806,19 +805,10 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
         }
       else
         {
-          gint update_res;
-          gboolean was_not_ready;
-
-          was_not_ready = sip_media_stream_is_codec_intersect_pending (stream);
-
-          update_res = sip_media_stream_set_remote_media (stream,
-                                                          media,
-                                                          authoritative);
-          if (update_res >= 0)
+          if (sip_media_stream_set_remote_media (stream,
+                                                 media,
+                                                 authoritative))
             {
-              g_assert (update_res == 0 || sip_media_stream_is_codec_intersect_pending (stream));
-              if (!was_not_ready)
-                priv->remote_non_ready += update_res;
               has_supported_media = TRUE;
               goto next_media;
             }
@@ -1402,6 +1392,23 @@ priv_session_respond (SIPMediaSession *session)
   g_string_free (user_sdp, TRUE);
 }
 
+static gboolean
+priv_is_codec_intersect_pending (SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  guint i;
+
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
+      if (stream != NULL
+          && sip_media_stream_is_codec_intersect_pending (stream))
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
 /**
  * Sends requests and responses with an outbound offer/answer
  * if all streams of the session are prepared.
@@ -1416,7 +1423,7 @@ priv_request_response_step (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  DEBUG ("enter, local non ready %d, remote non ready %d", priv->local_non_ready, priv->remote_non_ready);
+  DEBUG ("enter, local non ready %d", priv->local_non_ready);
 
   switch (priv->state)
     {
@@ -1432,7 +1439,7 @@ priv_request_response_step (SIPMediaSession *session)
       break;
     case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
     case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
-      if (priv->remote_non_ready == 0)
+      if (!priv_is_codec_intersect_pending (session))
         {
           g_assert (priv->local_non_ready == 0);
           g_object_set (session,
@@ -1445,8 +1452,8 @@ priv_request_response_step (SIPMediaSession *session)
        * and the remote endpoint supports 100rel, send them
        * an early session answer in a reliable 183 response */
       if (priv->accepted
-          && priv->remote_non_ready == 0
-          && priv->local_non_ready == 0)
+          && priv->local_non_ready == 0
+          && !priv_is_codec_intersect_pending (session))
         {
           priv_session_respond (session);
 
@@ -1455,9 +1462,11 @@ priv_request_response_step (SIPMediaSession *session)
         }
       break;
     case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-      if (priv->remote_non_ready == 0
-          && priv->local_non_ready == 0)
-        priv_session_respond (session);
+      if (!priv_is_codec_intersect_pending (session))
+        {
+          g_assert (priv->local_non_ready == 0);
+          priv_session_respond (session);
+        }
       break;
     case SIP_MEDIA_SESSION_STATE_ACTIVE:
       if (priv->pending_offer && priv->local_non_ready == 0)
@@ -1489,12 +1498,6 @@ priv_stream_close_cb (SIPMediaStream *stream,
       g_assert (priv->local_non_ready > 0);
       --priv->local_non_ready;
       DEBUG("stream wasn't ready, decrement the local non ready counter to %d", priv->local_non_ready);
-    }
-  if (sip_media_stream_is_codec_intersect_pending (stream))
-    {
-      g_assert (priv->remote_non_ready > 0);
-      --priv->remote_non_ready;
-      DEBUG("codec intersection was pending, decrement the remote non ready counter to %d", priv->remote_non_ready);
     }
 
   g_object_unref (stream);
@@ -1528,9 +1531,6 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
   priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   g_assert (!sip_media_stream_is_codec_intersect_pending (stream));
-
-  g_assert (priv->remote_non_ready > 0);
-  --priv->remote_non_ready;
 
   if (num_codecs == 0)
     {
