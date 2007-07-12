@@ -1444,8 +1444,10 @@ dtmf_iface_init (gpointer g_iface, gpointer iface_data)
 static void
 priv_group_mixin_iface_init (gpointer g_iface, gpointer iface_data)
 {
+#if 0
   TpSvcChannelInterfaceGroupClass *klass =
       (TpSvcChannelInterfaceGroupClass *)g_iface;
+#endif
 
   tp_group_mixin_iface_init (g_iface, iface_data);
 
