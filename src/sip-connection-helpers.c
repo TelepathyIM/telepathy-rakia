@@ -599,23 +599,6 @@ priv_is_host (gchar x)
       }
 }
 
-static gboolean
-priv_is_tel_digit (gchar x)
-{
-    switch (x)
-      {
-        case '+':
-        case '-':
-        case '.':
-        case '/':
-        case '(':
-        case ')':
-          return TRUE;
-        default:
-          return g_ascii_isdigit (x);
-      }
-}
-
 static gchar *
 priv_user_encode (su_home_t *home, const gchar *string)
 {
@@ -678,35 +661,60 @@ priv_user_decode (su_home_t *home, const gchar *string)
 static gboolean
 priv_is_tel_num (const gchar *string)
 {
-    while (*string)
-      {
-        if (!g_ascii_isdigit (*string) &&
-            !g_ascii_ispunct (*string) &&
-            !g_ascii_isspace (*string))
-                return FALSE;
-        string++;
-      }
-    return TRUE;
+  const gchar *pc;
+  gboolean has_digits = FALSE;
+
+  g_return_val_if_fail (string != NULL, FALSE);
+
+  /* skip the initial whitespace */
+  pc = string + strspn (string, " \t");
+
+  /* the leading '+' is acceptable */
+  if (*pc == '+')
+    ++pc;
+
+  /* only digits, delimiters and inline whitespace */
+  while (*pc)
+    {
+      if (g_ascii_isdigit (*pc))
+        has_digits = TRUE;
+      else
+        switch (*pc)
+          {
+          case ' ':
+          case '\t':
+          case '-':
+          case '.':
+          case '(':
+          case ')':
+            break;
+          default:
+            return FALSE;
+          }
+      ++pc;
+    }
+
+  return has_digits;
 }
 
 static gchar *
-priv_strip_tel_num (su_home_t *home, const gchar *string)
+priv_strip_whitespace (su_home_t *home, const gchar *string)
 {
-    const gchar *a;
-    gchar *b;
-    gchar *res = su_zalloc (home, strlen (string) + 1);
+  const gchar *a;
+  gchar *b;
+  gchar *res = su_zalloc (home, strlen (string) + 1);
 
-    g_return_val_if_fail (res != NULL, NULL);
+  g_return_val_if_fail (res != NULL, NULL);
 
-    b = res;
-    for (a = string; *a; a++)
-      {
-        if (priv_is_tel_digit (*a))
-          *b++ = *a;
-      }
-    *b = '\0';
+  b = res;
+  for (a = string; *a; a++)
+    {
+      if (!g_ascii_isspace (*a))
+        *b++ = *a;
+    }
+  *b = '\0';
 
-    return res;
+  return res;
 }
 
 gchar *
@@ -737,7 +745,7 @@ sip_conn_normalize_uri (SIPConnection *conn,
       if (priv_is_tel_num (sipuri))
         {
           url = url_format (home, "sip:%s@%s",
-              priv_strip_tel_num (home, sipuri),
+              priv_strip_whitespace (home, sipuri),
               priv->account_url->url_host);
         }
       else
