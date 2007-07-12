@@ -64,7 +64,7 @@ static sip_to_t *priv_sip_to_url_make (SIPConnection *conn,
 
   /* TODO: set display name bound to the handle using qdata? */
 
-  to = sip_to_make (home, address);
+  to = sip_to_create (home, URL_STRING_MAKE(address));
 
   if (to &&
       url_sanitize(to->a_url) == 0) 
@@ -744,7 +744,7 @@ sip_conn_normalize_uri (SIPConnection *conn,
 
       if (priv_is_tel_num (sipuri))
         {
-          url = url_format (home, "sip:%s@%s",
+          url = url_format (home, "sip:%s@%s;user=phone",
               priv_strip_whitespace (home, sipuri),
               priv->account_url->url_host);
         }
