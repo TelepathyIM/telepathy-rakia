@@ -37,6 +37,8 @@ G_DEFINE_TYPE_WITH_CODE (SIPMediaFactory, sip_media_factory,
 enum
 {
   PROP_CONNECTION = 1,
+  PROP_STUN_SERVER,
+  PROP_STUN_PORT,
   LAST_PROPERTY
 };
 
@@ -90,7 +92,6 @@ sip_media_factory_dispose (GObject *object)
   g_assert (priv->session_chans == NULL);
 
   g_free (priv->stun_server);
-  priv->stun_server = NULL;
 
   if (G_OBJECT_CLASS (sip_media_factory_parent_class)->dispose)
     G_OBJECT_CLASS (sip_media_factory_parent_class)->dispose (object);
@@ -108,6 +109,12 @@ sip_media_factory_get_property (GObject *object,
   switch (property_id) {
     case PROP_CONNECTION:
       g_value_set_object (value, priv->conn);
+      break;
+    case PROP_STUN_SERVER:
+      g_value_set_string (value, priv->stun_server);
+      break;
+    case PROP_STUN_PORT:
+      g_value_set_uint (value, priv->stun_port);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -127,6 +134,13 @@ sip_media_factory_set_property (GObject *object,
   switch (property_id) {
     case PROP_CONNECTION:
       priv->conn = g_value_get_object (value);
+      break;
+    case PROP_STUN_SERVER:
+      g_free (priv->stun_server);
+      priv->stun_server = g_value_dup_string (value);
+      break;
+    case PROP_STUN_PORT:
+      priv->stun_port = g_value_get_uint (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -155,6 +169,22 @@ sip_media_factory_class_init (SIPMediaFactoryClass *klass)
                                     G_PARAM_STATIC_NICK |
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
+
+  param_spec = g_param_spec_string ("stun-server", "STUN server address",
+                                    "STUN server address",
+                                    NULL,
+                                    G_PARAM_READWRITE |
+                                    G_PARAM_STATIC_NAME |
+                                    G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class, PROP_STUN_SERVER, param_spec);
+
+  param_spec = g_param_spec_uint ("stun-port", "STUN port",
+                                  "STUN port.",
+                                  0, G_MAXUINT16, SIP_DEFAULT_STUN_PORT,
+                                  G_PARAM_READWRITE |
+                                  G_PARAM_STATIC_NAME |
+                                  G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class, PROP_STUN_PORT, param_spec);
 }
 
 static void
@@ -193,22 +223,6 @@ sip_media_factory_connecting (TpChannelFactoryIface *iface)
 static void
 sip_media_factory_connected (TpChannelFactoryIface *iface)
 {
-  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-  gchar *stun_server = NULL;
-  guint stun_port = 0;
-
-  g_object_get (priv->conn,
-      "stun-server", &stun_server,
-      "stun-port", &stun_port,
-      NULL);
-
-  if (stun_server != NULL)
-    {
-      g_free (priv->stun_server);
-      priv->stun_server = stun_server;
-      priv->stun_port = stun_port;
-    }
 }
 
 static void
