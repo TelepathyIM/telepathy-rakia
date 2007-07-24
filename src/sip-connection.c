@@ -281,7 +281,6 @@ sip_connection_set_property (GObject      *object,
   }
   case PROP_STUN_PORT: {
     priv->stun_port = g_value_get_uint (value);
-    sip_conn_update_stun_server (self);
     break;
   }
   case PROP_STUN_SERVER: {
