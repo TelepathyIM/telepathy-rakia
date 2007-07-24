@@ -141,7 +141,6 @@ sip_connection_constructor (GType                  type,
   g_assert (priv->registrar == NULL);
   g_assert (priv->proxy == NULL);
   g_assert (priv->http_proxy == NULL);
-  g_assert (priv->stun_server == NULL);
 
   g_assert (priv->sofia_nua == NULL);
 
@@ -284,7 +283,8 @@ sip_connection_set_property (GObject      *object,
     break;
   }
   case PROP_STUN_SERVER: {
-    priv->stun_server = g_value_dup_string (value);
+    g_free (priv->stun_host);
+    priv->stun_host = g_value_dup_string (value);
     break;
   }
   case PROP_EXTRA_AUTH_USER: {
@@ -356,7 +356,7 @@ sip_connection_get_property (GObject      *object,
     break;
   }
   case PROP_STUN_SERVER: {
-    g_value_set_string (value, priv->stun_server);
+    g_value_set_string (value, priv->stun_host);
     break;
   }
   case PROP_STUN_PORT: {
@@ -616,7 +616,7 @@ sip_connection_finalize (GObject *obj)
   g_free (priv->proxy);
   g_free (priv->registrar);
   g_free (priv->http_proxy);
-  g_free (priv->stun_server);
+  g_free (priv->stun_host);
   g_free (priv->extra_auth_user);
   g_free (priv->extra_auth_password);
 
@@ -718,8 +718,8 @@ sip_connection_start_connecting (TpBaseConnection *base,
   sip_conn_update_nua_outbound (self);
   sip_conn_update_nua_keepalive_interval (self);
   sip_conn_update_nua_contact_features (self);
-  if (priv->stun_server != NULL)
-      sip_conn_resolv_stun_server (self, priv->stun_server);
+  if (priv->stun_host != NULL)
+      sip_conn_resolv_stun_server (self, priv->stun_host);
   else
       sip_conn_discover_stun_server (self);
 

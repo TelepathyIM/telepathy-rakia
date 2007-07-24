@@ -321,8 +321,11 @@ static void
 sip_conn_set_stun_server_address (SIPConnection *conn, const gchar *address)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
-  g_free (priv->stun_server);
-  priv->stun_server = g_strdup (address);
+  g_return_if_fail (priv->media_factory != NULL);
+  g_object_set (priv->media_factory,
+                "stun-server", address,
+                "stun-port", priv->stun_port,
+                NULL);
 }
 
 static void
@@ -364,20 +367,20 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
 }
 
 void
-sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
+sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_host)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
   struct in_addr test_addr;
 
-  if (stun_server == NULL)
+  if (stun_host == NULL)
     {
       sip_conn_set_stun_server_address (conn, NULL);
       return;
     }
 
-  if (inet_aton (stun_server, &test_addr))
+  if (inet_aton (stun_host, &test_addr))
     {
-      sip_conn_set_stun_server_address (conn, stun_server);
+      sip_conn_set_stun_server_address (conn, stun_host);
       return;
     }
   
@@ -388,13 +391,13 @@ sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server)
     }
   g_return_if_fail (priv->sofia_resolver != NULL);
 
-  DEBUG("creating a new resolver query for STUN host name %s", stun_server);
+  DEBUG("creating a new resolver query for STUN host name %s", stun_host);
 
   sres_query (priv->sofia_resolver,
               priv_stun_resolver_cb,
               (sres_context_t *) conn,
               sres_type_a,
-              stun_server);
+              stun_host);
 }
 
 static void

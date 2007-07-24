@@ -44,7 +44,7 @@ void sip_conn_update_nua_outbound (SIPConnection *conn);
 void sip_conn_update_nua_keepalive_interval (SIPConnection *conn);
 void sip_conn_update_nua_contact_features (SIPConnection *conn);
 void sip_conn_update_stun_server (SIPConnection *conn);
-void sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_server);
+void sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_host);
 void sip_conn_discover_stun_server (SIPConnection *conn);
 
 /***********************************************************************
