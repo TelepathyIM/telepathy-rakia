@@ -514,7 +514,9 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                    "STUN server address (FQDN or IP address, "
                                    "e.g. 'stun.myprovider.com') [optional]",
                                    NULL, /*default value*/
-                                   G_PARAM_READWRITE);
+                                   G_PARAM_READWRITE |
+                                   G_PARAM_STATIC_NAME |
+                                   G_PARAM_STATIC_BLURB);
   INST_PROP(PROP_STUN_SERVER);
 
   param_spec = g_param_spec_uint ("stun-port",
