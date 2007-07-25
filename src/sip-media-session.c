@@ -1462,9 +1462,9 @@ priv_request_response_step (SIPMediaSession *session)
         }
       break;
     case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-      if (!priv_is_codec_intersect_pending (session))
+      if (priv->local_non_ready == 0
+          && !priv_is_codec_intersect_pending (session))
         {
-          g_assert (priv->local_non_ready == 0);
           priv_session_respond (session);
         }
       break;
