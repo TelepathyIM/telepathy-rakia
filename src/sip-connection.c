@@ -83,6 +83,7 @@ enum
   PROP_KEEPALIVE_INTERVAL, /**< keepalive interval in seconds */
   PROP_HTTP_PROXY,         /**< HTTP proxy URI; use HTTP-CONNECT to reach SIP servers */
   PROP_DISCOVER_BINDING,   /**< enable discovery of public binding */
+  PROP_DISCOVER_STUN,      /**< Discover STUN server name using DNS SRV lookup */
   PROP_STUN_SERVER,        /**< STUN server address (if not set, derived
 			        from public SIP address */
   PROP_STUN_PORT,          /**< STUN port */
@@ -278,6 +279,9 @@ sip_connection_set_property (GObject      *object,
       sip_conn_update_nua_outbound (self);
     break;
   }
+  case PROP_DISCOVER_STUN:
+    priv->discover_stun = g_value_get_boolean (value);
+    break;
   case PROP_STUN_PORT: {
     priv->stun_port = g_value_get_uint (value);
     break;
@@ -355,6 +359,9 @@ sip_connection_get_property (GObject      *object,
     g_value_set_boolean (value, priv->discover_binding);
     break;
   }
+  case PROP_DISCOVER_STUN:
+    g_value_set_boolean (value, priv->discover_stun);
+    break;
   case PROP_STUN_SERVER: {
     g_value_set_string (value, priv->stun_host);
     break;
@@ -508,6 +515,13 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                    NULL, /*default value*/
                                    G_PARAM_READWRITE);
   INST_PROP(PROP_EXTRA_AUTH_PASSWORD);
+
+  param_spec = g_param_spec_boolean("discover-stun", "Discover STUN server",
+                                    "Enable discovery of STUN server host name "
+                                    "using DNS SRV lookup",
+                                    TRUE, /*default value*/
+                                    G_PARAM_READWRITE);
+  INST_PROP(PROP_DISCOVER_STUN);
 
   param_spec = g_param_spec_string("stun-server",
                                    "STUN server address",
@@ -721,9 +735,9 @@ sip_connection_start_connecting (TpBaseConnection *base,
   sip_conn_update_nua_keepalive_interval (self);
   sip_conn_update_nua_contact_features (self);
   if (priv->stun_host != NULL)
-      sip_conn_resolv_stun_server (self, priv->stun_host);
-  else
-      sip_conn_discover_stun_server (self);
+    sip_conn_resolv_stun_server (self, priv->stun_host);
+  else if (priv->discover_stun)
+    sip_conn_discover_stun_server (self);
 
   g_message ("Sofia-SIP NUA at address %p (SIP URI: %s)", 
 	     priv->sofia_nua, sip_address);

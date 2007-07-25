@@ -50,6 +50,7 @@ typedef struct {
     gboolean use_http_proxy;
     gchar *keepalive_mechanism;
     gint keepalive_interval;
+    gboolean discover_stun;
     gchar *stun_server;
     guint stun_port;
     gchar *extra_auth_user;
@@ -94,6 +95,7 @@ enum {
     SIP_CONN_PARAM_USE_HTTP_PROXY,
     SIP_CONN_PARAM_KEEPALIVE_MECHANISM,
     SIP_CONN_PARAM_KEEPALIVE_INTERVAL,
+    SIP_CONN_PARAM_DISCOVER_STUN,
     SIP_CONN_PARAM_STUN_SERVER,
     SIP_CONN_PARAM_STUN_PORT,
     SIP_CONN_PARAM_EXTRA_AUTH_USER,
@@ -144,6 +146,10 @@ static const TpCMParamSpec sip_params[] = {
     /* KA interval */
     { "keepalive-interval", DBUS_TYPE_INT32_AS_STRING, G_TYPE_INT,
       0, NULL, G_STRUCT_OFFSET (SIPConnParams, keepalive_interval) },
+    /* Use SRV DNS lookup to discover STUN server */
+    { "discover-stun", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
+      G_STRUCT_OFFSET (SIPConnParams, discover_stun) },
     /* STUN server */
     { "stun-server", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (SIPConnParams, stun_server) },
@@ -455,6 +461,9 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   SET_PROPERTY_IF_PARAM_SET ("discover-binding", SIP_CONN_PARAM_DISCOVER_BINDING,
       params->discover_binding);
+
+  SET_PROPERTY_IF_PARAM_SET ("discover-stun", SIP_CONN_PARAM_DISCOVER_STUN,
+      params->discover_stun);
 
   SET_PROPERTY_IF_PARAM_SET ("stun-server", SIP_CONN_PARAM_STUN_SERVER,
       params->stun_server);
