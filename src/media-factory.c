@@ -364,16 +364,36 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
 
   if (handle_type == TP_HANDLE_TYPE_CONTACT)
     {
-      if (!sip_media_channel_add_member ((GObject *)chan,
-            handle, "", error))
+      GArray *contacts;
+      gboolean added;
+#if 0
+      TpHandle self_handle;
+      if (!tp_group_mixin_get_self_handle (G_OBJECT (chan),
+                                           &self_handle,
+                                           error))
+        goto err;
+      if (handle == self_handle)
         {
-          sip_media_channel_close (SIP_MEDIA_CHANNEL (chan));
-          return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
+          g_error_set (error, TP_ERROR, TP_ERROR_INVALID_HANDLE, "Cannot call self");
+          goto err;
         }
+#endif
+      contacts = g_array_sized_new (FALSE, FALSE, sizeof (TpHandle), 1);
+      g_array_append_val (contacts, handle);
+      added = tp_group_mixin_add_members (G_OBJECT (chan),
+                                          contacts,
+                                          "", error); 
+      g_array_free (contacts, TRUE);
+      if (!added)
+        goto err;
     }
 
   *ret = chan;
   return TP_CHANNEL_FACTORY_REQUEST_STATUS_CREATED;
+
+err:
+  sip_media_channel_close (SIP_MEDIA_CHANNEL (chan));
+  return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
 }
 
 const gchar *
