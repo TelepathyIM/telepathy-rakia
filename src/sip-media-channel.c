@@ -1246,8 +1246,7 @@ sip_media_channel_add_member (GObject *iface,
   g_message ("unsupported member change requested for a media channel");
 
   g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
-               "Can't map requested member change to protocol behavior"
-               " -- trying to call yourself?");
+               "Can't call yourself");
   return FALSE;
 }
 
