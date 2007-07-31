@@ -471,6 +471,7 @@ priv_i_invite (int status,
   SIPMediaChannel *channel;
   TpHandleRepoIface *contact_repo;
   TpHandle handle;
+  GError *error = NULL;
 
   if (nh_magic == SIP_NH_EXPIRED)
     {
@@ -506,14 +507,19 @@ priv_i_invite (int status,
           tp_handle_inspect (contact_repo, handle));
 
     channel = sip_media_factory_new_channel (
-                SIP_MEDIA_FACTORY (priv->media_factory), NULL);
+                SIP_MEDIA_FACTORY (priv->media_factory),
+                NULL,
+                TP_HANDLE_TYPE_NONE,
+                0,
+                &error);
     if (channel)
       {
         sip_media_channel_receive_invite (channel, nh, handle);
       }
     else
       {
-        g_warning ("creation of SIP media channel failed");
+        g_warning ("creation of SIP media channel failed: %s", error->message);
+        g_error_free (error);
         nua_respond (nh, 500, sip_500_Internal_server_error, TAG_END());
       }
 

@@ -294,7 +294,10 @@ channel_closed (SIPMediaChannel *chan, gpointer user_data)
  */
 SIPMediaChannel *
 sip_media_factory_new_channel (SIPMediaFactory *fac,
-                               gpointer request)
+                               gpointer request,
+                               TpHandleType handle_type,
+                               TpHandle handle,
+                               GError **error)
 {
   SIPMediaFactoryPrivate *priv;
   SIPMediaChannel *chan;
@@ -333,35 +336,6 @@ sip_media_factory_new_channel (SIPMediaFactory *fac,
         g_object_set ((GObject *) chan, "stun-port", priv->stun_port, NULL);
     }
 
-  g_signal_connect (chan, "closed", (GCallback) channel_closed, fac);
-
-  g_ptr_array_add (priv->channels, chan);
-
-  tp_channel_factory_iface_emit_new_channel (fac, (TpChannelIface *)chan,
-      request);
-
-  return chan;
-}
-
-static TpChannelFactoryRequestStatus
-sip_media_factory_request (TpChannelFactoryIface *iface,
-                          const gchar *chan_type,
-                          TpHandleType handle_type,
-                          guint handle,
-                          gpointer request,
-                          TpChannelIface **ret,
-                          GError **error)
-{
-  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
-  TpChannelIface *chan;
-
-  if (strcmp (chan_type, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA))
-    {
-      return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
-    }
-
-  chan = (TpChannelIface *) sip_media_factory_new_channel (fac, request);
-
   if (handle_type == TP_HANDLE_TYPE_CONTACT)
     {
       GArray *contacts;
@@ -388,12 +362,51 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
         goto err;
     }
 
-  *ret = chan;
-  return TP_CHANNEL_FACTORY_REQUEST_STATUS_CREATED;
+  g_signal_connect (chan, "closed", (GCallback) channel_closed, fac);
+
+  g_ptr_array_add (priv->channels, chan);
+
+  tp_channel_factory_iface_emit_new_channel (fac, (TpChannelIface *)chan,
+      request);
+
+  return chan;
 
 err:
-  sip_media_channel_close (SIP_MEDIA_CHANNEL (chan));
-  return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
+  g_object_unref (chan);
+  return NULL;
+}
+
+static TpChannelFactoryRequestStatus
+sip_media_factory_request (TpChannelFactoryIface *iface,
+                          const gchar *chan_type,
+                          TpHandleType handle_type,
+                          TpHandle handle,
+                          gpointer request,
+                          TpChannelIface **ret,
+                          GError **error)
+{
+  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
+  TpChannelIface *chan;
+
+  if (strcmp (chan_type, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA))
+    {
+      return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
+    }
+
+  chan = (TpChannelIface *) sip_media_factory_new_channel (fac,
+                                                           request,
+                                                           handle_type,
+                                                           handle,
+                                                           error);
+  if (chan != NULL)
+    {
+      *ret = chan;
+      return TP_CHANNEL_FACTORY_REQUEST_STATUS_CREATED;
+    }
+  else
+    {
+      return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
+    }
 }
 
 const gchar *
