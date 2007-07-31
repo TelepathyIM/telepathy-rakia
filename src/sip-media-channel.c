@@ -192,10 +192,10 @@ static void priv_create_session (SIPMediaChannel *channel,
                                  TpHandle peer,
                                  gboolean remote_initiated);
 static void priv_destroy_session(SIPMediaChannel *channel);
-gboolean sip_media_channel_add_member (GObject *iface,
-                                       TpHandle handle,
-                                       const gchar *message,
-                                       GError **error);
+static gboolean sip_media_channel_add_member (GObject *iface,
+                                              TpHandle handle,
+                                              const gchar *message,
+                                              GError **error);
 static gboolean sip_media_channel_remove_with_reason (
                                                  GObject *iface,
                                                  TpHandle handle,
@@ -1171,7 +1171,7 @@ priv_add_members (TpSvcChannelInterfaceGroup *obj,
 }
 #endif
 
-gboolean
+static gboolean
 sip_media_channel_add_member (GObject *iface,
                               TpHandle handle,
                               const gchar *message,
