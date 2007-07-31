@@ -383,10 +383,12 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
                           TpHandle handle,
                           gpointer request,
                           TpChannelIface **ret,
-                          GError **error)
+                          GError **error_ret)
 {
   SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
   TpChannelIface *chan;
+  TpChannelFactoryRequestStatus status = TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
+  GError *error = NULL;
 
   if (strcmp (chan_type, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA))
     {
@@ -397,16 +399,30 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
                                                            request,
                                                            handle_type,
                                                            handle,
-                                                           error);
+                                                           &error);
   if (chan != NULL)
     {
       *ret = chan;
-      return TP_CHANNEL_FACTORY_REQUEST_STATUS_CREATED;
+      status = TP_CHANNEL_FACTORY_REQUEST_STATUS_CREATED;
     }
   else
     {
-      return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
+      g_assert (error != NULL);
+      switch (error->code)
+        {
+        case TP_ERROR_INVALID_HANDLE:
+        /* case TP_ERROR_INVALID_ARGUMENT: */
+          status = TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
+          break;
+        default:
+          status = TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
+        }
+      if (error_ret != NULL)
+        *error_ret = error;
+      else
+        g_error_free (error);
     }
+  return status;
 }
 
 const gchar *
