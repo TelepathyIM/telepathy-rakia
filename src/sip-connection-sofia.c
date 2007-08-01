@@ -99,8 +99,8 @@ priv_handle_auth (SIPConnection* self,
                   gboolean home_realm)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
-  sip_www_authenticate_t const *wa = sip->sip_www_authenticate;
-  sip_proxy_authenticate_t const *pa = sip->sip_proxy_authenticate;
+  sip_www_authenticate_t const *wa;
+  sip_proxy_authenticate_t const *pa;
   const char *method = NULL;
   const char *realm = NULL;
   const char *user =  NULL;
@@ -120,6 +120,9 @@ priv_handle_auth (SIPConnection* self,
         }
       return SIP_AUTH_PASS;
     }
+
+  wa = sip->sip_www_authenticate;
+  pa = sip->sip_proxy_authenticate;
 
   /* step: figure out the realm of the challenge */
   if (wa) {
