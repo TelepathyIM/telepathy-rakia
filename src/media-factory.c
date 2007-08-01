@@ -340,18 +340,6 @@ sip_media_factory_new_channel (SIPMediaFactory *fac,
     {
       GArray *contacts;
       gboolean added;
-#if 0
-      TpHandle self_handle;
-      if (!tp_group_mixin_get_self_handle (G_OBJECT (chan),
-                                           &self_handle,
-                                           error))
-        goto err;
-      if (handle == self_handle)
-        {
-          g_error_set (error, TP_ERROR, TP_ERROR_INVALID_HANDLE, "Cannot call self");
-          goto err;
-        }
-#endif
       contacts = g_array_sized_new (FALSE, FALSE, sizeof (TpHandle), 1);
       g_array_append_val (contacts, handle);
       added = tp_group_mixin_add_members (G_OBJECT (chan),
