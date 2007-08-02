@@ -706,6 +706,12 @@ sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
   if (priv->native_cands_prepared)
     priv_generate_sdp (obj);
 
+  /* Push the initial sending/playing state */
+  tp_svc_media_stream_handler_emit_set_stream_sending (
+        iface, priv->sending);
+  tp_svc_media_stream_handler_emit_set_stream_playing (
+        iface, priv->playing);
+
   if (priv->push_remote_requested) {
     push_remote_candidates (obj);
     push_remote_codecs (obj);
@@ -715,10 +721,6 @@ sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
   /* note: for inbound sessions, emit active candidate pair once 
            remote info is set */
   push_active_candidate_pair (obj);
-
-  if (priv->sending)
-    tp_svc_media_stream_handler_emit_set_stream_sending (
-        (TpSvcMediaStreamHandler *)obj, priv->sending);
 
   tp_svc_media_stream_handler_return_from_ready (context);
 }
