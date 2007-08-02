@@ -156,6 +156,8 @@ static SIPMediaStream* priv_create_media_stream (SIPMediaSession *session,
 static void priv_request_response_step (SIPMediaSession *session);
 static void priv_session_invite (SIPMediaSession *session, gboolean reinvite);
 static void priv_local_media_changed (SIPMediaSession *session);
+static gboolean priv_update_remote_media (SIPMediaSession *session,
+                                          gboolean authoritative);
 static void priv_save_event (SIPMediaSession *self);
 static void priv_zap_event (SIPMediaSession *self);
 
@@ -717,11 +719,6 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
                                     const sdp_session_t* sdp)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  const sdp_media_t *media;
-  gboolean has_supported_media = FALSE;
-  guint i;
-  gboolean authoritative;
-  gboolean res = TRUE;
 
   DEBUG ("enter");
 
@@ -737,7 +734,7 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
     {
       /* Should do the proper response etc. */
       priv_request_response_step (session);
-      return res;
+      return TRUE;
     }
 
   /* Delete a backup session structure, if any */
@@ -763,93 +760,10 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
   priv->remote_sdp = sdp_session_dup (priv->home, sdp);
   g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
 
-  authoritative = (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
-                   || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
-
-  media = priv->remote_sdp->sdp_media;
-
-  /* note: for each session, we maintain an ordered list of 
-   *       streams (SDP m-lines) which are matched 1:1 to 
-   *       the streams of the remote SDP */
-
-  for (i = 0; media; i++)
-    {
-      SIPMediaStream *stream = NULL;
-      guint media_type;
-
-      media_type = sip_tp_media_type (media->m_type);
-
-      if (i >= priv->streams->len)
-	stream = priv_create_media_stream (
-                        session,
-                        media_type,
-                        (priv->accepted)?
-                                0 : TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
-      else 
-	stream = g_ptr_array_index(priv->streams, i);
-
-      /* note: it is ok for the stream to be NULL (unsupported media type) */
-      if (stream == NULL)
-        goto next_media;
-
-      DEBUG("setting remote SDP for stream (%u:%p).", i, stream);    
-
-      if (media->m_rejected)
-        {
-          DEBUG("the stream has been rejected, closing");
-        }
-      else if (sip_media_stream_get_media_type (stream) != media_type)
-        {
-          /* XXX: close this stream and create a new one in its place? */
-          g_warning ("The peer has changed the media type, don't know what to do");
-        }
-      else
-        {
-          if (sip_media_stream_set_remote_media (stream,
-                                                 media,
-                                                 authoritative))
-            {
-              has_supported_media = TRUE;
-              goto next_media;
-            }
-        }
-
-      /* There have been problems with the stream update, kill the stream */
-      /* XXX: fast and furious, not tested */
-      sip_media_stream_close (stream);
-
-    next_media:
-      media = media->m_next;
-    }
-
-  if (!has_supported_media)
-    {
-      g_warning ("no supported media in the session, aborting");
-      res = FALSE;
-    }
-
-  g_assert(media == NULL);
-  g_assert(i <= priv->streams->len);
-  if (i < priv->streams->len)
-    {
-      g_warning ("There were %u parsed SDP m-lines but we have %u stream entries - "
-                 "is someone failing to comply with RFCs?", i, priv->streams->len);
-      do
-        {
-          SIPMediaStream *stream;
-          stream = g_ptr_array_index(priv->streams, i);
-          if (stream != NULL)
-            {
-              g_message ("closing a mismatched stream %u", i);
-              sip_media_stream_close (stream);
-            }
-        }
-      while (++i < priv->streams->len);
-    }
-
-  DEBUG ("exit");
-
-  return res;
+  return priv_update_remote_media (
+                session,
+                (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
+                 || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED));
 }
 
 DEFINE_TP_STRUCT_TYPE(sip_tp_stream_struct_type,
@@ -1261,6 +1175,94 @@ priv_local_media_changed (SIPMediaSession *session)
     }
 }
 
+static gboolean
+priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  const sdp_media_t *media;
+  gboolean has_supported_media = FALSE;
+  guint i;
+
+  g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
+
+  media = priv->remote_sdp->sdp_media;
+
+  /* note: for each session, we maintain an ordered list of
+   *       streams (SDP m-lines) which are matched 1:1 to
+   *       the streams of the remote SDP */
+
+  for (i = 0; media; i++)
+    {
+      SIPMediaStream *stream = NULL;
+      guint media_type;
+
+      media_type = sip_tp_media_type (media->m_type);
+
+      if (i >= priv->streams->len)
+        stream = priv_create_media_stream (
+                        session,
+                        media_type,
+                        (priv->accepted)?
+                                0 : TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
+      else
+        stream = g_ptr_array_index(priv->streams, i);
+
+      /* note: it is ok for the stream to be NULL (unsupported media type) */
+      if (stream == NULL)
+        goto next_media;
+
+      DEBUG("setting remote SDP for stream %u", i);
+
+      if (media->m_rejected)
+        {
+          DEBUG("the stream has been rejected, closing");
+        }
+      else if (sip_media_stream_get_media_type (stream) != media_type)
+        {
+          /* XXX: close this stream and create a new one in its place? */
+          g_warning ("The peer has changed the media type, don't know what to do");
+        }
+      else
+        {
+          if (sip_media_stream_set_remote_media (stream,
+                                                 media,
+                                                 authoritative))
+            {
+              has_supported_media = TRUE;
+              goto next_media;
+            }
+        }
+
+      /* There have been problems with the stream update, kill the stream */
+      /* XXX: fast and furious, not tested */
+      sip_media_stream_close (stream);
+
+    next_media:
+      media = media->m_next;
+    }
+
+  g_assert(media == NULL);
+  g_assert(i <= priv->streams->len);
+  if (i < priv->streams->len)
+    {
+      do
+        {
+          SIPMediaStream *stream;
+          stream = g_ptr_array_index(priv->streams, i);
+          if (stream != NULL)
+            {
+              g_message ("closing a mismatched stream %u", i);
+              sip_media_stream_close (stream);
+            }
+        }
+      while (++i < priv->streams->len);
+    }
+
+  DEBUG("exit");
+
+  return has_supported_media;
+}
+
 static void
 priv_session_rollback (SIPMediaSession *session)
 {
@@ -1269,12 +1271,27 @@ priv_session_rollback (SIPMediaSession *session)
 
   DEBUG("enter");
 
-  /* FIXME: implement */
-  g_assert_not_reached();
+  if (priv->remote_sdp != NULL)
+    {
+      priv->remote_sdp = NULL;
+      g_assert (priv->home != NULL);
+      su_home_unref (priv->home);
+      priv->home = NULL;
+    }
+  if (priv->backup_remote_sdp == NULL)
+    {
+      sip_media_session_terminate (session);
+      return;
+    }
 
-  /* TODO: call some reduced routine extracted from
-   * sip_media_session_set_remote_media() to restore
-   * the backup remote media state */
+  /* restore remote SDP from the backup */
+  priv->remote_sdp = priv->backup_remote_sdp;
+  g_assert (priv->backup_home != NULL);
+  priv->home = priv->backup_home;
+  priv->backup_remote_sdp = NULL;
+  priv->backup_home = NULL;
+
+  priv_update_remote_media (session, FALSE);
 
   msg = (priv->saved_event[0])
         ? nua_saved_event_request (priv->saved_event) : NULL;
