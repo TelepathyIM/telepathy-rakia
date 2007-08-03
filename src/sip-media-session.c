@@ -1191,7 +1191,7 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
    *       streams (SDP m-lines) which are matched 1:1 to
    *       the streams of the remote SDP */
 
-  for (i = 0; media; i++)
+  for (i = 0; media; media = media->m_next, i++)
     {
       SIPMediaStream *stream = NULL;
       guint media_type;
@@ -1209,7 +1209,7 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
 
       /* note: it is ok for the stream to be NULL (unsupported media type) */
       if (stream == NULL)
-        goto next_media;
+        continue;
 
       DEBUG("setting remote SDP for stream %u", i);
 
@@ -1229,16 +1229,13 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
                                                  authoritative))
             {
               has_supported_media = TRUE;
-              goto next_media;
+              continue;
             }
         }
 
       /* There have been problems with the stream update, kill the stream */
       /* XXX: fast and furious, not tested */
       sip_media_stream_close (stream);
-
-    next_media:
-      media = media->m_next;
     }
 
   g_assert(media == NULL);
