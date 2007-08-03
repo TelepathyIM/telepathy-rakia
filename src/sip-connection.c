@@ -707,6 +707,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
       NUTAG_AUTOALERT(0),
       NUTAG_AUTOANSWER(0),
       NUTAG_APPL_METHOD("MESSAGE"),
+      SIPTAG_ALLOW_STR("INVITE, ACK, BYE, CANCEL, OPTIONS, PRACK, MESSAGE, UPDATE"),
       TAG_NULL());
   if (priv->sofia_nua == NULL)
     {
