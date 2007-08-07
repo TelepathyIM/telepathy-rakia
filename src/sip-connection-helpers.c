@@ -700,8 +700,6 @@ sip_conn_normalize_uri (SIPConnection *conn,
   gchar *retval = NULL;
   char *c, *str;
 
-  g_assert (home);
-
   url = url_make (home, sipuri);
 
   /* we got username or phone number, local to our domain */
