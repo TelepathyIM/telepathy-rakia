@@ -1,6 +1,6 @@
 
 """
-Infrastructure code for testing Gabble by pretending to be a Jabber server.
+Infrastructure code for testing connection managers.
 """
 
 from twisted.internet import glib2reactor
@@ -32,7 +32,7 @@ def lazy(func):
 
 def match(type, **kw):
     def decorate(func):
-        def handler(event, data):
+        def handler(event, data, *extra, **extra_kw):
             if event.type != type:
                 return False
 
@@ -43,7 +43,7 @@ def match(type, **kw):
                 if getattr(event, key) != value:
                     return False
 
-            return func(event, data)
+            return func(event, data, *extra, **extra_kw)
 
         handler.__name__ = func.__name__
         return handler
@@ -86,41 +86,55 @@ class EventTest:
     def expect(self, f):
         self.queue.append(f)
 
+    def log(self, s):
+        if self.verbose:
+            print s
+
     def try_stop(self):
         if self.stopping:
             return True
 
         if not self.queue:
-            if self.verbose:
-                print 'no handlers left; stopping'
-
+            self.log('no handlers left; stopping')
             self.stopping = True
             reactor.stop()
             return True
 
         return False
 
+    def call_handlers(self, event):
+        self.log('trying %r' % self.queue[0])
+        handler = self.queue.pop(0)
+
+        try:
+            ret = handler(event, self.data)
+            if not ret:
+                self.queue.insert(0, handler)
+        except TryNextHandler, e:
+            if self.queue:
+                ret = self.call_handlers(event)
+            else:
+                ret = False
+            self.queue.insert(0, handler)
+
+        return ret
+
     def handle_event(self, event):
         if self.try_stop():
             return
 
-        if self.verbose:
-            print 'got event:'
-            print '- type: %s' % event.type
+        self.log('got event:')
+        self.log('- type: %s' % event.type)
 
-            for key in dir(event):
-                if key != 'type' and not key.startswith('_'):
-                    print '- %s: %s' % (
-                        key, pprint.pformat(getattr(event, key)))
+        for key in dir(event):
+            if key != 'type' and not key.startswith('_'):
+                self.log('- %s: %s' % (
+                    key, pprint.pformat(getattr(event, key))))
+                if key == 'error':
+                    self.log('%s' % getattr(event, key))
 
         try:
-            ret = self.queue[0](event, self.data)
-        except TryNextHandler, e:
-            if len(self.queue) > 1:
-                missed = self.queue.pop(0)
-                self.handle_event(event)
-                self.queue.insert(0, missed)
-            return
+            ret = self.call_handlers(event)
         except AssertionError, e:
             print 'test failed:'
             traceback.print_exc()
@@ -135,21 +149,12 @@ class EventTest:
                 % self.queue[0].__name__)
 
         if ret:
-            self.queue.pop(0)
             self.timeout_delayed_call.reset(5)
-
-            if self.verbose:
-                print 'event handled'
-
-                if self.queue:
-                    print 'next handler: %r' % self.queue[0]
+            self.log('event handled')
         else:
-            if self.verbose:
-                print 'event not handled'
+            self.log('event not handled')
 
-        if self.verbose:
-            print
-
+        self.log('')
         self.try_stop()
 
 def unwrap(x):
@@ -186,8 +191,7 @@ def call_async(test, proxy, method, *args, **kw):
     method_proxy(*args, **kw)
 
 
-def create_test(name, proto, params):
-    test = EventTest()
+def prepare_test(test, name, proto, params):
     bus = dbus.SessionBus()
     cm = bus.get_object(
         tp_name_prefix + '.ConnectionManager.%s' % name,
@@ -219,7 +223,7 @@ def create_test(name, proto, params):
     return test
 
 
-def run_test(handler):
+def run_test(handler, start=None):
     """Create a test from the top level functions named expect_* in the
     __main__ module and run it.
     """
@@ -240,6 +244,10 @@ def run_test(handler):
             handler.verbose = True
 
     map(handler.expect, funcs)
-    handler.data['conn'].Connect()
-    reactor.run()
 
+    if start is None:
+        handler.data['conn'].Connect()
+    else:
+        start(handler.data)
+
+    reactor.run()
