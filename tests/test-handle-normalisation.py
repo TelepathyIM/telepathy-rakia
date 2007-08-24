@@ -11,7 +11,7 @@ def expect_connecting(event, data):
 def expect_connected(event, data):
     tests = [
         ('test', 'sip:test@127.0.0.1'),
-        ('+123 / 45-67-89', 'sip:+123/45-67-89@127.0.0.1'),
+        ('+123 / 45-67-89', 'sip:+123%20/%2045-67-89@127.0.0.1'),
         ('gt:someone@gmail.com', 'gt:someone@gmail.com'),
         ('sip:user:pass@HoSt;something=something', 'sip:user:pass@host;something=something'),
         ('weird\t\n\1\2user', 'sip:weird%09%0A%01%02user@127.0.0.1'),
