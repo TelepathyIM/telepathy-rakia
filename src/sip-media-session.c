@@ -1452,6 +1452,9 @@ priv_request_response_step (SIPMediaSession *session)
         }
       break;
     case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+      if (!priv->accepted)
+        break;
+      /* if accepted, fall through to the next case */
     case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
       if (!priv_is_codec_intersect_pending (session))
         {
