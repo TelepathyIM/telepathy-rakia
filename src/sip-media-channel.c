@@ -892,18 +892,28 @@ sip_media_channel_set_remote_media (SIPMediaChannel *chan,
 }
 
 void
-sip_media_channel_peer_error (SIPMediaChannel *self,
-                              guint status,
-                              const char* message)
+sip_media_channel_peer_response (SIPMediaChannel *self,
+                                 guint status,
+                                 const char* message)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpIntSet *set;
   TpHandle peer;
   guint reason = TP_CHANNEL_GROUP_CHANGE_REASON_ERROR;
  
-  DEBUG("peer responded with error %u %s", status, message);
+  DEBUG("peer responded with %u %s", status, message);
 
   g_return_if_fail (priv->session != NULL);
+
+  g_return_if_fail (status >= 200);
+
+  if (status < 300)
+    {
+      /* The call has been successfully established,
+       * or a re-INVITE is complete */
+      sip_media_session_accept (priv->session);
+      return;
+    }
 
   switch (status)
     {

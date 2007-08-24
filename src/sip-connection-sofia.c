@@ -231,32 +231,6 @@ priv_handle_auth (SIPConnection* self,
 }
 
 static void
-priv_emit_remote_error (SIPConnection *self,
-			nua_handle_t *nh,
-                        nua_hmagic_t *nh_magic,
-			int status,
-			char const *phrase)
-{
-  if (nh_magic == SIP_NH_EXPIRED)
-    {
-      /* 487 Request Terminated is OK on destroyed channels */
-      if (status != 487)
-        g_message ("ignoring error response %03d, received for a destroyed "
-            "media channel", status);
-      return;
-    }
-
-  if (nh_magic == NULL)
-    {
-      g_message ("ignoring error response %03d, on a NUA handle %p which does "
-          "not belong to any media channel", status, nh);
-      return;
-    }
-
-  sip_media_channel_peer_error (SIP_MEDIA_CHANNEL (nh_magic), status, phrase);
-}
-
-static void
 priv_r_invite (int status,
                char const *phrase,
                nua_t *nua,
@@ -266,17 +240,33 @@ priv_r_invite (int status,
                sip_t const *sip,
                tagi_t tags[])
 {
-  DEBUG("enter");
+  DEBUG("outbound INVITE got %03d %s", status, phrase);
 
-  g_message ("sofiasip: outbound INVITE: %03d %s", status, phrase);
+  /* Ignore provisional responses in this handler.
+   * NOTE: these responses will not also reset the auth credentials
+   * for priv_handle_auth() */
+  if (status < 200)
+    return;
+
+  if (nh_magic == SIP_NH_EXPIRED)
+    {
+      /* 487 Request Terminated is OK on destroyed channels */
+      if (status != 487)
+        g_message ("response %03d received for a destroyed media channel", status);
+      return;
+    }
+
+  if (nh_magic == NULL)
+    {
+      g_message ("response %03d, on a NUA handle %p which does "
+                 "not belong to any media channel, ignored", status, nh);
+      return;
+    }
 
   if (priv_handle_auth (self, status, nh, sip, FALSE) == SIP_AUTH_HANDLED)
     return;
 
-  if (status >= 300) {
-    /* redirects (3xx responses) are not handled properly */
-    priv_emit_remote_error (self, nh, nh_magic, status, phrase);
-  }
+  sip_media_channel_peer_response (SIP_MEDIA_CHANNEL (nh_magic), status, phrase);
 }
 
 static void
