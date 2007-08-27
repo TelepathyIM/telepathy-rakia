@@ -122,7 +122,7 @@ static void push_active_candidate_pair (SIPMediaStream *stream);
 static void priv_update_sending (SIPMediaStream *stream,
                                  TpMediaStreamDirection direction,
                                  guint pending_send_flags);
-static int priv_update_local_sdp(SIPMediaStream *stream);
+static void priv_update_local_sdp(SIPMediaStream *stream);
 static void priv_generate_sdp (SIPMediaStream *stream);
 
 #ifdef ENABLE_DEBUG
@@ -1331,34 +1331,30 @@ return "-";
 * Refreshes the local SDP based on Farsight stream, and current
 * object, state.
 */
-static int priv_update_local_sdp(SIPMediaStream *stream)
+static void
+priv_update_local_sdp(SIPMediaStream *stream)
 {
-  static const char c_crlf[] = "\r\n";
-  static const char c_bline_no_rtcp[] = "b=RS:0\r\nb=RR:0\r\n";
-
   SIPMediaStreamPrivate *priv;
-  gchar *tmpa_str = NULL, *tmpb_str;
-  gchar *aline_str = NULL;
-  gchar *cline_str = NULL;
-  gchar *mline_str = NULL;
-  gchar *malines_str = NULL;
-  const gchar *dirline;
+  GString *mline;
+  GString *alines;
+  gchar *cline;
   GValue transport = { 0 };
   GValue codec = { 0, };
   GValue candidate = { 0 };
   const GPtrArray *codecs, *candidates;
-  const gchar *ca_id;
-  const GPtrArray *ca_tports;
-  gchar *tr_addr;
+  gchar *tr_addr = NULL;
   gchar *tr_user = NULL;
   gchar *tr_pass = NULL;
-  gchar *tr_subtype, *tr_profile;
-  gulong tr_port, tr_component;
+  gchar *tr_subtype = NULL;
+  gchar *tr_profile = NULL;
+  guint tr_port;
+  guint tr_component;
+  guint tr_proto;
+  guint tr_type;
   gdouble tr_pref;
-  TpMediaStreamBaseProto tr_proto;
-  TpMediaStreamTransportType tr_type;
+  const gchar *dirline;
+  const gchar *iproto;
   int i;
-  /* int result = -1; */
 
   /* Note: impl limits ...
    * - no multi-stream support
@@ -1375,51 +1371,56 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
   g_value_init (&transport, sip_tp_transport_struct_type ());
   g_value_init (&codec, sip_tp_codec_struct_type ());
 
-  for (i = 0; i < candidates->len; i++) {
-    g_value_set_static_boxed (&candidate, g_ptr_array_index (candidates, i));
+  /* Find the last acceptable candidate */ 
 
-    dbus_g_type_struct_get (&candidate,
-			    0, &ca_id,
-			    1, &ca_tports,
-			    G_MAXUINT);
+  for (i = candidates->len - 1; i >= 0; --i)
+    {
+      /* gchar *ca_id = NULL; */
+      GPtrArray *ca_tports = NULL;
 
-    g_assert (ca_tports->len >= 1);
+      g_value_set_static_boxed (&candidate, g_ptr_array_index (candidates, i));
 
-    /* XXX: should select the most preferable transport
-     * or use some other criteria */
-    g_value_set_static_boxed (&transport, g_ptr_array_index (ca_tports, 0));
+      /* FIXME: don't copy the boxed value for ca_tports */
+      dbus_g_type_struct_get (&candidate,
+                              /* 0, &ca_id, */
+                              1, &ca_tports,
+                              G_MAXUINT);
 
-    dbus_g_type_struct_get (&transport,
-			    0, &tr_component,	
-			    1, &tr_addr,
-			    2, &tr_port,
-			    3, &tr_proto,
-			    4, &tr_subtype,
-			    5, &tr_profile,
-			    6, &tr_pref,
-			    7, &tr_type,
-			    8, &tr_user,
-			    9, &tr_pass,
-			    G_MAXUINT);
+      g_return_if_fail (ca_tports->len >= 1);
 
-    if (i == candidates->len - 1) {
-      /* generate the c= line based on last candidate */
-      if (tr_proto == TP_MEDIA_STREAM_BASE_PROTO_UDP) {
-	cline_str = g_strdup_printf("c=IN IP4 %s%s", tr_addr, c_crlf);
-	/* leave end of 'mline_str' for PT ids */
-	mline_str = g_strdup_printf("m=%s %lu %s/%s", 
-				    priv_media_type_to_str (priv->media_type), 
-				    tr_port, tr_subtype, tr_profile);
-      }
-      else {
-	cline_str = g_strdup("c=IN IP4 0.0.0.0\r\n");
-	/* no transport, so need to check codecs */
-      }
+      g_value_set_static_boxed (&transport, g_ptr_array_index (ca_tports, 0));
+
+      dbus_g_type_struct_get (&transport,
+                              0, &tr_component,
+                              1, &tr_addr,
+                              2, &tr_port,
+                              3, &tr_proto,
+                              4, &tr_subtype,
+                              5, &tr_profile,
+                              6, &tr_pref,
+                              7, &tr_type,
+                              8, &tr_user,
+                              9, &tr_pass,
+                              G_MAXUINT);
+
+      if (tr_proto == TP_MEDIA_STREAM_BASE_PROTO_UDP)
+        break;
     }
+  g_return_if_fail (i >= 0);
+  g_return_if_fail (tr_addr != NULL);
+  g_return_if_fail (tr_subtype != NULL);
+  g_return_if_fail (tr_profile != NULL);
 
-    /* for ice-09, the "typ" attribute needs to be added for srflx and
-     * relay attributes */
-  }
+  mline = g_string_new ("m=");
+  g_string_append_printf (mline,
+                          "%s %u %s/%s",
+                          priv_media_type_to_str (priv->media_type),
+                          tr_port,
+                          tr_subtype,
+                          tr_profile);
+
+  iproto = (strchr (tr_addr, ':') == NULL)? "IP4" : "IP6";
+  cline = g_strdup_printf ("c=IN %s %s\r\n", iproto, tr_addr);
 
   switch (priv->direction)
     {
@@ -1438,78 +1439,62 @@ static int priv_update_local_sdp(SIPMediaStream *stream)
     default:
       g_assert_not_reached();
     }
-  malines_str = g_strdup(dirline);
+
+  alines = g_string_new (dirline);
 
   for (i = 0; i < codecs->len; i++) {
     guint co_id, co_type, co_clockrate, co_channels;
     gchar *co_name;
-    
+    GHashTable *co_params;
+
     g_value_set_static_boxed (&codec, g_ptr_array_index (codecs, i));
-    
+
     dbus_g_type_struct_get (&codec,
 			    0, &co_id,
 			    1, &co_name,
 			    2, &co_type, 
 			    3, &co_clockrate,
 			    4, &co_channels,
+                            5, &co_params,
 			    G_MAXUINT);
-    
-    /* step: add entry to media a-lines */
-    tmpa_str = g_strdup_printf("%sa=rtpmap:%u %s/%u", 
-			       malines_str,
-			       co_id,
-			       co_name,
-			       co_clockrate);
-    if (co_channels > 1) {
-      tmpb_str = g_strdup_printf("%s/%u%s", 
-				 tmpa_str,
-				 co_channels,
-				 c_crlf);
-    }
-    else {
-      tmpb_str = g_strdup_printf("%s%s", 
-				 tmpa_str,
-				 c_crlf);
-    }
-    g_free (malines_str);
-    g_free (tmpa_str);
-    malines_str = tmpb_str;
 
-    /* step: add PT id to mline */
-    tmpa_str = mline_str;
-    tmpb_str = g_strdup_printf(" %u", co_id);
-    mline_str = g_strconcat(mline_str, tmpb_str, NULL);
-    g_free(tmpa_str), g_free(tmpb_str);
+    g_return_if_fail (co_type == priv->media_type);
+
+    /* Add rtpmap entry to media a-lines */
+    g_string_append_printf (alines,
+                            "a=rtpmap:%u %s/%u",
+                            co_id,
+                            co_name,
+                            co_clockrate);
+    if (co_channels > 1)
+      g_string_append_printf (alines, "/%u", co_channels);
+    g_string_append (alines, "\r\n");
+
+    /* TODO: marshal parameters into the fmtp attribute */
+
+    /* Add PT id to mline */
+    g_string_append_printf (mline, " %u", co_id);
+
+    g_free (co_name);
+    g_hash_table_destroy (co_params);
   }
-  
-
-  SESSION_DEBUG(priv->session,
-                "from Telepathy DBus struct: [\"%s\", [1, \"%s\", %d, %s, "
-                "\"RTP\", \"AVP\", %f, %s, \"%s\", \"%s\"]]",
-                ca_id, tr_addr, tr_port, debug_tp_protocols[tr_proto],
-                tr_pref, debug_tp_transports[tr_type], tr_user, tr_pass);
-
-  tmpa_str = g_strconcat(mline_str, c_crlf,
-                         cline_str,
-                         c_bline_no_rtcp,
-                         malines_str,
-                         NULL);
 
   g_free(priv->stream_sdp);
-  priv->stream_sdp = tmpa_str;
+  priv->stream_sdp = g_strconcat(mline->str, "\r\n",
+                                 cline,
+                                 "b=RS:0\r\nb=RR:0\r\n",
+                                 alines->str,
+                                 NULL);
 
-  g_free(tr_addr);
-  g_free(tr_user);
-  g_free(tr_pass);
-  g_free(tr_profile);
-  g_free(tr_subtype);
+  g_free (tr_addr);
+  g_free (tr_user);
+  g_free (tr_pass);
+  g_free (tr_profile);
+  g_free (tr_subtype);
 
-  g_free(aline_str);
-  g_free(cline_str);
-  g_free(mline_str);
-  g_free(malines_str);
-
-  return 0;
+  g_string_free (mline, TRUE);
+  g_free (cline);
+  g_string_free (alines, TRUE);
 }
 
 static void
