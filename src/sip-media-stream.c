@@ -1344,15 +1344,15 @@ priv_update_local_sdp(SIPMediaStream *stream)
   GValue codec = { 0, };
   const GPtrArray *codecs, *candidates;
   gchar *tr_addr = NULL;
-  gchar *tr_user = NULL;
-  gchar *tr_pass = NULL;
+  /* gchar *tr_user = NULL; */
+  /* gchar *tr_pass = NULL; */
   gchar *tr_subtype = NULL;
   gchar *tr_profile = NULL;
   guint tr_port;
-  guint tr_component;
+  /* guint tr_component; */
   guint tr_proto;
-  guint tr_type;
-  gdouble tr_pref;
+  /* guint tr_type; */
+  /* gdouble tr_pref; */
   const gchar *dirline;
   const gchar *iproto;
   int i;
@@ -1386,16 +1386,16 @@ priv_update_local_sdp(SIPMediaStream *stream)
       g_value_set_static_boxed (&transport, g_ptr_array_index (ca_tports, 0));
 
       dbus_g_type_struct_get (&transport,
-                              0, &tr_component,
+                              /* 0, &tr_component, */
                               1, &tr_addr,
                               2, &tr_port,
                               3, &tr_proto,
                               4, &tr_subtype,
                               5, &tr_profile,
-                              6, &tr_pref,
-                              7, &tr_type,
-                              8, &tr_user,
-                              9, &tr_pass,
+                              /* 6, &tr_pref, */
+                              /* 7, &tr_type, */
+                              /* 8, &tr_user, */
+                              /* 9, &tr_pass, */
                               G_MAXUINT);
 
       if (tr_proto == TP_MEDIA_STREAM_BASE_PROTO_UDP)
@@ -1482,10 +1482,10 @@ priv_update_local_sdp(SIPMediaStream *stream)
                                  NULL);
 
   g_free (tr_addr);
-  g_free (tr_user);
-  g_free (tr_pass);
   g_free (tr_profile);
   g_free (tr_subtype);
+  /* g_free (tr_user); */
+  /* g_free (tr_pass); */
 
   g_string_free (mline, TRUE);
   g_free (cline);
