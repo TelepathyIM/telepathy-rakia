@@ -1342,7 +1342,6 @@ priv_update_local_sdp(SIPMediaStream *stream)
   gchar *cline;
   GValue transport = { 0 };
   GValue codec = { 0, };
-  GValue candidate = { 0 };
   const GPtrArray *codecs, *candidates;
   gchar *tr_addr = NULL;
   gchar *tr_user = NULL;
@@ -1369,7 +1368,6 @@ priv_update_local_sdp(SIPMediaStream *stream)
   candidates = g_value_get_boxed (&priv->native_candidates);
   codecs = g_value_get_boxed (&priv->native_codecs);
 
-  g_value_init (&candidate, sip_tp_candidate_struct_type ());
   g_value_init (&transport, sip_tp_transport_struct_type ());
   g_value_init (&codec, sip_tp_codec_struct_type ());
 
@@ -1377,16 +1375,11 @@ priv_update_local_sdp(SIPMediaStream *stream)
 
   for (i = candidates->len - 1; i >= 0; --i)
     {
-      /* gchar *ca_id = NULL; */
-      GPtrArray *ca_tports = NULL;
+      GValueArray *candidate;
+      const GPtrArray *ca_tports;
 
-      g_value_set_static_boxed (&candidate, g_ptr_array_index (candidates, i));
-
-      /* FIXME: don't copy the boxed value for ca_tports */
-      dbus_g_type_struct_get (&candidate,
-                              /* 0, &ca_id, */
-                              1, &ca_tports,
-                              G_MAXUINT);
+      candidate = g_ptr_array_index (candidates, i);
+      ca_tports = g_value_get_boxed (g_value_array_get_nth (candidate, 1));
 
       g_return_if_fail (ca_tports->len >= 1);
 
