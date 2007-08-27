@@ -125,6 +125,7 @@ static void priv_update_sending (SIPMediaStream *stream,
 static void priv_update_local_sdp(SIPMediaStream *stream);
 static void priv_generate_sdp (SIPMediaStream *stream);
 
+#if 0
 #ifdef ENABLE_DEBUG
 static const char *debug_tp_protocols[] = {
   "TP_MEDIA_STREAM_PROTO_UDP (0)",
@@ -137,6 +138,7 @@ static const char *debug_tp_transports[] = {
   "TP_MEDIA_STREAM_TRANSPORT_TYPE_RELAY (2)"
 };
 #endif /* ENABLE_DEBUG */
+#endif /* 0 */
 
 /***********************************************************************
  * Set: DBus type utilities
