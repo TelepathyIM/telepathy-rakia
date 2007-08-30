@@ -1329,6 +1329,23 @@ switch (media_type)
 return "-";
 }
 
+static void
+priv_marshal_param (gpointer key,
+                    gpointer value,
+                    gpointer user_data)
+{
+  GString *params = (GString *) user_data;
+  const char *name = (const char *) key;
+
+  if (params->len != 0)
+    g_string_append_c (params, ';');
+
+  if (name == NULL || !*name)
+    g_string_append_printf (params, "%s", (const char *) value);
+  else
+    g_string_append_printf (params, "%s=%s", name, (const char *) value);
+}
+
 /**
 * Refreshes the local SDP based on Farsight stream, and current
 * object, state.
@@ -1465,7 +1482,17 @@ priv_update_local_sdp(SIPMediaStream *stream)
       g_string_append_printf (alines, "/%u", co_channels);
     g_string_append (alines, "\r\n");
 
-    /* TODO: marshal parameters into the fmtp attribute */
+    /* Marshal parameters into the fmtp attribute */
+    if (g_hash_table_size (co_params) != 0)
+      {
+        GString *fmtp_value;
+        g_string_append_printf (alines, "a=fmtp:%u ", co_id);
+        fmtp_value = g_string_new (NULL);
+        g_hash_table_foreach (co_params, priv_marshal_param, fmtp_value);
+        g_string_append (alines, fmtp_value->str);
+        g_string_free (fmtp_value, TRUE);
+        g_string_append (alines, "\r\n");
+      }
 
     /* Add PT id to mline */
     g_string_append_printf (mline, " %u", co_id);
