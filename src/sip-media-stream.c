@@ -862,7 +862,6 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
   sdp_connection_t *sdp_conn;
   const sdp_media_t *old_media;
   gboolean transport_changed = TRUE;
-  guint old_direction;
   guint new_direction;
 
   DEBUG ("enter");
@@ -912,27 +911,18 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
   if (!authoritative)
     new_direction &= priv->direction;
 
-  /* Check if the transport candidate and stream direction
-   * need to be changed */
-
-  if (old_media == NULL)
+  /* Check if the transport candidate needs to be changed */
+  if (old_media != NULL)
     {
-      /* we regard the previously effective remote direction here */
-      old_direction = TP_MEDIA_STREAM_DIRECTION_NONE;
-    }
-  else
-    {
-      old_direction = priv->direction;
-
       if (!sdp_connection_cmp (sdp_media_connections (old_media), sdp_conn))
         transport_changed = FALSE;
-    }
 
-  /* Disable sending at this point if it will be disabled
-   * accordingly to the new direction */
-  priv_update_sending (stream,
-                       old_direction & new_direction,
-                       priv->pending_send_flags);
+      /* Disable sending at this point if it will be disabled
+       * accordingly to the new direction */
+      priv_update_sending (stream,
+                           priv->direction & new_direction,
+                           priv->pending_send_flags);
+    }
 
   /* First add the new candidate, then update the codec set.
    * The offerer isn't supposed to send us anything from the new transport
@@ -1063,8 +1053,8 @@ sip_media_stream_set_direction (SIPMediaStream *stream,
 
   priv_update_sending (stream, direction, pending_send_flags);
 
-  g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
-                 direction, pending_send_flags);
+  if (priv->remote_media != NULL)
+    priv_update_sending (stream, direction, pending_send_flags);
 }
 
 /**
