@@ -1038,20 +1038,21 @@ sip_media_stream_set_direction (SIPMediaStream *stream,
   SIPMediaStreamPrivate *priv;
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  if (priv->direction == direction
-      && priv->pending_send_flags == pending_send_flags)
-    return;
+  if (priv->direction != direction
+      || priv->pending_send_flags != pending_send_flags)
+    {
+      DEBUG("setting direction %u, pending send flags %u", direction, pending_send_flags);
 
-  DEBUG("setting direction %u, pending send flags %u", direction, pending_send_flags);
+      priv->direction = direction;
+      priv->pending_send_flags = pending_send_flags;
 
-  priv->direction = direction;
-  priv->pending_send_flags = pending_send_flags;
+      /* TODO: SDP should not be cached, but created on demand */
+      if (priv->native_cands_prepared && priv->native_codecs_prepared)
+        priv_update_local_sdp (stream);
 
-  /* TODO: SDP should not be cached, but created on demand */
-  if (priv->native_cands_prepared && priv->native_codecs_prepared)
-    priv_update_local_sdp (stream);
-
-  priv_update_sending (stream, direction, pending_send_flags);
+      g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
+                     direction, pending_send_flags);
+    }
 
   if (priv->remote_media != NULL)
     priv_update_sending (stream, direction, pending_send_flags);
