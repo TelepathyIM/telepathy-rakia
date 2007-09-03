@@ -36,6 +36,8 @@
 #include "sip-media-stream.h"
 #include "sip-media-session.h"
 
+#include <sofia-sip/msg_parser.h>
+
 #include "signals-marshal.h"
 #include "telepathy-helpers.h"
 
@@ -1108,6 +1110,56 @@ priv_generate_sdp (SIPMediaStream *self)
   g_signal_emit (self, signals[SIG_READY], 0);
 }
 
+static void
+priv_parse_fmtp (su_home_t *home, const char *fmtp, GHashTable *param_hash)
+{
+  const msg_param_t *param_list = NULL;
+  char *s;
+  const char *avpair;
+  const char *pv;
+  char *attr;
+  int i;
+
+  if (!fmtp)
+    return;
+
+  s = su_strdup (home, fmtp);
+  if (msg_avlist_d (home, &s, &param_list) < 0)
+    {
+      DEBUG("format-specific parameters can't be parsed as an attribute list: %s", fmtp);
+      g_hash_table_insert (param_hash, NULL, (gpointer) fmtp);
+      return;
+    }
+
+  g_assert (!*s);
+  g_assert (param_list != NULL);
+
+  if (param_list[0] != NULL
+      && param_list[1] == NULL
+      && !strchr (param_list[0], '='))
+    {
+      DEBUG("passing freeform parameter string verbatim: %s", fmtp);
+      g_hash_table_insert (param_hash, "", (gpointer) fmtp);
+      return;
+    }
+
+  for (i = 0; (avpair = param_list[i]) != NULL; i++)
+    {
+      pv = strchr (avpair, '=');
+      if (pv)
+        {
+          attr = su_strndup (home, avpair, pv - avpair);
+          DEBUG("parsed attribute-value pair %s=%s", attr, pv + 1);
+          g_hash_table_insert (param_hash, attr, (gpointer) (pv + 1));
+        }
+      else
+        {
+          DEBUG("parsed freeform parameter %s", avpair);
+          g_hash_table_insert (param_hash, (gpointer) avpair, NULL);
+        }
+    }
+}
+
 /**
  * Notify StreamEngine of remote codecs.
  *
@@ -1122,6 +1174,7 @@ static void push_remote_codecs (SIPMediaStream *stream)
   const sdp_media_t *sdpmedia;
   const sdp_rtpmap_t *rtpmap;
   GHashTable *opt_params;
+  su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
 
   DEBUG ("enter");
 
@@ -1146,7 +1199,9 @@ static void push_remote_codecs (SIPMediaStream *stream)
 
   codecs = dbus_g_type_specialized_construct (codecs_type);
 
-  opt_params = g_hash_table_new (g_str_hash, g_str_equal);
+  /* Note: all strings in opt_params hash are either allocated at temphome
+   * or referenced as is from the rtpmap structure */
+  opt_params = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, NULL);
 
   rtpmap = sdpmedia->m_rtpmaps;
   while (rtpmap)
@@ -1157,9 +1212,8 @@ static void push_remote_codecs (SIPMediaStream *stream)
       g_value_take_boxed (&codec,
                           dbus_g_type_specialized_construct (codec_type));
 
-      /* FIXME: parse the optional parameters line for the codec
-       * and populate the hash table */
       g_assert (g_hash_table_size (opt_params) == 0);
+      priv_parse_fmtp (temphome, rtpmap->rm_fmtp, opt_params);
 
       /* RFC2327: see "m=" line definition 
        *  - note, 'encoding_params' is assumed to be channel
@@ -1182,11 +1236,14 @@ static void push_remote_codecs (SIPMediaStream *stream)
 
       g_ptr_array_add (codecs, g_value_get_boxed (&codec));
 
+      g_hash_table_remove_all (opt_params);
+
       rtpmap = rtpmap->rm_next;
     }
   
   g_assert (g_hash_table_size (opt_params) == 0);
   g_hash_table_destroy (opt_params);
+  su_home_deinit (temphome);
 
   SESSION_DEBUG(priv->session, "passing %d remote codecs to stream engine",
                 codecs->len);
