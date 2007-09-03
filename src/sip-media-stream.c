@@ -1388,19 +1388,22 @@ return "-";
 
 static void
 priv_marshal_param (gpointer key,
-                    gpointer value,
+                    gpointer val,
                     gpointer user_data)
 {
   GString *params = (GString *) user_data;
   const char *name = (const char *) key;
+  const char *value = (const char *) val;
 
   if (params->len != 0)
     g_string_append_c (params, ';');
 
   if (name == NULL || !*name)
-    g_string_append_printf (params, "%s", (const char *) value);
+    g_string_append_printf (params, "%s", value);
+  else if (value == NULL)
+    g_string_append_printf (params, "%s", name);
   else
-    g_string_append_printf (params, "%s=%s", name, (const char *) value);
+    g_string_append_printf (params, "%s=%s", name, value);
 }
 
 /**
