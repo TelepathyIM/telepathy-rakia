@@ -1127,8 +1127,7 @@ priv_parse_fmtp (su_home_t *home, const char *fmtp, GHashTable *param_hash)
   if (msg_avlist_d (home, &s, &param_list) < 0)
     {
       DEBUG("format-specific parameters can't be parsed as an attribute list: %s", fmtp);
-      g_hash_table_insert (param_hash, NULL, (gpointer) fmtp);
-      return;
+      goto pass_as_is;
     }
 
   g_assert (!*s);
@@ -1139,8 +1138,7 @@ priv_parse_fmtp (su_home_t *home, const char *fmtp, GHashTable *param_hash)
       && !strchr (param_list[0], '='))
     {
       DEBUG("passing freeform parameter string verbatim: %s", fmtp);
-      g_hash_table_insert (param_hash, "", (gpointer) fmtp);
-      return;
+      goto pass_as_is;
     }
 
   for (i = 0; (avpair = param_list[i]) != NULL; i++)
@@ -1158,6 +1156,11 @@ priv_parse_fmtp (su_home_t *home, const char *fmtp, GHashTable *param_hash)
           g_hash_table_insert (param_hash, (gpointer) avpair, NULL);
         }
     }
+
+  return;
+
+pass_as_is:
+  g_hash_table_insert (param_hash, "", (gpointer) fmtp);
 }
 
 /**
