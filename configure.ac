@@ -39,6 +39,15 @@ fi
 AC_HEADER_STDC([])
 AC_C_INLINE
 
+AC_ARG_ENABLE(syslog,
+  AC_HELP_STRING([--enable-syslog],[use syslog for Sofia log messages]),
+  [enable_syslog=$enableval],
+  [enable_syslog=no]
+)
+if test x$enable_syslog = xyes; then
+  AC_DEFINE(ENABLE_SYSLOG, [], [Enable syslog handler for Sofia log messages])
+fi
+
 dnl GTK docs
 GTK_DOC_CHECK
 
