@@ -13,7 +13,6 @@ AM_CONFIG_HEADER(config.h)
 dnl check for tools
 AC_PROG_CC
 AC_PROG_CC_STDC
-AM_PROG_AS
 
 dnl decide on error flags
 AS_COMPILER_FLAG(-Wall, WALL="yes", WALL="no")
@@ -36,7 +35,6 @@ if test x$enable_debug = xyes; then
   AC_DEFINE(ENABLE_DEBUG, [], [Enable debug code])
 fi
 
-AC_HEADER_STDC([])
 AC_C_INLINE
 
 AC_ARG_ENABLE(syslog,
@@ -92,4 +90,3 @@ data/Makefile \
 tests/Makefile \
 docs/Makefile
 )
-
