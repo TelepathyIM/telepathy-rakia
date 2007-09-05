@@ -1129,8 +1129,12 @@ priv_parse_fmtp (su_home_t *home, const char *fmtp, GHashTable *param_hash)
       DEBUG("format-specific parameters can't be parsed as an attribute list: %s", fmtp);
       goto pass_as_is;
     }
+  if (*s)
+    {
+      DEBUG("unexpected parser exit (whitespace?) while parsing format-specific parameters: %s", fmtp);
+      goto pass_as_is;
+    }
 
-  g_assert (!*s);
   g_assert (param_list != NULL);
 
   if (param_list[0] != NULL
