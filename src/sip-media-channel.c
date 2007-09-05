@@ -927,8 +927,10 @@ sip_media_channel_peer_response (SIPMediaChannel *self,
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_BUSY;
       break;
     case 408:
-    case 480:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER;
+      break;
+    case 480:
+      reason = TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
       break;
     case 603:
       /* No reason means roughly "rejected" */
