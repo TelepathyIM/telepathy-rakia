@@ -44,6 +44,10 @@
 #define DEBUG_FLAG SIP_DEBUG_MEDIA
 #include "debug.h"
 
+
+#define same_boolean(old, new) ((!(old)) == (!(new)))
+
+
 static void stream_handler_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(SIPMediaStream,
@@ -988,7 +992,7 @@ void sip_media_stream_set_playing (SIPMediaStream *stream, gboolean playing)
   SIPMediaStreamPrivate *priv;
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  if (priv->playing == playing)
+  if (same_boolean (priv->playing, playing))
     return;
 
   DEBUG("set playing to %s", playing? "TRUE" : "FALSE");
@@ -1010,7 +1014,7 @@ sip_media_stream_set_sending (SIPMediaStream *stream, gboolean sending)
   SIPMediaStreamPrivate *priv;
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  if (priv->sending == sending)
+  if (same_boolean(priv->sending, sending))
     return;
 
   DEBUG("set sending to %s", sending? "TRUE" : "FALSE");
@@ -1028,7 +1032,7 @@ priv_update_sending (SIPMediaStream *stream,
                      guint pending_send_flags)
 {
   sip_media_stream_set_sending (stream,
-        (direction & TP_MEDIA_STREAM_DIRECTION_SEND)
+        (direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0
         && !(pending_send_flags
              & (TP_MEDIA_STREAM_PENDING_REMOTE_SEND
                 | TP_MEDIA_STREAM_PENDING_LOCAL_SEND)));
