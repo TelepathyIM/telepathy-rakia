@@ -34,7 +34,6 @@
 #include <sofia-sip/su_glib.h>
 #include <sofia-sip/sdp.h>
 #include <sofia-sip/tport_tag.h>
-#include <sofia-sip/stun_tag.h>
 #include <sofia-sip/sresolv.h>
 
 G_BEGIN_DECLS
