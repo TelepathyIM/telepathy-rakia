@@ -533,6 +533,27 @@ priv_close_all_streams (SIPMediaSession *session)
 }
 
 static void
+priv_clear_streams_pending_send (SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  SIPMediaStream *stream;
+  guint i;
+
+  /* Clear the local pending send flags, enabling sending */
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      stream = g_ptr_array_index(priv->streams, i);
+      if (stream != NULL)
+        {
+          guint direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+          g_object_get (stream, "direction", &direction, NULL);
+          if (direction & TP_MEDIA_STREAM_DIRECTION_SEND)
+            sip_media_stream_set_direction (stream, direction, 0);
+        }
+    }
+}
+
+static void
 priv_session_state_changed (SIPMediaSession *session,
                             SIPMediaSessionState new_state)
 {
@@ -580,6 +601,7 @@ priv_session_state_changed (SIPMediaSession *session,
 	  g_source_remove (priv->timer_id);
 	  priv->timer_id = 0;
         }
+      priv_clear_streams_pending_send (session);
       if (priv->pending_offer)
         {
           priv_session_invite (session, TRUE);
@@ -1002,11 +1024,10 @@ sip_media_session_receive_reinvite (SIPMediaSession *self)
   g_object_set (self, "state", SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED, NULL);
 }
 
-void sip_media_session_accept (SIPMediaSession *self)
+void
+sip_media_session_accept (SIPMediaSession *self)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
-  SIPMediaStream *stream;
-  guint i;
 
   if (priv->accepted)
     return;
@@ -1015,20 +1036,9 @@ void sip_media_session_accept (SIPMediaSession *self)
 
   priv->accepted = TRUE;
 
+  /* Will change session state to active when streams are ready
+   * and clear the pending send flags, enabling sending */
   priv_request_response_step (self);
-
-  /* Clear the local pending send flags, enabling sending */
-  for (i = 0; i < priv->streams->len; i++)
-    {
-      stream = g_ptr_array_index(priv->streams, i);
-      if (stream != NULL)
-        {
-          guint direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
-          g_object_get (stream, "direction", &direction, NULL);
-          if (direction & TP_MEDIA_STREAM_DIRECTION_SEND)
-            sip_media_stream_set_direction (stream, direction, 0);
-        }
-    }
 }
 
 void
