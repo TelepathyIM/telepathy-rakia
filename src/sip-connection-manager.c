@@ -239,7 +239,6 @@ priv_compose_proxy_uri (const gchar *host,
 {
   const gchar *scheme = "sip";
   const gchar *params = "";
-  gboolean is_secure = FALSE;
 
   if (host == NULL)
     return NULL;
@@ -254,21 +253,8 @@ priv_compose_proxy_uri (const gchar *host,
     params = ";transport=udp";
   } else if (!strcmp (transport, "tls")) {
     scheme = "sips";
-    is_secure = TRUE;
   } else {
     g_warning ("transport %s not recognized", transport);
-  }
-
-  /* Skip default port */
-
-  if (!is_secure) {
-    if (port == SIP_DEFAULT_PORT) {
-      port = 0;
-    }
-  } else {
-    if (port == SIPS_DEFAULT_PORT) {
-      port = 0;
-    }
   }
 
   /* Format the resulting URI */
@@ -289,8 +275,7 @@ priv_compose_proxy_uri (const gchar *host,
  */
 static gchar *
 priv_compose_default_proxy_uri (const gchar *sip_address,
-                                const gchar *transport,
-                                guint port)
+                                const gchar *transport)
 {
   char *result = NULL;
   char *host;
@@ -327,7 +312,7 @@ priv_compose_default_proxy_uri (const gchar *sip_address,
   if (found != NULL)
     *found = '\0';
 
-  result = priv_compose_proxy_uri (host, transport, port);
+  result = priv_compose_proxy_uri (host, transport, 0);
 
   g_free (host);
 
@@ -439,9 +424,8 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   if (params->proxy_host == NULL) {
     proxy = priv_compose_default_proxy_uri (params->account,
-                                            params->transport,
-                                            params->port);
-    g_debug ("Set outbound proxy address to <%s>, based on <%s>", proxy, params->account);
+                                            params->transport);
+    DEBUG("set outbound proxy address to <%s>, based on <%s>", proxy, params->account);
   } else
     proxy = priv_compose_proxy_uri (params->proxy_host,
                                     params->transport,
