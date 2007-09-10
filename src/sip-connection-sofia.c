@@ -266,7 +266,10 @@ priv_r_invite (int status,
   if (priv_handle_auth (self, status, nh, sip, FALSE) == SIP_AUTH_HANDLED)
     return;
 
-  sip_media_channel_peer_response (SIP_MEDIA_CHANNEL (nh_magic), status, phrase);
+  if (status >= 300)
+    sip_media_channel_peer_error (SIP_MEDIA_CHANNEL (nh_magic),
+                                  status,
+                                  phrase);
 }
 
 static void
@@ -711,6 +714,8 @@ priv_i_state (int status,
         sip_media_channel_close (channel);
     }
 
+  DEBUG("call with handle %p is %s", nh, nua_callstate_name (ss_state));
+
   switch ((enum nua_callstate)ss_state) {
   case nua_callstate_received:
   case nua_callstate_early:
@@ -721,15 +726,11 @@ priv_i_state (int status,
     break;
 
   case nua_callstate_ready:
-    DEBUG("call nh=%p is active => '%s'", nh, nua_callstate_name (ss_state));
+    sip_media_channel_ready (channel);
     break;
 
   case nua_callstate_terminated:
-    if (nh)
-      {
-        DEBUG("call nh=%p is terminated", nh);
-        sip_media_channel_terminated (channel);
-      }
+    sip_media_channel_terminated (channel);
     break;
 
   default:
