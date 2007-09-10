@@ -779,10 +779,10 @@ sip_connection_disconnected (TpBaseConnection *base)
   /* Dispose of the register use */
   if (priv->register_op != NULL)
     {
+      DEBUG("unregistering");
+      nua_unregister (priv->register_op, TAG_NULL());
       if (priv->register_succeeded)
         {
-          DEBUG("unregistering");
-          nua_unregister (priv->register_op, TAG_NULL());
           nua_handle_unref (priv->register_op);
         }
       else
