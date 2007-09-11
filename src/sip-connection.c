@@ -714,8 +714,9 @@ sip_connection_start_connecting (TpBaseConnection *base,
       NULL, error);
   if (base->self_handle == 0)
     {
-      g_warning ("our requested SIP address '%s' is invalid, not connecting",
-          priv->address);
+      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_HANDLE,
+                   "Requested SIP address '%s' is invalid",
+                   priv->address);
       return FALSE;
     }
 
