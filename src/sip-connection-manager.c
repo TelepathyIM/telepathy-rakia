@@ -286,15 +286,19 @@ priv_compose_default_proxy_uri (const gchar *sip_address,
   /* skip sip and sips prefixes, updating transport if necessary */
   found = strchr (sip_address, ':');
   if (found != NULL) {
-    if (strncmp("sip:", sip_address, 4) == 0) {
+    if (g_ascii_strncasecmp ("sip:", sip_address, 4) == 0)
       ;
-    } else if (strncmp("sips:", sip_address, 5) == 0) {
-      if (transport == NULL || strcmp (transport, "auto") == 0)
-        transport = "tls";
-    } else {
-      /* error, unknown URI prefix */
-      return NULL;
-    }
+    else if (g_ascii_strncasecmp ("sips:", sip_address, 5) == 0)
+      {
+        if (transport == NULL ||
+            g_ascii_strncasecmp (transport, "auto", 4) == 0)
+          transport = "tls";
+      }
+    else
+      {
+        /* error, unknown URI prefix */
+        return NULL;
+      }
 
     sip_address = found + 1;
   }
@@ -307,8 +311,10 @@ priv_compose_default_proxy_uri (const gchar *sip_address,
   /* copy rest of the string */
   host = g_strdup (sip_address);
 
-  /* mark end (uri-parameters defs) */
+  /* mark end (before uri-parameters defs or headers) */
   found = strchr (host, ';');
+  if (found == NULL)
+    found = strchr (host, '?');
   if (found != NULL)
     *found = '\0';
 
