@@ -66,8 +66,6 @@ G_DEFINE_TYPE_WITH_CODE(SIPConnection, sip_connection,
       return; \
     }
 
-static GObjectClass *parent_class=NULL;
-
 
 /* properties */
 enum
@@ -118,40 +116,6 @@ priv_url_from_string_value (su_home_t *home, const GValue *value)
   g_assert (home != NULL);
   url_str = g_value_get_string (value);
   return (url_str)? url_make (home, url_str) : NULL;
-}
-
-static GObject *
-sip_connection_constructor (GType                  type,
-                            guint                  n_construct_properties,
-                            GObjectConstructParam *construct_properties)
-{
-  GObject *obj;
-
-  {
-    /* Invoke parent constructor.
-     * this calls our init, and then set_property with any
-     * CONSTRUCT params
-     */
-    SIPConnectionClass *klass;
-    klass = SIP_CONNECTION_CLASS (g_type_class_peek (SIP_TYPE_CONNECTION));
-    parent_class = G_OBJECT_CLASS (g_type_class_peek_parent (klass));
-    obj = parent_class->constructor (type,
-                                     n_construct_properties,
-                                     construct_properties);
-  }
-
-  SIPConnection *self = SIP_CONNECTION (obj);
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self); 
-
-  /* the non-construct parameters will be empty */
-  g_assert (priv->registrar_url == NULL);
-  g_assert (priv->proxy_url == NULL);
-  g_assert (priv->http_proxy == NULL);
-
-  g_assert (priv->sofia_nua == NULL);
-
-  g_message ("SIPConnection constructed at %p", obj);
-  return obj;
 }
 
 /* keep these two in sync */
@@ -430,8 +394,6 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   base_class->shut_down = sip_connection_shut_down;
 
   g_type_class_add_private (sip_connection_class, sizeof (SIPConnectionPrivate));
-
-  object_class->constructor = sip_connection_constructor;
 
   object_class->dispose = sip_connection_dispose;
   object_class->finalize = sip_connection_finalize;
