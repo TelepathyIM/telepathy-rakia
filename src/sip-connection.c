@@ -627,7 +627,7 @@ sip_connection_finalize (GObject *obj)
 
   if (NULL != priv->sofia_resolver)
     {
-      g_debug ("destroying sofia resolver");
+      DEBUG("destroying sofia resolver");
       sres_resolver_destroy (priv->sofia_resolver);
       priv->sofia_resolver = NULL;
     }

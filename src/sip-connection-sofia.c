@@ -162,8 +162,6 @@ priv_handle_auth (SIPConnection* self,
       sip_from_t const *sipfrom = sip->sip_from;
       sip_from_t const *sipto = sip->sip_to;
 
-      g_debug ("sofiasip: using the primary auth credentials");
-
       if (priv->auth_user)
           /* use authentication username if provided */
           user = priv->auth_user;
@@ -177,12 +175,15 @@ priv_handle_auth (SIPConnection* self,
           g_assert_not_reached ();
 
       password = priv->password;
+
+      DEBUG("using the primary auth credentials");
     }
   else
     {
-      g_debug ("sofiasip: using the extra auth credentials");
       user = priv->extra_auth_user;
       password = priv->extra_auth_password;
+
+      DEBUG("using the extra auth credentials");
     }
 
   if (password == NULL)
@@ -198,9 +199,8 @@ priv_handle_auth (SIPConnection* self,
       auth = g_strdup_printf ("%s:\"%s\":%s:%s", 
 			      method, realm, user, password);
 
-    g_message ("sofiasip: %s authenticating user='%s' realm='%s' nh='%p'",
+    DEBUG("%s authenticating user='%s' realm='%s' nh='%p'",
 	       wa ? "server" : "proxy", user, realm, nh);
-
   }
 
   /* step: do sanity checks, avoid resubmitting the exact same response */
