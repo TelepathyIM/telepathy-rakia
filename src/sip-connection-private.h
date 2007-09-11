@@ -32,6 +32,8 @@ struct _SIPConnectionPrivate
   nua_handle_t *register_op;
   sres_resolver_t *sofia_resolver;
   url_t *account_url;
+  url_t *proxy_url;
+  url_t *registrar_url;
 
   gchar *registrar_realm;
   gchar *last_auth;
@@ -43,8 +45,6 @@ struct _SIPConnectionPrivate
   gchar *address;
   gchar *auth_user;
   gchar *password;
-  gchar *proxy;
-  gchar *registrar;
   SIPConnectionKeepaliveMechanism keepalive_mechanism;
   gint keepalive_interval;
   gchar *http_proxy;

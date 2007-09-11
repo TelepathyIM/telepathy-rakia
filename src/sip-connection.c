@@ -93,23 +93,31 @@ enum
   LAST_PROPERTY
 };
 
-/**
- * Returns a duplicated char array of a *user-provided* SIP 
- * URI, which might be missing the URI prefix, or some other 
- * required components.
- *
- * @return NULL if a valid URI cannot be created from 'input'
- */
-static gchar *priv_sip_strdup(const gchar *input)
+
+static void
+priv_value_set_url_as_string (GValue *value, const url_t *url)
 {
-  if (input == NULL)
-    return NULL;
+  if (url == NULL)
+    {
+      g_value_set_string (value, NULL);
+    }
+  else
+    {
+      su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
+      char *tempstr;
+      tempstr = url_as_string (temphome, url);
+      g_value_set_string (value, tempstr);
+      su_home_deinit (temphome);
+    }
+}
 
-  /* Pretty relaxed, need a stronger solution */
-  if (strchr (input, ':'))
-    return g_strdup (input);
-
-  return g_strdup_printf ("sip:%s", input);
+static url_t *
+priv_url_from_string_value (su_home_t *home, const GValue *value)
+{
+  const gchar *url_str;
+  g_assert (home != NULL);
+  url_str = g_value_get_string (value);
+  return (url_str)? url_make (home, url_str) : NULL;
 }
 
 static GObject *
@@ -135,12 +143,9 @@ sip_connection_constructor (GType                  type,
   SIPConnection *self = SIP_CONNECTION (obj);
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self); 
 
-  /* step: create home objects */
-  priv->sofia_home = su_home_new(sizeof (su_home_t));
-
   /* the non-construct parameters will be empty */
-  g_assert (priv->registrar == NULL);
-  g_assert (priv->proxy == NULL);
+  g_assert (priv->registrar_url == NULL);
+  g_assert (priv->proxy_url == NULL);
   g_assert (priv->http_proxy == NULL);
 
   g_assert (priv->sofia_nua == NULL);
@@ -209,6 +214,7 @@ sip_connection_init (SIPConnection *obj)
 {
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (obj);
   priv->sofia = sip_connection_sofia_new (obj);
+  priv->sofia_home = su_home_new(sizeof (su_home_t));
 }
 
 static void
@@ -237,17 +243,19 @@ sip_connection_set_property (GObject      *object,
     break;
   }
   case PROP_PROXY: {
-    g_free(priv->proxy);
-    priv->proxy = priv_sip_strdup (g_value_get_string (value));
+    priv->proxy_url = priv_url_from_string_value (priv->sofia_home, value);
     if (priv->sofia_nua) 
-      nua_set_params(priv->sofia_nua, NUTAG_PROXY(priv->proxy), TAG_END());
+      nua_set_params(priv->sofia_nua,
+                     NUTAG_PROXY(priv->proxy_url),
+                     TAG_END());
     break;
   }
   case PROP_REGISTRAR: {
-    g_free((gpointer)priv->registrar);
-    priv->registrar = priv_sip_strdup(g_value_get_string (value));
+    priv->registrar_url = priv_url_from_string_value (priv->sofia_home, value);
     if (priv->sofia_nua) 
-      nua_set_params(priv->sofia_nua, NUTAG_REGISTRAR(priv->registrar), TAG_END());
+      nua_set_params(priv->sofia_nua,
+                     NUTAG_REGISTRAR(priv->registrar_url),
+                     TAG_END());
     break;
   }
   case PROP_KEEPALIVE_MECHANISM: {
@@ -336,11 +344,11 @@ sip_connection_get_property (GObject      *object,
     break;
   }
   case PROP_PROXY: {
-    g_value_set_string (value, priv->proxy);
+    priv_value_set_url_as_string (value, priv->proxy_url);
     break;
   }
   case PROP_REGISTRAR: {
-    g_value_set_string (value, priv->registrar);
+    priv_value_set_url_as_string (value, priv->registrar_url);
     break;
   }
   case PROP_KEEPALIVE_MECHANISM: {
@@ -629,8 +637,6 @@ sip_connection_finalize (GObject *obj)
   g_free (priv->address);
   g_free (priv->auth_user);
   g_free (priv->password);
-  g_free (priv->proxy);
-  g_free (priv->registrar);
   g_free (priv->http_proxy);
   g_free (priv->stun_host);
   g_free (priv->extra_auth_user);
@@ -716,25 +722,12 @@ sip_connection_start_connecting (TpBaseConnection *base,
       return FALSE;
     }
 
-  /* Take care about the proxy and contact URL */
-  if (priv->proxy != NULL)
-    {
-      nua_set_params (priv->sofia_nua,
-                      NUTAG_PROXY(priv->proxy),
-                      TAG_IF(g_ascii_strncasecmp(priv->proxy, "sips:", 5) == 0,
-                                                 NUTAG_SIPS_URL("sips:*")),
-                      TAG_NULL());
-    }
-  else if (g_ascii_strncasecmp(sip_address, "sips:", 5) == 0)
-    {
-      nua_set_params (priv->sofia_nua,
-                      NUTAG_SIPS_URL("sips:*"),
-                      TAG_NULL());
-    }
-
+  /* Set configuration-dependent tags */
+  sip_conn_update_proxy_and_transport (self);
   sip_conn_update_nua_outbound (self);
   sip_conn_update_nua_keepalive_interval (self);
   sip_conn_update_nua_contact_features (self);
+
   if (priv->stun_host != NULL)
     sip_conn_resolv_stun_server (self, priv->stun_host);
   else if (priv->discover_stun)

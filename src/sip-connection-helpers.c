@@ -131,6 +131,44 @@ sip_conn_save_event (SIPConnection *conn,
   nua_save_event (priv->sofia_nua, ret_saved);
 }
 
+void
+sip_conn_update_proxy_and_transport (SIPConnection *conn)
+{
+  static const char wildcard_sips_url[] = "sips:*:*";
+
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  if (priv->proxy_url != NULL)
+    {
+      gchar *params = NULL;
+      if (priv->proxy_url->url_type == url_sip)
+        {
+          char transport[5] = "";
+          if (url_param (priv->proxy_url->url_params, "transport",
+                         transport, 5) > 0)
+            {
+              if (g_ascii_strncasecmp (transport, "tcp", 3) == 0
+                  || g_ascii_strncasecmp (transport, "udp", 3) == 0)
+                params = g_strdup_printf ("transport=%s", transport);
+              else
+                g_message ("unrecognized transport value in the proxy URI: %s", transport);
+            }
+        }
+      nua_set_params (priv->sofia_nua,
+                      NUTAG_PROXY(priv->proxy_url),
+                      TAG_IF(priv->proxy_url->url_type == url_sips,
+                             NUTAG_SIPS_URL(wildcard_sips_url)),
+                      TAG_IF(params, NUTAG_M_PARAMS(params)),
+                      TAG_NULL());
+      g_free (params);
+    }
+  else if (priv->account_url->url_type == url_sips)
+    {
+      nua_set_params (priv->sofia_nua,
+                      NUTAG_SIPS_URL(wildcard_sips_url),
+                      TAG_NULL());
+    }
+}
+
 static GHashTable*
 priv_nua_get_outbound_options (nua_t* nua)
 {
