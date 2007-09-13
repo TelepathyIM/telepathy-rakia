@@ -285,7 +285,7 @@ priv_compose_default_proxy_uri (const gchar *sip_address,
     else if (g_ascii_strncasecmp ("sips:", sip_address, 5) == 0)
       {
         if (transport == NULL ||
-            g_ascii_strncasecmp (transport, "auto", 4) == 0)
+            strcmp (transport, "auto") == 0)
           transport = "tls";
       }
     else

@@ -564,7 +564,8 @@ priv_i_message (int status,
   char *text = NULL;
 
   /* Block anything else except text/plain messages (like isComposings) */
-  if (sip->sip_content_type && (strcmp("text/plain", sip->sip_content_type->c_type)))
+  if (sip->sip_content_type
+      && (g_ascii_strcasecmp ("text/plain", sip->sip_content_type->c_type)))
     {
       nua_respond (nh, SIP_415_UNSUPPORTED_MEDIA,
                    SIPTAG_ACCEPT_STR("text/plain"),

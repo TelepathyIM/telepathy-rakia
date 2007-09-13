@@ -146,8 +146,8 @@ sip_conn_update_proxy_and_transport (SIPConnection *conn)
           if (url_param (priv->proxy_url->url_params, "transport",
                          transport, 5) > 0)
             {
-              if (g_ascii_strncasecmp (transport, "tcp", 3) == 0
-                  || g_ascii_strncasecmp (transport, "udp", 3) == 0)
+              if (g_ascii_strcasecmp (transport, "tcp") == 0
+                  || g_ascii_strcasecmp (transport, "udp") == 0)
                 params = g_strdup_printf ("transport=%s", transport);
               else
                 g_message ("unrecognized transport value in the proxy URI: %s", transport);
