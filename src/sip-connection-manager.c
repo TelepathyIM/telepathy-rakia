@@ -47,7 +47,6 @@ typedef struct {
     guint port;
     gchar *transport;
     gboolean discover_binding;
-    gboolean use_http_proxy;
     gchar *keepalive_mechanism;
     gint keepalive_interval;
     gboolean discover_stun;
@@ -92,7 +91,6 @@ enum {
     SIP_CONN_PARAM_PORT,
     SIP_CONN_PARAM_TRANSPORT,
     SIP_CONN_PARAM_DISCOVER_BINDING,
-    SIP_CONN_PARAM_USE_HTTP_PROXY,
     SIP_CONN_PARAM_KEEPALIVE_MECHANISM,
     SIP_CONN_PARAM_KEEPALIVE_INTERVAL,
     SIP_CONN_PARAM_DISCOVER_STUN,
@@ -132,15 +130,11 @@ static const TpCMParamSpec sip_params[] = {
     { "transport", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "auto",
       G_STRUCT_OFFSET (SIPConnParams, transport) },
-    /* Not used */
+    /* Used to enable proactive NAT traversal techniques */
     { "discover-binding", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
       G_STRUCT_OFFSET (SIPConnParams, discover_binding) },
-    /* Not used */
-    { "use-http-proxy", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
-      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(FALSE),
-      G_STRUCT_OFFSET (SIPConnParams, use_http_proxy) },
-    /* Not used */
+    /* Mechanism used for connection keepalive maintenance */
     { "keepalive-mechanism", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (SIPConnParams, keepalive_mechanism) },
     /* KA interval */
@@ -388,9 +382,6 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
         proto);
     return NULL;
   }
-
-  /* TODO: retrieve global HTTP proxy settings if
-   * "use-http-proxy" parameter is enabled */
 
   /* TpBaseConnectionManager code has already checked that required params
    * are present (but not that they are non-empty, if we're using >= 0.5.8)

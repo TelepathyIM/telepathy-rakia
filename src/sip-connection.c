@@ -79,7 +79,6 @@ enum
 
   PROP_KEEPALIVE_MECHANISM, /**< keepalive mechanism as defined by SIPConnectionKeepaliveMechanism */
   PROP_KEEPALIVE_INTERVAL, /**< keepalive interval in seconds */
-  PROP_HTTP_PROXY,         /**< HTTP proxy URI; use HTTP-CONNECT to reach SIP servers */
   PROP_DISCOVER_BINDING,   /**< enable discovery of public binding */
   PROP_DISCOVER_STUN,      /**< Discover STUN server name using DNS SRV lookup */
   PROP_STUN_SERVER,        /**< STUN server address (if not set, derived
@@ -238,13 +237,6 @@ sip_connection_set_property (GObject      *object,
     }
     break;
   }
-  case PROP_HTTP_PROXY: {
-    g_free((gpointer)priv->http_proxy);
-    priv->http_proxy = g_value_dup_string (value);
-    if (priv->sofia_nua) 
-      nua_set_params(priv->sofia_nua, TPTAG_HTTP_CONNECT(priv->http_proxy), TAG_END());
-    break;
-  }
   case PROP_DISCOVER_BINDING: {
     priv->discover_binding = g_value_get_boolean (value);
     if (priv->sofia_nua)
@@ -321,10 +313,6 @@ sip_connection_get_property (GObject      *object,
   }
   case PROP_KEEPALIVE_INTERVAL: {
     g_value_set_int (value, priv->keepalive_interval);
-    break;
-  }
-  case PROP_HTTP_PROXY: {
-    g_value_set_string (value, priv->http_proxy);
     break;
   }
   case PROP_DISCOVER_BINDING: {
@@ -476,15 +464,6 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                 G_PARAM_STATIC_BLURB);
   INST_PROP(PROP_KEEPALIVE_INTERVAL);
 
-  param_spec = g_param_spec_string("http-proxy",
-                                   "HTTP proxy URI",
-                                   "Use HTTP-CONNECT to reach the SIP servers, empty to disable [optional]",
-                                   NULL, /*default value*/
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
-  INST_PROP(PROP_HTTP_PROXY);
-
   param_spec = g_param_spec_boolean("discover-binding",
                                     "Discover public contact",
                                     "Enable discovery of public IP address beyond NAT",
@@ -627,7 +606,6 @@ sip_connection_finalize (GObject *obj)
   g_free (priv->address);
   g_free (priv->auth_user);
   g_free (priv->password);
-  g_free (priv->http_proxy);
   g_free (priv->stun_host);
   g_free (priv->extra_auth_user);
   g_free (priv->extra_auth_password);
