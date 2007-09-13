@@ -159,31 +159,30 @@ priv_handle_auth (SIPConnection* self,
 
   if (home_realm)
     {
-      sip_from_t const *sipfrom = sip->sip_from;
-      sip_from_t const *sipto = sip->sip_to;
-
-      if (priv->auth_user)
-          /* use authentication username if provided */
-          user = priv->auth_user;
-      else if (sipfrom && sipfrom->a_url)
-          /* or use the userpart in "From" header */
-          user = sipfrom->a_url->url_user;
-      else if (sipto && sipto->a_url)
-          /* alternatively use the userpart in "To" header */
-          user = sipto->a_url->url_user;
-      else
-          g_assert_not_reached ();
-
+      /* use authentication username if provided */
+      user = priv->auth_user;
       password = priv->password;
 
       DEBUG("using the primary auth credentials");
     }
   else
     {
-      user = priv->extra_auth_user;
+      if (priv->extra_auth_user)
+        user = priv->extra_auth_user;
+      else
+        /* fall back to the main username */
+        user = priv->auth_user;
       password = priv->extra_auth_password;
 
       DEBUG("using the extra auth credentials");
+    }
+
+  if (user == NULL)
+    {
+      sip_from_t const *sipfrom = sip->sip_from;
+      if (sipfrom && sipfrom->a_url)
+        /* or use the userpart in "From" header */
+        user = sipfrom->a_url->url_user;
     }
 
   if (password == NULL)
