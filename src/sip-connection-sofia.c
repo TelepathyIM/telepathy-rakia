@@ -856,6 +856,7 @@ sip_connection_sofia_callback(nua_event_t event,
   case nua_i_active:
   case nua_i_ack:
   case nua_i_terminated:
+  case nua_i_options:
     /* ignore these */
     break;
 
