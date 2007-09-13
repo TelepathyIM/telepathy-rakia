@@ -808,8 +808,8 @@ sip_connection_sofia_callback(nua_event_t event,
       return;
     }
 
-  DEBUG("enter: NUA at %p (conn %p), event #%d '%s', %d '%s'", nua, self,
-      event, nua_event_name (event), status, phrase);
+  DEBUG("enter: nh %p (conn %p), event #%d '%s', %d '%s'",
+        nh, self, (int) event, nua_event_name (event), status, phrase);
   DEBUG ("Connection refcount is %d", ((GObject *)self)->ref_count);
 
   switch (event) {
