@@ -82,7 +82,9 @@ void sip_media_channel_ready (SIPMediaChannel *self);
 void sip_media_channel_peer_error (SIPMediaChannel *self,
                                    guint status,
                                    const char* message);
-void sip_media_channel_peer_cancel (SIPMediaChannel *self);
+void sip_media_channel_peer_cancel (SIPMediaChannel *self,
+                                    guint cause,
+                                    const char* text);
 
 G_END_DECLS
 

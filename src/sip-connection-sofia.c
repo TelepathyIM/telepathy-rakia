@@ -530,6 +530,10 @@ priv_i_cancel (nua_t *nua,
                sip_t const *sip,
                tagi_t tags[])
 {
+  const sip_reason_t *reason;
+  guint cause = 0;
+  const gchar *text = NULL;
+
   if (nh_magic == NULL)
     {
       g_message ("nua_i_cancel received for an unknown handle");
@@ -543,7 +547,20 @@ priv_i_cancel (nua_t *nua,
       return;
     }
 
-  sip_media_channel_peer_cancel (SIP_MEDIA_CHANNEL (nh_magic));
+  reason = sip->sip_reason;
+  while (reason)
+    {
+      if (strcmp (reason->re_protocol, "SIP") == 0)
+        {
+          if (reason->re_cause)
+            cause = (guint) g_ascii_strtoull (reason->re_cause, NULL, 10);
+          text = reason->re_text;
+          break;
+        }
+      reason = reason->re_next;
+    }
+
+  sip_media_channel_peer_cancel (SIP_MEDIA_CHANNEL (nh_magic), cause, text);
 
   /* nua_respond (nh, SIP_200_OK, TAG_END()); */
 }

@@ -953,22 +953,47 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
 }
 
 void
-sip_media_channel_peer_cancel (SIPMediaChannel *self)
+sip_media_channel_peer_cancel (SIPMediaChannel *self,
+                               guint cause,
+                               const gchar *text)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
   TpIntSet *set;
+  TpHandle actor = 0;
   TpHandle peer;
 
   g_return_if_fail (priv->session != NULL);
 
   peer = sip_media_session_get_peer (priv->session);
 
+  switch (cause)
+    {
+    case 200:
+    case 603:
+      /* The user must have acted on another branch of the forked call */
+      actor = mixin->self_handle;
+      break;
+    default:
+      actor = peer;
+    }
+
+  if (text == NULL)
+    text = "Cancelled";
+
   set = tp_intset_new ();
   tp_intset_add (set, peer);
   tp_intset_add (set, mixin->self_handle);
-  tp_group_mixin_change_members ((GObject *) self, "Cancelled",
-      NULL, set, NULL, NULL, peer, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+
+  tp_group_mixin_change_members ((GObject *) self,
+                                 text,
+                                 NULL, /* add */
+                                 set,  /* remove */
+                                 NULL,
+                                 NULL,
+                                 actor,
+                                 TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+
   tp_intset_destroy (set);
 }
 
