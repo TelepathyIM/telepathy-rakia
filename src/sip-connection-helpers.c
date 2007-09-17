@@ -43,6 +43,15 @@
  * a value obtained from Sofia-SIP documentation */
 #define SIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL 120
 
+/* The user is not allowed to set keepalive timeout to lower than that,
+ * to avoid wasting traffic and device power */
+#define SIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL 30
+
+/* The user is not allowed to set keepalive timeout to lower than that
+ * for REGISTER keepalives, to avoid wasting traffic and device power.
+ * REGISTER is special because it may tie resources on the server side */
+#define SIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER 50
+
 /* The value of SIP_NH_EXPIRED. This can be anything that is neither NULL
  * nor a media channel */
 NUA_HMAGIC_T * const _sip_nh_expired = (NUA_HMAGIC_T *)"";
@@ -313,6 +322,24 @@ sip_conn_update_nua_outbound (SIPConnection *conn)
   g_hash_table_destroy (option_table);
 }
 
+static void
+priv_sanitize_keepalive_interval (SIPConnectionPrivate *priv)
+{
+  gint minimum_interval;
+  if (priv->keepalive_interval > 0)
+    {
+      minimum_interval =
+              (priv->keepalive_mechanism == SIP_CONNECTION_KEEPALIVE_REGISTER)
+              ? SIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER
+              : SIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL;
+      if (priv->keepalive_interval < minimum_interval)
+        {
+          g_warning ("keepalive interval is too low, pushing to %d", minimum_interval);
+          priv->keepalive_interval = minimum_interval;
+        }
+    }
+}
+
 void
 sip_conn_update_nua_keepalive_interval (SIPConnection *conn)
 {
@@ -325,7 +352,10 @@ sip_conn_update_nua_keepalive_interval (SIPConnection *conn)
     /* XXX: figure out proper default timeouts depending on transport */
     keepalive_interval = SIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
   else
-    keepalive_interval = (long)priv->keepalive_interval;
+    {
+      priv_sanitize_keepalive_interval (priv);
+      keepalive_interval = (long) priv->keepalive_interval;
+    }
   keepalive_interval *= 1000;
 
   DEBUG("setting keepalive interval to %ld msec", keepalive_interval);
@@ -345,9 +375,10 @@ sip_conn_update_nua_contact_features (SIPConnection *conn)
   if (priv->keepalive_mechanism != SIP_CONNECTION_KEEPALIVE_REGISTER)
     return;
 
+  priv_sanitize_keepalive_interval (priv);
   timeout = (priv->keepalive_interval > 0)
-	? priv->keepalive_interval
-	: SIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
+        ? priv->keepalive_interval
+        : SIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
   contact_features = g_strdup_printf ("expires=%u", timeout);
   nua_set_params(priv->sofia_nua,
 		 NUTAG_M_FEATURES(contact_features),
