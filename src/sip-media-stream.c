@@ -1184,7 +1184,6 @@ static void push_remote_codecs (SIPMediaStream *stream)
   GType codec_type;
   const sdp_media_t *sdpmedia;
   const sdp_rtpmap_t *rtpmap;
-  GHashTable *opt_params;
   su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
 
   DEBUG ("enter");
@@ -1210,20 +1209,19 @@ static void push_remote_codecs (SIPMediaStream *stream)
 
   codecs = dbus_g_type_specialized_construct (codecs_type);
 
-  /* Note: all strings in opt_params hash are either allocated at temphome
-   * or referenced as is from the rtpmap structure */
-  opt_params = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, NULL);
-
   rtpmap = sdpmedia->m_rtpmaps;
   while (rtpmap)
     {
       GValue codec = { 0, };
+      GHashTable *opt_params;
 
       g_value_init (&codec, codec_type);
       g_value_take_boxed (&codec,
                           dbus_g_type_specialized_construct (codec_type));
 
-      g_assert (g_hash_table_size (opt_params) == 0);
+      /* Note: all strings in opt_params hash are either allocated at temphome
+       * or referenced as is from the rtpmap structure */
+      opt_params = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, NULL);
       priv_parse_fmtp (temphome, rtpmap->rm_fmtp, opt_params);
 
       /* RFC2327: see "m=" line definition 
@@ -1247,13 +1245,11 @@ static void push_remote_codecs (SIPMediaStream *stream)
 
       g_ptr_array_add (codecs, g_value_get_boxed (&codec));
 
-      g_hash_table_remove_all (opt_params);
+      g_hash_table_destroy (opt_params);
 
       rtpmap = rtpmap->rm_next;
     }
   
-  g_assert (g_hash_table_size (opt_params) == 0);
-  g_hash_table_destroy (opt_params);
   su_home_deinit (temphome);
 
   SESSION_DEBUG(priv->session, "passing %d remote codecs to stream engine",
