@@ -917,7 +917,6 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
 
   switch (status)
     {
-    case 404:
     case 410:
     case 604:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_INVALID_CONTACT;
@@ -929,6 +928,7 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
     case 408:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER;
       break;
+    case 404:
     case 480:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
       break;
