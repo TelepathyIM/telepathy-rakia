@@ -662,6 +662,9 @@ static gboolean priv_timeout_session (gpointer data)
 {
   SIPMediaSession *session = data;
   SIPMediaSessionPrivate *priv;
+  TpChannelGroupChangeReason reason;
+  gboolean change = FALSE;
+  TpHandle actor;
 
   DEBUG("session timed out");
 
@@ -669,12 +672,23 @@ static gboolean priv_timeout_session (gpointer data)
 
   if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_SENT)
     {
-      TpIntSet *set;
-      set = tp_intset_new ();
+      reason = TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER;
+      actor = 0;
+      change = TRUE;
+    }
+  else if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED)
+    {
+      reason = TP_CHANNEL_GROUP_CHANGE_REASON_NONE;
+      actor = priv->peer;
+      change = TRUE;
+    }
+
+  if (change)
+    {
+      TpIntSet *set = tp_intset_new ();
       tp_intset_add (set, priv->peer);
       tp_group_mixin_change_members (G_OBJECT (priv->channel), "Timed out",
-                                     NULL, set, NULL, NULL, 0,
-                                     TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER);
+                                     NULL, set, NULL, NULL, actor, reason);
       tp_intset_destroy (set);
     }
 
