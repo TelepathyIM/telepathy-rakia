@@ -98,6 +98,8 @@ sip_conn_create_register_handle (SIPConnection *conn,
 
   if (to)
       result = nua_handle (priv->sofia_nua, NULL, SIPTAG_TO(to), TAG_END());
+  else
+      result = nua_handle (priv->sofia_nua, NULL, TAG_END());
 
   su_home_deinit (temphome);
 
