@@ -714,6 +714,13 @@ sip_connection_start_connecting (TpBaseConnection *base,
 
   priv->register_op = sip_conn_create_register_handle (self,
                                                        base->self_handle);
+  if (priv->register_op == NULL)
+    {
+      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "Unable to create registration handle for address %s", sip_address);
+      return FALSE;
+    }
+
   nua_register(priv->register_op, TAG_NULL());
 
   DEBUG("exit");
