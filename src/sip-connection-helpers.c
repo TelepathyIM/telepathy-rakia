@@ -312,6 +312,9 @@ sip_conn_update_nua_outbound (SIPConnection *conn)
     }
 
   g_hash_table_insert (option_table,
+                       g_strdup ("natify"),
+                       GINT_TO_POINTER(priv->discover_binding));
+  g_hash_table_insert (option_table,
                        g_strdup ("use-rport"),
                        GINT_TO_POINTER(priv->discover_binding));
 
