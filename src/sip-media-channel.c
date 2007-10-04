@@ -124,19 +124,12 @@ DEFINE_TP_STRUCT_TYPE(sip_session_handler_type,
 static void
 sip_media_channel_init (SIPMediaChannel *obj)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (obj);
-
-  DEBUG("enter");
-
   /* allocate any data required by the object here */
 
   /* initialise the properties mixin *before* GObject
    * sets the construct-time properties */
   tp_properties_mixin_init (G_OBJECT (obj),
       G_STRUCT_OFFSET (SIPMediaChannel, properties));
-
-  /* to keep the compiler happy */
-  priv = NULL;
 }
 
 static GObject *

@@ -824,10 +824,7 @@ sip_connection_request_handles (TpSvcConnection *iface,
   GArray *handles;
   GError *error = NULL;
   const gchar *client_name;
-  SIPConnectionPrivate *priv;
   TpHandleRepoIface *repo = tp_base_connection_get_handles (base, handle_type);
-
-  priv = SIP_CONNECTION_GET_PRIVATE (obj);
 
   DEBUG("enter");
 
