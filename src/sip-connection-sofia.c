@@ -180,9 +180,9 @@ priv_handle_auth (SIPConnection* self,
   if (user == NULL)
     {
       sip_from_t const *sipfrom = sip->sip_from;
-      if (sipfrom && sipfrom->a_url)
+      if (sipfrom && sipfrom->a_url[0].url_user)
         /* or use the userpart in "From" header */
-        user = sipfrom->a_url->url_user;
+        user = sipfrom->a_url[0].url_user;
     }
 
   if (password == NULL)
