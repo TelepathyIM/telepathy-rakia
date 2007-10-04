@@ -1544,6 +1544,8 @@ priv_stream_close_cb (SIPMediaStream *stream,
   g_object_unref (stream);
 
   g_ptr_array_index(priv->streams, id) = NULL;
+
+  tp_svc_channel_type_streamed_media_emit_stream_removed (priv->channel, id);
 }
 
 static void priv_stream_ready_cb (SIPMediaStream *stream,
