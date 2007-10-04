@@ -702,9 +702,6 @@ sip_text_channel_emit_message_status(SIPTextChannel *obj,
         case 603:
           send_error = TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED;
           break;
-        case 404:
-        case 484:
-        case 485:
         case 604:
           send_error = TP_CHANNEL_TEXT_SEND_ERROR_INVALID_CONTACT;
           break;
@@ -721,8 +718,11 @@ sip_text_channel_emit_message_status(SIPTextChannel *obj,
         case 410:
           send_error = TP_CHANNEL_TEXT_SEND_ERROR_INVALID_CONTACT /* TP_CHANNEL_TEXT_SEND_ERROR_OFFLINE? */;
           break;
+        case 404:
+        case 480:
+          send_error = TP_CHANNEL_TEXT_SEND_ERROR_OFFLINE;
+          break;
         case 413:
-        case 414:
         case 513:
           send_error = TP_CHANNEL_TEXT_SEND_ERROR_TOO_LONG;
           break;
