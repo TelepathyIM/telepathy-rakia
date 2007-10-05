@@ -36,6 +36,7 @@ struct _SIPConnectionPrivate
   url_t *registrar_url;
 
   gchar *registrar_realm;
+  gchar *last_auth;
 
   /* channels */
   TpChannelFactoryIface *text_factory;
