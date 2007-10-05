@@ -226,9 +226,7 @@ priv_r_invite (int status,
 {
   DEBUG("outbound INVITE got %03d %s", status, phrase);
 
-  /* Ignore provisional responses in this handler.
-   * NOTE: these responses will not also reset the auth credentials
-   * for priv_handle_auth() */
+  /* Ignore provisional responses in this handler */
   if (status < 200)
     return;
 
