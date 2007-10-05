@@ -101,7 +101,7 @@ priv_auth_check_repeat (GHashTable *table, nua_handle_t *nh, const char *auth)
 {
   const char *last_auth;
 
-  g_assert (auth != 0);
+  g_assert (auth != NULL);
 
   last_auth = g_hash_table_lookup (table, nh);
 
