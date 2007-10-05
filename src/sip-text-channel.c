@@ -312,8 +312,6 @@ sip_text_channel_dispose(GObject *object)
   SIPTextChannel *self = SIP_TEXT_CHANNEL (object);
   SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
 
-  DEBUG("enter");
-
   if (priv->dispose_has_run)
     return;
 

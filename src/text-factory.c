@@ -23,6 +23,10 @@
 #include <string.h>
 #include "text-factory.h"
 
+#define DEBUG_FLAG SIP_DEBUG_IM
+#include "debug.h"
+
+
 static void factory_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (SIPTextFactory, sip_text_factory,
@@ -211,7 +215,7 @@ channel_closed (SIPTextChannel *chan, gpointer user_data)
   TpHandle contact_handle;
 
   g_object_get (chan, "handle", &contact_handle, NULL);
-  g_debug ("%s: removing text channel with handle %d", G_STRFUNC, contact_handle);
+  DEBUG("removing text channel with handle %u", contact_handle);
 
   if (priv->channels)
     g_hash_table_remove (priv->channels, GINT_TO_POINTER (contact_handle));
