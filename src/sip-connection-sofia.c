@@ -109,15 +109,15 @@ priv_handle_auth (SIPConnection* self,
 
   DEBUG("enter");
 
-  if (status != 401 && status != 407)
+  switch (status)
     {
-      /* Clear the last used credentials saved for loop detection
-       * and proceed with normal handling */
-      if (priv->last_auth != NULL)
-        {
-          g_free (priv->last_auth);
-          priv->last_auth = NULL;
-        }
+    case 401:
+    case 407:
+      break;
+    case 904:
+      /* XXX: undocumented Sofia-SIP status code returned upon a challenge loop */
+      return SIP_AUTH_FAILURE;
+    default:
       return SIP_AUTH_PASS;
     }
 
@@ -202,26 +202,11 @@ priv_handle_auth (SIPConnection* self,
 	       wa ? "server" : "proxy", user, realm, nh);
   }
 
-  /* step: do sanity checks, avoid resubmitting the exact same response */
-  /* XXX: we don't check if the nonce is the same, presumably should be
-   * taken care of by the stack */
   if (auth == NULL)
-    g_warning ("sofiasip: authentication data are incomplete");
-  else if (priv->last_auth != NULL && strcmp (auth, priv->last_auth) == 0)
     {
-      g_debug ("authentication challenge repeated, dropping");
-      g_free (auth);
-      auth = NULL;
+      g_warning ("authentication data are incomplete");
+      return SIP_AUTH_FAILURE;
     }
-  else
-    {
-      /* Save the credential string, taking ownership */
-      g_free (priv->last_auth);
-      priv->last_auth = auth;
-    }
-
-  if (auth == NULL)
-    return SIP_AUTH_FAILURE;
 
   /* step: authenticate */
   nua_authenticate(nh, NUTAG_AUTH(auth), TAG_END());

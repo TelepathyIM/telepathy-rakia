@@ -611,7 +611,6 @@ sip_connection_finalize (GObject *obj)
   g_free (priv->extra_auth_password);
 
   g_free (priv->registrar_realm);
-  g_free (priv->last_auth);
 
   G_OBJECT_CLASS (sip_connection_parent_class)->finalize (obj);
 }
