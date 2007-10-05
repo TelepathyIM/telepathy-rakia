@@ -283,9 +283,7 @@ priv_r_register (int status,
   TpBaseConnection *base = (TpBaseConnection *)self;
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
 
-  DEBUG("enter");
-
-  g_message ("sofiasip: REGISTER: %03d %s", status, phrase);
+  DEBUG("REGISTER got response: %03d %s", status, phrase);
 
   if (status < 200) {
     return;
@@ -294,7 +292,7 @@ priv_r_register (int status,
   switch (priv_handle_auth (self, status, nh, sip, TRUE))
     {
     case SIP_AUTH_FAILURE:
-      g_message ("sofiasip: REGISTER failed, insufficient/wrong credentials, disconnecting.");
+      DEBUG("REGISTER failed, insufficient/wrong credentials, disconnecting.");
       tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
                 TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
       return;
@@ -305,17 +303,17 @@ priv_r_register (int status,
     }
 
   if (status == 403) {
-    g_message ("sofiasip: REGISTER failed, wrong credentials, disconnecting.");
+    DEBUG("REGISTER failed, wrong credentials, disconnecting.");
     tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
                 TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
   }
   else if (status >= 300) {
-    g_message ("sofiasip: REGISTER failed, disconnecting.");
+    DEBUG("REGISTER failed, disconnecting.");
     tp_base_connection_change_status (base, TP_CONNECTION_STATUS_DISCONNECTED,
                 TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
   }
   else /* if (status == 200) */ {
-    g_message ("sofiasip: succesfully registered %s to network", priv->address);
+    DEBUG("succesfully registered %s to network", priv->address);
     priv->register_succeeded = TRUE;
     tp_base_connection_change_status (base, TP_CONNECTION_STATUS_CONNECTED,
         TP_CONNECTION_STATUS_REASON_REQUESTED);
@@ -327,7 +325,7 @@ priv_r_unregister (int status,
                    char const *phrase,
                    nua_handle_t *nh)
 {
-  DEBUG("un-REGISTER: %03d %s", status, phrase);
+  DEBUG("un-REGISTER got response: %03d %s", status, phrase);
 
   if (status < 200)
     return;
