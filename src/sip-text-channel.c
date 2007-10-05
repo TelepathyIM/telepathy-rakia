@@ -306,7 +306,7 @@ sip_text_channel_set_property(GObject *object,
   }
 }
 
-void
+static void
 sip_text_channel_dispose(GObject *object)
 {
   SIPTextChannel *self = SIP_TEXT_CHANNEL (object);
@@ -328,7 +328,7 @@ sip_text_channel_dispose(GObject *object)
     G_OBJECT_CLASS (sip_text_channel_parent_class)->dispose (object);
 }
 
-void
+static void
 sip_text_channel_finalize(GObject *object)
 {
   SIPTextChannel *self = SIP_TEXT_CHANNEL (object);
