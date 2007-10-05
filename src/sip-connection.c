@@ -178,6 +178,10 @@ sip_connection_init (SIPConnection *obj)
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (obj);
   priv->sofia = sip_connection_sofia_new (obj);
   priv->sofia_home = su_home_new(sizeof (su_home_t));
+  priv->auth_table = g_hash_table_new_full (g_direct_hash,
+                                            g_direct_equal,
+                                            NULL /* (GDestroyNotify) nua_handle_unref */,
+                                            g_free);
 }
 
 static void
@@ -574,6 +578,9 @@ sip_connection_dispose (GObject *object)
   priv->media_factory = NULL;
   priv->text_factory = NULL;
 
+  /* may theoretically involve NUA handle unrefs */
+  g_hash_table_destroy (priv->auth_table);
+
   /* the base class is responsible for unreffing the self handle when we
    * disconnect */
   g_assert (base->status == TP_CONNECTION_STATUS_DISCONNECTED
@@ -611,7 +618,6 @@ sip_connection_finalize (GObject *obj)
   g_free (priv->extra_auth_password);
 
   g_free (priv->registrar_realm);
-  g_free (priv->last_auth);
 
   G_OBJECT_CLASS (sip_connection_parent_class)->finalize (obj);
 }

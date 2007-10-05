@@ -33,6 +33,7 @@
 #include <sofia-sip/msg_parser.h>
 #include <sofia-sip/msg_types.h>
 #include <sofia-sip/su_tag_io.h> /* for tl_print() */
+#include <string.h>
 
 #define DEBUG_FLAG SIP_DEBUG_CONNECTION
 #include "debug.h"
@@ -83,6 +84,30 @@ priv_r_shutdown(int status,
   g_slice_free (SIPConnectionSofia, sofia);
 }
 
+static void
+priv_auth_save (GHashTable *table, nua_handle_t *nh, const char *auth)
+{
+  g_hash_table_insert (table, nh /* nua_handle_ref (nh) */, g_strdup (auth));
+}
+
+static void
+priv_auth_drop (GHashTable *table, nua_handle_t *nh)
+{
+  g_hash_table_remove (table, nh);
+}
+
+static gboolean
+priv_auth_check_repeat (GHashTable *table, nua_handle_t *nh, const char *auth)
+{
+  const char *last_auth;
+
+  g_assert (auth != 0);
+
+  last_auth = g_hash_table_lookup (table, nh);
+
+  return (last_auth != NULL && strcmp (last_auth, auth) == 0);
+}
+
 /* We have a monster auth handler method with a traffic light
  * return code. Might think about refactoring it someday... */
 typedef enum {
@@ -113,11 +138,7 @@ priv_handle_auth (SIPConnection* self,
     {
       /* Clear the last used credentials saved for loop detection
        * and proceed with normal handling */
-      if (priv->last_auth != NULL)
-        {
-          g_free (priv->last_auth);
-          priv->last_auth = NULL;
-        }
+      priv_auth_drop (priv->auth_table, nh);
       return SIP_AUTH_PASS;
     }
 
@@ -207,24 +228,25 @@ priv_handle_auth (SIPConnection* self,
    * taken care of by the stack */
   if (auth == NULL)
     g_warning ("sofiasip: authentication data are incomplete");
-  else if (priv->last_auth != NULL && strcmp (auth, priv->last_auth) == 0)
+  else if (priv_auth_check_repeat (priv->auth_table, nh, auth))
     {
       g_debug ("authentication challenge repeated, dropping");
       g_free (auth);
       auth = NULL;
-    }
-  else
-    {
-      /* Save the credential string, taking ownership */
-      g_free (priv->last_auth);
-      priv->last_auth = auth;
+      /* Also drop the saved response because we're going to ditch the
+       * handle anyway */
+      priv_auth_drop (priv->auth_table, nh);
     }
 
   if (auth == NULL)
     return SIP_AUTH_FAILURE;
 
+  priv_auth_save (priv->auth_table, nh, auth);
+
   /* step: authenticate */
   nua_authenticate(nh, NUTAG_AUTH(auth), TAG_END());
+
+  g_free (auth);
 
   return SIP_AUTH_HANDLED;
 }
