@@ -257,6 +257,23 @@ priv_r_invite (int status,
 }
 
 static void
+priv_r_bye (int status,
+            char const *phrase,
+            nua_t *nua,
+            SIPConnection *self,
+            nua_handle_t *nh,
+            sip_t const *sip,
+            tagi_t tags[])
+{
+  DEBUG("BYE got %03d %s", status, phrase);
+
+  if (status < 200)
+    return;
+
+  priv_handle_auth (self, status, nh, sip, FALSE);
+}
+
+static void
 priv_r_register (int status,
                  char const *phrase, 
                  nua_t *nua,
@@ -857,7 +874,7 @@ sip_connection_sofia_callback(nua_event_t event,
     break;
 
   case nua_r_bye:
-    /* self_r_bye(status, phrase, nua, self, nh, sip, tags); */
+    priv_r_bye(status, phrase, nua, self, nh, sip, tags);
     break;
 
   case nua_r_message:
