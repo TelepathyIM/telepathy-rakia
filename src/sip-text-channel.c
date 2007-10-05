@@ -319,6 +319,9 @@ sip_text_channel_dispose(GObject *object)
 
   priv->dispose_has_run = TRUE;
 
+  if (!priv->closed)
+    sip_text_channel_close (self);
+
   /* release any references held by the object here */
 
   if (G_OBJECT_CLASS (sip_text_channel_parent_class)->dispose)
@@ -439,15 +442,22 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 
 
 /**
- * sip_text_channel_close
+ * sip_text_channel_close_async
  *
  * Implements DBus method Close
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-sip_text_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *context)
+sip_text_channel_close_async (TpSvcChannel *iface,
+                              DBusGMethodInvocation *context)
 {
-  SIPTextChannel *self = SIP_TEXT_CHANNEL(iface);
+  sip_text_channel_close (SIP_TEXT_CHANNEL(iface));
+  tp_svc_channel_return_from_close (context);
+}
+
+void
+sip_text_channel_close (SIPTextChannel *self)
+{
   SIPTextChannelPrivate *priv;
 
   DEBUG("enter");
@@ -458,10 +468,7 @@ sip_text_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *context)
       priv->closed = TRUE;
       tp_svc_channel_emit_closed (self);
     }
-
-  tp_svc_channel_return_from_close (context);
 }
-
 
 /**
  * sip_text_channel_get_channel_type
@@ -782,7 +789,7 @@ channel_iface_init(gpointer g_iface, gpointer iface_data)
 
 #define IMPLEMENT(x, suffix) tp_svc_channel_implement_##x (\
     klass, sip_text_channel_##x##suffix)
-  IMPLEMENT(close,);
+  IMPLEMENT(close,_async);
   IMPLEMENT(get_channel_type,);
   IMPLEMENT(get_handle,);
   IMPLEMENT(get_interfaces,);
