@@ -51,8 +51,6 @@ struct _SIPMediaFactoryPrivate
   GPtrArray *channels;
   /* for unique channel object paths, currently always increments */
   guint channel_index;
-  /* g_strdup'd gchar *sessionid => unowned SIPMediaChannel *chan */
-  GHashTable *session_chans;
 
   gchar *stun_server;
   guint16 stun_port;
@@ -70,8 +68,6 @@ sip_media_factory_init (SIPMediaFactory *fac)
   priv->conn = NULL;
   priv->channels = g_ptr_array_sized_new (1);
   priv->channel_index = 0;
-  priv->session_chans = g_hash_table_new_full (g_str_hash, g_str_equal,
-      g_free, NULL);
   priv->dispose_has_run = FALSE;
 }
 
@@ -89,7 +85,6 @@ sip_media_factory_dispose (GObject *object)
   tp_channel_factory_iface_close_all (TP_CHANNEL_FACTORY_IFACE (object));
 
   g_assert (priv->channels == NULL);
-  g_assert (priv->session_chans == NULL);
 
   g_free (priv->stun_server);
 
@@ -198,7 +193,6 @@ sip_media_factory_close_all (TpChannelFactoryIface *iface)
 {
   SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
   SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-  GHashTable *session_chans;
   GPtrArray *channels;
 
   channels = priv->channels;
@@ -208,11 +202,6 @@ sip_media_factory_close_all (TpChannelFactoryIface *iface)
       g_ptr_array_foreach (channels, unref_one, NULL);
       g_ptr_array_free (channels, TRUE);
     }
-
-  session_chans = priv->session_chans;
-  priv->session_chans = NULL;
-  if (session_chans)
-    g_hash_table_destroy (session_chans);
 }
 
 static void
@@ -258,12 +247,6 @@ sip_media_factory_foreach (TpChannelFactoryIface *iface,
   g_ptr_array_foreach (priv->channels, _foreach_slave, &data);
 }
 
-static gboolean
-hash_key_is (gpointer key, gpointer value, gpointer user_data)
-{
-  return (value == user_data);
-}
-
 /**
  * channel_closed:
  *
@@ -276,10 +259,6 @@ channel_closed (SIPMediaChannel *chan, gpointer user_data)
   SIPMediaFactory *fac = SIP_MEDIA_FACTORY (user_data);
   SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
-  if (priv->session_chans)
-    {
-      g_hash_table_foreach_remove (priv->session_chans, hash_key_is, chan);
-    }
   if (priv->channels)
     {
       g_ptr_array_remove_fast (priv->channels, chan);
@@ -411,63 +390,6 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
         g_error_free (error);
     }
   return status;
-}
-
-const gchar *
-sip_media_factory_session_id_allocate (SIPMediaFactory *fac)
-{
-  SIPMediaFactoryPrivate *priv;
-  guint32 val;
-  gchar *sid = NULL;
-  gboolean unique = FALSE;
-
-  g_assert (SIP_IS_MEDIA_FACTORY (fac));
-  priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-
-  while (!unique)
-    {
-      gpointer k, v;
-
-      val = g_random_int_range (1000000, G_MAXINT);
-
-      g_free (sid);
-      sid = g_strdup_printf ("%u", val);
-
-      unique = !g_hash_table_lookup_extended (priv->session_chans,
-                                              sid, &k, &v);
-    }
-
-  g_hash_table_insert (priv->session_chans, sid, NULL);
-
-  return (const gchar *) sid;
-}
-
-void
-sip_media_factory_session_id_register (SIPMediaFactory *fac,
-                                       const gchar *sid,
-                                       gpointer channel)
-{
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-
-  DEBUG("binding sid %s to %p", sid, channel);
-
-  g_hash_table_insert (priv->session_chans, g_strdup (sid), channel);
-}
-
-void
-sip_media_factory_session_id_unregister (SIPMediaFactory *fac,
-                                         const gchar *sid)
-{
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-
-  DEBUG("unbinding sid %s", sid);
-
-  /* FIXME: this leaks the strings, as a way of marking that a SID has been
-   * used in this process' lifetime. Surely there's something better
-   * we can do?
-   */
-  if (priv->session_chans)
-    g_hash_table_insert (priv->session_chans, g_strdup (sid), NULL);
 }
 
 static void

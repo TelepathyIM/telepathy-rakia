@@ -1081,7 +1081,6 @@ priv_create_session (SIPMediaChannel *channel,
   TpBaseConnection *conn;
   TpHandleRepoIface *contact_repo;
   gchar *object_path;
-  const gchar *sid = NULL;
 
   DEBUG("enter");
 
@@ -1093,9 +1092,6 @@ priv_create_session (SIPMediaChannel *channel,
 
   object_path = g_strdup_printf ("%s/MediaSession%u", priv->object_path, peer);
 
-  /* allocate a hash-entry for the new media session */
-  sid = sip_media_factory_session_id_allocate (priv->factory);
-
   DEBUG("allocating session, peer=%u", peer);
 
   /* The channel manages references to the peer handle for the session */
@@ -1105,7 +1101,6 @@ priv_create_session (SIPMediaChannel *channel,
                           "media-channel", channel,
                           "object-path", object_path,
                           "nua-handle", nh,
-                          "session-id", sid,
                           "peer", peer,
                           NULL);
 
@@ -1115,9 +1110,6 @@ priv_create_session (SIPMediaChannel *channel,
 		    (GCallback) priv_session_stream_added_cb, channel);
 
   priv->session = session;
-
-  /* keep a list of media session ids */
-  sip_media_factory_session_id_register (priv->factory, sid, channel);
 
   if (remote_initiated)
     sip_media_session_receive_invite (session);
@@ -1137,17 +1129,12 @@ priv_destroy_session(SIPMediaChannel *channel)
   SIPMediaSession *session;
   TpBaseConnection *conn;
   TpHandleRepoIface *contact_repo;
-  gchar *sid = NULL;
 
   DEBUG("enter");
 
   session = priv->session;
   if (session == NULL)
     return;
-
-  g_object_get (session, "session-id", &sid, NULL);
-  sip_media_factory_session_id_unregister(priv->factory, sid);
-  g_free (sid);
 
   /* Release the peer handle */
   conn = (TpBaseConnection *)(priv->conn);

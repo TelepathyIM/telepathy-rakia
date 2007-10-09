@@ -58,12 +58,6 @@ GType sip_media_factory_get_type(void);
  * Functions for managing media session IDs (sids) 
  ***********************************************************************/
 
-const gchar *sip_media_factory_session_id_allocate (SIPMediaFactory *fac);
-void sip_media_factory_session_id_register (SIPMediaFactory *fac,
-    const gchar *sid, gpointer channel);
-void sip_media_factory_session_id_unregister (SIPMediaFactory *fac,
-    const gchar *sid);
-
 SIPMediaChannel *sip_media_factory_new_channel (SIPMediaFactory *fac,
                                                 gpointer request,
                                                 TpHandleType handle_type,
