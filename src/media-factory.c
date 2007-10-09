@@ -449,7 +449,7 @@ sip_media_factory_session_id_register (SIPMediaFactory *fac,
 {
   SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
-  g_debug ("%s: binding sid %s to %p", G_STRFUNC, sid, channel);
+  DEBUG("binding sid %s to %p", sid, channel);
 
   g_hash_table_insert (priv->session_chans, g_strdup (sid), channel);
 }
@@ -460,7 +460,7 @@ sip_media_factory_session_id_unregister (SIPMediaFactory *fac,
 {
   SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
-  g_debug ("%s: unbinding sid %s", G_STRFUNC, sid);
+  DEBUG("unbinding sid %s", sid);
 
   /* FIXME: this leaks the strings, as a way of marking that a SID has been
    * used in this process' lifetime. Surely there's something better
