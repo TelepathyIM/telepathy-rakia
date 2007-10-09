@@ -466,7 +466,8 @@ sip_media_factory_session_id_unregister (SIPMediaFactory *fac,
    * used in this process' lifetime. Surely there's something better
    * we can do?
    */
-  g_hash_table_insert (priv->session_chans, g_strdup (sid), NULL);
+  if (priv->session_chans)
+    g_hash_table_insert (priv->session_chans, g_strdup (sid), NULL);
 }
 
 static void
