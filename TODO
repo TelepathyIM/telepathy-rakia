@@ -16,12 +16,10 @@ empty
 Account settings
 ----------------
 
-- alternative username for registrar authentication if differs from
-  the URI username
 - ability to disable known difficult-to-implement features
     - early media with PRACK
 - ability to disable use of outbound proxy
-    - any use cases for this?
+    - as a better alternative, use a pre-existing route set
 
 Connection management
 ---------------------
@@ -31,13 +29,8 @@ Connection management
 Media sessions
 --------------
 
-- implement session modifications
 - if multiple network interfaces are present, the wrong IP address
   may be offered in a c= SDP media line.
-- enable PRACK/100rel if the remote endpoint supports it
-- enable session timers if the remote endpoint supports it
-- verify correct operation with a remote node utilizing 
-  early media
 
 Presence and messaging
 -----------------------
@@ -71,6 +64,7 @@ General
 -------
 
 - various XXX items in the source codes (a generic todo item)
+    - status 2007-10-10: 12 XXXs, 8 FIXME
     - status 2007-05-07: 22 XXXs
     - status 2006-11-26: 37 XXXs 
     - status 2006-12-04: 36 XXXs 
