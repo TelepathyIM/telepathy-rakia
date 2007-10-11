@@ -351,7 +351,6 @@ priv_r_register (int status,
   }
   else /* if (status == 200) */ {
     DEBUG("succesfully registered %s to network", priv->address);
-    priv->register_succeeded = TRUE;
     tp_base_connection_change_status (base, TP_CONNECTION_STATUS_CONNECTED,
         TP_CONNECTION_STATUS_REASON_REQUESTED);
   }

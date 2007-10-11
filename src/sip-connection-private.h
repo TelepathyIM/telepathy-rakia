@@ -56,8 +56,7 @@ struct _SIPConnectionPrivate
   gchar *extra_auth_password;
   gboolean discover_binding;
 
-  gboolean dispose_has_run : 1;
-  gboolean register_succeeded : 1;
+  gboolean dispose_has_run;
 };
 
 #define SIP_PROTOCOL_STRING               "sip"

@@ -756,16 +756,7 @@ sip_connection_disconnected (TpBaseConnection *base)
     {
       DEBUG("unregistering");
       nua_unregister (priv->register_op, TAG_NULL());
-      if (priv->register_succeeded)
-        {
-          nua_handle_unref (priv->register_op);
-        }
-      else
-        {
-          DEBUG("don't let the incomplete registration linger any longer");
-          nua_handle_destroy (priv->register_op);
-        }
-
+      nua_handle_unref (priv->register_op);
       priv->register_op = NULL;
     }
 }
