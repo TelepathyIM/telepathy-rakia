@@ -83,6 +83,7 @@ static guint signals[SIG_LAST_SIGNAL] = {0};
  * - created, objects created, local cand/codec query ongoing
  * - invite-sent, an INVITE with local SDP sent, awaiting response
  * - invite-received, a remote INVITE received, response is pending
+ * - response-received, a 200 OK received, codec intersection is in progress
  * - active, codecs and candidate pairs have been negotiated (note,
  *   SteamEngine might still fail to verify connectivity and report
  *   an error)
@@ -95,6 +96,7 @@ static const char* session_states[] =
     "created",
     "invite-sent",
     "invite-received",
+    "response-received",
     "active",
     "reinvite-sent",
     "reinvite-received",
@@ -576,6 +578,8 @@ priv_session_state_changed (SIPMediaSession *session,
       priv->timer_id =
         g_timeout_add (DEFAULT_SESSION_TIMEOUT, priv_timeout_session, session);
       break;
+    case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+      break;
     case SIP_MEDIA_SESSION_STATE_ACTIVE:
       if (priv->timer_id)
         {
@@ -696,6 +700,7 @@ void sip_media_session_terminate (SIPMediaSession *session)
       switch (priv->state)
         {
         case SIP_MEDIA_SESSION_STATE_ACTIVE:
+        case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
         case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
           DEBUG("sending BYE");
           nua_bye (priv->nua_op, TAG_END());
@@ -745,6 +750,13 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
       g_source_remove (priv->catcher_id);
       priv->catcher_id = 0;
     }
+
+  /* Switch the state machine to processing the response */
+  if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_SENT
+      || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_SENT)
+    g_object_set (session,
+                  "state", SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED,
+                  NULL);
 
   /* Handle session non-updates */
   if (!sdp_session_cmp (priv->remote_sdp, sdp))
@@ -1004,15 +1016,8 @@ void
 sip_media_session_receive_reinvite (SIPMediaSession *self)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
-
-  /* Note: the Sofia-SIP stack is supposed to weed out wrongly sequenced
-   * INVITE requests with session offers; here we may have a case
-   * when the processing of the response did not complete before we
-   * return back to active */
-
   g_return_if_fail (priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE
-                    || priv->state == SIP_MEDIA_SESSION_STATE_INVITE_SENT
-                    || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_SENT);
+                    || priv->state == SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED);
 
   priv_save_event (self);
 
@@ -1166,6 +1171,7 @@ priv_local_media_changed (SIPMediaSession *session)
       break;
     case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
     case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
+    case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
       /* Cannot send another offer right now */
       priv->pending_offer = TRUE;
       break;
@@ -1456,11 +1462,7 @@ priv_request_response_step (SIPMediaSession *session)
           priv_session_invite (session, FALSE);
         }
       break;
-    case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
-      if (!priv->accepted)
-        break;
-      /* if accepted, fall through to the next case */
-    case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
+    case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
       if (!priv_is_codec_intersect_pending (session))
         {
           g_assert (priv->local_non_ready == 0);
@@ -1561,13 +1563,9 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
       /* This remote media description got no codec intersection. */
       switch (priv->state)
         {
-        case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+        case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
         case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
           DEBUG("no codec intersection, closing the stream");
-          sip_media_stream_close (stream);
-          break;
-        case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
-          g_warning ("re-INVITE got a response with a non-intersecting codec set");
           sip_media_stream_close (stream);
           break;
         case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
