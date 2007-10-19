@@ -1245,7 +1245,6 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
         }
 
       /* There have been problems with the stream update, kill the stream */
-      /* XXX: fast and furious, not tested */
       sip_media_stream_close (stream);
     }
 
