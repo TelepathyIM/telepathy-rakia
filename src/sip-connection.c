@@ -710,6 +710,12 @@ sip_connection_start_connecting (TpBaseConnection *base,
   DEBUG("self_handle = %d, sip_address = %s", base->self_handle, sip_address);
 
   priv->account_url = url_make (priv->sofia_home, sip_address);
+  if (priv->account_url == NULL)
+    {
+      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "Failed to create the account URI");
+      return FALSE;
+    }
 
   local_url = sip_conn_get_local_url (self);
 
