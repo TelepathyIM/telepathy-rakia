@@ -40,6 +40,7 @@ nua_handle_t *sip_conn_create_request_handle (SIPConnection *conn,
  * Functions for managing NUA outbound/keepalive parameters and STUN settings
  ***********************************************************************/
 
+const url_t * sip_conn_get_local_url (SIPConnection *conn);
 void sip_conn_update_proxy_and_transport (SIPConnection *conn);
 void sip_conn_update_nua_outbound (SIPConnection *conn);
 void sip_conn_update_nua_keepalive_interval (SIPConnection *conn);

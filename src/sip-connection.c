@@ -84,6 +84,8 @@ enum
   PROP_STUN_SERVER,        /**< STUN server address (if not set, derived
 			        from public SIP address */
   PROP_STUN_PORT,          /**< STUN port */
+  PROP_LOCAL_IP_ADDRESS,   /**< Local IP address (normally not needed, chosen by stack) */
+  PROP_LOCAL_PORT,         /**< Local port for SIP (normally not needed, chosen by stack) */
   PROP_EXTRA_AUTH_USER,	   /**< User name to use for extra authentication challenges */
   PROP_EXTRA_AUTH_PASSWORD,/**< Password to use for extra authentication challenges */
   PROP_SOFIA_ROOT,         /**< Event root pointer from the Sofia-SIP stack */
@@ -259,6 +261,15 @@ sip_connection_set_property (GObject      *object,
     priv->stun_host = g_value_dup_string (value);
     break;
   }
+  case PROP_LOCAL_IP_ADDRESS: {
+    g_free (priv->local_ip_address);
+    priv->local_ip_address = g_value_dup_string (value);
+    break;
+  }
+  case PROP_LOCAL_PORT: {
+    priv->local_port = g_value_get_uint (value);
+    break;
+  }
   case PROP_EXTRA_AUTH_USER: {
     g_free((gpointer)priv->extra_auth_user);
     priv->extra_auth_user =  g_value_dup_string (value);
@@ -332,6 +343,14 @@ sip_connection_get_property (GObject      *object,
   }
   case PROP_STUN_PORT: {
     g_value_set_uint (value, priv->stun_port);
+    break;
+  }
+  case PROP_LOCAL_IP_ADDRESS: {
+    g_value_set_string (value, priv->local_ip_address);
+    break;
+  }
+  case PROP_LOCAL_PORT: {
+    g_value_set_uint (value, priv->local_port);
     break;
   }
   case PROP_SOFIA_ROOT: {
@@ -477,24 +496,6 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                     G_PARAM_STATIC_BLURB);
   INST_PROP(PROP_DISCOVER_BINDING);
 
-  param_spec = g_param_spec_string("extra-auth-user",
-                                   "Extra auth username",
-                                   "Username to use for extra authentication challenges",
-                                   NULL, /*default value*/
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
-  INST_PROP(PROP_EXTRA_AUTH_USER);
-
-  param_spec = g_param_spec_string("extra-auth-password",
-                                   "Extra auth password",
-                                   "Password to use for extra authentication challenges",
-                                   NULL, /*default value*/
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
-  INST_PROP(PROP_EXTRA_AUTH_PASSWORD);
-
   param_spec = g_param_spec_boolean("discover-stun", "Discover STUN server",
                                     "Enable discovery of STUN server host name "
                                     "using DNS SRV lookup",
@@ -523,6 +524,42 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                   G_PARAM_STATIC_NAME |
                                   G_PARAM_STATIC_BLURB);
   INST_PROP(PROP_STUN_PORT);
+
+  param_spec = g_param_spec_string("local-ip-address",
+                                   "Local IP address",
+                                   "Local IP address to use [optional]",
+                                   NULL, /*default value*/
+                                   G_PARAM_READWRITE |
+                                   G_PARAM_STATIC_NAME |
+                                   G_PARAM_STATIC_BLURB);
+  INST_PROP(PROP_LOCAL_IP_ADDRESS);
+
+  param_spec = g_param_spec_uint ("local-port",
+                                  "Local port",
+                                  "Local port for SIP [optional]",
+                                  0, G_MAXUINT16, 0,
+                                  G_PARAM_READWRITE |
+                                  G_PARAM_STATIC_NAME |
+                                  G_PARAM_STATIC_BLURB);
+  INST_PROP(PROP_LOCAL_PORT);
+
+  param_spec = g_param_spec_string("extra-auth-user",
+                                   "Extra auth username",
+                                   "Username to use for extra authentication challenges",
+                                   NULL, /*default value*/
+                                   G_PARAM_READWRITE |
+                                   G_PARAM_STATIC_NAME |
+                                   G_PARAM_STATIC_BLURB);
+  INST_PROP(PROP_EXTRA_AUTH_USER);
+
+  param_spec = g_param_spec_string("extra-auth-password",
+                                   "Extra auth password",
+                                   "Password to use for extra authentication challenges",
+                                   NULL, /*default value*/
+                                   G_PARAM_READWRITE |
+                                   G_PARAM_STATIC_NAME |
+                                   G_PARAM_STATIC_BLURB);
+  INST_PROP(PROP_EXTRA_AUTH_PASSWORD);
 }
 
 static void
@@ -614,6 +651,7 @@ sip_connection_finalize (GObject *obj)
   g_free (priv->auth_user);
   g_free (priv->password);
   g_free (priv->stun_host);
+  g_free (priv->local_ip_address);
   g_free (priv->extra_auth_user);
   g_free (priv->extra_auth_password);
 
@@ -638,6 +676,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
   su_root_t *sofia_root;
   TpHandleRepoIface *contact_repo;
   const gchar *sip_address;
+  const url_t *local_url;
 
   g_message("%s: Connection %p ref-count=%u (obj)", G_STRFUNC, self,
       G_OBJECT(self)->ref_count);
@@ -672,7 +711,7 @@ sip_connection_start_connecting (TpBaseConnection *base,
 
   priv->account_url = url_make (priv->sofia_home, sip_address);
 
-  g_assert (priv->account_url != NULL);
+  local_url = sip_conn_get_local_url (self);
 
   /* step: create stack instance */
   priv->sofia_nua = nua_create (sofia_root,
@@ -680,7 +719,9 @@ sip_connection_start_connecting (TpBaseConnection *base,
       priv->sofia,
       SOATAG_AF(SOA_AF_IP4_IP6),
       SIPTAG_FROM_STR(sip_address),
-      NUTAG_URL("sip:*:*"),
+      NUTAG_URL(local_url),
+      TAG_IF(local_url && local_url->url_type == url_sips,
+             NUTAG_SIPS_URL(local_url)),
       NUTAG_M_USERNAME(priv->account_url->url_user),
       NUTAG_USER_AGENT("Telepathy-SofiaSIP/" TELEPATHY_SIP_VERSION),
       NUTAG_ENABLEMESSAGE(1),

@@ -52,6 +52,8 @@ typedef struct {
     gboolean discover_stun;
     gchar *stun_server;
     guint stun_port;
+    gchar *local_ip_address;
+    guint local_port;
     gchar *extra_auth_user;
     gchar *extra_auth_password;
     gboolean avoid_difficult;
@@ -76,6 +78,7 @@ free_params (void *p)
   g_free (params->transport);
   g_free (params->keepalive_mechanism);
   g_free (params->stun_server);
+  g_free (params->local_ip_address);
   g_free (params->extra_auth_user);
   g_free (params->extra_auth_password);
 
@@ -96,6 +99,8 @@ enum {
     SIP_CONN_PARAM_DISCOVER_STUN,
     SIP_CONN_PARAM_STUN_SERVER,
     SIP_CONN_PARAM_STUN_PORT,
+    SIP_CONN_PARAM_LOCAL_IP_ADDRESS,
+    SIP_CONN_PARAM_LOCAL_PORT,
     SIP_CONN_PARAM_EXTRA_AUTH_USER,
     SIP_CONN_PARAM_EXTRA_AUTH_PASSWORD,
     SIP_CONN_PARAM_AVOID_DIFFICULT,
@@ -152,6 +157,12 @@ static const TpCMParamSpec sip_params[] = {
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT,
       GUINT_TO_POINTER(SIP_DEFAULT_STUN_PORT),
       G_STRUCT_OFFSET (SIPConnParams, stun_port) },
+    /* Local IP address to use, workaround purposes only */
+    { "local-ip-address", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
+      0, NULL, G_STRUCT_OFFSET (SIPConnParams, local_ip_address) },
+    /* Local port for SIP, workaround purposes only */
+    { "local-port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT,
+      0, NULL, G_STRUCT_OFFSET (SIPConnParams, local_port) },
     /* Extra authentication */
     { "extra-auth-user", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (SIPConnParams, extra_auth_user) },
@@ -410,6 +421,10 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
   if (!check_not_empty_if_present ("stun-server", params->stun_server,
         error))
     return FALSE;
+  /* FIXME: validate local IP address properly */
+  if (!check_not_empty_if_present ("local-ip-address", params->local_ip_address,
+        error))
+    return FALSE;
 
   DEBUG("New SIP connection to %s", params->account);
 
@@ -457,6 +472,12 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   keepalive_mechanism = priv_parse_keepalive (params->keepalive_mechanism);
   g_object_set (connection, "keepalive-mechanism", keepalive_mechanism, NULL);
+
+  SET_PROPERTY_IF_PARAM_SET ("local-ip-address", SIP_CONN_PARAM_LOCAL_IP_ADDRESS,
+      params->local_ip_address);
+
+  SET_PROPERTY_IF_PARAM_SET ("local-port", SIP_CONN_PARAM_LOCAL_PORT,
+      params->local_port);
 
   SET_PROPERTY_IF_PARAM_SET ("extra-auth-user", SIP_CONN_PARAM_EXTRA_AUTH_USER,
       params->extra_auth_user);

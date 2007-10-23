@@ -52,6 +52,8 @@ struct _SIPConnectionPrivate
   gboolean discover_stun;
   gchar *stun_host;
   guint stun_port;
+  gchar *local_ip_address;
+  guint local_port;
   gchar *extra_auth_user;
   gchar *extra_auth_password;
   gboolean discover_binding;
