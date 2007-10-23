@@ -143,9 +143,8 @@ sip_conn_save_event (SIPConnection *conn,
 void
 sip_conn_update_proxy_and_transport (SIPConnection *conn)
 {
-  static const char wildcard_sips_url[] = "sips:*:*";
-
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+
   if (priv->proxy_url != NULL)
     {
       gchar *params = NULL;
@@ -164,18 +163,48 @@ sip_conn_update_proxy_and_transport (SIPConnection *conn)
         }
       nua_set_params (priv->sofia_nua,
                       NUTAG_PROXY(priv->proxy_url),
-                      TAG_IF(priv->proxy_url->url_type == url_sips,
-                             NUTAG_SIPS_URL(wildcard_sips_url)),
                       TAG_IF(params, NUTAG_M_PARAMS(params)),
                       TAG_NULL());
       g_free (params);
     }
-  else if (priv->account_url->url_type == url_sips)
+}
+
+const url_t *
+sip_conn_get_local_url (SIPConnection *conn)
+{
+  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  url_t *url;
+
+  url = url_make (priv->sofia_home, "sip:*:*");
+
+  if (url == NULL)
+    return NULL;
+
+  if (priv->proxy_url != NULL)
     {
-      nua_set_params (priv->sofia_nua,
-                      NUTAG_SIPS_URL(wildcard_sips_url),
-                      TAG_NULL());
+      url->url_type = priv->proxy_url->url_type;
     }
+  else
+    {
+      g_assert (priv->account_url != NULL);
+      url->url_type = priv->account_url->url_type;
+    }
+
+  if (priv->local_ip_address == NULL)
+    url->url_host = "*";
+  else
+    url->url_host = priv->local_ip_address;
+
+  if (priv->local_port == 0)
+    url->url_port = "*";
+  else
+    url->url_port = su_sprintf (priv->sofia_home, "%u", priv->local_port);
+
+  /* url_sanitize (url); -- we're always sane B-] */
+
+  DEBUG("local binding expressed as <" URL_PRINT_FORMAT ">", URL_PRINT_ARGS(url));
+
+  return url;
 }
 
 static GHashTable*
