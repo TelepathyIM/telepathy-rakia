@@ -33,6 +33,7 @@ typedef struct _SIPConnectionSofia {
 } SIPConnectionSofia;
 
 SIPConnectionSofia * sip_connection_sofia_new (SIPConnection *conn);
+void sip_connection_sofia_destroy (SIPConnectionSofia *);
 
 /**
  * Callback for events delivered by the SIP stack.
