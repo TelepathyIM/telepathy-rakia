@@ -579,11 +579,15 @@ sip_connection_shut_down (TpBaseConnection *base)
   g_assert (priv->sofia != NULL);
 
   /* Detach the Sofia adapter and let it destroy the NUA handle and itself
-   * in the shutdown callback */
+   * in the shutdown callback. If there's no NUA stack, destroy it manually. */
   priv->sofia->conn = NULL;
-  priv->sofia = NULL;
 
-  nua_shutdown (priv->sofia_nua);
+  if (priv->sofia_nua != NULL)
+      nua_shutdown (priv->sofia_nua);
+  else
+      sip_connection_sofia_destroy (priv->sofia);
+
+  priv->sofia = NULL;
   priv->sofia_nua = NULL;
 
   tp_base_connection_finish_shutdown (base);

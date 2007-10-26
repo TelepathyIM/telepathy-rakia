@@ -46,6 +46,12 @@ sip_connection_sofia_new (SIPConnection *conn)
   return sofia;
 }
 
+void
+sip_connection_sofia_destroy (SIPConnectionSofia *sofia)
+{
+  g_slice_free (SIPConnectionSofia, sofia);
+}
+
 static void
 priv_r_shutdown(int status,
                 char const *phrase, 
@@ -81,7 +87,7 @@ priv_r_shutdown(int status,
   if (!source_recursive)
     g_source_set_can_recurse (source, FALSE);
 
-  g_slice_free (SIPConnectionSofia, sofia);
+  sip_connection_sofia_destroy (sofia);
 }
 
 static void
