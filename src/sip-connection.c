@@ -573,12 +573,6 @@ sip_connection_shut_down (TpBaseConnection *base)
   g_assert (SIP_IS_CONNECTION (self));
   priv = SIP_CONNECTION_GET_PRIVATE (self);
 
-  /* this shouldn't happen - shut_down is called when we change
-   * state to DISCONNECTED, and that should never happen unless we've
-   * started connecting
-   */
-  g_return_if_fail (priv->sofia_nua != NULL);
-
   /* We disposed of the REGISTER handle in the disconnected method */
   g_assert (priv->register_op == NULL);
 
