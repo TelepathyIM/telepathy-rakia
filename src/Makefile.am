@@ -21,7 +21,7 @@ AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_SIP_UA_LIBS@ @TELEPATHY_GLIB_LIBS@
 # ----------------------------------------------------------------------
 # Build targets
 
-bin_PROGRAMS = telepathy-sofiasip
+libexec_PROGRAMS = telepathy-sofiasip
 manager_DATA = sofiasip.manager
 noinst_PROGRAMS = write-mgr-file
 noinst_LTLIBRARIES = libtpsip-convenience.la

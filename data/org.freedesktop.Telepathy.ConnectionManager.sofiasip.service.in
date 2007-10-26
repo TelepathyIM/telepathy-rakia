@@ -1,4 +1,4 @@
 [D-BUS Service]
 Name=org.freedesktop.Telepathy.ConnectionManager.sofiasip
-Exec=@bindir@/telepathy-sofiasip
+Exec=@libexecdir@/telepathy-sofiasip
 
