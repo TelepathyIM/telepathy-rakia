@@ -144,6 +144,15 @@ sip_text_factory_class_init (SIPTextFactoryClass *klass)
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 }
 
+static gboolean
+sip_text_factory_close_one (gpointer key,
+                            gpointer data,
+                            gpointer user_data)
+{
+  sip_text_channel_close (SIP_TEXT_CHANNEL(data));
+  return TRUE;
+}
+
 static void
 sip_text_factory_close_all (TpChannelFactoryIface *iface)
 {
@@ -156,7 +165,8 @@ sip_text_factory_close_all (TpChannelFactoryIface *iface)
 
   channels = priv->channels;
   priv->channels = NULL;
-  g_hash_table_destroy (channels);
+
+  g_hash_table_foreach_remove (channels, sip_text_factory_close_one, NULL);
 }
 
 static void
