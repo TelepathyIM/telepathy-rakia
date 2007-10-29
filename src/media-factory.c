@@ -183,8 +183,9 @@ sip_media_factory_class_init (SIPMediaFactoryClass *klass)
 }
 
 static void
-unref_one (gpointer data, gpointer user_data)
+sip_media_factory_close_one (gpointer data, gpointer user_data)
 {
+  sip_media_channel_close (SIP_MEDIA_CHANNEL(data));
   g_object_unref (data);
 }
 
@@ -199,7 +200,7 @@ sip_media_factory_close_all (TpChannelFactoryIface *iface)
   priv->channels = NULL;
   if (channels)
     {
-      g_ptr_array_foreach (channels, unref_one, NULL);
+      g_ptr_array_foreach (channels, sip_media_factory_close_one, NULL);
       g_ptr_array_free (channels, TRUE);
     }
 }
