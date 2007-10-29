@@ -244,7 +244,7 @@ static void sip_media_session_set_property (GObject      *object,
 
   switch (property_id) {
     case PROP_MEDIA_CHANNEL:
-      priv->channel = SIP_MEDIA_CHANNEL (g_value_dup_object (value));
+      priv->channel = SIP_MEDIA_CHANNEL (g_value_get_object (value));
       break;
     case PROP_OBJECT_PATH:
       g_free (priv->object_path);
@@ -290,7 +290,7 @@ sip_media_session_class_init (SIPMediaSessionClass *sip_media_session_class)
 
   param_spec = g_param_spec_object ("media-channel", "SIPMediaChannel object",
                                     "SIP media channel object that owns this "
-                                    "media session object.",
+                                    "media session object (not reference counted).",
                                     SIP_TYPE_MEDIA_CHANNEL,
                                     G_PARAM_CONSTRUCT_ONLY |
                                     G_PARAM_READWRITE |
@@ -362,8 +362,7 @@ sip_media_session_dispose (GObject *object)
   if (priv->timer_id)
     g_source_remove (priv->timer_id);
 
-  if (priv->channel)
-    g_object_unref (priv->channel);
+  g_assert (SIP_IS_MEDIA_CHANNEL(priv->channel));
 
   if (G_OBJECT_CLASS (sip_media_session_parent_class)->dispose)
     G_OBJECT_CLASS (sip_media_session_parent_class)->dispose (object);
