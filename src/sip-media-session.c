@@ -244,7 +244,14 @@ static void sip_media_session_set_property (GObject      *object,
 
   switch (property_id) {
     case PROP_MEDIA_CHANNEL:
-      priv->channel = SIP_MEDIA_CHANNEL (g_value_get_object (value));
+      {
+        GObject *obj;
+        g_assert (priv->channel == NULL);
+        obj = g_value_get_object (value);
+        priv->channel = SIP_MEDIA_CHANNEL(obj);
+        g_object_add_weak_pointer (obj,
+                                   (gpointer*) &priv->channel);
+      }
       break;
     case PROP_OBJECT_PATH:
       g_free (priv->object_path);
@@ -350,6 +357,7 @@ sip_media_session_dispose (GObject *object)
 {
   SIPMediaSession *self = SIP_MEDIA_SESSION (object);
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  SIPMediaChannel *channel;
 
   if (priv->dispose_has_run)
     return;
@@ -362,7 +370,12 @@ sip_media_session_dispose (GObject *object)
   if (priv->timer_id)
     g_source_remove (priv->timer_id);
 
-  g_assert (SIP_IS_MEDIA_CHANNEL(priv->channel));
+  channel = priv->channel;
+  if (channel != NULL)
+    {
+      g_object_remove_weak_pointer (G_OBJECT(channel), (gpointer*) &priv->channel);
+      priv->channel = NULL;
+    }
 
   if (G_OBJECT_CLASS (sip_media_session_parent_class)->dispose)
     G_OBJECT_CLASS (sip_media_session_parent_class)->dispose (object);
@@ -694,6 +707,7 @@ void sip_media_session_terminate (SIPMediaSession *session)
 
   if (priv->nua_op != NULL)
     {
+      g_assert (priv->channel != NULL);
       g_assert (nua_handle_magic (priv->nua_op) == priv->channel);
 
       switch (priv->state)
