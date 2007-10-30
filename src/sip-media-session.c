@@ -703,6 +703,7 @@ void sip_media_session_terminate (SIPMediaSession *session)
   if (priv->state == SIP_MEDIA_SESSION_STATE_ENDED)
     return;
 
+  /* XXX: taken care of by the state change? */
   priv_close_all_streams (session);
 
   if (priv->nua_op != NULL)
