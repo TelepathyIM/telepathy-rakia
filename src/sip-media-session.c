@@ -354,6 +354,8 @@ sip_media_session_dispose (GObject *object)
   if (priv->dispose_has_run)
     return;
 
+  DEBUG("enter");
+
   priv->dispose_has_run = TRUE;
 
   if (priv->catcher_id)
@@ -365,7 +367,7 @@ sip_media_session_dispose (GObject *object)
   if (G_OBJECT_CLASS (sip_media_session_parent_class)->dispose)
     G_OBJECT_CLASS (sip_media_session_parent_class)->dispose (object);
 
-  DEBUG ("exit");
+  DEBUG("exit");
 }
 
 void
