@@ -362,8 +362,6 @@ sip_media_session_dispose (GObject *object)
   if (priv->timer_id)
     g_source_remove (priv->timer_id);
 
-  g_assert (SIP_IS_MEDIA_CHANNEL(priv->channel));
-
   if (G_OBJECT_CLASS (sip_media_session_parent_class)->dispose)
     G_OBJECT_CLASS (sip_media_session_parent_class)->dispose (object);
 
