@@ -407,10 +407,10 @@ sip_media_channel_dispose (GObject *object)
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (object);
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  DEBUG("enter");
-
   if (priv->dispose_has_run)
     return;
+
+  DEBUG("enter");
 
   priv->dispose_has_run = TRUE;
 
@@ -428,7 +428,7 @@ sip_media_channel_dispose (GObject *object)
   if (G_OBJECT_CLASS (sip_media_channel_parent_class)->dispose)
     G_OBJECT_CLASS (sip_media_channel_parent_class)->dispose (object);
 
-  DEBUG ("exit");
+  DEBUG("exit");
 }
 
 void
@@ -445,7 +445,7 @@ sip_media_channel_finalize (GObject *object)
 
   G_OBJECT_CLASS (sip_media_channel_parent_class)->finalize (object);
 
-  DEBUG ("exit");
+  DEBUG("exit");
 }
 
 /***********************************************************************
