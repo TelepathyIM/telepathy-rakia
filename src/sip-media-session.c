@@ -377,14 +377,10 @@ sip_media_session_finalize (GObject *object)
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
   guint i;
 
-  DEBUG ("enter");
-
-  /* free any data held directly by the object here */
-
-  G_OBJECT_CLASS (sip_media_session_parent_class)->finalize (object);
-
   /* terminating the session should have discarded the NUA handle */
   g_assert (priv->nua_op == NULL);
+
+  /* free any data held directly by the object here */
 
   for (i = 0; i < priv->streams->len; i++) {
     SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
@@ -403,7 +399,9 @@ sip_media_session_finalize (GObject *object)
   if (priv->backup_home != NULL)
     su_home_unref (priv->backup_home);
 
-  DEBUG ("exit");
+  G_OBJECT_CLASS (sip_media_session_parent_class)->finalize (object);
+
+  DEBUG("exit");
 }
 
 
