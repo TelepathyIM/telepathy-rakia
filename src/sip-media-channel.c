@@ -1130,11 +1130,11 @@ priv_destroy_session(SIPMediaChannel *channel)
   TpBaseConnection *conn;
   TpHandleRepoIface *contact_repo;
 
-  DEBUG("enter");
-
   session = priv->session;
   if (session == NULL)
     return;
+
+  DEBUG("enter");
 
   /* Release the peer handle */
   conn = (TpBaseConnection *)(priv->conn);
@@ -1144,6 +1144,8 @@ priv_destroy_session(SIPMediaChannel *channel)
 
   priv->session = NULL;
   g_object_unref (session);
+
+  DEBUG("exit");
 }
 
 #if 0
