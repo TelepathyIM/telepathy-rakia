@@ -1,0 +1,28 @@
+.TH TELEPATHY-SOFIASIP "8" "October 2007" "Telepathy" "D-Bus services"
+\" This man page was written by Simon McVittie for the Debian project,
+\" but may be used by others.
+\" Copyright © 2007 Collabora Ltd. <http://www.collabora.co.uk/>
+\" It may be distributed under the same terms as telepathy-sofiasip itself.
+.SH NAME
+telepathy-sofiasip \- Telepathy connection manager for SIP
+.SH SYNOPSIS
+\fB@libexecdir@/telepathy\-sofiasip\fR
+.SH DESCRIPTION
+\fBtelepathy\-sofiasip\fR implements the Telepathy D-Bus specification for
+the Session Initiation Protocol, allowing Telepathy clients like
+.BR empathy (1)
+to connect to Voice over IP providers that implement SIP.
+.PP
+It is a D-Bus service which runs on the session bus, and should usually be
+started automatically by D-Bus activation. However, it might be useful to
+start it manually for debugging.
+.SH OPTIONS
+There are no command-line options.
+.SH ENVIRONMENT
+.TP
+\fBSOFIASIP_DEBUG\fR=\fItype\fR
+May be set to "all" for full debug output, or various undocumented options
+(which may change from release to release) to filter the output.
+.SH SEE ALSO
+.IR http://telepathy.freedesktop.org/ ,
+.BR empathy (1)

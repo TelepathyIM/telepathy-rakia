@@ -52,6 +52,7 @@
 \.la$
 \.lo$
 ^data/org\.freedesktop\.Telepathy\.ConnectionManager\.sofiasip\.service$
+^docs/telepathy-sofiasip\.8$
 ^src/.*-enumtypes.[ch]$
 ^src/signals-marshal.[ch]$
 ^src/sofiasip\.manager$

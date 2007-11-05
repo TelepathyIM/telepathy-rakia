@@ -77,3 +77,11 @@ GTKDOC_LIBS=
 # Other files to distribute
 # e.g. EXTRA_DIST += version.xml.in
 EXTRA_DIST =
+
+# Man page
+man_MANS = telepathy-sofiasip.8
+CLEANFILES = $(man_MANS)
+EXTRA_DIST += telepathy-sofiasip.8.in
+
+%.8: %.8.in Makefile
+	sed -e 's,[@]libexecdir[@],@libexecdir@,' < $< > $@
