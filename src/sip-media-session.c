@@ -252,7 +252,7 @@ static void sip_media_session_set_property (GObject      *object,
       priv->channel = SIP_MEDIA_CHANNEL (g_value_get_object (value));
       break;
     case PROP_OBJECT_PATH:
-      g_free (priv->object_path);
+      g_assert (priv->object_path == NULL);
       priv->object_path = g_value_dup_string (value);
       break;
     case PROP_NUA_OP:
