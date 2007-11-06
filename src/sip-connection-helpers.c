@@ -200,6 +200,18 @@ sip_conn_get_local_url (SIPConnection *conn)
   else
     url->url_port = su_sprintf (priv->sofia_home, "%u", priv->local_port);
 
+  if (url->url_type == url_sip && priv->proxy_url != NULL)
+    {
+      char transport[5] = "";
+      if (url_param (priv->proxy_url->url_params, "transport", transport, 5) > 0)
+        {
+          if (!g_ascii_strcasecmp(transport, "udp"))
+            url->url_params = "transport=udp";
+          else if (!g_ascii_strcasecmp(transport, "tcp"))
+            url->url_params = "transport=tcp";
+        }
+    }
+
   /* url_sanitize (url); -- we're always sane B-] */
 
   DEBUG("local binding expressed as <" URL_PRINT_FORMAT ">", URL_PRINT_ARGS(url));
