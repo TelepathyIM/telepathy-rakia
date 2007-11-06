@@ -418,6 +418,8 @@ sip_media_session_finalize (GObject *object)
   if (priv->backup_home != NULL)
     su_home_unref (priv->backup_home);
 
+  g_free (priv->object_path);
+
   G_OBJECT_CLASS (sip_media_session_parent_class)->finalize (object);
 
   DEBUG("exit");
