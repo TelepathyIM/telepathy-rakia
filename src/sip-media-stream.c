@@ -311,6 +311,7 @@ static void
 sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (sip_media_stream_class);
+  GType stream_type = G_OBJECT_CLASS_TYPE (sip_media_stream_class);
   GParamSpec *param_spec;
 
   g_type_class_add_private (sip_media_stream_class, sizeof (SIPMediaStreamPrivate));
@@ -410,7 +411,7 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
   /* signals not exported by DBus interface */
   signals[SIG_READY] =
     g_signal_new ("ready",
-                  G_OBJECT_CLASS_TYPE (sip_media_stream_class),
+                  stream_type,
                   G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
                   0,
                   NULL, NULL,
@@ -419,7 +420,7 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
 
   signals[SIG_SUPPORTED_CODECS] =
     g_signal_new ("supported-codecs",
-                  G_OBJECT_CLASS_TYPE (sip_media_stream_class),
+                  stream_type,
                   G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
                   0,
                   NULL, NULL,
@@ -428,7 +429,7 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
 
   signals[SIG_STATE_CHANGED] =
     g_signal_new ("state-changed",
-                  G_OBJECT_CLASS_TYPE (sip_media_stream_class),
+                  stream_type,
                   G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
                   0,
                   NULL, NULL,
@@ -437,7 +438,7 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
 
   signals[SIG_DIRECTION_CHANGED] =
     g_signal_new ("direction-changed",
-                  G_OBJECT_CLASS_TYPE (sip_media_stream_class),
+                  stream_type,
                   G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
                   0,
                   NULL, NULL,
