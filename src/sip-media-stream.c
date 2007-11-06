@@ -366,9 +366,6 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                                   G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_MEDIA_TYPE, param_spec);
 
-  /* We don't change the following two as individual properties
-   * after construction, use sip_media_stream_set_direction() */
-
   param_spec = g_param_spec_uint ("state", "Connection state",
                                   "Connection state of the media stream",
                                   TP_MEDIA_STREAM_STATE_DISCONNECTED,
@@ -380,6 +377,9 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
   g_object_class_install_property (object_class,
                                    PROP_STATE,
                                    param_spec);
+
+  /* We don't change the following two as individual properties
+   * after construction, use sip_media_stream_set_direction() */
 
   param_spec = g_param_spec_uint ("direction", "Stream direction",
                                   "A value indicating the current "
