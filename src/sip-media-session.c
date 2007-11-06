@@ -70,6 +70,7 @@ enum
   PROP_OBJECT_PATH,
   PROP_NUA_OP,
   PROP_PEER,
+  PROP_LOCAL_IP_ADDRESS,
   PROP_STATE,
   LAST_PROPERTY
 };
@@ -114,6 +115,7 @@ struct _SIPMediaSessionPrivate
   gchar *object_path;                   /** see gobj. prop. 'object-path' */
   nua_handle_t *nua_op;                 /** see gobj. prop. 'nua-handle' */
   TpHandle peer;                        /** see gobj. prop. 'peer' */
+  gchar *local_ip_address;              /** see gobj. prop. 'local-ip-address' */
   SIPMediaSessionState state;           /** see gobj. prop. 'state' */
   nua_saved_event_t saved_event[1];     /** Saved incoming request event */
   gint local_non_ready;                 /** number of streams with local information update pending */
@@ -225,6 +227,9 @@ static void sip_media_session_get_property (GObject    *object,
     case PROP_PEER:
       g_value_set_uint (value, priv->peer);
       break;
+    case PROP_LOCAL_IP_ADDRESS:
+      g_value_set_string (value, priv->local_ip_address);
+      break;
     case PROP_STATE:
       g_value_set_uint (value, priv->state);
       break;
@@ -259,6 +264,10 @@ static void sip_media_session_set_property (GObject      *object,
       break;
     case PROP_PEER:
       priv->peer = g_value_get_uint (value);
+      break;
+    case PROP_LOCAL_IP_ADDRESS:
+      g_assert (priv->local_ip_address == NULL);
+      priv->local_ip_address = g_value_dup_string (value);
       break;
     case PROP_STATE:
       priv_session_state_changed (session, g_value_get_uint (value));
@@ -326,6 +335,16 @@ sip_media_session_class_init (SIPMediaSessionClass *sip_media_session_class)
                                   G_PARAM_STATIC_NAME |
                                   G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_PEER, param_spec);
+
+  param_spec = g_param_spec_string ("local-ip-address", "Local IP address",
+                                    "The local IP address preferred for "
+                                    "media streams",
+                                    NULL,
+                                    G_PARAM_CONSTRUCT_ONLY |
+                                    G_PARAM_READWRITE |
+                                    G_PARAM_STATIC_NAME |
+                                    G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class, PROP_LOCAL_IP_ADDRESS, param_spec);
 
   param_spec = g_param_spec_uint ("state", "Session state",
                                   "The current state that the session is in.",
