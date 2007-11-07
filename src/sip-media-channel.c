@@ -938,6 +938,9 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
 
   peer = sip_media_session_get_peer (priv->session);
 
+  if (message == NULL || !g_utf8_validate (message, -1, NULL))
+    message = "";
+
   set = tp_intset_new ();
   tp_intset_add (set, peer);
   tp_group_mixin_change_members ((GObject *)self, message,
@@ -948,7 +951,7 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
 void
 sip_media_channel_peer_cancel (SIPMediaChannel *self,
                                guint cause,
-                               const gchar *text)
+                               const gchar *message)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
@@ -971,15 +974,15 @@ sip_media_channel_peer_cancel (SIPMediaChannel *self,
       actor = peer;
     }
 
-  if (text == NULL)
-    text = "Cancelled";
+  if (message == NULL || !g_utf8_validate (message, -1, NULL))
+    message = "Cancelled";
 
   set = tp_intset_new ();
   tp_intset_add (set, peer);
   tp_intset_add (set, mixin->self_handle);
 
   tp_group_mixin_change_members ((GObject *) self,
-                                 text,
+                                 message,
                                  NULL, /* add */
                                  set,  /* remove */
                                  NULL,
