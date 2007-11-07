@@ -755,10 +755,16 @@ priv_i_state (int status,
   if (nh_magic == SIP_NH_EXPIRED)
     {
       g_message ("call state change %03d '%s' received for a "
-          "destroyed media channel (handle %p), BYE off", status, phrase, nh);
-      if (ss_state != nua_callstate_terminated)
-        nua_bye (nh, TAG_END());
-      /* Destroy it? */
+          "destroyed media channel (handle %p)", status, phrase, nh);
+      switch (ss_state)
+        {
+        case nua_callstate_terminated:
+        case nua_callstate_terminating:
+          break;
+        default:
+          DEBUG("BYE off the orphaned handle");
+          nua_bye (nh, TAG_END());
+        }
       return;
     }
 
