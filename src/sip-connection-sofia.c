@@ -793,6 +793,10 @@ priv_i_state (int status,
     break;
 
   case nua_callstate_terminated:
+    {
+      SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+      priv_auth_drop (priv->auth_table, nh);
+    }
     sip_media_channel_terminated (channel);
     break;
 
