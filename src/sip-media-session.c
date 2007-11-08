@@ -389,7 +389,7 @@ sip_media_session_dispose (GObject *object)
   DEBUG("exit");
 }
 
-void
+static void
 sip_media_session_finalize (GObject *object)
 {
   SIPMediaSession *self = SIP_MEDIA_SESSION (object);
