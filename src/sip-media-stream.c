@@ -550,9 +550,6 @@ sip_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
 {
   /* purpose: "Informs the connection manager that all possible native candisates
    *          have been discovered for the moment." 
-   *
-   * note: only emitted by the stream-engine when built without
-   *       libjingle (tested with s-e 0.3.11, 2006/Dec)
    */
 
   SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
@@ -623,18 +620,6 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
                                        const GPtrArray *transports,
                                        DBusGMethodInvocation *context)
 {
-  /* purpose: "Inform this MediaStreamHandler that a new native transport candidate
-   *
-   * - decide whether it's time generate an offer/answer (based on gathered
-   *   candidates); this should be done after candidates_prepared(),
-   *   but current stream-engine never emits this
-   * - create SDP segment for this stream (the m-line and associated
-   *   c-line and attributes)
-   * - mark that we've created SDP (so that additional new candidates 
-   *   can be processed correced 
-   * - emit 'Ready' when ready to send offer/answer
-   */
-
   SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
   SIPMediaStreamPrivate *priv;
   GPtrArray *candidates;
