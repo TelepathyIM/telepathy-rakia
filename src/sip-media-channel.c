@@ -1084,6 +1084,7 @@ priv_create_session (SIPMediaChannel *channel,
   TpBaseConnection *conn;
   TpHandleRepoIface *contact_repo;
   gchar *object_path;
+  gchar *local_ip_address = NULL;
 
   DEBUG("enter");
 
@@ -1100,12 +1101,19 @@ priv_create_session (SIPMediaChannel *channel,
   /* The channel manages references to the peer handle for the session */
   tp_handle_ref (contact_repo, peer);
 
+  g_object_get (priv->conn,
+                "local-ip-address", &local_ip_address,
+                NULL);
+
   session = g_object_new (SIP_TYPE_MEDIA_SESSION,
                           "media-channel", channel,
                           "object-path", object_path,
                           "nua-handle", nh,
                           "peer", peer,
+                          "local-ip-address", local_ip_address,
                           NULL);
+
+  g_free (local_ip_address);
 
   g_signal_connect (session, "notify::state",
                     (GCallback) priv_session_state_changed_cb, channel);
