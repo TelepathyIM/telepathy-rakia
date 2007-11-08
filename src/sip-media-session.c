@@ -1156,9 +1156,33 @@ sip_media_session_stop_telephony_event  (SIPMediaSession *self,
   return TRUE;
 }
 
-/***********************************************************************
- * Helper functions follow (not based on generated templates)
- ***********************************************************************/
+gint
+sip_media_session_rate_native_transport (SIPMediaSession *session,
+                                         const GValue *transport)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  gint result = 0;
+  gchar *address = NULL;
+  guint proto = TP_MEDIA_STREAM_BASE_PROTO_UDP;
+
+  dbus_g_type_struct_get (transport,
+                          1, &address,
+                          3, &proto,
+                          G_MAXUINT);
+
+  g_assert (address != NULL);
+
+  if (proto != TP_MEDIA_STREAM_BASE_PROTO_UDP)
+    result = -1;
+  /* XXX: this will not work properly when IPv6 support comes */
+  else if (priv->local_ip_address != NULL
+      && strcmp (address, priv->local_ip_address) == 0)
+    result = 1;
+
+  g_free (address);
+
+  return result;
+}
 
 static void priv_session_media_state (SIPMediaSession *session, gboolean playing)
 {

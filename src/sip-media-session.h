@@ -103,6 +103,9 @@ gboolean sip_media_session_stop_telephony_event  (SIPMediaSession *self,
                                                   guint stream_id,
                                                   GError **error);
 
+gint sip_media_session_rate_native_transport (SIPMediaSession *session,
+                                              const GValue *transport);
+
 #ifdef ENABLE_DEBUG
 
 #define SESSION_DEBUG(s, ...)    sip_media_session_debug (s, __VA_ARGS__)
