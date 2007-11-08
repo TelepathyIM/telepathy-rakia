@@ -560,13 +560,15 @@ sip_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
 
   g_assert (SIP_IS_MEDIA_STREAM (obj));
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
-  
-  priv->native_cands_prepared = TRUE;
 
-  push_active_candidate_pair (obj);
+  DEBUG("enter");
+
+  priv->native_cands_prepared = TRUE;
 
   if (priv->native_codecs_prepared)
     priv_generate_sdp (obj);
+
+  push_active_candidate_pair (obj);
 
   tp_svc_media_stream_handler_return_from_native_candidates_prepared (context);
 }
@@ -637,9 +639,10 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
   SIPMediaStreamPrivate *priv;
   GPtrArray *candidates;
   GValue candidate = { 0, };
+  GValue transport = { 0, };
+  gint tr_goodness;
 
   g_assert (SIP_IS_MEDIA_STREAM (obj));
-
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   if (priv->stream_sdp != NULL)
@@ -649,10 +652,28 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
       return;
     }
 
-  g_free (priv->native_candidate_id);
-  priv->native_candidate_id = g_strdup (candidate_id);
+  g_return_if_fail (transports->len >= 1);
+
+  /* Rate the preferability of the address */
+  g_value_init (&transport, sip_tp_transport_struct_type ());
+  g_value_set_static_boxed (&transport, g_ptr_array_index (transports, 0));
+  tr_goodness = sip_media_session_rate_native_transport (priv->session,
+                                                         &transport);
 
   candidates = g_value_get_boxed (&priv->native_candidates);
+
+  if (tr_goodness > 0)
+    {
+      DEBUG("native candidate '%s' is rated as preferable", candidate_id);
+      g_free (priv->native_candidate_id);
+      priv->native_candidate_id = g_strdup (candidate_id);
+
+      /* Drop the candidates received previously */
+      g_value_reset (&priv->native_candidates);
+      candidates = dbus_g_type_specialized_construct (
+                                sip_tp_candidate_list_type ());
+      g_value_take_boxed (&priv->native_candidates, candidates);
+    }
 
   g_value_init (&candidate, sip_tp_candidate_struct_type ());
   g_value_take_boxed (&candidate,
@@ -666,9 +687,6 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
   g_ptr_array_add (candidates, g_value_get_boxed (&candidate));
 
   SESSION_DEBUG(priv->session, "put native candidate '%s' from stream-engine into cache", candidate_id);
-
-  if (priv->native_codecs_prepared)
-    priv_generate_sdp (obj);
 
   tp_svc_media_stream_handler_return_from_new_native_candidate (context);
 }
@@ -1456,14 +1474,18 @@ priv_update_local_sdp(SIPMediaStream *stream)
   g_value_init (&transport, sip_tp_transport_struct_type ());
   g_value_init (&codec, sip_tp_codec_struct_type ());
 
-  /* Find the last acceptable candidate */ 
+  /* Find the preferred candidate, if defined,
+   * else the last acceptable candidate */
 
   for (i = candidates->len - 1; i >= 0; --i)
     {
       GValueArray *candidate;
+      const gchar *candidate_id;
       const GPtrArray *ca_tports;
 
       candidate = g_ptr_array_index (candidates, i);
+      candidate_id =
+                g_value_get_string (g_value_array_get_nth (candidate, 0));
       ca_tports = g_value_get_boxed (g_value_array_get_nth (candidate, 1));
 
       g_return_if_fail (ca_tports->len >= 1);
@@ -1483,8 +1505,17 @@ priv_update_local_sdp(SIPMediaStream *stream)
                               /* 9, &tr_pass, */
                               G_MAXUINT);
 
-      if (tr_proto == TP_MEDIA_STREAM_BASE_PROTO_UDP)
-        break;
+      if (priv->native_candidate_id != NULL)
+        {
+          if (!strcmp (candidate_id, priv->native_candidate_id))
+            break;
+        }
+      else if (tr_proto == TP_MEDIA_STREAM_BASE_PROTO_UDP)
+        {
+          g_free (priv->native_candidate_id);
+          priv->native_candidate_id = g_strdup (candidate_id);
+          break;
+        }
     }
   g_return_if_fail (i >= 0);
   g_return_if_fail (tr_addr != NULL);
