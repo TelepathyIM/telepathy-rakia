@@ -1588,7 +1588,9 @@ priv_update_local_sdp(SIPMediaStream *stream)
   g_free(priv->stream_sdp);
   priv->stream_sdp = g_strconcat(mline->str, "\r\n",
                                  cline,
+#if 0   /* Some Cisco GWs do not like these */
                                  "b=RS:0\r\nb=RR:0\r\n",
+#endif
                                  alines->str,
                                  NULL);
 
