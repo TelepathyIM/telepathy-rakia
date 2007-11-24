@@ -1506,7 +1506,8 @@ priv_request_response_step (SIPMediaSession *session)
         }
       break;
     case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-      if (!priv_is_codec_intersect_pending (session))
+      if (priv->accepted
+          && !priv_is_codec_intersect_pending (session))
         {
           g_assert (priv->local_non_ready == 0);
           g_object_set (session,
