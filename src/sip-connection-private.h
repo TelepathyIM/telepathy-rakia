@@ -46,6 +46,7 @@ struct _SIPConnectionPrivate
   gchar *address;
   gchar *auth_user;
   gchar *password;
+  gchar *transport;
   SIPConnectionKeepaliveMechanism keepalive_mechanism;
   gint keepalive_interval;
   gboolean discover_stun;

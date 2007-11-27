@@ -74,6 +74,7 @@ enum
   PROP_AUTH_USER,        /**< account username (if different from public address userinfo part) */
   PROP_PASSWORD,         /**< account password (for registration) */
 
+  PROP_TRANSPORT,        /**< outbound transport */
   PROP_PROXY,            /**< outbound SIP proxy (SIP URI) */
   PROP_REGISTRAR,        /**< SIP registrar (SIP URI) */
 
@@ -211,6 +212,11 @@ sip_connection_set_property (GObject      *object,
     priv->password = g_value_dup_string (value);
     break;
   }
+  case PROP_TRANSPORT: {
+    g_free(priv->transport);
+    priv->transport = g_value_dup_string (value);
+    break;
+  }
   case PROP_PROXY: {
     priv->proxy_url = priv_url_from_string_value (priv->sofia_home, value);
     if (priv->sofia_nua) 
@@ -308,6 +314,10 @@ sip_connection_get_property (GObject      *object,
   }
   case PROP_AUTH_USER: {
     g_value_set_string (value, priv->auth_user);
+    break;
+  }
+  case PROP_TRANSPORT: {
+    g_value_set_string (value, priv->transport);
     break;
   }
   case PROP_PASSWORD: {
@@ -449,6 +459,15 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
   INST_PROP(PROP_PASSWORD);
+
+  param_spec = g_param_spec_string("transport",
+                                   "Transport protocol",
+                                   "Preferred transport protocol [optional]",
+                                   NULL, /*default value*/
+                                   G_PARAM_READWRITE |
+                                   G_PARAM_STATIC_NAME |
+                                   G_PARAM_STATIC_BLURB);
+  INST_PROP(PROP_TRANSPORT);
 
   param_spec = g_param_spec_string("proxy",
                                    "Outbound proxy",
@@ -648,6 +667,7 @@ sip_connection_finalize (GObject *obj)
   g_free (priv->address);
   g_free (priv->auth_user);
   g_free (priv->password);
+  g_free (priv->transport);
   g_free (priv->stun_host);
   g_free (priv->local_ip_address);
   g_free (priv->extra_auth_user);
