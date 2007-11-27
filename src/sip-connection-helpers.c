@@ -147,25 +147,36 @@ sip_conn_update_proxy_and_transport (SIPConnection *conn)
 
   if (priv->proxy_url != NULL)
     {
-      gchar *params = NULL;
-      if (priv->proxy_url->url_type == url_sip)
+      su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
+      sip_route_t *route;
+      url_t *route_url;
+      const char *params = NULL;
+
+      route_url = url_hdup (temphome, priv->proxy_url);
+
+      g_return_if_fail (route_url != NULL);
+
+      if (!url_has_param (route_url, "lr"))
+        url_param_add (priv->sofia_home, route_url, "lr");
+
+      route = sip_route_create (temphome, route_url, NULL);
+
+      if (priv->transport != NULL && route_url->url_type == url_sip)
         {
-          char transport[5] = "";
-          if (url_param (priv->proxy_url->url_params, "transport",
-                         transport, 5) > 0)
-            {
-              if (g_ascii_strcasecmp (transport, "tcp") == 0
-                  || g_ascii_strcasecmp (transport, "udp") == 0)
-                params = g_strdup_printf ("transport=%s", transport);
-              else
-                g_message ("unrecognized transport value in the proxy URI: %s", transport);
-            }
+          if (g_ascii_strcasecmp (priv->transport, "tcp") == 0)
+            params = "transport=tcp";
+          else if (g_ascii_strcasecmp (priv->transport, "udp") == 0)
+            params = "transport=udp";
+          else
+            g_warning ("unrecognized transport parameter value: %s", priv->transport);
         }
+
       nua_set_params (priv->sofia_nua,
-                      NUTAG_PROXY(priv->proxy_url),
+                      NUTAG_INITIAL_ROUTE(route),
                       TAG_IF(params, NUTAG_M_PARAMS(params)),
                       TAG_NULL());
-      g_free (params);
+
+      su_home_deinit (temphome);
     }
 }
 
@@ -200,16 +211,12 @@ sip_conn_get_local_url (SIPConnection *conn)
   else
     url->url_port = su_sprintf (priv->sofia_home, "%u", priv->local_port);
 
-  if (url->url_type == url_sip && priv->proxy_url != NULL)
+  if (url->url_type == url_sip && priv->transport != NULL)
     {
-      char transport[5] = "";
-      if (url_param (priv->proxy_url->url_params, "transport", transport, 5) > 0)
-        {
-          if (!g_ascii_strcasecmp(transport, "udp"))
-            url->url_params = "transport=udp";
-          else if (!g_ascii_strcasecmp(transport, "tcp"))
-            url->url_params = "transport=tcp";
-        }
+      if (!g_ascii_strcasecmp(priv->transport, "udp"))
+        url->url_params = "transport=udp";
+      else if (!g_ascii_strcasecmp(priv->transport, "tcp"))
+        url->url_params = "transport=tcp";
     }
 
   /* url_sanitize (url); -- we're always sane B-] */

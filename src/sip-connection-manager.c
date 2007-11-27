@@ -248,32 +248,21 @@ priv_compose_proxy_uri (const gchar *host,
                         guint port)
 {
   const gchar *scheme = "sip";
-  const gchar *params = "";
 
   if (host == NULL)
     return NULL;
 
-  /* Encode transport */
+  /* Set scheme to SIPS if transport is TLS */
 
-  if (transport == NULL || !strcmp (transport, "auto")) {
-    /*no mention of transport in the URI*/
-  } else if (!strcmp (transport, "tcp")) {
-    params = ";transport=tcp";
-  } else if (!strcmp (transport, "udp")) {
-    params = ";transport=udp";
-  } else if (!strcmp (transport, "tls")) {
+  if (transport != NULL && !g_ascii_strcasecmp (transport, "tls"))
     scheme = "sips";
-  } else {
-    g_warning ("transport %s not recognized", transport);
-  }
 
   /* Format the resulting URI */
 
-  if (port) {
-    return g_strdup_printf ("%s:%s:%u%s", scheme, host, port, params);
-  } else {
-    return g_strdup_printf ("%s:%s%s", scheme, host, params);
-  }
+  if (port)
+    return g_strdup_printf ("%s:%s:%u", scheme, host, port);
+  else
+    return g_strdup_printf ("%s:%s", scheme, host);
 }
 
 /**
@@ -450,6 +439,9 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   g_object_set (connection, "proxy", proxy, NULL);
   g_free (proxy);
+
+  if (params->transport != NULL && strcmp (params->transport, "auto") != 0)
+    g_object_set (connection, "transport", params->transport);
 
   SET_PROPERTY_IF_PARAM_SET ("auth-user", SIP_CONN_PARAM_AUTH_USER,
       params->auth_user);

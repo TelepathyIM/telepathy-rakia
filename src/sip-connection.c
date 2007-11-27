@@ -219,10 +219,6 @@ sip_connection_set_property (GObject      *object,
   }
   case PROP_PROXY: {
     priv->proxy_url = priv_url_from_string_value (priv->sofia_home, value);
-    if (priv->sofia_nua) 
-      nua_set_params(priv->sofia_nua,
-                     NUTAG_PROXY(priv->proxy_url),
-                     TAG_END());
     break;
   }
   case PROP_REGISTRAR: {
