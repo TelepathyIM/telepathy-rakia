@@ -48,7 +48,6 @@ struct _SIPConnectionPrivate
   gchar *password;
   SIPConnectionKeepaliveMechanism keepalive_mechanism;
   gint keepalive_interval;
-  gchar *http_proxy;
   gboolean discover_stun;
   gchar *stun_host;
   guint stun_port;
