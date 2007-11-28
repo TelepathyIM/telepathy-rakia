@@ -1,4 +1,5 @@
-/* tp_test.c - telepathy-sofiasip test utility (modified from
+/*
+ * tp_test.c - telepathy-sofiasip test utility (modified from
  * libtelepathy's proto.c)
  *
  * Copyright (C) 2005-2006 Nokia Corporation.
@@ -14,10 +15,8 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- *
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-
 
 #ifndef DBUS_API_SUBJECT_TO_CHANGE
 #define DBUS_API_SUBJECT_TO_CHANGE
