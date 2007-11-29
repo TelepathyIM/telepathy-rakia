@@ -858,6 +858,13 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
 
   tp_intset_destroy (member_set);
   tp_intset_destroy (pending_set);
+
+  /* No adding more members to the incoming call,
+   * removing and rescinding is OK */
+  tp_group_mixin_change_flags (obj,
+                               TP_CHANNEL_GROUP_FLAG_CAN_REMOVE
+                                | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND,
+                               TP_CHANNEL_GROUP_FLAG_CAN_ADD);
 }
 
 /**
