@@ -46,6 +46,16 @@ if test x$enable_syslog = xyes; then
   AC_DEFINE(ENABLE_SYSLOG, [], [Enable syslog handler for Sofia log messages])
 fi
 
+AC_ARG_ENABLE(coverage,
+  AC_HELP_STRING([--enable-coverage],[compile with coverage info]),
+  [enable_coverage=$enableval],
+  [enable_coverage=no]
+)
+if test x$enable_coverage = xyes; then
+  COVERAGE_CFLAGS="-g -fprofile-arcs -ftest-coverage"
+fi
+AC_SUBST(COVERAGE_CFLAGS)
+
 dnl GTK docs
 GTK_DOC_CHECK
 

@@ -15,7 +15,7 @@ managerdir = $(datadir)/telepathy/managers
 # Headers and libraries
 
 AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @SOFIA_SIP_UA_CFLAGS@ \
-	    @TELEPATHY_GLIB_CFLAGS@
+	    @TELEPATHY_GLIB_CFLAGS@ @COVERAGE_CFLAGS@
 AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_SIP_UA_LIBS@ @TELEPATHY_GLIB_LIBS@
 
 # ----------------------------------------------------------------------
