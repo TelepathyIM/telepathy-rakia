@@ -157,7 +157,7 @@ sip_conn_update_proxy_and_transport (SIPConnection *conn)
       g_return_if_fail (route_url != NULL);
 
       if (!url_has_param (route_url, "lr"))
-        url_param_add (priv->sofia_home, route_url, "lr");
+        url_param_add (temphome, route_url, "lr");
 
       route = sip_route_create (temphome, route_url, NULL);
 
