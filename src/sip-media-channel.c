@@ -756,8 +756,6 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 
   DEBUG("enter");
 
-  g_assert (SIP_IS_MEDIA_CHANNEL (self));
-
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   contact_repo = tp_base_connection_get_handles (
@@ -813,13 +811,12 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
                                   TpHandle handle)
 {
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
+  TpBaseConnection *conn = TP_BASE_CONNECTION (priv->conn);
   GObject *obj = G_OBJECT (self);
   TpHandleRepoIface *contact_repo;
   TpIntSet *member_set, *pending_set;
  
-  contact_repo = tp_base_connection_get_handles (
-        (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
+  contact_repo = tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT);
 
   if (priv->session == NULL)
     {
@@ -847,7 +844,7 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
   tp_intset_add (member_set, handle);
 
   pending_set = tp_intset_new ();
-  tp_intset_add (pending_set, mixin->self_handle);
+  tp_intset_add (pending_set, conn->self_handle);
 
   tp_group_mixin_change_members (obj, "INVITE received",
                                  member_set,    /* add */
@@ -1215,7 +1212,6 @@ sip_media_channel_add_member (GObject *iface,
   /* case a: outgoing call (we are the initiator, a new handle added) */
   if (mixin->self_handle != handle)
     {
-      TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
       TpIntSet *lset, *rset;
       nua_handle_t *nh;
 
