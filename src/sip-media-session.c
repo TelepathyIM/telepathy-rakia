@@ -1491,25 +1491,24 @@ priv_request_response_step (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  DEBUG ("enter, local non ready %d", priv->local_non_ready);
+  if (priv->local_non_ready != 0)
+    {
+      DEBUG("there are local streams not ready, postponed");
+      return;
+    }
 
   switch (priv->state)
     {
     case SIP_MEDIA_SESSION_STATE_CREATED:
-      if (priv->local_non_ready == 0)
-        {
-          /* note:  we need to be prepared to receive media right after the
-           *       offer is sent, so we must set state to playing */
-          priv_session_media_state (session, TRUE);
-
-          priv_session_invite (session, FALSE);
-        }
+      /* note:  we need to be prepared to receive media right after the
+       *       offer is sent, so we must set state to playing */
+      priv_session_media_state (session, TRUE);
+      priv_session_invite (session, FALSE);
       break;
     case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
       if (priv->accepted
           && !priv_is_codec_intersect_pending (session))
         {
-          g_assert (priv->local_non_ready == 0);
           g_object_set (session,
                         "state", SIP_MEDIA_SESSION_STATE_ACTIVE,
                         NULL);
@@ -1520,7 +1519,6 @@ priv_request_response_step (SIPMediaSession *session)
        * and the remote endpoint supports 100rel, send them
        * an early session answer in a reliable 183 response */
       if (priv->accepted
-          && priv->local_non_ready == 0
           && !priv_is_codec_intersect_pending (session))
         {
           priv_session_respond (session);
@@ -1530,17 +1528,12 @@ priv_request_response_step (SIPMediaSession *session)
         }
       break;
     case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-      if (priv->local_non_ready == 0
-          && !priv_is_codec_intersect_pending (session))
-        {
-          priv_session_respond (session);
-        }
+      if (!priv_is_codec_intersect_pending (session))
+        priv_session_respond (session);
       break;
     case SIP_MEDIA_SESSION_STATE_ACTIVE:
-      if (priv->pending_offer && priv->local_non_ready == 0)
-        {
-          priv_session_invite (session, TRUE);
-        }
+      if (priv->pending_offer)
+        priv_session_invite (session, TRUE);
       break;
     default:
       g_assert_not_reached ();
