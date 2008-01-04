@@ -3,7 +3,8 @@ AC_PREREQ([2.59])
 AC_INIT
 AC_CONFIG_MACRO_DIR([m4])
 
-AS_VERSION(telepathy-sofiasip, TELEPATHY_SIP_VERSION, 0, 5, 0, 0, WERROR="no", WERROR="yes")
+AS_VERSION(telepathy-sofiasip, TELEPATHY_SIP_VERSION, 0, 5, 0, 1,
+           WERROR="no", WERROR="yes")
 
 AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
 
