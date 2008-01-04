@@ -291,6 +291,7 @@ sip_text_channel_set_property(GObject *object,
     priv->object_path = g_value_dup_string (value);
     break;
 
+  case PROP_CHANNEL_TYPE:
   case PROP_HANDLE_TYPE:
     /* this property is writable in the interface, but not actually
      * meaningfully changable on this channel, so we do nothing */
