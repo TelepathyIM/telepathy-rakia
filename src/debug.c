@@ -26,7 +26,8 @@ void sip_debug_set_flags_from_env ()
 
   if (flags_string)
     {
-      tp_debug_set_flags_from_env ("SOFIASIP_DEBUG");
+      tp_debug_set_flags (flags_string);
+
       sip_debug_set_flags (g_parse_debug_string (flags_string,
                                                  sip_debug_keys,
                                                  G_N_ELEMENTS(sip_debug_keys)));

@@ -142,8 +142,7 @@ main (int argc, char** argv)
 
   if (g_getenv ("SOFIASIP_PERSIST"))
     {
-      sip_debug_set_flags (0xffff);
-      tp_debug_set_all_flags ();
+      tp_debug_set_persistent (TRUE);
     }
 #endif
 
