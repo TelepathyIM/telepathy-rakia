@@ -441,7 +441,7 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
   g_free (proxy);
 
   if (params->transport != NULL && strcmp (params->transport, "auto") != 0)
-    g_object_set (connection, "transport", params->transport);
+    g_object_set (connection, "transport", params->transport, NULL);
 
   SET_PROPERTY_IF_PARAM_SET ("auth-user", SIP_CONN_PARAM_AUTH_USER,
       params->auth_user);
