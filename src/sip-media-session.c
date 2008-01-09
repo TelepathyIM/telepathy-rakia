@@ -1606,6 +1606,12 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
            * Roll back the whole session to the previously negotiated state. */
           priv_session_rollback (session);
           return;
+        case SIP_MEDIA_SESSION_STATE_ACTIVE:
+          /* We've most likely rolled back from
+           * SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
+           * but we may receive more than one empty codec intersection
+           * in the session, so we ignore the rest */
+          return;
         default:
           g_assert_not_reached();
         }
