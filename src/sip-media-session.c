@@ -1278,8 +1278,18 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
 
   g_assert(media == NULL);
   g_assert(i <= priv->streams->len);
-  if (i < priv->streams->len)
+  if (i < priv->streams->len && !priv->pending_offer)
     {
+      /*
+       * It's not defined what we should do if there are previously offered
+       * streams not accounted in the remote SDP, in violation of RFC 3264.
+       * Closing them off serves resource preservation and gives better
+       * clue to the client as to the real state of the session.
+       * Note that this situation is masked if any local media updates
+       * have been requested and are pending until the remote session answer
+       * have been received. In this case, we'll issue a new offer at the
+       * nearest available time, with the "disagreed" stream entries intact.
+       */
       do
         {
           SIPMediaStream *stream;
