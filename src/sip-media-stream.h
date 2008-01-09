@@ -65,9 +65,10 @@ gboolean sip_media_stream_set_remote_media (SIPMediaStream *self,
                                             gboolean authoritative);
 void sip_media_stream_set_playing (SIPMediaStream *self, gboolean playing);
 void sip_media_stream_set_sending (SIPMediaStream *self, gboolean sending);
-void sip_media_stream_set_direction (SIPMediaStream *stream,
-                                     TpMediaStreamDirection direction,
-                                     guint pending_send_flags);
+gboolean sip_media_stream_set_direction (SIPMediaStream *stream,
+                                         TpMediaStreamDirection direction,
+                                         gboolean remote_agreed);
+void sip_media_stream_release_pending_send (SIPMediaStream *stream);
 gboolean sip_media_stream_is_local_ready (SIPMediaStream *self);
 gboolean sip_media_stream_is_codec_intersect_pending (SIPMediaStream *self);
 void sip_media_stream_start_telephony_event (SIPMediaStream *self, guchar event);

@@ -963,7 +963,7 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
   /* Set the final direction and sending status */
   sip_media_stream_set_direction (stream,
                                   new_direction,
-                                  priv->pending_send_flags);
+                                  TRUE);
 
   return TRUE;
 }
@@ -1042,32 +1042,56 @@ priv_update_sending (SIPMediaStream *stream,
                 | TP_MEDIA_STREAM_PENDING_LOCAL_SEND)));
 }
 
-void
+gboolean
 sip_media_stream_set_direction (SIPMediaStream *stream,
                                 TpMediaStreamDirection direction,
-                                guint pending_send_flags)
+                                gboolean remote_agreed)
 {
   SIPMediaStreamPrivate *priv;
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  if (priv->direction != direction
-      || priv->pending_send_flags != pending_send_flags)
-    {
-      DEBUG("setting direction %u, pending send flags %u", direction, pending_send_flags);
+  if (priv->direction == direction)
+    return FALSE;
 
-      priv->direction = direction;
-      priv->pending_send_flags = pending_send_flags;
+  /* Set pending send flag if we're going to start sending,
+   * but need to agree about this with the remote party */
+  if (!remote_agreed
+      && (direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0)
+    priv->pending_send_flags |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
 
-      /* TODO: SDP should not be cached, but created on demand */
-      if (priv->native_cands_prepared && priv->native_codecs_prepared)
-        priv_update_local_sdp (stream);
+  priv->direction = direction;
 
-      g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
-                     direction, pending_send_flags);
-    }
+  DEBUG("set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
+
+  g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
+                 priv->direction, priv->pending_send_flags);
+
+  /* TODO: SDP should not be cached, but created on demand */
+  if (priv->native_cands_prepared && priv->native_codecs_prepared)
+    priv_update_local_sdp (stream);
 
   if (priv->remote_media != NULL)
-    priv_update_sending (stream, direction, pending_send_flags);
+    priv_update_sending (stream, priv->direction, priv->pending_send_flags);
+
+  return TRUE;
+}
+
+void
+sip_media_stream_release_pending_send (SIPMediaStream *stream)
+{
+  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+
+  if (!(priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND))
+    return;
+
+  /* Don't release pending send for new streams that haven't been negotiated */
+  if (priv->remote_media == NULL)
+    return;
+
+  priv->pending_send_flags = 0;
+  g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
+                 priv->direction, 0);
+  priv_update_sending (stream, priv->direction, 0);
 }
 
 /**

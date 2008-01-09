@@ -535,23 +535,18 @@ priv_close_all_streams (SIPMediaSession *session)
 }
 
 static void
-priv_clear_streams_pending_send (SIPMediaSession *session)
+priv_release_streams_pending_send (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
   SIPMediaStream *stream;
   guint i;
 
-  /* Clear the local pending send flags, enabling sending */
+  /* Clear the local pending send flags where applicable */
   for (i = 0; i < priv->streams->len; i++)
     {
       stream = g_ptr_array_index(priv->streams, i);
       if (stream != NULL)
-        {
-          guint direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
-          g_object_get (stream, "direction", &direction, NULL);
-          if (direction & TP_MEDIA_STREAM_DIRECTION_SEND)
-            sip_media_stream_set_direction (stream, direction, 0);
-        }
+        sip_media_stream_release_pending_send (stream);
     }
 }
 
@@ -605,7 +600,7 @@ priv_session_state_changed (SIPMediaSession *session,
 	  g_source_remove (priv->timer_id);
 	  priv->timer_id = 0;
         }
-      priv_clear_streams_pending_send (session);
+      priv_release_streams_pending_send (session);
       if (priv->pending_offer)
         {
           priv_session_invite (session, TRUE);
@@ -954,27 +949,16 @@ sip_media_session_request_stream_direction (SIPMediaSession *self,
                                             GError **error)
 {
   SIPMediaStream *stream;
-  guint old_direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
-  guint pending_send_flags = 0;
 
   stream = sip_media_session_get_stream (self, stream_id, error);
   if (stream == NULL)
-    return FALSE;
+    {
+      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+                   "stream %u does not exist", stream_id);
+      return FALSE;
+    }
 
-  g_object_get (stream,
-                "direction", &old_direction,
-                "pending-send-flags", &pending_send_flags,
-                NULL);
-
-  SESSION_DEBUG(self, "stream %u direction change requested: %u -> %u", stream_id, old_direction, direction);
-
-  /* Set pending send flag if we're going to start sending */
-  if (direction & ~old_direction & TP_MEDIA_STREAM_DIRECTION_SEND)
-    pending_send_flags |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
-
-  sip_media_stream_set_direction (stream, direction, pending_send_flags);
-
-  if (direction != old_direction)
+  if (sip_media_stream_set_direction (stream, direction, FALSE))
     priv_local_media_changed (self);
 
   return TRUE;
