@@ -1554,7 +1554,7 @@ priv_stream_close_cb (SIPMediaStream *stream,
   id = sip_media_stream_get_id (stream);
   g_return_if_fail (g_ptr_array_index(priv->streams, id) == stream);
 
-  if (!sip_media_stream_is_ready (stream))
+  if (!sip_media_stream_is_local_ready (stream))
     {
       g_assert (priv->local_non_ready > 0);
       --priv->local_non_ready;

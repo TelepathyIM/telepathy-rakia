@@ -68,7 +68,7 @@ void sip_media_stream_set_sending (SIPMediaStream *self, gboolean sending);
 void sip_media_stream_set_direction (SIPMediaStream *stream,
                                      TpMediaStreamDirection direction,
                                      guint pending_send_flags);
-gboolean sip_media_stream_is_ready (SIPMediaStream *self);
+gboolean sip_media_stream_is_local_ready (SIPMediaStream *self);
 gboolean sip_media_stream_is_codec_intersect_pending (SIPMediaStream *self);
 void sip_media_stream_start_telephony_event (SIPMediaStream *self, guchar event);
 void sip_media_stream_stop_telephony_event  (SIPMediaStream *self);

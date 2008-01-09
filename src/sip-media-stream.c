@@ -1074,7 +1074,7 @@ sip_media_stream_set_direction (SIPMediaStream *stream,
  * Returns true if the stream has a valid SDP description and
  * connection has been established with the stream engine.
  */
-gboolean sip_media_stream_is_ready (SIPMediaStream *self)
+gboolean sip_media_stream_is_local_ready (SIPMediaStream *self)
 {
   SIPMediaStreamPrivate *priv;
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
