@@ -1530,7 +1530,7 @@ priv_request_response_step (SIPMediaSession *session)
         priv_session_invite (session, TRUE);
       break;
     default:
-      g_assert_not_reached ();
+      SESSION_DEBUG(session, "no action taken in the current state");
     }
 }
 
