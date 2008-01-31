@@ -19,16 +19,22 @@ Account settings
 - ability to disable known difficult-to-implement features
     - early media with PRACK
 - ability to disable use of outbound proxy
-    - as a better alternative, use a pre-existing route set
 
 Connection management
 ---------------------
 
 - implement Connection.AdvertiseCapabilities()
 
+Call flows
+----------
+
+- consider implementation of 3pcc call flows as described in RFC 3725.
+
 Media sessions
 --------------
 
+- implement delayed application of stream direction changes requested by
+  the client in case when an answer to a remote offer is being processed
 - if multiple network interfaces are present, the wrong IP address
   may be offered in a c= SDP media line.
 
