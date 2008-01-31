@@ -949,6 +949,7 @@ sip_media_session_request_stream_direction (SIPMediaSession *self,
                                             guint direction,
                                             GError **error)
 {
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
   SIPMediaStream *stream;
 
   stream = sip_media_session_get_stream (self, stream_id, error);
@@ -957,6 +958,18 @@ sip_media_session_request_stream_direction (SIPMediaSession *self,
       g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
                    "stream %u does not exist", stream_id);
       return FALSE;
+    }
+
+  if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
+      || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED)
+    {
+      /* While processing a session offer, we can only mask out direction
+       * requested by the remote peer */
+      guint old_direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+      g_object_get (stream,
+                    "direction", &old_direction,
+                    NULL);
+      direction &= old_direction;
     }
 
   if (sip_media_stream_set_direction (stream, direction, FALSE))
