@@ -1307,14 +1307,15 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
   if (i < priv->streams->len && !priv->pending_offer)
     {
       /*
-       * It's not defined what we should do if there are previously offered
+       * It's not defined what should we do if there are previously offered
        * streams not accounted in the remote SDP, in violation of RFC 3264.
        * Closing them off serves resource preservation and gives better
        * clue to the client as to the real state of the session.
        * Note that this situation is masked if any local media updates
        * have been requested and are pending until the remote session answer
-       * have been received. In this case, we'll issue a new offer at the
-       * nearest available time, with the "disagreed" stream entries intact.
+       * has been received and applied. In such a case, we'll issue a new offer
+       * at the closest available time, with the "overhanging" stream entries
+       * intact.
        */
       do
         {
