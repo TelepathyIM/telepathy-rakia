@@ -119,6 +119,7 @@ struct _SIPMediaSessionPrivate
   SIPMediaSessionState state;           /** see gobj. prop. 'state' */
   nua_saved_event_t saved_event[1];     /** Saved incoming request event */
   gint local_non_ready;                 /** number of streams with local information update pending */
+  guint remote_stream_count;            /** number of streams last seen in a remote offer */
   guint catcher_id;
   guint timer_id;
   su_home_t *home;                      /** Sofia memory home for remote SDP session structure */
@@ -1191,11 +1192,18 @@ priv_local_media_changed (SIPMediaSession *session)
   switch (priv->state)
     {
     case SIP_MEDIA_SESSION_STATE_CREATED:
+      /* If all streams are ready, send an offer now */
+      priv_request_response_step (session);
+      break;
     case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
     case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-      /* The changes will be sent when all streams are ready;
-       * check if now's the time */
-      priv_request_response_step (session);
+      /* The changes to existing streams will be included in the
+       * eventual answer (FIXME: implement postponed direction changes,
+       * which are applied after the remote offer has been processed).
+       * Check, however, if there are new streams not present in the
+       * remote offer, that will need another offer-answer round */
+      if (priv->remote_stream_count < priv->streams->len)
+        priv->pending_offer = TRUE;
       break;
     case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
     case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
@@ -1275,9 +1283,14 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
       /* There have been problems with the stream update, kill the stream */
       sip_media_stream_close (stream);
     }
-
   g_assert(media == NULL);
   g_assert(i <= priv->streams->len);
+
+  /* Remember the m= line count in the remote offer,
+   * to match it with exactly this number of answer lines */
+  if (authoritative)
+    priv->remote_stream_count = i;
+
   if (i < priv->streams->len && !priv->pending_offer)
     {
       /*
@@ -1352,17 +1365,24 @@ priv_session_rollback (SIPMediaSession *session)
 }
 
 static gboolean
-priv_session_local_sdp (SIPMediaSession *session, GString *user_sdp)
+priv_session_local_sdp (SIPMediaSession *session,
+                        GString *user_sdp,
+                        gboolean authoritative)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
   gboolean has_supported_media = FALSE;
+  guint len;
   guint i;
 
   g_return_val_if_fail (priv->local_non_ready == 0, FALSE);
 
+  len = priv->streams->len;
+  if (!authoritative && len > priv->remote_stream_count)
+    len = priv->remote_stream_count;
+
   g_string_append (user_sdp, "v=0\r\n");
 
-  for (i = 0; i < priv->streams->len; i++)
+  for (i = 0; i < len; i++)
     {
       SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
       if (stream)
@@ -1394,7 +1414,7 @@ priv_session_invite (SIPMediaSession *session, gboolean reinvite)
 
   user_sdp = g_string_new (NULL);
 
-  if (priv_session_local_sdp (session, user_sdp))
+  if (priv_session_local_sdp (session, user_sdp, TRUE))
     {
       nua_invite (priv->nua_op,
                   SOATAG_USER_SDP_STR(user_sdp->str),
@@ -1424,7 +1444,7 @@ priv_session_respond (SIPMediaSession *session)
 
   user_sdp = g_string_new (NULL);
 
-  if (priv_session_local_sdp (session, user_sdp))
+  if (priv_session_local_sdp (session, user_sdp, FALSE))
     {
       msg_t *msg;
 
