@@ -764,12 +764,25 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
       priv->catcher_id = 0;
     }
 
-  /* Switch the state machine to processing the response */
   if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_SENT
       || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_SENT)
-    g_object_set (session,
-                  "state", SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED,
-                  NULL);
+    {
+      g_object_set (session,
+                    "state", SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED,
+                    NULL);
+    }
+  else
+    {
+      /* Remember the m= line count in the remote offer,
+       * to match it with exactly this number of answer lines */
+      sdp_media_t *media;
+      guint count = 0;
+
+      for (media = sdp->sdp_media; media != NULL; media = media->m_next)
+        ++count;
+
+      priv->remote_stream_count = count;
+    }
 
   /* Handle session non-updates */
   if (!sdp_session_cmp (priv->remote_sdp, sdp))
@@ -1295,11 +1308,7 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
     }
   g_assert(media == NULL);
   g_assert(i <= priv->streams->len);
-
-  /* Remember the m= line count in the remote offer,
-   * to match it with exactly this number of answer lines */
-  if (authoritative)
-    priv->remote_stream_count = i;
+  g_assert(!authoritative || i == priv->remote_stream_count);
 
   if (i < priv->streams->len && !priv->pending_offer)
     {
