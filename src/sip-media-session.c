@@ -1400,7 +1400,10 @@ priv_session_local_sdp (SIPMediaSession *session,
 
   len = priv->streams->len;
   if (!authoritative && len > priv->remote_stream_count)
-    len = priv->remote_stream_count;
+    {
+      len = priv->remote_stream_count;
+      DEBUG("clamped response to %u streams seen in the offer", len);
+    }
 
   g_string_append (user_sdp, "v=0\r\n");
 
