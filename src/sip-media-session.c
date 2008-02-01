@@ -730,17 +730,14 @@ void sip_media_session_terminate (SIPMediaSession *session)
           nua_respond (priv->nua_op, 480, "Terminated", TAG_END());
           break;
         case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-          DEBUG("sending the 480 response to an incoming re-INVITE");
-          {
-            msg_t *msg;
-
-            msg = (priv->saved_event[0])
-                        ? nua_saved_event_request (priv->saved_event) : NULL;
-                
-            nua_respond (priv->nua_op, 480, "Terminated",
-                         TAG_IF(msg, NUTAG_WITH(msg)),
-                         TAG_END());
-          }
+          if (priv->saved_event[0])
+            {
+              DEBUG("sending the 480 response to an incoming re-INVITE");
+              nua_respond (priv->nua_op, 480, "Terminated",
+                           NUTAG_WITH(nua_saved_event_request (priv->saved_event)),
+                           TAG_END());
+              nua_destroy_event (priv->saved_event);
+            }
           DEBUG("sending BYE to terminate the call itself");
           nua_bye (priv->nua_op, TAG_END());
           break;
@@ -1339,7 +1336,6 @@ static void
 priv_session_rollback (SIPMediaSession *session)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  msg_t *msg;
 
   DEBUG("enter");
 
@@ -1365,15 +1361,18 @@ priv_session_rollback (SIPMediaSession *session)
 
   priv_update_remote_media (session, FALSE);
 
-  msg = (priv->saved_event[0])
-        ? nua_saved_event_request (priv->saved_event) : NULL;
-
-  nua_respond (priv->nua_op, 488, sip_488_Not_acceptable,
-               TAG_IF(msg, NUTAG_WITH(msg)),
-               TAG_END());
-
   if (priv->saved_event[0])
-    nua_destroy_event (priv->saved_event);
+    {
+      nua_respond (priv->nua_op, SIP_488_NOT_ACCEPTABLE,
+                   NUTAG_WITH(nua_saved_event_request (priv->saved_event)),
+                   TAG_END());
+      nua_destroy_event (priv->saved_event);
+    }
+  else
+    {
+      nua_respond (priv->nua_op, SIP_488_NOT_ACCEPTABLE,
+                   TAG_END());
+    }
 
   g_object_set (session, "state", SIP_MEDIA_SESSION_STATE_ACTIVE, NULL);
 }
