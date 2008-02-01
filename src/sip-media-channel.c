@@ -1020,7 +1020,7 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
     tp_intset_add (set, peer);
 
     tp_group_mixin_change_members ((GObject *)channel,
-        "", set, NULL, NULL, NULL, 0, 0);
+        "Call active", set, NULL, NULL, NULL, 0, 0);
 
     tp_intset_destroy (set);
 
@@ -1037,7 +1037,7 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
     tp_intset_add (set, mixin->self_handle);
     tp_intset_add (set, peer);
     tp_group_mixin_change_members ((GObject *)channel,
-        "", NULL, set, NULL, NULL, 0, 0);
+        "Call ended", NULL, set, NULL, NULL, 0, 0);
 
     tp_intset_destroy (set);
 
