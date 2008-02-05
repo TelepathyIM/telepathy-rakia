@@ -81,7 +81,7 @@ static guint signals[SIG_LAST_SIGNAL] = {0};
 #ifdef ENABLE_DEBUG
 
 /**
- * StreamEngine session states:
+ * Media session states:
  * - created, objects created, local cand/codec query ongoing
  * - invite-sent, an INVITE with local SDP sent, awaiting response
  * - invite-received, a remote INVITE received, response is pending
