@@ -1191,7 +1191,7 @@ sip_media_session_rate_native_transport (SIPMediaSession *session,
   return result;
 }
 
-static void priv_session_media_state (SIPMediaSession *session, gboolean playing)
+static void priv_session_set_streams_playing (SIPMediaSession *session, gboolean playing)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
   SIPMediaStream *stream;
@@ -1537,9 +1537,9 @@ priv_request_response_step (SIPMediaSession *session)
   switch (priv->state)
     {
     case SIP_MEDIA_SESSION_STATE_CREATED:
-      /* note:  we need to be prepared to receive media right after the
-       *       offer is sent, so we must set state to playing */
-      priv_session_media_state (session, TRUE);
+      /* note: we need to be prepared to receive media right after the
+       *       offer is sent, so we must set the streams to playing */
+      priv_session_set_streams_playing (session, TRUE);
       priv_session_invite (session, FALSE);
       break;
     case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
@@ -1557,8 +1557,8 @@ priv_request_response_step (SIPMediaSession *session)
         {
           priv_session_respond (session);
 
-          /* note: we have accepted the call, set state to playing */ 
-          priv_session_media_state (session, TRUE);
+          /* note: we have accepted the call, set the streams to playing */
+          priv_session_set_streams_playing (session, TRUE);
         }
       break;
     case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
