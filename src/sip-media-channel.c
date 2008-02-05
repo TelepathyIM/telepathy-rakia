@@ -36,7 +36,6 @@
 #include "media-factory.h"
 #include "sip-connection.h"
 #include "sip-media-session.h"
-#include "sip-media-stream.h"
 
 #include "telepathy-helpers.h"
 #include "sip-connection-helpers.h"
@@ -1039,22 +1038,6 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
   }
 }
 
-static void priv_session_stream_added_cb (SIPMediaSession *session,
-					  SIPMediaStream  *stream,
-					  SIPMediaChannel *chan)
-{
-  guint id, handle, type;
-
-  DEBUG("enter");
-
-  /* emit StreamAdded */
-  handle = sip_media_session_get_peer (session);
-  g_object_get (stream, "id", &id, "media-type", &type, NULL);
-
-  tp_svc_channel_type_streamed_media_emit_stream_added (
-        (TpSvcChannelTypeStreamedMedia *)chan, id, handle, type);
-}
-
 /**
  * priv_create_session:
  *
@@ -1102,10 +1085,6 @@ priv_create_session (SIPMediaChannel *channel,
 
   g_free (local_ip_address);
 
-  g_signal_connect (session,
-                    "stream-added",
-		    G_CALLBACK(priv_session_stream_added_cb),
-                    channel);
   g_signal_connect_object (session,
                            "state-changed",
                            G_CALLBACK(priv_session_state_changed_cb),

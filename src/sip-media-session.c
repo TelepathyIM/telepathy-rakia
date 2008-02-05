@@ -60,7 +60,6 @@ G_DEFINE_TYPE_WITH_CODE(SIPMediaSession,
 /* signal enum */
 enum
 {
-  SIG_STREAM_ADDED,
   SIG_STATE_CHANGED,
   SIG_LAST_SIGNAL
 };
@@ -339,15 +338,6 @@ sip_media_session_class_init (SIPMediaSessionClass *sip_media_session_class)
                                     G_PARAM_STATIC_NAME |
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_LOCAL_IP_ADDRESS, param_spec);
-
-  signals[SIG_STREAM_ADDED] =
-    g_signal_new ("stream-added",
-                  G_OBJECT_CLASS_TYPE (sip_media_session_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__OBJECT,
-                  G_TYPE_NONE, 1, G_TYPE_OBJECT);
 
   signals[SIG_STATE_CHANGED] =
     g_signal_new ("state-changed",
@@ -1688,28 +1678,26 @@ priv_create_media_stream (SIPMediaSession *self,
                           guint media_type,
                           guint pending_send_flags)
 {
-  SIPMediaSessionPrivate *priv;
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
   gchar *object_path;
   SIPMediaStream *stream = NULL;
-
-  g_assert (SIP_IS_MEDIA_SESSION (self));
+  guint stream_id;
 
   DEBUG ("enter");
-
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
 
   if (media_type == TP_MEDIA_STREAM_TYPE_AUDIO ||
       media_type == TP_MEDIA_STREAM_TYPE_VIDEO) {
 
+    stream_id = priv->streams->len;
     object_path = g_strdup_printf ("%s/MediaStream%u",
                                    priv->object_path,
-                                   priv->streams->len);
+                                   stream_id);
 
     stream = g_object_new (SIP_TYPE_MEDIA_STREAM,
 			   "media-session", self,
 			   "media-type", media_type,
 			   "object-path", object_path,
-			   "id", priv->streams->len,
+			   "id", stream_id,
                            "pending-send-flags", pending_send_flags,
 			   NULL);
 
@@ -1738,7 +1726,10 @@ priv_create_media_stream (SIPMediaSession *self,
       priv_emit_new_stream (self, stream);
     }
 
-    g_signal_emit (self, signals[SIG_STREAM_ADDED], 0, stream);
+    tp_svc_channel_type_streamed_media_emit_stream_added (priv->channel,
+                                                          stream_id,
+                                                          priv->peer,
+                                                          media_type);
   }
 
   /* note: we add an entry even for unsupported media types */
