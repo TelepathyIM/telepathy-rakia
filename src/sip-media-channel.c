@@ -494,18 +494,13 @@ sip_media_channel_close (SIPMediaChannel *obj)
 void
 sip_media_channel_terminated (SIPMediaChannel *self)
 {
-  SIPMediaChannelPrivate *priv;
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   DEBUG("enter");
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-
   if (priv->session)
-    {
-      g_object_set (priv->session,
-                    "state", SIP_MEDIA_SESSION_STATE_ENDED,
-                    NULL);
-    }
+    sip_media_session_change_state (priv->session,
+                                    SIP_MEDIA_SESSION_STATE_ENDED);
 }
 
 /**
@@ -998,22 +993,20 @@ sip_media_channel_peer_cancel (SIPMediaChannel *self,
  ***********************************************************************/
 
 static void priv_session_state_changed_cb (SIPMediaSession *session,
-					   GParamSpec *arg1,
+					   guint old_state,
+                                           guint state,
 					   SIPMediaChannel *channel)
 {
   TpGroupMixin *mixin = TP_GROUP_MIXIN (channel);
-  SIPMediaSessionState state;
   TpHandle peer;
   TpIntSet *set;
 
   DEBUG("enter");
 
-  g_object_get (session,
-                "state", &state,
-                "peer", &peer,
-                NULL);
+  peer = sip_media_session_get_peer (session);
 
-  if (state == SIP_MEDIA_SESSION_STATE_ACTIVE) {
+  if (state == SIP_MEDIA_SESSION_STATE_ACTIVE
+      && old_state != SIP_MEDIA_SESSION_STATE_REINVITE_SENT) {
     set = tp_intset_new ();
 
     /* add the peer to the member list */
@@ -1030,7 +1023,7 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 				     TP_CHANNEL_GROUP_FLAG_CAN_ADD |
 				     TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
   }
-  else if (state == SIP_MEDIA_SESSION_STATE_ENDED) {
+  if (state == SIP_MEDIA_SESSION_STATE_ENDED) {
     set = tp_intset_new ();
 
     /* remove us and the peer from the member list */
@@ -1109,10 +1102,15 @@ priv_create_session (SIPMediaChannel *channel,
 
   g_free (local_ip_address);
 
-  g_signal_connect (session, "notify::state",
-                    (GCallback) priv_session_state_changed_cb, channel);
-  g_signal_connect (session, "stream-added",
-		    (GCallback) priv_session_stream_added_cb, channel);
+  g_signal_connect (session,
+                    "stream-added",
+		    G_CALLBACK(priv_session_stream_added_cb),
+                    channel);
+  g_signal_connect_object (session,
+                           "state-changed",
+                           G_CALLBACK(priv_session_state_changed_cb),
+                           channel,
+                           0);
 
   priv->session = session;
 

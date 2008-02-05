@@ -69,9 +69,6 @@ Plugin interface
 General
 -------
 
-- in SIPMediaSession, devolve the "state" property to a method-settable
-  internal parameter and a signal, due to refcounting and overhead of
-  g_object_set().
 - various XXX items in the source codes (a generic todo item)
     - status 2007-10-10: 12 XXXs, 8 FIXME
     - status 2007-05-07: 22 XXXs
