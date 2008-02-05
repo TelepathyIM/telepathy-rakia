@@ -181,8 +181,7 @@ static void sip_media_channel_set_property (GObject     *object,
 
 static void priv_create_session (SIPMediaChannel *channel,
                                  nua_handle_t *nh,
-                                 TpHandle peer,
-                                 gboolean remote_initiated);
+                                 TpHandle peer);
 static void priv_destroy_session(SIPMediaChannel *channel);
 static gboolean sip_media_channel_add_member (GObject *iface,
                                               TpHandle handle,
@@ -812,13 +811,11 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
 
   if (priv->session == NULL)
     {
-      priv_create_session (self, nh, handle, TRUE);
-    
       /* note: start the local stream-engine; once the local 
-       *       candidate are ready, reply with nua_respond() 
-       *
-       *       with the tp-0.13 API, the streams need to be created
-       *       based on remote SDP (see sip_media_session_set_remote_media()) */
+       *       media are ready, reply with nua_respond() */
+      priv_create_session (self, nh, handle);
+      g_assert (priv->session != NULL);
+      sip_media_session_receive_invite (priv->session);
     }
   else
     g_warning ("session already exists");
@@ -1046,8 +1043,7 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 static void
 priv_create_session (SIPMediaChannel *channel,
                      nua_handle_t *nh,
-                     TpHandle peer,
-                     gboolean remote_initiated)
+                     TpHandle peer)
 {
   SIPMediaChannelPrivate *priv;
   SIPMediaSession *session;
@@ -1092,9 +1088,6 @@ priv_create_session (SIPMediaChannel *channel,
                            0);
 
   priv->session = session;
-
-  if (remote_initiated)
-    sip_media_session_receive_invite (session);
 
   tp_svc_channel_interface_media_signalling_emit_new_session_handler (
       (TpSvcChannelInterfaceMediaSignalling *)channel, object_path, "rtp");
@@ -1193,7 +1186,7 @@ sip_media_channel_add_member (GObject *iface,
       DEBUG("making outbound call - setting peer handle to %u", handle);
 
       nh = sip_conn_create_request_handle (priv->conn, handle);
-      priv_create_session (self, nh, handle, FALSE);
+      priv_create_session (self, nh, handle);
       nua_handle_unref (nh);
 
       /* make remote pending */
