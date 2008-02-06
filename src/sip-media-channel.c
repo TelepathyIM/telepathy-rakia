@@ -1003,7 +1003,8 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 
   if (state == SIP_MEDIA_SESSION_STATE_ACTIVE) {
 
-    if (old_state == SIP_MEDIA_SESSION_STATE_INVITE_SENT)
+    if (old_state == SIP_MEDIA_SESSION_STATE_INVITE_SENT
+        || old_state == SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED)
       {
         /* add the peer to the member list */
         set = tp_intset_new ();
