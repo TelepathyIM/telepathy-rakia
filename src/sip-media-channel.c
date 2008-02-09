@@ -222,6 +222,10 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
   g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
       "handle-type");
   g_object_class_override_property (object_class, PROP_HANDLE, "handle");
+  g_object_class_override_property (object_class, PROP_OBJECT_PATH,
+      "object-path");
+  g_object_class_override_property (object_class, PROP_CHANNEL_TYPE,
+      "channel-type");
 
   tp_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (SIPMediaChannelClass, properties_class),
@@ -246,25 +250,6 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
                                     G_PARAM_STATIC_NICK |
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_FACTORY, param_spec);
-
-  param_spec = g_param_spec_string ("object-path", "D-Bus object path",
-                                    "The D-Bus object path used for this "
-                                    "object on the bus.",
-                                    NULL,
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_OBJECT_PATH, param_spec);
-
-  param_spec = g_param_spec_string ("channel-type", "Telepathy channel type",
-                                    "The D-Bus interface representing the "
-                                    "type of this channel.",
-                                    NULL,
-                                    G_PARAM_READABLE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_CHANNEL_TYPE, param_spec);
 
   param_spec = g_param_spec_string ("nat-traversal", "NAT traversal mechanism",
                                     "A string representing the type of NAT "
