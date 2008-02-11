@@ -438,7 +438,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_string("address",
                                    "SIPConnection construction property",
                                    "Public SIP address",
-                                   NULL, /*default value*/
+                                   NULL,
                                    G_PARAM_CONSTRUCT_ONLY |
                                    G_PARAM_READWRITE |
                                    G_PARAM_STATIC_NAME |
@@ -449,7 +449,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                    "Auth username",
                                    "Username to use when registering (if different "
                                    "than userinfo part of public SIP address)",
-                                   NULL, /*default value*/
+                                   NULL,
                                    G_PARAM_READWRITE |
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
@@ -458,7 +458,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_string("password",
                                    "SIP account password",
                                    "Password for SIP registration",
-                                   "", /*default value*/
+                                   NULL,
                                    G_PARAM_READWRITE |
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
@@ -467,7 +467,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_string("transport",
                                    "Transport protocol",
                                    "Preferred transport protocol [optional]",
-                                   NULL, /*default value*/
+                                   NULL,
                                    G_PARAM_READWRITE |
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
@@ -476,7 +476,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_string("proxy",
                                    "Outbound proxy",
                                    "SIP URI for outbound proxy (e.g. 'sip:sipproxy.myprovider.com') [optional]",
-                                   NULL, /*default value*/
+                                   NULL,
                                    G_PARAM_READWRITE |
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
@@ -485,7 +485,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_string("registrar",
                                    "Registrar",
                                    "SIP URI for registrar (e.g. 'sip:sip.myprovider.com') [optional]",
-                                   NULL, /*default value*/
+                                   NULL,
                                    G_PARAM_READWRITE |
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
@@ -505,7 +505,8 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                   "Keepalive mechanism",
                                   "SIP registration keepalive mechanism",
                                   sip_connection_keepalive_mechanism_get_type (),
-                                  SIP_CONNECTION_KEEPALIVE_AUTO,
+                                  SIP_CONNECTION_KEEPALIVE_AUTO, /*default value*/
+                                  G_PARAM_CONSTRUCT |
                                   G_PARAM_READWRITE |
                                   G_PARAM_STATIC_NAME |
                                   G_PARAM_STATIC_BLURB);
@@ -515,6 +516,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
 				"Keepalive interval",
 				"Interval between keepalives in seconds (0 = disable, -1 = let stack decide.",
 				-1, G_MAXINT32, -1,
+                                G_PARAM_CONSTRUCT |
                                 G_PARAM_READWRITE |
                                 G_PARAM_STATIC_NAME |
                                 G_PARAM_STATIC_BLURB);
@@ -524,6 +526,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                     "Discover public contact",
                                     "Enable discovery of public IP address beyond NAT",
                                     TRUE, /*default value*/
+                                    G_PARAM_CONSTRUCT |
                                     G_PARAM_READWRITE |
                                     G_PARAM_STATIC_NAME |
                                     G_PARAM_STATIC_BLURB);
@@ -533,6 +536,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                     "Enable discovery of STUN server host name "
                                     "using DNS SRV lookup",
                                     TRUE, /*default value*/
+                                    G_PARAM_CONSTRUCT |
                                     G_PARAM_READWRITE |
                                     G_PARAM_STATIC_NAME |
                                     G_PARAM_STATIC_BLURB);
@@ -542,7 +546,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                    "STUN server address",
                                    "STUN server address (FQDN or IP address, "
                                    "e.g. 'stun.myprovider.com') [optional]",
-                                   NULL, /*default value*/
+                                   NULL,
                                    G_PARAM_READWRITE |
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
@@ -551,7 +555,8 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_uint ("stun-port",
                                   "STUN port",
                                   "STUN port.",
-                                  0, G_MAXUINT16, SIP_DEFAULT_STUN_PORT,
+                                  0, G_MAXUINT16,
+                                  SIP_DEFAULT_STUN_PORT, /*default value*/
                                   G_PARAM_CONSTRUCT |
                                   G_PARAM_READWRITE |
                                   G_PARAM_STATIC_NAME |
@@ -561,7 +566,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_string("local-ip-address",
                                    "Local IP address",
                                    "Local IP address to use [optional]",
-                                   NULL, /*default value*/
+                                   NULL,
                                    G_PARAM_READWRITE |
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
@@ -579,7 +584,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_string("extra-auth-user",
                                    "Extra auth username",
                                    "Username to use for extra authentication challenges",
-                                   NULL, /*default value*/
+                                   NULL,
                                    G_PARAM_READWRITE |
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
@@ -588,7 +593,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_string("extra-auth-password",
                                    "Extra auth password",
                                    "Password to use for extra authentication challenges",
-                                   NULL, /*default value*/
+                                   NULL,
                                    G_PARAM_READWRITE |
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
