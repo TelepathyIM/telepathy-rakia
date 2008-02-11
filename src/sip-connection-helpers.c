@@ -148,20 +148,20 @@ sip_conn_update_proxy_and_transport (SIPConnection *conn)
   if (priv->proxy_url != NULL)
     {
       su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
-      sip_route_t *route;
-      url_t *route_url;
+      sip_route_t *route = NULL;
       const char *params = NULL;
 
-      route_url = url_hdup (temphome, priv->proxy_url);
+      if (priv->loose_routing)
+        {
+          url_t *route_url;
+          route_url = url_hdup (temphome, priv->proxy_url);
+          g_return_if_fail (route_url != NULL);
+          if (!url_has_param (route_url, "lr"))
+            url_param_add (temphome, route_url, "lr");
+          route = sip_route_create (temphome, route_url, NULL);
+        }
 
-      g_return_if_fail (route_url != NULL);
-
-      if (!url_has_param (route_url, "lr"))
-        url_param_add (temphome, route_url, "lr");
-
-      route = sip_route_create (temphome, route_url, NULL);
-
-      if (priv->transport != NULL && route_url->url_type == url_sip)
+      if (priv->transport != NULL && priv->proxy_url->url_type == url_sip)
         {
           if (g_ascii_strcasecmp (priv->transport, "tcp") == 0)
             params = "transport=tcp";
@@ -172,7 +172,9 @@ sip_conn_update_proxy_and_transport (SIPConnection *conn)
         }
 
       nua_set_params (priv->sofia_nua,
-                      NUTAG_INITIAL_ROUTE(route),
+                      TAG_IF(route, NUTAG_INITIAL_ROUTE(route)),
+                      TAG_IF(!priv->loose_routing,
+                             NUTAG_PROXY(priv->proxy_url)),
                       TAG_IF(params, NUTAG_M_PARAMS(params)),
                       TAG_NULL());
 

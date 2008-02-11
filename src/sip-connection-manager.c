@@ -51,6 +51,7 @@ typedef struct {
     gchar *proxy_host;
     guint port;
     gchar *transport;
+    gboolean loose_routing;
     gboolean discover_binding;
     gchar *keepalive_mechanism;
     gint keepalive_interval;
@@ -98,6 +99,7 @@ enum {
     SIP_CONN_PARAM_PROXY_HOST,
     SIP_CONN_PARAM_PORT,
     SIP_CONN_PARAM_TRANSPORT,
+    SIP_CONN_PARAM_LOOSE_ROUTING,
     SIP_CONN_PARAM_DISCOVER_BINDING,
     SIP_CONN_PARAM_KEEPALIVE_MECHANISM,
     SIP_CONN_PARAM_KEEPALIVE_INTERVAL,
@@ -140,6 +142,10 @@ static const TpCMParamSpec sip_params[] = {
     { "transport", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "auto",
       G_STRUCT_OFFSET (SIPConnParams, transport) },
+    /* Enables loose routing as per RFC 3261 */
+    { "loose-routing", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
+      G_STRUCT_OFFSET (SIPConnParams, loose_routing) },
     /* Used to enable proactive NAT traversal techniques */
     { "discover-binding", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
@@ -446,6 +452,9 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   SET_PROPERTY_IF_PARAM_SET ("registrar", SIP_CONN_PARAM_REGISTRAR,
       params->registrar);
+
+  SET_PROPERTY_IF_PARAM_SET ("loose-routing", SIP_CONN_PARAM_LOOSE_ROUTING,
+      params->loose_routing);
 
   SET_PROPERTY_IF_PARAM_SET ("discover-binding", SIP_CONN_PARAM_DISCOVER_BINDING,
       params->discover_binding);

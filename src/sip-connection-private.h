@@ -56,6 +56,7 @@ struct _SIPConnectionPrivate
   guint local_port;
   gchar *extra_auth_user;
   gchar *extra_auth_password;
+  gboolean loose_routing;
   gboolean discover_binding;
 
   gboolean dispose_has_run;

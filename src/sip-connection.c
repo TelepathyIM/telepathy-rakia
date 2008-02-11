@@ -77,7 +77,7 @@ enum
   PROP_TRANSPORT,        /**< outbound transport */
   PROP_PROXY,            /**< outbound SIP proxy (SIP URI) */
   PROP_REGISTRAR,        /**< SIP registrar (SIP URI) */
-
+  PROP_LOOSE_ROUTING,       /**< enable loose routing behavior */
   PROP_KEEPALIVE_MECHANISM, /**< keepalive mechanism as defined by SIPConnectionKeepaliveMechanism */
   PROP_KEEPALIVE_INTERVAL, /**< keepalive interval in seconds */
   PROP_DISCOVER_BINDING,   /**< enable discovery of public binding */
@@ -229,6 +229,10 @@ sip_connection_set_property (GObject      *object,
                      TAG_END());
     break;
   }
+  case PROP_LOOSE_ROUTING: {
+    priv->loose_routing = g_value_get_boolean (value);
+    break;
+  }
   case PROP_KEEPALIVE_MECHANISM: {
     priv->keepalive_mechanism = g_value_get_enum (value);
     if (priv->sofia_nua) {
@@ -326,6 +330,10 @@ sip_connection_get_property (GObject      *object,
   }
   case PROP_REGISTRAR: {
     priv_value_set_url_as_string (value, priv->registrar_url);
+    break;
+  }
+  case PROP_LOOSE_ROUTING: {
+    g_value_set_boolean (value, priv->loose_routing);
     break;
   }
   case PROP_KEEPALIVE_MECHANISM: {
@@ -482,6 +490,16 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
   INST_PROP(PROP_REGISTRAR);
+
+  param_spec = g_param_spec_boolean("loose-routing",
+                                    "Loose routing",
+                                    "Enable loose routing as per RFC 3261",
+                                    TRUE, /*default value*/
+                                    G_PARAM_CONSTRUCT |
+                                    G_PARAM_READWRITE |
+                                    G_PARAM_STATIC_NAME |
+                                    G_PARAM_STATIC_BLURB);
+  INST_PROP(PROP_LOOSE_ROUTING);
 
   param_spec = g_param_spec_enum ("keepalive-mechanism",
                                   "Keepalive mechanism",
@@ -766,11 +784,8 @@ sip_connection_start_connecting (TpBaseConnection *base,
   else if (priv->discover_stun)
     sip_conn_discover_stun_server (self);
 
-  g_message ("Sofia-SIP NUA at address %p (SIP URI: %s)", 
-	     priv->sofia_nua, sip_address);
-
-  /* XXX: should there be configuration option to disable use
-   *      of outbound proxy, any use-cases? */
+  DEBUG("Sofia-SIP NUA at address %p (SIP URI: %s)",
+	priv->sofia_nua, sip_address);
 
   /* for debugging purposes, request a dump of stack configuration
    * at registration time */
