@@ -348,6 +348,10 @@ priv_parse_keepalive (const gchar *str)
       g_object_set (connection, prop, member, NULL); \
     }
 
+#define NULLIFY_IF_EMPTY(param) \
+  if ((param) != NULL && !(param)[0]) \
+    param = NULL;
+
 static gboolean
 check_not_empty_if_present (const gchar *name,
                             const gchar *value,
@@ -397,28 +401,19 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
   if (!check_not_empty_if_present ("account", params->account, error))
     return FALSE;
   /* FIXME: validate registrar SIP URI properly, using appropriate RFCs */
-  if (!check_not_empty_if_present ("registrar", params->registrar, error))
-    return FALSE;
+  NULLIFY_IF_EMPTY(params->registrar);
   /* FIXME: validate proxy host properly */
-  if (!check_not_empty_if_present ("proxy-host", params->proxy_host, error))
-    return FALSE;
+  NULLIFY_IF_EMPTY(params->proxy_host);
   /* FIXME: check against the list (which presumably exists) of valid
    * transports */
-  if (!check_not_empty_if_present ("transport", params->transport, error))
-    return FALSE;
+  NULLIFY_IF_EMPTY(params->transport);
   /* FIXME: check against the list (which presumably exists) of valid
    * KA mechanisms */
-  if (!check_not_empty_if_present ("keepalive-mechanism",
-        params->keepalive_mechanism, error))
-    return FALSE;
+  NULLIFY_IF_EMPTY(params->keepalive_mechanism);
   /* FIXME: validate STUN server properly */
-  if (!check_not_empty_if_present ("stun-server", params->stun_server,
-        error))
-    return FALSE;
+  NULLIFY_IF_EMPTY(params->stun_server);
   /* FIXME: validate local IP address properly */
-  if (!check_not_empty_if_present ("local-ip-address", params->local_ip_address,
-        error))
-    return FALSE;
+  NULLIFY_IF_EMPTY(params->local_ip_address);
 
   DEBUG("New SIP connection to %s", params->account);
 
