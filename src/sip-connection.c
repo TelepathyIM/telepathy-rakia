@@ -715,9 +715,6 @@ sip_connection_start_connecting (TpBaseConnection *base,
   const gchar *sip_address;
   const url_t *local_url;
 
-  g_message("%s: Connection %p ref-count=%u (obj)", G_STRFUNC, self,
-      G_OBJECT(self)->ref_count);
-
   g_assert (base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
 
   g_assert (priv->sofia != NULL);
