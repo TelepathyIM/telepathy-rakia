@@ -801,8 +801,8 @@ sip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
   SIPMediaStreamPrivate *priv;
   priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
 
-  SESSION_DEBUG(priv->session, "got codec intersection containing %u "
-                "codecs from stream-engine", codecs->len);
+  DEBUG("got codec intersection containing %u codecs from stream-engine",
+        codecs->len);
 
   /* Uncomment the line below if there's need to limit the local codec list
    * with the intersection for later SDP negotiations.
