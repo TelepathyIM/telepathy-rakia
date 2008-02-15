@@ -1407,14 +1407,6 @@ static void push_remote_candidates (SIPMediaStream *stream)
 
   g_boxed_free (candidates_type, candidates);
   g_boxed_free (transports_type, transports);
-
-#if 0
-  if (priv->playing) {
-    g_debug ("%s: emitting SetStreamPlaying TRUE", G_STRFUNC);
-    tp_svc_media_stream_handler_emit_set_stream_playing (
-        (TpSvcMediaStreamHandler *)stream, TRUE);
-  }
-#endif
 }
 
 static void
