@@ -115,7 +115,8 @@ struct _SIPMediaStreamPrivate
   gboolean sending;                     /** stream set to sending */
   gboolean native_cands_prepared;       /** all candidates discovered */
   gboolean native_codecs_prepared;      /** all codecs discovered */
-  gboolean push_remote_requested;       /** remote info signals are pending */
+  gboolean push_remote_cands_pending;   /** SetRemoteCandidates emission is pending */
+  gboolean push_remote_codecs_pending;  /** SetRemoteCodecs emission is pending */
   gboolean codec_intersect_pending;     /** codec intersection is pending */
   gboolean dispose_has_run;
 };
@@ -206,7 +207,8 @@ sip_media_stream_init (SIPMediaStream *self)
   priv->native_cands_prepared = FALSE;
   priv->native_codecs_prepared = FALSE;
 
-  priv->push_remote_requested = FALSE;
+  priv->push_remote_cands_pending = FALSE;
+  priv->push_remote_codecs_pending = FALSE;
 }
 
 static GObject *
@@ -724,11 +726,16 @@ sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
   tp_svc_media_stream_handler_emit_set_stream_playing (
         iface, priv->playing);
 
-  if (priv->push_remote_requested) {
-    push_remote_candidates (obj);
-    push_remote_codecs (obj);
-    priv->push_remote_requested = FALSE;
-  }
+  if (priv->push_remote_cands_pending)
+    {
+      priv->push_remote_cands_pending = FALSE;
+      push_remote_candidates (obj);
+    }
+  if (priv->push_remote_codecs_pending)
+    {
+      priv->push_remote_codecs_pending = FALSE;
+      push_remote_codecs (obj);
+    }
 
   /* note: for inbound sessions, emit active candidate pair once 
            remote info is set */
@@ -1228,7 +1235,7 @@ static void push_remote_codecs (SIPMediaStream *stream)
   if (!priv->ready_received)
     {
       DEBUG("the stream engine is not ready, SetRemoteCodecs is pending");
-      priv->push_remote_requested = TRUE;
+      priv->push_remote_codecs_pending = TRUE;
       return;
     }
 
@@ -1321,7 +1328,7 @@ static void push_remote_candidates (SIPMediaStream *stream)
   if (!priv->ready_received)
     {
       DEBUG("the stream engine is not ready, SetRemoteCandidateList is pending");
-      priv->push_remote_requested = TRUE;
+      priv->push_remote_cands_pending = TRUE;
       return;
     }
 
