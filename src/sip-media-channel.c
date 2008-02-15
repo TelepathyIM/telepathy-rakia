@@ -624,7 +624,8 @@ sip_media_channel_list_streams (TpSvcChannelTypeStreamedMedia *iface,
   g_assert (SIP_IS_MEDIA_CHANNEL (self));
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (!sip_media_session_list_streams (priv->session, &ret))
+  if (priv->session == NULL
+      || !sip_media_session_list_streams (priv->session, &ret))
     ret = g_ptr_array_new ();
 
   tp_svc_channel_type_streamed_media_return_from_list_streams (context, ret);
