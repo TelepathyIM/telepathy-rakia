@@ -804,13 +804,28 @@ sip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
   SESSION_DEBUG(priv->session, "got codec intersection containing %u "
                 "codecs from stream-engine", codecs->len);
 
-  g_assert (priv->codec_intersect_pending);
-  priv->codec_intersect_pending = FALSE;
+  /* Uncomment the line below if there's need to limit the local codec list
+   * with the intersection for later SDP negotiations.
+   * TODO: Make sure to update the SDP for the stream as well. */
+  /* g_value_set_boxed (&priv->native_codecs, codecs); */
 
-  /* store the intersection for later on */
-  g_value_set_boxed (&priv->native_codecs, codecs);
-
-  g_signal_emit (self, signals[SIG_SUPPORTED_CODECS], 0, codecs->len);
+  if (priv->codec_intersect_pending)
+    {
+      if (priv->push_remote_codecs_pending)
+        {
+          /* The remote codec list has been updated since the intersection
+           * has started, plunge into a new intersection immediately */
+          priv->push_remote_codecs_pending = FALSE;
+          push_remote_codecs (self);
+        }
+      else
+        {
+          priv->codec_intersect_pending = FALSE;
+          g_signal_emit (self, signals[SIG_SUPPORTED_CODECS], 0, codecs->len);
+        }
+    }
+  else
+    g_warning("SupportedCodecs called when no intersection is ongoing");
 
   tp_svc_media_stream_handler_return_from_supported_codecs (context);
 }
@@ -956,9 +971,15 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
       push_remote_candidates (stream);
     }
 
-  push_remote_codecs (stream);
-
-  priv->codec_intersect_pending = TRUE;
+  if (!priv->codec_intersect_pending)
+    {
+      priv->codec_intersect_pending = TRUE;
+      push_remote_codecs (stream);
+    }
+  else
+    {
+      priv->push_remote_codecs_pending = TRUE;
+    }
 
   /* TODO: this will go to session change commit code */
 
