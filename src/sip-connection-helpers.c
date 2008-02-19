@@ -399,6 +399,9 @@ sip_conn_update_nua_keepalive_interval (SIPConnection *conn)
   SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
   long keepalive_interval;
 
+  if (priv->keepalive_interval < 0)
+    return;
+
   if (priv->keepalive_mechanism == SIP_CONNECTION_KEEPALIVE_NONE)
     keepalive_interval = 0;
   else if (priv->keepalive_interval == 0)
@@ -426,6 +429,9 @@ sip_conn_update_nua_contact_features (SIPConnection *conn)
   guint timeout;
 
   if (priv->keepalive_mechanism != SIP_CONNECTION_KEEPALIVE_REGISTER)
+    return;
+
+  if (priv->keepalive_interval < 0)
     return;
 
   priv_sanitize_keepalive_interval (priv);
