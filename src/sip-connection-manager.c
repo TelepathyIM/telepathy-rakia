@@ -155,7 +155,8 @@ static const TpCMParamSpec sip_params[] = {
       0, NULL, G_STRUCT_OFFSET (SIPConnParams, keepalive_mechanism) },
     /* KA interval */
     { "keepalive-interval", DBUS_TYPE_INT32_AS_STRING, G_TYPE_INT,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, keepalive_interval) },
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GINT_TO_POINTER(-1),
+      G_STRUCT_OFFSET (SIPConnParams, keepalive_interval) },
     /* Use SRV DNS lookup to discover STUN server */
     { "discover-stun", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
