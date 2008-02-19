@@ -514,7 +514,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
 
   param_spec = g_param_spec_int("keepalive-interval", 
 				"Keepalive interval",
-				"Interval between keepalives in seconds (0 = disable, -1 = let stack decide.",
+				"Interval between keepalives in seconds (0 = internal default, -1 = let the stack decide)",
 				-1, G_MAXINT32, -1,
                                 G_PARAM_CONSTRUCT |
                                 G_PARAM_READWRITE |
