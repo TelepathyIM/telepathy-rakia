@@ -1,7 +1,7 @@
 /*
  * sip-media-channel.c - Source for SIPMediaChannel
- * Copyright (C) 2005-2007 Collabora Ltd.
- * Copyright (C) 2005-2007 Nokia Corporation
+ * Copyright (C) 2005-2008 Collabora Ltd.
+ * Copyright (C) 2005-2008 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
  *
  * Based on telepathy-gabble implementation (gabble-media-channel).
@@ -32,6 +32,9 @@
 #include <telepathy-glib/intset.h>
 #include <telepathy-glib/svc-channel.h>
 
+/* Hold interface */
+#include "extensions/extensions.h"
+
 #include "sip-media-channel.h"
 #include "media-factory.h"
 #include "sip-connection.h"
@@ -48,6 +51,7 @@ static void media_signalling_iface_init (gpointer, gpointer);
 static void streamed_media_iface_init (gpointer, gpointer);
 static void dtmf_iface_init (gpointer, gpointer);
 static void priv_group_mixin_iface_init (gpointer, gpointer);
+static void hold_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
     G_TYPE_OBJECT,
@@ -58,6 +62,8 @@ G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
       media_signalling_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DTMF,
       dtmf_iface_init);
+    G_IMPLEMENT_INTERFACE (SIP_TYPE_SVC_CHANNEL_INTERFACE_HOLD,
+      hold_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_STREAMED_MEDIA,
       streamed_media_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_PROPERTIES_INTERFACE,
@@ -1441,3 +1447,50 @@ priv_group_mixin_iface_init (gpointer g_iface, gpointer iface_data)
 #endif
 }
 
+static void
+sip_media_channel_get_hold_state (SIPSvcChannelInterfaceHold *iface,
+                                  DBusGMethodInvocation *context)
+{
+  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
+
+  (void) self;
+
+  sip_svc_channel_interface_hold_return_from_get_hold_state (context,
+      SIP_CHANNEL_HOLD_STATE_NONE);
+}
+
+static void
+sip_media_channel_request_hold (SIPSvcChannelInterfaceHold *iface,
+                                gboolean hold,
+                                DBusGMethodInvocation *context)
+{
+  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
+
+  (void) self;
+
+  if (hold)
+    {
+      GError e = { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "Actually putting people on hold has not been implemented" };
+
+      dbus_g_method_return_error (context, &e);
+    }
+  else
+    {
+      sip_svc_channel_interface_hold_return_from_request_hold (context);
+    }
+}
+
+
+static void
+hold_iface_init (gpointer g_iface,
+                 gpointer iface_data)
+{
+  SIPSvcChannelInterfaceHoldClass *klass = g_iface;
+
+#define IMPLEMENT(x) sip_svc_channel_interface_hold_implement_##x (\
+    klass, sip_media_channel_##x)
+  IMPLEMENT (get_hold_state);
+  IMPLEMENT (request_hold);
+#undef IMPLEMENT
+}
