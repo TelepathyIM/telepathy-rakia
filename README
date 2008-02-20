@@ -7,7 +7,7 @@ Building
 
 telepathy-sofiasip requires GNU make.
 
-When building from the devel tree (you need automake-1.9):
+When building from the devel tree (you need automake-1.8 or up):
 
 sh> gtkdocize # (optional)
 sh> autoreconf -i
