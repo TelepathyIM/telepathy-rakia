@@ -14,11 +14,14 @@ ACLOCAL_AMFLAGS = -I m4
 # ----------------------------------------------------------------------
 # Build targets
 
-SUBDIRS = 	data \
-		docs \
-		m4 \
-		src \
-		tests
+SUBDIRS = \
+	tools \
+	extensions \
+	data \
+	docs \
+	m4 \
+	src \
+	tests
 
 dist-hook:
 	chmod ug+w ${distdir}/ChangeLog

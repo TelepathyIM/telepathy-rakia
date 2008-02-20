@@ -21,6 +21,7 @@ AM_CONFIG_HEADER(config.h)
 dnl check for tools
 AC_PROG_CC
 AC_PROG_CC_STDC
+AM_PROG_MKDIR_P
 
 dnl decide on error flags
 AS_COMPILER_FLAG(-Wall, WALL="yes", WALL="no")
@@ -97,14 +98,28 @@ AC_SUBST(SOFIA_SIP_UA_CFLAGS)
 AC_SUBST(SOFIA_SIP_UA_VERSION)
 
 dnl Check for telepathy-glib
-PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.6.1])
+PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.7.3])
 AC_SUBST(TELEPATHY_GLIB_CFLAGS)
 AC_SUBST(TELEPATHY_GLIB_LIBS)
 
+dnl Check for code generation tools
+XSLTPROC=
+AC_CHECK_PROGS([XSLTPROC], [xsltproc])
+if test -z "$XSLTPROC"; then
+  AC_MSG_ERROR([xsltproc (from the libxslt source package) is required])
+fi
+PYTHON=
+AC_CHECK_PROGS([PYTHON], [python2.3 python2.4 python2.5 python])
+if test -z "$PYTHON"; then
+  AC_MSG_ERROR([Python is required to compile this package])
+fi
+
 AC_OUTPUT( Makefile \
+extensions/Makefile \
 src/Makefile \
 m4/Makefile \
 data/Makefile \
 tests/Makefile \
+tools/Makefile \
 docs/Makefile
 )
