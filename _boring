@@ -61,3 +61,5 @@
 ^tests/tp_caller$
 ^telepathy-sofiasip-[0-9]
 ^INSTALL$
+(^|/)_gen(/|$)
+^extensions/extensions\.html$
