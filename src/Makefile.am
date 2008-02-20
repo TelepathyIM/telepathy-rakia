@@ -15,8 +15,9 @@ managerdir = $(datadir)/telepathy/managers
 # Headers and libraries
 
 AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @SOFIA_SIP_UA_CFLAGS@ \
-	    @TELEPATHY_GLIB_CFLAGS@ @COVERAGE_CFLAGS@
-AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_SIP_UA_LIBS@ @TELEPATHY_GLIB_LIBS@
+	    @TELEPATHY_GLIB_CFLAGS@ @COVERAGE_CFLAGS@ \
+	    -I$(top_builddir) -I$(top_srcdir)
+ALL_LIBS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_SIP_UA_LIBS@ @TELEPATHY_GLIB_LIBS@
 
 # ----------------------------------------------------------------------
 # Build targets
@@ -99,15 +100,18 @@ libtpsip_convenience_la_SOURCES = \
 nodist_libtpsip_convenience_la_SOURCES = \
     $(BUILT_SOURCES)
 
+libtpsip_convenience_la_LIBADD = \
+    $(top_builddir)/extensions/libsip-extensions.la
+
 telepathy_sofiasip_SOURCES = \
     telepathy-sofiasip.c 
 
-telepathy_sofiasip_LDADD = libtpsip-convenience.la
+telepathy_sofiasip_LDADD = libtpsip-convenience.la $(ALL_LIBS)
 
 write_mgr_file_SOURCES = \
     write-mgr-file.c 
 
-write_mgr_file_LDADD = libtpsip-convenience.la
+write_mgr_file_LDADD = libtpsip-convenience.la $(ALL_LIBS)
 
 # ----------------------------------------------------------------------
 # Install and distribution rules
