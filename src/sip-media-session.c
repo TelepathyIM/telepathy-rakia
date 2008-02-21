@@ -1783,6 +1783,7 @@ priv_create_media_stream (SIPMediaSession *self,
   gchar *object_path;
   SIPMediaStream *stream = NULL;
   guint stream_id;
+  guint direction;
 
   DEBUG ("enter");
 
@@ -1794,11 +1795,16 @@ priv_create_media_stream (SIPMediaSession *self,
                                    priv->object_path,
                                    stream_id);
 
+    direction = ((priv->hold_state & SIP_CHANNEL_HOLD_STATE_LOCAL) == 0)
+                ? TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL
+                : TP_MEDIA_STREAM_DIRECTION_SEND;
+
     stream = g_object_new (SIP_TYPE_MEDIA_STREAM,
 			   "media-session", self,
 			   "media-type", media_type,
 			   "object-path", object_path,
 			   "id", stream_id,
+                           "direction", direction,
                            "pending-send-flags", pending_send_flags,
 			   NULL);
 
