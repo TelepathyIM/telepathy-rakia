@@ -1404,8 +1404,8 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
        * Closing them off serves resource preservation and gives better
        * clue to the client as to the real state of the session.
        * Note that this situation is masked if any local media updates
-       * have been requested and are pending until the remote session answer
-       * has been received and applied. In such a case, we'll issue a new offer
+       * have been requested and are pending until the present remote session
+       * answer is received and applied. In such a case, we'll issue a new offer
        * at the closest available time, with the "overhanging" stream entries
        * intact.
        */
