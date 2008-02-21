@@ -62,7 +62,7 @@ guint sip_media_stream_get_media_type (SIPMediaStream *self);
 const char *sip_media_stream_local_sdp (SIPMediaStream *self);
 gboolean sip_media_stream_set_remote_media (SIPMediaStream *self,
                                             const sdp_media_t *media,
-                                            gboolean authoritative);
+                                            guint direction_up_mask);
 void sip_media_stream_set_playing (SIPMediaStream *self, gboolean playing);
 void sip_media_stream_set_sending (SIPMediaStream *self, gboolean sending);
 gboolean sip_media_stream_set_direction (SIPMediaStream *stream,

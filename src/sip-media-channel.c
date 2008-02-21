@@ -1316,6 +1316,53 @@ sip_media_channel_remove_with_reason (GObject *obj,
 }
 
 static void
+sip_media_channel_get_hold_state (SIPSvcChannelInterfaceHold *iface,
+                                  DBusGMethodInvocation *context)
+{
+  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  sip_svc_channel_interface_hold_return_from_get_hold_state (context,
+        (priv->session != NULL)
+                ? sip_media_session_get_hold_state (priv->session)
+                : SIP_CHANNEL_HOLD_STATE_NONE);
+}
+
+static void
+sip_media_channel_request_hold (SIPSvcChannelInterfaceHold *iface,
+                                gboolean hold,
+                                DBusGMethodInvocation *context)
+{
+  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
+  SIPMediaChannelPrivate *priv;
+  GError *error = NULL;
+
+  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  if (priv->session != NULL)
+    {
+      sip_media_session_request_hold (priv->session,
+                                      hold,
+                                      &error);
+    }
+  else
+    {
+      error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+                           "The media session is not available");
+    }
+
+  if (error == NULL)
+    {
+      sip_svc_channel_interface_hold_return_from_request_hold (context);
+    }
+  else
+    {
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+    }
+}
+
+static void
 sip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
                               guint stream_id,
                               guchar event,
@@ -1446,41 +1493,6 @@ priv_group_mixin_iface_init (gpointer g_iface, gpointer iface_data)
       priv_add_members);
 #endif
 }
-
-static void
-sip_media_channel_get_hold_state (SIPSvcChannelInterfaceHold *iface,
-                                  DBusGMethodInvocation *context)
-{
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-
-  (void) self;
-
-  sip_svc_channel_interface_hold_return_from_get_hold_state (context,
-      SIP_CHANNEL_HOLD_STATE_NONE);
-}
-
-static void
-sip_media_channel_request_hold (SIPSvcChannelInterfaceHold *iface,
-                                gboolean hold,
-                                DBusGMethodInvocation *context)
-{
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-
-  (void) self;
-
-  if (hold)
-    {
-      GError e = { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-          "Actually putting people on hold has not been implemented" };
-
-      dbus_g_method_return_error (context, &e);
-    }
-  else
-    {
-      sip_svc_channel_interface_hold_return_from_request_hold (context);
-    }
-}
-
 
 static void
 hold_iface_init (gpointer g_iface,

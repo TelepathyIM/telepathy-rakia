@@ -117,6 +117,7 @@ struct _SIPMediaSessionPrivate
   TpHandle peer;                        /** see gobj. prop. 'peer' */
   gchar *local_ip_address;              /** see gobj. prop. 'local-ip-address' */
   SIPMediaSessionState state;           /** session state */
+  SIPChannelHoldState hold_state;       /** hold state aggregated from stream directions */
   nua_saved_event_t saved_event[1];     /** Saved incoming request event */
   gint local_non_ready;                 /** number of streams with local information update pending */
   guint remote_stream_count;            /** number of streams last seen in a remote offer */
@@ -167,6 +168,8 @@ static void sip_media_session_init (SIPMediaSession *obj)
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (obj);
 
   priv->state = SIP_MEDIA_SESSION_STATE_CREATED;
+
+  priv->hold_state = SIP_CHANNEL_HOLD_STATE_NONE;
 
   /* allocate any data required by the object here */
   priv->streams = g_ptr_array_new ();
@@ -1102,6 +1105,49 @@ sip_media_session_get_stream (SIPMediaSession *self,
   return stream;
 }
 
+SIPChannelHoldState
+sip_media_session_get_hold_state (SIPMediaSession *self)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  return priv->hold_state;
+}
+
+void
+sip_media_session_request_hold (SIPMediaSession *self,
+                                gboolean hold,
+                                GError **error)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  SIPMediaStream *stream;
+  gboolean media_changed = FALSE;
+  guint hold_mask;
+  guint unhold_mask;
+  guint i;
+
+  hold_mask = hold? TP_MEDIA_STREAM_DIRECTION_SEND
+                  : TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+  unhold_mask = hold? 0 : TP_MEDIA_STREAM_DIRECTION_RECEIVE;
+
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      stream = g_ptr_array_index(priv->streams, i);
+      if (stream != NULL)
+        {
+          guint direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+          g_object_get (stream,
+                        "direction", &direction,
+                        NULL);
+          direction &= hold_mask;
+          direction |= unhold_mask;
+          if (sip_media_stream_set_direction (stream, direction, FALSE))
+            media_changed = TRUE;
+        }
+    }
+
+  if (media_changed)
+    priv_local_media_changed (self);
+}
+
 gboolean
 sip_media_session_start_telephony_event (SIPMediaSession *self,
                                          guint stream_id,
@@ -1233,15 +1279,68 @@ priv_local_media_changed (SIPMediaSession *session)
     }
 }
 
+static void
+priv_update_hold_state (SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  SIPMediaStream *stream;
+  gboolean has_streams = FALSE;
+  guint hold_state = SIP_CHANNEL_HOLD_STATE_BOTH;
+  guint i;
+
+  /* Starting with bidirectional hold, bid down accordingly to availability
+   * of streams unheld localy or remotely */
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      stream = g_ptr_array_index(priv->streams, i);
+      if (stream != NULL)
+        {
+          guint direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+          g_object_get (stream,
+                        "direction", &direction,
+                        NULL);
+
+          if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0)
+            hold_state &= ~SIP_CHANNEL_HOLD_STATE_REMOTE;
+          if ((direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE) != 0)
+            hold_state &= ~SIP_CHANNEL_HOLD_STATE_LOCAL;
+
+          has_streams = TRUE;
+        }
+    }
+
+  if (has_streams && priv->hold_state != hold_state)
+    {
+      DEBUG("changing hold state to %u", hold_state);
+      priv->hold_state = hold_state;
+      sip_svc_channel_interface_hold_emit_hold_state_changed (priv->channel,
+                                                              priv->hold_state);
+    }
+}
+
 static gboolean
 priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
   const sdp_media_t *media;
   gboolean has_supported_media = FALSE;
+  guint direction_up_mask;
   guint i;
 
   g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
+
+  /*
+   * Do not allow:
+   * 1) an answer to bump up directions beyond what's been offered;
+   * 2) an offer to remove the local hold.
+   */
+  if (authoritative)
+    direction_up_mask
+        = ((priv->hold_state & SIP_CHANNEL_HOLD_STATE_LOCAL) == 0)
+                ? TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL
+                : TP_MEDIA_STREAM_DIRECTION_SEND;
+  else
+    direction_up_mask = 0;
 
   media = priv->remote_sdp->sdp_media;
 
@@ -1284,7 +1383,7 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
         {
           if (sip_media_stream_set_remote_media (stream,
                                                  media,
-                                                 authoritative))
+                                                 direction_up_mask))
             {
               has_supported_media = TRUE;
               continue;
@@ -1323,6 +1422,9 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
         }
       while (++i < priv->streams->len);
     }
+
+  if (has_supported_media)
+    priv_update_hold_state (session);
 
   DEBUG("exit");
 

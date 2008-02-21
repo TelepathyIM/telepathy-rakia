@@ -24,6 +24,9 @@
 #include <telepathy-glib/handle.h>
 #include <sofia-sip/sdp.h>
 
+/* Hold interface */
+#include "extensions/extensions.h"
+
 G_BEGIN_DECLS
 
 typedef enum {
@@ -97,6 +100,12 @@ void sip_media_session_accept (SIPMediaSession *self);
 void sip_media_session_reject (SIPMediaSession *self,
                                gint status,
                                const char *message);
+
+SIPChannelHoldState sip_media_session_get_hold_state (SIPMediaSession *session);
+void sip_media_session_request_hold (SIPMediaSession *session,
+                                     gboolean hold,
+                                     GError **error);
+
 gboolean sip_media_session_start_telephony_event (SIPMediaSession *self,
                                                   guint stream_id,
                                                   guchar event,

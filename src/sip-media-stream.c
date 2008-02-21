@@ -890,7 +890,7 @@ sip_tp_stream_direction_from_remote (sdp_mode_t mode)
 gboolean
 sip_media_stream_set_remote_media (SIPMediaStream *stream,
                                    const sdp_media_t *new_media,
-                                   gboolean authoritative)
+                                   guint direction_up_mask)
 {
   SIPMediaStreamPrivate *priv;
   sdp_connection_t *sdp_conn;
@@ -940,10 +940,9 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
 
   new_direction = sip_tp_stream_direction_from_remote (new_media->m_mode);
 
-  /* Make sure the answer can only remove sending or receiving bits
-   * of the offer */
-  if (!authoritative)
-    new_direction &= priv->direction;
+  /* Make sure the peer can only enable sending or receiving direction
+   * if it's allowed to */
+  new_direction &= priv->direction | direction_up_mask;
 
   /* Check if the transport candidate needs to be changed */
   if (old_media != NULL)
