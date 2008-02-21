@@ -698,24 +698,26 @@ sip_media_channel_request_stream_direction (TpSvcChannelTypeStreamedMedia *iface
 
   if (priv->session != NULL)
     {
-       sip_media_session_request_stream_direction (priv->session,
-                                                   stream_id,
-                                                   stream_direction,
-                                                   &error);
+      sip_media_session_request_stream_direction (priv->session,
+                                                  stream_id,
+                                                  stream_direction,
+                                                  &error);
     }
   else
     {
       error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-                           "No session is available");
+                           "The media session is not available");
     }
 
-  if (error != NULL)
+  if (error == NULL)
+    {
+      tp_svc_channel_type_streamed_media_return_from_request_stream_direction (context);
+    }
+  else
     {
       dbus_g_method_return_error (context, error);
       g_error_free (error);
-      return;
     }
-  tp_svc_channel_type_streamed_media_return_from_request_stream_direction (context);
 }
 
 
