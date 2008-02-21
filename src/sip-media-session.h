@@ -103,8 +103,7 @@ void sip_media_session_reject (SIPMediaSession *self,
 
 SIPChannelHoldState sip_media_session_get_hold_state (SIPMediaSession *session);
 void sip_media_session_request_hold (SIPMediaSession *session,
-                                     gboolean hold,
-                                     GError **error);
+                                     gboolean hold);
 
 gboolean sip_media_session_start_telephony_event (SIPMediaSession *self,
                                                   guint stream_id,

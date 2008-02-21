@@ -1337,31 +1337,22 @@ sip_media_channel_request_hold (SIPSvcChannelInterfaceHold *iface,
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
   SIPMediaChannelPrivate *priv;
-  GError *error = NULL;
 
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (priv->session != NULL)
     {
       sip_media_session_request_hold (priv->session,
-                                      hold,
-                                      &error);
+                                      hold);
     }
   else
     {
-      error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-                           "The media session is not available");
+      GError e = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+                  "The media session is not available"};
+      dbus_g_method_return_error (context, &e);
     }
 
-  if (error == NULL)
-    {
-      sip_svc_channel_interface_hold_return_from_request_hold (context);
-    }
-  else
-    {
-      dbus_g_method_return_error (context, error);
-      g_error_free (error);
-    }
+  sip_svc_channel_interface_hold_return_from_request_hold (context);
 }
 
 static void

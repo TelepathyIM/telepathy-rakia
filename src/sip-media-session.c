@@ -1114,8 +1114,7 @@ sip_media_session_get_hold_state (SIPMediaSession *self)
 
 void
 sip_media_session_request_hold (SIPMediaSession *self,
-                                gboolean hold,
-                                GError **error)
+                                gboolean hold)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
   SIPMediaStream *stream;
