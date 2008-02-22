@@ -874,6 +874,10 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
       {
         g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
                      "creation of stream %u failed", i);
+        /* XXX: should we close the streams already created as part of
+         * this request, despite having emitted signals about them?
+         * Another solution: pre-validate the media types and
+         * make sure all streams really get created. */
         return FALSE;
       }
 
