@@ -29,9 +29,10 @@
 
 #include <sofia-sip/sip_status.h>
 
-#include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/errors.h>
+#include <telepathy-glib/gtypes.h>
+#include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-media-interfaces.h>
 
 #include "config.h"
@@ -40,7 +41,6 @@
 #include "sip-media-channel.h"
 #include "sip-media-stream.h"
 #include "sip-connection-helpers.h"
-#include "telepathy-helpers.h"
 #include "signals-marshal.h"
 
 #define DEBUG_FLAG SIP_DEBUG_MEDIA
@@ -811,18 +811,6 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
                  || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED));
 }
 
-DEFINE_TP_STRUCT_TYPE(sip_tp_stream_struct_type,
-                      G_TYPE_UINT,
-                      G_TYPE_UINT,
-                      G_TYPE_UINT,
-                      G_TYPE_UINT,
-                      G_TYPE_UINT,
-                      G_TYPE_UINT)
-
-DEFINE_TP_LIST_TYPE(sip_tp_stream_list_type,
-                    sip_tp_stream_struct_type ())
-
-
 void
 priv_add_stream_list_entry (GPtrArray *list,
                             SIPMediaStream *stream,
@@ -847,7 +835,7 @@ priv_add_stream_list_entry (GPtrArray *list,
                 "pending-send-flags", &pending_send_flags,
                 NULL);
 
-  stream_type = sip_tp_stream_struct_type ();
+  stream_type = TP_STRUCT_TYPE_MEDIA_STREAM_INFO;
 
   g_value_init (&entry, stream_type);
   g_value_take_boxed (&entry,

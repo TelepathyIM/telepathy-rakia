@@ -30,17 +30,16 @@
 #include <sofia-sip/sip_header.h>
 
 #include <telepathy-glib/channel-iface.h>
-#include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/errors.h>
+#include <telepathy-glib/gtypes.h>
+#include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-channel.h>
 
 #include "sip-text-channel.h"
 
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
-
-#include "telepathy-helpers.h" 
 
 #define DEBUG_FLAG SIP_DEBUG_IM
 #include "debug.h"
@@ -64,18 +63,6 @@ enum
   /* PROP_CREATOR, */
   LAST_PROPERTY
 };
-
-
-DEFINE_TP_STRUCT_TYPE(sip_tp_pending_message_struct_type,
-                      G_TYPE_UINT,
-                      G_TYPE_UINT,
-                      G_TYPE_UINT,
-                      G_TYPE_UINT,
-                      G_TYPE_UINT,
-                      G_TYPE_STRING)
-
-DEFINE_TP_LIST_TYPE(sip_tp_pending_message_list_type,
-                    sip_tp_pending_message_struct_type ())
 
 
 /* private structures */
@@ -535,7 +522,7 @@ sip_pending_message_list_add (GPtrArray *list, SIPTextPendingMessage *msg)
   GValue val = { 0 };
   GType message_type;
 
-  message_type = sip_tp_pending_message_struct_type ();
+  message_type = TP_STRUCT_TYPE_PENDING_TEXT_MESSAGE;
   g_value_init (&val, message_type);
   g_value_take_boxed (&val,
                       dbus_g_type_specialized_construct (message_type));
@@ -592,7 +579,7 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
   tp_svc_channel_type_text_return_from_list_pending_messages (context,
       messages);
 
-  g_boxed_free (sip_tp_pending_message_list_type (), messages);
+  g_boxed_free (TP_ARRAY_TYPE_PENDING_TEXT_MESSAGE_LIST, messages);
 }
 
 
