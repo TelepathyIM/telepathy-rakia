@@ -855,14 +855,12 @@ priv_add_stream_list_entry (GPtrArray *list,
 
 gboolean sip_media_session_request_streams (SIPMediaSession *session,
 					    const GArray *media_types,
-					    GPtrArray **ret,
+					    GPtrArray *ret,
 					    GError **error)
 {
   guint i;
 
   DEBUG ("enter");
-
-  *ret = g_ptr_array_sized_new (media_types->len);
 
   for (i = 0; i < media_types->len; i++) {
     guint media_type = g_array_index (media_types, guint, i);
@@ -872,7 +870,14 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
                                        media_type,
                                        TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
 
-    priv_add_stream_list_entry (*ret, stream, session);
+    if (stream == NULL)
+      {
+        g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+                     "creation of stream %u failed", i);
+        return FALSE;
+      }
+
+    priv_add_stream_list_entry (ret, stream, session);
   }
 
   priv_local_media_changed (session);
@@ -905,30 +910,19 @@ sip_media_session_remove_streams (SIPMediaSession *self,
   return TRUE;
 }
 
-/**
- * Returns a list of pointers to SIPMediaStream objects 
- * associated with this session.
- */
-gboolean sip_media_session_list_streams (SIPMediaSession *session,
-					 GPtrArray **ret)
+void sip_media_session_list_streams (SIPMediaSession *session,
+                                     GPtrArray *ret)
 {
   SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
   SIPMediaStream *stream;
   guint i;
 
-  if (priv->streams == NULL || priv->streams->len == 0)
-    return FALSE;
-
-  *ret = g_ptr_array_sized_new (priv->streams->len);
-
   for (i = 0; i < priv->streams->len; i++)
     {
       stream = g_ptr_array_index(priv->streams, i);
       if (stream)
-	priv_add_stream_list_entry (*ret, stream, session);
+        priv_add_stream_list_entry (ret, stream, session);
     }
-
-  return TRUE;
 }
 
 gboolean

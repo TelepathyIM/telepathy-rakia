@@ -625,16 +625,16 @@ sip_media_channel_list_streams (TpSvcChannelTypeStreamedMedia *iface,
   SIPMediaChannelPrivate *priv;
   GPtrArray *ret = NULL;
 
-  g_assert (SIP_IS_MEDIA_CHANNEL (self));
   priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (priv->session == NULL
-      || !sip_media_session_list_streams (priv->session, &ret))
-    ret = g_ptr_array_new ();
+  ret = g_ptr_array_new ();
+
+  if (priv->session != NULL)
+    sip_media_session_list_streams (priv->session, ret);
 
   tp_svc_channel_type_streamed_media_return_from_list_streams (context, ret);
 
-  g_boxed_free (SIP_TP_STREAM_LIST_TYPE, ret);
+  g_boxed_free (TP_ARRAY_TYPE_MEDIA_STREAM_INFO_LIST, ret);
 }
 
 /**
@@ -764,18 +764,21 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
   /* if the person is a channel member, we should have a session */
   g_assert (priv->session != NULL);
 
-  if (!sip_media_session_request_streams (priv->session, types, &ret, &error))
+  ret = g_ptr_array_sized_new (types->len);
+
+  if (sip_media_session_request_streams (priv->session, types, ret, &error))
+    {
+      g_assert (types->len == ret->len);
+      tp_svc_channel_type_streamed_media_return_from_request_streams (context,
+                                                                      ret);
+    }
+  else
     {
       dbus_g_method_return_error (context, error);
       g_error_free (error);
-      return;
     }
 
-  g_assert (types->len == ret->len);
-
-  tp_svc_channel_type_streamed_media_return_from_request_streams (context, ret);
-
-  g_boxed_free (SIP_TP_STREAM_LIST_TYPE, ret);
+  g_boxed_free (TP_ARRAY_TYPE_MEDIA_STREAM_INFO_LIST, ret);
 
   DEBUG ("exit");
 }
