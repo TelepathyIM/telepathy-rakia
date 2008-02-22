@@ -479,19 +479,21 @@ sip_media_session_ready (TpSvcMediaSessionHandler *iface,
 
   DEBUG ("enter");
 
-  g_assert (SIP_IS_MEDIA_SESSION (obj));
-
   priv = SIP_MEDIA_SESSION_GET_PRIVATE (obj);
 
-  priv->se_ready = TRUE;
+  if (!priv->se_ready)
+    {
+      priv->se_ready = TRUE;
 
-  /* note: streams are generated in priv_create_media_stream() */
+      /* note: streams are generated in priv_create_media_stream() */
 
-  for (i = 0; i < priv->streams->len; i++) {
-    SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
-    if (stream)
-      priv_emit_new_stream (obj, stream);
-  }
+      for (i = 0; i < priv->streams->len; i++)
+        {
+          SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
+          if (stream)
+            priv_emit_new_stream (obj, stream);
+        }
+    }
   
   tp_svc_media_session_handler_return_from_ready (context);
 }
