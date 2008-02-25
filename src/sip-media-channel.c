@@ -33,7 +33,7 @@
 #include <telepathy-glib/intset.h>
 #include <telepathy-glib/svc-channel.h>
 
-/* Hold interface */
+/* Hold and CallState interfaces */
 #include "extensions/extensions.h"
 
 #include "sip-media-channel.h"
@@ -51,6 +51,7 @@ static void media_signalling_iface_init (gpointer, gpointer);
 static void streamed_media_iface_init (gpointer, gpointer);
 static void dtmf_iface_init (gpointer, gpointer);
 static void priv_group_mixin_iface_init (gpointer, gpointer);
+static void call_state_iface_init (gpointer, gpointer);
 static void hold_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
@@ -62,6 +63,8 @@ G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
       media_signalling_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DTMF,
       dtmf_iface_init);
+    G_IMPLEMENT_INTERFACE (SIP_TYPE_SVC_CHANNEL_INTERFACE_CALL_STATE,
+      call_state_iface_init);
     G_IMPLEMENT_INTERFACE (SIP_TYPE_SVC_CHANNEL_INTERFACE_HOLD,
       hold_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_STREAMED_MEDIA,
@@ -113,6 +116,7 @@ struct _SIPMediaChannelPrivate
   SIPMediaFactory *factory;
   SIPMediaSession *session;
   gchar *object_path;
+  GHashTable *call_states;
 };
 
 #define SIP_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_CHANNEL, SIPMediaChannelPrivate))
@@ -122,13 +126,16 @@ struct _SIPMediaChannelPrivate
  ***********************************************************************/
 
 static void
-sip_media_channel_init (SIPMediaChannel *obj)
+sip_media_channel_init (SIPMediaChannel *self)
 {
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
   /* allocate any data required by the object here */
+  priv->call_states = g_hash_table_new (g_int_hash, g_int_equal);
 
   /* initialise the properties mixin *before* GObject
    * sets the construct-time properties */
-  tp_properties_mixin_init (G_OBJECT (obj),
+  tp_properties_mixin_init (G_OBJECT (self),
       G_STRUCT_OFFSET (SIPMediaChannel, properties));
 }
 
@@ -418,6 +425,8 @@ sip_media_channel_finalize (GObject *object)
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (object);
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  g_hash_table_destroy (priv->call_states);
 
   g_free (priv->object_path);
 
@@ -1315,6 +1324,18 @@ sip_media_channel_remove_with_reason (GObject *obj,
 }
 
 static void
+sip_media_channel_get_call_states (SIPSvcChannelInterfaceCallState *iface,
+                                   DBusGMethodInvocation *context)
+{
+  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  sip_svc_channel_interface_call_state_return_from_get_call_states (
+        context,
+        priv->call_states);
+}
+
+static void
 sip_media_channel_get_hold_state (SIPSvcChannelInterfaceHold *iface,
                                   DBusGMethodInvocation *context)
 {
@@ -1482,6 +1503,17 @@ priv_group_mixin_iface_init (gpointer g_iface, gpointer iface_data)
   tp_svc_channel_interface_group_implement_add_members (klass,
       priv_add_members);
 #endif
+}
+
+static void
+call_state_iface_init (gpointer g_iface,
+                       gpointer iface_data)
+{
+  SIPSvcChannelInterfaceCallStateClass *klass = g_iface;
+#define IMPLEMENT(x) sip_svc_channel_interface_call_state_implement_##x (\
+    klass, sip_media_channel_##x)
+  IMPLEMENT (get_call_states);
+#undef IMPLEMENT
 }
 
 static void
