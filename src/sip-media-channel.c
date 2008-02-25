@@ -998,21 +998,17 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 
   if (state == SIP_MEDIA_SESSION_STATE_ACTIVE) {
 
-    if (old_state == SIP_MEDIA_SESSION_STATE_INVITE_SENT
-        || old_state == SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED)
-      {
-        /* add the peer to the member list */
-        set = tp_intset_new ();
-        tp_intset_add (set, peer);
-        tp_group_mixin_change_members ((GObject *)channel,
-                                       "Call active",
-                                       set,     /* add */
-                                       NULL,    /* remove */
-                                       NULL,    /* local pending */
-                                       NULL,    /* remote pending */
-                                       0, 0);
-        tp_intset_destroy (set);
-      }
+    /* add the peer to the member list */
+    set = tp_intset_new ();
+    tp_intset_add (set, peer);
+    tp_group_mixin_change_members ((GObject *)channel,
+                                   "Call active",
+                                   set,     /* add */
+                                   NULL,    /* remove */
+                                   NULL,    /* local pending */
+                                   NULL,    /* remote pending */
+                                   0, 0);
+    tp_intset_destroy (set);
 
     /* update flags accordingly -- allow removal, deny adding and rescinding */
     tp_group_mixin_change_flags ((GObject *)channel,
