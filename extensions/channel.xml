@@ -4,6 +4,7 @@
 
 <tp:title>Channel extensions for telepathy-sofiasip</tp:title>
 
+<xi:include href="Channel_Interface_Call_State.xml"/>
 <xi:include href="Channel_Interface_Hold.xml"/>
 
 </tp:spec>

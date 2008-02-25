@@ -9,6 +9,7 @@ AM_CFLAGS = \
 EXTRA_DIST = \
     all.xml \
     channel.xml \
+    Channel_Interface_Call_State.xml \
     Channel_Interface_Hold.xml
 
 noinst_LTLIBRARIES = libsip-extensions.la
