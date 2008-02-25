@@ -1837,9 +1837,8 @@ priv_create_media_stream (SIPMediaSession *self,
     g_assert (priv->local_non_ready >= 0);
     ++priv->local_non_ready;
 
-    if (priv->se_ready == TRUE) {
+    if (priv->se_ready)
       priv_emit_new_stream (self, stream);
-    }
 
     tp_svc_channel_type_streamed_media_emit_stream_added (priv->channel,
                                                           stream_id,
