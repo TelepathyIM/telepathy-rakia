@@ -509,6 +509,18 @@ sip_media_session_get_peer (SIPMediaSession *session)
   return priv->peer;
 }
 
+static gboolean
+sip_media_session_supports_media_type (guint media_type)
+{
+  switch (media_type)
+    {
+    case TP_MEDIA_STREAM_TYPE_AUDIO:
+    case TP_MEDIA_STREAM_TYPE_VIDEO:
+      return TRUE;
+    }
+  return FALSE;
+}
+
 static void
 priv_close_all_streams (SIPMediaSession *session)
 {
@@ -864,6 +876,17 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
 
   DEBUG ("enter");
 
+  /* Validate the media types before creating any streams */
+  for (i = 0; i < media_types->len; i++) {
+    guint media_type = g_array_index (media_types, guint, i);
+    if (!sip_media_session_supports_media_type (media_type))
+      {
+        g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+                     "media type #%u is not supported", i);
+        return FALSE;
+      }
+  }
+
   for (i = 0; i < media_types->len; i++) {
     guint media_type = g_array_index (media_types, guint, i);
     SIPMediaStream *stream;
@@ -877,9 +900,7 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
         g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
                      "creation of stream %u failed", i);
         /* XXX: should we close the streams already created as part of
-         * this request, despite having emitted signals about them?
-         * Another solution: pre-validate the media types and
-         * make sure all streams really get created. */
+         * this request, despite having emitted signals about them? */
         return FALSE;
       }
 
@@ -1775,8 +1796,7 @@ priv_create_media_stream (SIPMediaSession *self,
 
   DEBUG ("enter");
 
-  if (media_type == TP_MEDIA_STREAM_TYPE_AUDIO ||
-      media_type == TP_MEDIA_STREAM_TYPE_VIDEO) {
+  if (sip_media_session_supports_media_type (media_type)) {
 
     stream_id = priv->streams->len;
     object_path = g_strdup_printf ("%s/MediaStream%u",
