@@ -509,6 +509,13 @@ sip_media_session_get_peer (SIPMediaSession *session)
   return priv->peer;
 }
 
+SIPMediaSessionState
+sip_media_session_get_state (SIPMediaSession *session)
+{
+  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  return priv->state;
+}
+
 static gboolean
 sip_media_session_supports_media_type (guint media_type)
 {

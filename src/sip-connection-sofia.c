@@ -267,12 +267,6 @@ priv_r_invite (int status,
                sip_t const *sip,
                tagi_t tags[])
 {
-  DEBUG("outbound INVITE got %03d %s", status, phrase);
-
-  /* Ignore provisional responses in this handler */
-  if (status < 200)
-    return;
-
   if (nh_magic == SIP_NH_EXPIRED)
     {
       /* 487 Request Terminated is OK on destroyed channels */
@@ -291,10 +285,9 @@ priv_r_invite (int status,
   if (priv_handle_auth (self, status, nh, sip, FALSE) == SIP_AUTH_HANDLED)
     return;
 
-  if (status >= 300)
-    sip_media_channel_peer_error (SIP_MEDIA_CHANNEL (nh_magic),
-                                  status,
-                                  phrase);
+  sip_media_channel_call_status (SIP_MEDIA_CHANNEL (nh_magic),
+                                 status,
+                                 phrase);
 }
 
 static void

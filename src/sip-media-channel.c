@@ -887,22 +887,15 @@ sip_media_channel_ready (SIPMediaChannel *self)
   sip_media_session_accept (priv->session);
 }
 
-void
+static void
 sip_media_channel_peer_error (SIPMediaChannel *self,
+                              TpHandle peer,
                               guint status,
                               const char* message)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpIntSet *set;
-  TpHandle peer;
   guint reason = TP_CHANNEL_GROUP_CHANGE_REASON_ERROR;
  
-  DEBUG("peer responded with %u %s", status, message);
-
-  g_return_if_fail (priv->session != NULL);
-
-  g_assert (status >= 300);
-
   switch (status)
     {
     case 410:
@@ -931,8 +924,6 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
       break;
     }
 
-  peer = sip_media_session_get_peer (priv->session);
-
   if (message == NULL || !g_utf8_validate (message, -1, NULL))
     message = "";
 
@@ -941,6 +932,69 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
   tp_group_mixin_change_members ((GObject *)self, message,
       NULL, set, NULL, NULL, peer, reason);
   tp_intset_destroy (set);
+}
+
+static void
+priv_set_call_state (SIPMediaChannel *self,
+                     TpHandle peer,
+                     guint flags)
+{
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  DEBUG ("setting call state %u for peer %u", flags, peer);
+  g_hash_table_replace (priv->call_states,
+                        GUINT_TO_POINTER (peer),
+                        GUINT_TO_POINTER (flags));
+  sip_svc_channel_interface_call_state_emit_call_state_changed (self,
+                                                                peer,
+                                                                flags);
+}
+
+static void
+priv_clear_call_state (SIPMediaChannel *self,
+                       TpHandle peer)
+{
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  DEBUG ("clearing call state for peer %u", peer);
+  if (g_hash_table_remove (priv->call_states,
+                           GUINT_TO_POINTER (peer)))
+    sip_svc_channel_interface_call_state_emit_call_state_changed (self,
+                                                                  peer,
+                                                                  0);
+}
+
+void
+sip_media_channel_call_status (SIPMediaChannel *self,
+                               guint status,
+                               const char* message)
+{
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpHandle peer;
+
+  DEBUG("peer responded with %u %s", status, message);
+
+  g_return_if_fail (priv->session != NULL);
+
+  /* Ignore responses to a re-INVITE */
+  if (sip_media_session_get_state (priv->session)
+        != SIP_MEDIA_SESSION_STATE_INVITE_SENT)
+    return;
+
+  peer = sip_media_session_get_peer (priv->session);
+
+  if (status >= 200)
+    {
+      /* The final response, clear the Ringing call state flag if set */
+      priv_clear_call_state (self, peer);
+
+      if (status >= 300)
+        sip_media_channel_peer_error (self, peer, status, message);
+    }
+  else if (status == 180)
+    {
+      priv_set_call_state (self, peer, SIP_CHANNEL_CALL_STATE_FLAGS_RINGING);
+    }
 }
 
 void
