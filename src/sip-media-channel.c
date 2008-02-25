@@ -390,7 +390,7 @@ sip_media_channel_set_property (GObject     *object,
   }
 }
 
-void
+static void
 sip_media_channel_dispose (GObject *object)
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (object);
@@ -420,7 +420,7 @@ sip_media_channel_dispose (GObject *object)
   DEBUG("exit");
 }
 
-void
+static void
 sip_media_channel_finalize (GObject *object)
 {
   SIPMediaChannel *self = SIP_MEDIA_CHANNEL (object);
