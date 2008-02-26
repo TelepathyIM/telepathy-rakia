@@ -191,6 +191,10 @@ static void priv_create_session (SIPMediaChannel *channel,
                                  nua_handle_t *nh,
                                  TpHandle peer);
 static void priv_destroy_session(SIPMediaChannel *channel);
+
+static void priv_outbound_call (SIPMediaChannel *channel,
+                                TpHandle peer);
+
 static gboolean sip_media_channel_add_member (GObject *iface,
                                               TpHandle handle,
                                               const gchar *message,
@@ -762,18 +766,7 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
       return;
     }
 
-  if (!tp_handle_set_is_member (self->group.members, contact_handle) &&
-      !tp_handle_set_is_member (self->group.remote_pending, contact_handle))
-    {
-      error = g_error_new (TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "given handle "
-			    "%u is not a member of the channel", contact_handle);
-      dbus_g_method_return_error (context, error);
-      g_error_free (error);
-      return;
-    }
-
-  /* if the person is a channel member, we should have a session */
-  g_assert (priv->session != NULL);
+  priv_outbound_call (self, contact_handle);
 
   ret = g_ptr_array_sized_new (types->len);
 
@@ -1055,46 +1048,82 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 {
   TpGroupMixin *mixin = TP_GROUP_MIXIN (channel);
   TpHandle peer;
-  TpIntSet *set;
+  TpIntSet *set = NULL;
+  TpIntSet *rset;
 
   DEBUG("enter");
 
   peer = sip_media_session_get_peer (session);
 
-  if (state == SIP_MEDIA_SESSION_STATE_ACTIVE) {
+  switch (state)
+    {
+    case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+      set = tp_intset_new ();
+      rset = tp_intset_new ();
 
-    /* add the peer to the member list */
-    set = tp_intset_new ();
-    tp_intset_add (set, peer);
-    tp_group_mixin_change_members ((GObject *)channel,
-                                   "Call active",
-                                   set,     /* add */
-                                   NULL,    /* remove */
-                                   NULL,    /* local pending */
-                                   NULL,    /* remote pending */
-                                   0, 0);
+      /* add the peer to remote pending, make sure the self handle is
+       * in the member list */
+      tp_intset_add (set, mixin->self_handle);
+      tp_intset_add (rset, peer);
+      tp_group_mixin_change_members ((GObject *)channel,
+                                     "INVITE sent",
+                                     set,     /* add */
+                                     NULL,    /* remove */
+                                     NULL,    /* local pending */
+                                     rset,    /* remote pending */
+                                     0, 0);
+      tp_intset_destroy (rset);
+
+      /* update flags: allow adding, removal and rescinding */
+      tp_group_mixin_change_flags ((GObject *)channel,
+                                   TP_CHANNEL_GROUP_FLAG_CAN_ADD
+                                        | TP_CHANNEL_GROUP_FLAG_CAN_REMOVE
+                                        | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND,
+                                   0);
+
+      break;
+    case SIP_MEDIA_SESSION_STATE_ACTIVE:
+      set = tp_intset_new ();
+
+      /* add the peer to the member list */
+      tp_intset_add (set, peer);
+      tp_group_mixin_change_members ((GObject *)channel,
+                                     "Call active",
+                                     set,     /* add */
+                                     NULL,    /* remove */
+                                     NULL,
+                                     NULL,
+                                     0, 0);
+
+      /* update flags: allow removal, deny adding and rescinding */
+      tp_group_mixin_change_flags ((GObject *)channel,
+                                   TP_CHANNEL_GROUP_FLAG_CAN_REMOVE,
+                                   TP_CHANNEL_GROUP_FLAG_CAN_ADD
+                                        | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
+      break;
+    case SIP_MEDIA_SESSION_STATE_ENDED:
+      set = tp_intset_new ();
+
+      /* remove us and the peer from the member list */
+      tp_intset_add (set, mixin->self_handle);
+      tp_intset_add (set, peer);
+      tp_group_mixin_change_members ((GObject *)channel,
+                                     "Call ended",
+                                     NULL,      /* add */
+                                     set,       /* remove */
+                                     NULL,
+                                     NULL,
+                                     0, 0);
+
+      /* Close the channel; destroy the session first to avoid
+       * the sip_media_session_terminate() path in this case */
+      priv_destroy_session (channel);
+      sip_media_channel_close (channel);
+      break;
+    }
+
+  if (set != NULL)
     tp_intset_destroy (set);
-
-    /* update flags accordingly -- allow removal, deny adding and rescinding */
-    tp_group_mixin_change_flags ((GObject *)channel,
-				     TP_CHANNEL_GROUP_FLAG_CAN_REMOVE,
-				     TP_CHANNEL_GROUP_FLAG_CAN_ADD |
-				     TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
-  }
-  if (state == SIP_MEDIA_SESSION_STATE_ENDED) {
-    set = tp_intset_new ();
-
-    /* remove us and the peer from the member list */
-    tp_intset_add (set, mixin->self_handle);
-    tp_intset_add (set, peer);
-    tp_group_mixin_change_members ((GObject *)channel,
-        "Call ended", NULL, set, NULL, NULL, 0, 0);
-
-    tp_intset_destroy (set);
-
-    priv_destroy_session (channel);
-    sip_media_channel_close (channel);
-  }
 }
 
 /**
@@ -1185,47 +1214,29 @@ priv_destroy_session(SIPMediaChannel *channel)
   DEBUG("exit");
 }
 
-#if 0
-/* Check that self_handle is not already in the members. If it is,
- * we're trying to call ourselves. */
+/*
+ * Creates an outbound call session if a session does not exist
+ */
 static void
-priv_add_members (TpSvcChannelInterfaceGroup *obj,
-                    const GArray *contacts,
-                    const gchar *message,
-                    DBusGMethodInvocation *context)
+priv_outbound_call (SIPMediaChannel *channel,
+                    TpHandle peer)
 {
-  TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
-  guint i;
-  TpHandle handle;
-  GError *error = NULL;
+  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
+  nua_handle_t *nh;
 
-  for (i = 0; i < contacts->len; i++)
+  if (priv->session == NULL)
     {
-      handle = g_array_index (contacts, TpHandle, i);
+      DEBUG("making outbound call - setting peer handle to %u", peer);
 
-      if (handle == mixin->self_handle &&
-          tp_handle_set_is_member (mixin->members, handle))
-        {
-          DEBUG ("attempted to add self_handle into the mixin again");
-          g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_HANDLE,
-            "you cannot call yourself");
-        }
-    }
-
-  if (error == NULL)
-      tp_group_mixin_add_members ((GObject *) obj, contacts, message, &error);
-
-  if (error == NULL)
-    {
-      tp_svc_channel_interface_group_return_from_add_members (context);
+      nh = sip_conn_create_request_handle (priv->conn, peer);
+      priv_create_session (channel, nh, peer);
+      nua_handle_unref (nh);
     }
   else
-    {
-      dbus_g_method_return_error (context, error);
-      g_error_free (error);
-    }
+    DEBUG("session already exists");
+
+  g_assert (priv->session != NULL);
 }
-#endif
 
 static gboolean
 sip_media_channel_add_member (GObject *iface,
@@ -1243,13 +1254,8 @@ sip_media_channel_add_member (GObject *iface,
   if (mixin->self_handle != handle)
     {
       TpIntSet *lset, *rset;
-      nua_handle_t *nh;
 
-      DEBUG("making outbound call - setting peer handle to %u", handle);
-
-      nh = sip_conn_create_request_handle (priv->conn, handle);
-      priv_create_session (self, nh, handle);
-      nua_handle_unref (nh);
+      priv_outbound_call (self, handle);
 
       /* make remote pending */
       rset = tp_intset_new ();
