@@ -988,7 +988,11 @@ sip_media_channel_call_status (SIPMediaChannel *self,
     }
   else if (status == 180)
     {
-      priv_set_call_state (self, peer, SIP_CHANNEL_CALL_STATE_FLAGS_RINGING);
+      priv_set_call_state (self, peer, SIP_CHANNEL_CALL_STATE_RINGING);
+    }
+  else if (status == 182)
+    {
+      priv_set_call_state (self, peer, SIP_CHANNEL_CALL_STATE_QUEUED);
     }
 }
 
