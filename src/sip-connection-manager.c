@@ -144,7 +144,7 @@ static const TpCMParamSpec sip_params[] = {
       G_STRUCT_OFFSET (SIPConnParams, transport) },
     /* Enables loose routing as per RFC 3261 */
     { "loose-routing", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
-      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(FALSE),
       G_STRUCT_OFFSET (SIPConnParams, loose_routing) },
     /* Used to enable proactive NAT traversal techniques */
     { "discover-binding", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,

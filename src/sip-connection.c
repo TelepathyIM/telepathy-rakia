@@ -494,7 +494,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_boolean("loose-routing",
                                     "Loose routing",
                                     "Enable loose routing as per RFC 3261",
-                                    TRUE, /*default value*/
+                                    FALSE, /*default value*/
                                     G_PARAM_CONSTRUCT |
                                     G_PARAM_READWRITE |
                                     G_PARAM_STATIC_NAME |
