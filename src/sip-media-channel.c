@@ -131,7 +131,7 @@ sip_media_channel_init (SIPMediaChannel *self)
   SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   /* allocate any data required by the object here */
-  priv->call_states = g_hash_table_new (g_int_hash, g_int_equal);
+  priv->call_states = g_hash_table_new (NULL, NULL);
 
   /* initialise the properties mixin *before* GObject
    * sets the construct-time properties */
