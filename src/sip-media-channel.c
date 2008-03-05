@@ -840,7 +840,7 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
                                  pending_set,   /* local pending */
                                  NULL,          /* remote pending */
                                  handle,        /* actor */
-                                 0);            /* reason */
+                                 TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
   tp_intset_destroy (member_set);
   tp_intset_destroy (pending_set);
@@ -1077,7 +1077,7 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
                                      NULL,    /* local pending */
                                      rset,    /* remote pending */
                                      mixin->self_handle,        /* actor */
-                                     0);      /* reason */
+                                     TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
       tp_intset_destroy (rset);
 
       /* update flags: allow adding, removal and rescinding */
