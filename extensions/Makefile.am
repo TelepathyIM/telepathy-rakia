@@ -12,20 +12,20 @@ EXTRA_DIST = \
     Channel_Interface_Call_State.xml \
     Channel_Interface_Hold.xml
 
-noinst_LTLIBRARIES = libsip-extensions.la
+noinst_LTLIBRARIES = libtpsip-extensions.la
 
-libsip_extensions_la_LIBADD = \
+libtpsip_extensions_la_LIBADD = \
     $(TELEPATHY_GLIB_LIBS)
 
 # The client-specific parts are built into a separate .o file, so the linker
 # can discard them when linking services. The service-specific parts are
 # in svc-*.c, so we don't need an extensions-svc.c.
-libsip_extensions_la_SOURCES = \
-    extensions.c \
-    extensions-cli.c \
-    extensions.h
+libtpsip_extensions_la_SOURCES = \
+    tpsip-extensions.c \
+    tpsip-extensions-cli.c \
+    tpsip-extensions.h
 
-nodist_libsip_extensions_la_SOURCES = \
+nodist_libtpsip_extensions_la_SOURCES = \
     _gen/signals-marshal.c \
     _gen/signals-marshal.h \
     _gen/signals-marshal.list \
@@ -43,7 +43,7 @@ nodist_libsip_extensions_la_SOURCES = \
 BUILT_SOURCES = \
     _gen/all.xml \
     _gen/channel.xml \
-    $(nodist_libsip_extensions_la_SOURCES) \
+    $(nodist_libtpsip_extensions_la_SOURCES) \
     extensions.html
 
 CLEANFILES = $(BUILT_SOURCES)
