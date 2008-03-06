@@ -32,14 +32,14 @@ typedef struct _SIPConnectionClass SIPConnectionClass;
 typedef struct _SIPConnectionPrivate SIPConnectionPrivate;
 
 
-typedef enum /*< lowercase_name=sip_connection_keepalive_mechanism >*/
+typedef enum
 {
-  SIP_CONNECTION_KEEPALIVE_AUTO = 0,	/** Keepalive management is up to the implementation */
-  SIP_CONNECTION_KEEPALIVE_NONE,	/** Disable keepalive management */
-  SIP_CONNECTION_KEEPALIVE_REGISTER,	/** Maintain registration with REGISTER requests */
-  SIP_CONNECTION_KEEPALIVE_OPTIONS,	/** Maintain registration with OPTIONS requests */
-  SIP_CONNECTION_KEEPALIVE_STUN,	/** Maintain registration with STUN as described in IETF draft-sip-outbound */
-} SIPConnectionKeepaliveMechanism;
+  TPSIP_CONNECTION_KEEPALIVE_AUTO = 0,	/** Keepalive management is up to the implementation */
+  TPSIP_CONNECTION_KEEPALIVE_NONE,	/** Disable keepalive management */
+  TPSIP_CONNECTION_KEEPALIVE_REGISTER,	/** Maintain registration with REGISTER requests */
+  TPSIP_CONNECTION_KEEPALIVE_OPTIONS,	/** Maintain registration with OPTIONS requests */
+  TPSIP_CONNECTION_KEEPALIVE_STUN,	/** Maintain registration with STUN as described in IETF draft-sip-outbound */
+} TpsipConnectionKeepaliveMechanism;
 
 
 struct _SIPConnectionClass {
