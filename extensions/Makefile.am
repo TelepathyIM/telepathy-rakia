@@ -65,26 +65,26 @@ extensions.html: _gen/all.xml $(tools_dir)/doc-generator.xsl
 _gen/gtypes.h _gen/gtypes-body.h: _gen/all.xml \
 	$(top_srcdir)/tools/glib-gtypes-generator.py
 	$(PYTHON) $(top_srcdir)/tools/glib-gtypes-generator.py \
-		$< _gen/gtypes SIP
+		$< _gen/gtypes TPSIP
 
 _gen/signals-marshal.list: _gen/all.xml \
 	$(tools_dir)/glib-signals-marshal-gen.py
 	$(PYTHON) $(tools_dir)/glib-signals-marshal-gen.py $< > $@
 
 _gen/signals-marshal.h: _gen/signals-marshal.list
-	$(GLIB_GENMARSHAL) --header --prefix=_sip_ext_marshal $< > $@
+	$(GLIB_GENMARSHAL) --header --prefix=_tpsip_ext_marshal $< > $@
 
 _gen/signals-marshal.c: _gen/signals-marshal.list
-	$(GLIB_GENMARSHAL) --body --prefix=_sip_ext_marshal $< > $@
+	$(GLIB_GENMARSHAL) --body --prefix=_tpsip_ext_marshal $< > $@
 
 _gen/register-dbus-glib-marshallers-body.h: _gen/all.xml \
 	$(tools_dir)/glib-client-marshaller-gen.py
 	$(PYTHON) $(tools_dir)/glib-client-marshaller-gen.py $< \
-		_sip_ext > $@
+		_tpsip_ext > $@
 
 _gen/enums.h: _gen/all.xml $(tools_dir)/c-constants-generator.xsl
 	$(XSLTPROC) $(XSLTPROCFLAGS) \
-		--stringparam mixed-case-prefix SIP \
+		--stringparam mixed-case-prefix Tpsip \
 		$(tools_dir)/c-constants-generator.xsl \
 		$< > $@
 
@@ -92,7 +92,7 @@ _gen/interfaces.h: _gen/all.xml \
 	$(tools_dir)/glib-interfaces-generator.xsl \
 	$(tools_dir)/c-interfaces-generator.xsl
 	$(XSLTPROC) $(XSLTPROCFLAGS) \
-		--stringparam mixed-case-prefix SIP \
+		--stringparam mixed-case-prefix Tpsip \
 		$(tools_dir)/glib-interfaces-generator.xsl \
 		$< > $@
 
@@ -100,7 +100,7 @@ _gen/interfaces-body.h: _gen/all.xml \
 	$(tools_dir)/glib-interfaces-body-generator.xsl \
 	$(tools_dir)/c-interfaces-generator.xsl
 	$(XSLTPROC) $(XSLTPROCFLAGS) \
-		--stringparam mixed-case-prefix SIP \
+		--stringparam mixed-case-prefix Tpsip \
 		$(tools_dir)/glib-interfaces-body-generator.xsl \
 		$< > $@
 
@@ -119,16 +119,16 @@ _gen/cli-channel-body.h _gen/cli-channel.h: _gen/channel.xml \
 		--group=channel \
 		--subclass=TpChannel \
 		--subclass-assert=TP_IS_CHANNEL \
-		--iface-quark-prefix=SIP_IFACE_QUARK \
-		$< SIP_Cli _gen/cli-channel
+		--iface-quark-prefix=TPSIP_IFACE_QUARK \
+		$< Tpsip_Cli _gen/cli-channel
 
 _gen/svc-channel.c _gen/svc-channel.h: _gen/channel.xml \
 	$(tools_dir)/glib-ginterface-gen.py
 	$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
 		--filename=_gen/svc-channel \
-		--signal-marshal-prefix=_sip_ext \
+		--signal-marshal-prefix=_tpsip_ext \
 		--include='<telepathy-glib/dbus.h>' \
 		--include='"_gen/signals-marshal.h"' \
 		--not-implemented-func='tp_dbus_g_method_return_not_implemented' \
 		--allow-unstable \
-		$< SIP_Svc_
+		$< Tpsip_Svc_
