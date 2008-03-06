@@ -67,40 +67,40 @@ sofiasip.manager: write-mgr-file
 BUILT_SOURCES = \
 		signals-marshal.h \
 		signals-marshal.c \
-		tpsip-connection-enumtypes.h \
-		tpsip-connection-enumtypes.c
+		sip-connection-enumtypes.h \
+		sip-connection-enumtypes.c
 
 libtpsip_convenience_la_SOURCES = \
-    tpsip-connection.h \
-    tpsip-connection.c \
-    tpsip-connection-helpers.h \
-    tpsip-connection-helpers.c \
-    tpsip-connection-manager.h \
-    tpsip-connection-manager.c \
-    tpsip-connection-private.h \
-    tpsip-connection-sofia.h \
-    tpsip-connection-sofia.c \
-    tpsip-media-channel.h \
-    tpsip-media-channel.c \
-    tpsip-media-factory.h \
-    tpsip-media-factory.c \
-    tpsip-media-session.h \
-    tpsip-media-session.c \
-    tpsip-media-stream.h \
-    tpsip-media-stream.c \
-    tpsip-text-channel.h \
-    tpsip-text-channel.c \
-    tpsip-text-factory.h \
-    tpsip-text-factory.c \
-    tpsip-sofia-decls.h \
-    tpsip-debug.h \
-    tpsip-debug.c
+    sip-sofia-decls.h \
+    sip-text-channel.h \
+    sip-text-channel.c \
+    sip-media-channel.h \
+    sip-media-channel.c \
+    sip-media-session.h \
+    sip-media-session.c \
+    sip-media-stream.h \
+    sip-media-stream.c \
+    sip-connection.h \
+    sip-connection.c \
+    sip-connection-manager.h \
+    sip-connection-manager.c \
+    debug.h \
+    debug.c \
+    media-factory.h \
+    media-factory.c \
+    text-factory.h \
+    text-factory.c \
+    sip-connection-helpers.h \
+    sip-connection-helpers.c \
+    sip-connection-private.h \
+    sip-connection-sofia.h \
+    sip-connection-sofia.c
 
 nodist_libtpsip_convenience_la_SOURCES = \
     $(BUILT_SOURCES)
 
 libtpsip_convenience_la_LIBADD = \
-    $(top_builddir)/extensions/libtpsip-extensions.la
+    $(top_builddir)/extensions/libsip-extensions.la
 
 telepathy_sofiasip_SOURCES = \
     telepathy-sofiasip.c 
