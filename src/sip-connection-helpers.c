@@ -21,9 +21,6 @@
 #include <string.h>
 #include <ctype.h>
 
-#define DBUS_API_SUBJECT_TO_CHANGE 1
-#include <dbus/dbus-glib.h>
-
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
