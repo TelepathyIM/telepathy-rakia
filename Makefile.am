@@ -1,8 +1,8 @@
 #
 # Makefile.am for telepathy-sofiasip/src
 #
-# Copyright (C) 2006 Nokia Corporation
-# Contact: Kai Vehmanen <first.surname@nokia.com>
+# Copyright (C) 2006,2008 Nokia Corporation
+# Contact: Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
 # Licensed under LGPL. See file COPYING.
 #
 
