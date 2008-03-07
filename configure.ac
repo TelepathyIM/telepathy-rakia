@@ -90,11 +90,6 @@ PKG_CHECK_MODULES(DBUS, [dbus-1 >= 0.60, dbus-glib-1 >= 0.60], have_dbus=yes, ha
 AC_SUBST(DBUS_CFLAGS)
 AC_SUBST(DBUS_LIBS)
 
-AS_AC_EXPAND(DATADIR, $datadir)
-DBUS_SERVICES_DIR="$DATADIR/dbus-1/services"
-AC_SUBST(DBUS_SERVICES_DIR)
-AC_DEFINE_UNQUOTED(DBUS_SERVICES_DIR, "$DBUS_SERVICES_DIR", [DBus services directory])
-
 dnl Check for sofia
 PKG_CHECK_MODULES(SOFIA_SIP_UA, sofia-sip-ua-glib >= 1.12.7)
 AC_SUBST(SOFIA_SIP_UA_LIBS)
