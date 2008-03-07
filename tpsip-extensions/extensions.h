@@ -4,16 +4,13 @@
 #include <glib-object.h>
 #include <telepathy-glib/channel.h>
 
-#include "_gen/enums.h"
-#include "_gen/cli-channel.h"
-#include "_gen/svc-channel.h"
+#include <tpsip-extensions/_gen/enums.h>
+#include <tpsip-extensions/_gen/svc-channel.h>
 
 G_BEGIN_DECLS
 
-#include "_gen/gtypes.h"
-#include "_gen/interfaces.h"
-
-void sip_cli_init (void);
+#include <tpsip-extensions/_gen/gtypes.h>
+#include <tpsip-extensions/_gen/interfaces.h>
 
 G_END_DECLS
 

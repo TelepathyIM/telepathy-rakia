@@ -22,7 +22,6 @@ libtpsip_extensions_la_LIBADD = \
 # in svc-*.c, so we don't need an extensions-svc.c.
 libtpsip_extensions_la_SOURCES = \
     extensions.c \
-    extensions-cli.c \
     extensions.h
 
 nodist_libtpsip_extensions_la_SOURCES = \
@@ -35,8 +34,6 @@ nodist_libtpsip_extensions_la_SOURCES = \
     _gen/gtypes-body.h \
     _gen/interfaces.h \
     _gen/interfaces-body.h \
-    _gen/cli-channel.h \
-    _gen/cli-channel-body.h \
     _gen/svc-channel.h \
     _gen/svc-channel.c
 
@@ -112,15 +109,6 @@ _gen/channel.xml: channel.xml $(wildcard *.xml)
 	$(mkdir_p) _gen
 	$(XSLTPROC) $(XSLTPROCFLAGS) --xinclude $(tools_dir)/identity.xsl \
 		$< > $@
-
-_gen/cli-channel-body.h _gen/cli-channel.h: _gen/channel.xml \
-	$(tools_dir)/glib-client-gen.py
-	$(PYTHON) $(tools_dir)/glib-client-gen.py \
-		--group=channel \
-		--subclass=TpChannel \
-		--subclass-assert=TP_IS_CHANNEL \
-		--iface-quark-prefix=TPSIP_IFACE_QUARK \
-		$< Tpsip_Cli _gen/cli-channel
 
 _gen/svc-channel.c _gen/svc-channel.h: _gen/channel.xml \
 	$(tools_dir)/glib-ginterface-gen.py
