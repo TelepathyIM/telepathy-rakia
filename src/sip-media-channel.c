@@ -36,7 +36,7 @@
 #include <telepathy-glib/svc-channel.h>
 
 /* Hold and CallState interfaces */
-#include "extensions/extensions.h"
+#include <tpsip-extensions/extensions.h>
 
 #include "sip-media-channel.h"
 #include "media-factory.h"

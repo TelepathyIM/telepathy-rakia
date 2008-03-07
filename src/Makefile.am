@@ -100,7 +100,7 @@ nodist_libtpsip_convenience_la_SOURCES = \
     $(BUILT_SOURCES)
 
 libtpsip_convenience_la_LIBADD = \
-    $(top_builddir)/extensions/libtpsip-extensions.la
+    $(top_builddir)/tpsip-extensions/libtpsip-extensions.la
 
 telepathy_sofiasip_SOURCES = \
     telepathy-sofiasip.c 

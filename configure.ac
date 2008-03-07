@@ -118,12 +118,14 @@ if test -z "$PYTHON"; then
   AC_MSG_ERROR([Python is required to compile this package])
 fi
 
-AC_OUTPUT( Makefile \
-extensions/Makefile \
-src/Makefile \
-m4/Makefile \
-data/Makefile \
-tests/Makefile \
-tools/Makefile \
-docs/Makefile
-)
+AC_CONFIG_FILES([
+  Makefile
+  tpsip-extensions/Makefile
+  src/Makefile
+  m4/Makefile
+  data/Makefile
+  tests/Makefile
+  tools/Makefile
+  docs/Makefile
+])
+AC_OUTPUT

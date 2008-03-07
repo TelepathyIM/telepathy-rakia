@@ -26,7 +26,7 @@
 #include <sofia-sip/sdp.h>
 
 /* Hold interface */
-#include "extensions/extensions.h"
+#include <tpsip-extensions/extensions.h>
 
 G_BEGIN_DECLS
 

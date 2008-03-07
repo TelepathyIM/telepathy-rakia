@@ -16,7 +16,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = \
 	tools \
-	extensions \
+	tpsip-extensions \
 	data \
 	docs \
 	m4 \
