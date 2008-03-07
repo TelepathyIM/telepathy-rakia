@@ -1,5 +1,5 @@
 /*
- * sip-connection.h - Header for SIPConnection
+ * sip-connection.h - Header for TpsipConnection
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005,2006 Nokia Corporation
  *
@@ -17,8 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __SIP_CONNECTION_H__
-#define __SIP_CONNECTION_H__
+#ifndef __TPSIP_CONNECTION_H__
+#define __TPSIP_CONNECTION_H__
 
 #include <glib-object.h>
 #include <dbus/dbus-glib.h>
@@ -27,9 +27,9 @@
 
 G_BEGIN_DECLS
 
-typedef struct _SIPConnection SIPConnection;
-typedef struct _SIPConnectionClass SIPConnectionClass;
-typedef struct _SIPConnectionPrivate SIPConnectionPrivate;
+typedef struct _TpsipConnection TpsipConnection;
+typedef struct _TpsipConnectionClass TpsipConnectionClass;
+typedef struct _TpsipConnectionPrivate TpsipConnectionPrivate;
 
 
 typedef enum
@@ -42,32 +42,32 @@ typedef enum
 } TpsipConnectionKeepaliveMechanism;
 
 
-struct _SIPConnectionClass {
+struct _TpsipConnectionClass {
     TpBaseConnectionClass parent_class;
 };
 
-struct _SIPConnection {
+struct _TpsipConnection {
     TpBaseConnection parent;
 };
 
-GType sip_connection_get_type(void);
+GType tpsip_connection_get_type(void);
 
-#define SIP_DEFAULT_STUN_PORT 3478
+#define TPSIP_DEFAULT_STUN_PORT 3478
 
 /* TYPE MACROS */
-#define SIP_TYPE_CONNECTION \
-  (sip_connection_get_type())
-#define SIP_CONNECTION(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), SIP_TYPE_CONNECTION, SIPConnection))
-#define SIP_CONNECTION_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), SIP_TYPE_CONNECTION, SIPConnectionClass))
-#define SIP_IS_CONNECTION(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), SIP_TYPE_CONNECTION))
-#define SIP_IS_CONNECTION_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), SIP_TYPE_CONNECTION))
-#define SIP_CONNECTION_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), SIP_TYPE_CONNECTION, SipConnectionClass))
+#define TPSIP_TYPE_CONNECTION \
+  (tpsip_connection_get_type())
+#define TPSIP_CONNECTION(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_CONNECTION, TpsipConnection))
+#define TPSIP_CONNECTION_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_CONNECTION, TpsipConnectionClass))
+#define TPSIP_IS_CONNECTION(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_CONNECTION))
+#define TPSIP_IS_CONNECTION_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_CONNECTION))
+#define TPSIP_CONNECTION_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_CONNECTION, TpsipConnectionClass))
 
 G_END_DECLS
 
-#endif /* #ifndef __SIP_CONNECTION_H__*/
+#endif /* #ifndef __TPSIP_CONNECTION_H__*/

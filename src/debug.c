@@ -10,45 +10,45 @@
 
 #include "debug.h"
 
-static SIPDebugFlags sip_debug_flags = 0;
+static TpsipDebugFlags tpsip_debug_flags = 0;
 
-static const GDebugKey sip_debug_keys[] = {
-  { "media-channel", SIP_DEBUG_MEDIA },
-  { "connection",    SIP_DEBUG_CONNECTION },
-  { "im",            SIP_DEBUG_IM },
+static const GDebugKey tpsip_debug_keys[] = {
+  { "media-channel", TPSIP_DEBUG_MEDIA },
+  { "connection",    TPSIP_DEBUG_CONNECTION },
+  { "im",            TPSIP_DEBUG_IM },
 };
 
-void sip_debug_set_flags_from_env ()
+void tpsip_debug_set_flags_from_env ()
 {
   const gchar *flags_string;
 
-  flags_string = g_getenv ("SOFIASIP_DEBUG");
+  flags_string = g_getenv ("TPSIP_DEBUG");
 
   if (flags_string)
     {
       tp_debug_set_flags (flags_string);
 
-      sip_debug_set_flags (g_parse_debug_string (flags_string,
-                                                 sip_debug_keys,
-                                                 G_N_ELEMENTS(sip_debug_keys)));
+      tpsip_debug_set_flags (g_parse_debug_string (flags_string,
+                                                   tpsip_debug_keys,
+                                                   G_N_ELEMENTS(tpsip_debug_keys)));
     }
 }
 
-void sip_debug_set_flags (SIPDebugFlags new_flags)
+void tpsip_debug_set_flags (TpsipDebugFlags new_flags)
 {
-  sip_debug_flags |= new_flags;
+  tpsip_debug_flags |= new_flags;
 }
 
-gboolean sip_debug_flag_is_set (SIPDebugFlags flag)
+gboolean tpsip_debug_flag_is_set (TpsipDebugFlags flag)
 {
-  return flag & sip_debug_flags;
+  return flag & tpsip_debug_flags;
 }
 
-void sip_debug (SIPDebugFlags flag,
-                const gchar *format,
-                ...)
+void tpsip_debug (TpsipDebugFlags flag,
+                  const gchar *format,
+                  ...)
 {
-  if (flag & sip_debug_flags)
+  if (flag & tpsip_debug_flags)
     {
       va_list args;
       va_start (args, format);

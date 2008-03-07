@@ -1,5 +1,5 @@
 /*
- * sip-media-session.h - Header for SIPMediaSession
+ * sip-media-session.h - Header for TpsipMediaSession
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005 Nokia Corporation
  *
@@ -17,8 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __SIP_MEDIA_SESSION_H__
-#define __SIP_MEDIA_SESSION_H__
+#ifndef __TPSIP_MEDIA_SESSION_H__
+#define __TPSIP_MEDIA_SESSION_H__
 
 #include <glib-object.h>
 #include <telepathy-glib/handle.h>
@@ -30,94 +30,94 @@
 G_BEGIN_DECLS
 
 typedef enum {
-    SIP_MEDIA_SESSION_STATE_CREATED = 0,
-    SIP_MEDIA_SESSION_STATE_INVITE_SENT,
-    SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED,
-    SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED,
-    SIP_MEDIA_SESSION_STATE_ACTIVE,
-    SIP_MEDIA_SESSION_STATE_REINVITE_SENT,
-    SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
-    SIP_MEDIA_SESSION_STATE_ENDED
-} SIPMediaSessionState;
+    TPSIP_MEDIA_SESSION_STATE_CREATED = 0,
+    TPSIP_MEDIA_SESSION_STATE_INVITE_SENT,
+    TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED,
+    TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED,
+    TPSIP_MEDIA_SESSION_STATE_ACTIVE,
+    TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT,
+    TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
+    TPSIP_MEDIA_SESSION_STATE_ENDED
+} TpsipMediaSessionState;
 
-typedef struct _SIPMediaSession SIPMediaSession;
-typedef struct _SIPMediaSessionClass SIPMediaSessionClass;
+typedef struct _TpsipMediaSession TpsipMediaSession;
+typedef struct _TpsipMediaSessionClass TpsipMediaSessionClass;
 
-struct _SIPMediaSessionClass {
+struct _TpsipMediaSessionClass {
     GObjectClass parent_class;
 };
 
-struct _SIPMediaSession {
+struct _TpsipMediaSession {
     GObject parent;
 };
 
-GType sip_media_session_get_type(void);
+GType tpsip_media_session_get_type(void);
 
 /* TYPE MACROS */
-#define SIP_TYPE_MEDIA_SESSION \
-  (sip_media_session_get_type())
-#define SIP_MEDIA_SESSION(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), SIP_TYPE_MEDIA_SESSION, SIPMediaSession))
-#define SIP_MEDIA_SESSION_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), SIP_TYPE_MEDIA_SESSION, SIPMediaSessionClass))
-#define SIP_IS_MEDIA_SESSION(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), SIP_TYPE_MEDIA_SESSION))
-#define SIP_IS_MEDIA_SESSION_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), SIP_TYPE_MEDIA_SESSION))
-#define SIP_MEDIA_SESSION_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), SIP_TYPE_MEDIA_SESSION, SIPMediaSessionClass))
+#define TPSIP_TYPE_MEDIA_SESSION \
+  (tpsip_media_session_get_type())
+#define TPSIP_MEDIA_SESSION(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_MEDIA_SESSION, TpsipMediaSession))
+#define TPSIP_MEDIA_SESSION_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_MEDIA_SESSION, TpsipMediaSessionClass))
+#define TPSIP_IS_MEDIA_SESSION(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_MEDIA_SESSION))
+#define TPSIP_IS_MEDIA_SESSION_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_MEDIA_SESSION))
+#define TPSIP_MEDIA_SESSION_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_MEDIA_SESSION, TpsipMediaSessionClass))
 
 /***********************************************************************
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
-TpHandle sip_media_session_get_peer (SIPMediaSession *session);
-void sip_media_session_terminate (SIPMediaSession *session);
-SIPMediaSessionState sip_media_session_get_state (SIPMediaSession *session);
-void sip_media_session_change_state (SIPMediaSession *session,
-                                     SIPMediaSessionState new_state);
-gboolean sip_media_session_set_remote_media (SIPMediaSession *chan,
+TpHandle tpsip_media_session_get_peer (TpsipMediaSession *session);
+void tpsip_media_session_terminate (TpsipMediaSession *session);
+TpsipMediaSessionState tpsip_media_session_get_state (TpsipMediaSession *session);
+void tpsip_media_session_change_state (TpsipMediaSession *session,
+                                     TpsipMediaSessionState new_state);
+gboolean tpsip_media_session_set_remote_media (TpsipMediaSession *chan,
                                             const sdp_session_t* r_sdp);
-gboolean sip_media_session_request_streams (SIPMediaSession *session,
+gboolean tpsip_media_session_request_streams (TpsipMediaSession *session,
 					    const GArray *media_types,
 					    GPtrArray *ret,
 					    GError **error);
-gboolean sip_media_session_remove_streams (SIPMediaSession *session,
+gboolean tpsip_media_session_remove_streams (TpsipMediaSession *session,
                                            const GArray *stream_ids,
                                            GError **error);
-void sip_media_session_list_streams (SIPMediaSession *session,
+void tpsip_media_session_list_streams (TpsipMediaSession *session,
                                      GPtrArray *ret);
-gboolean sip_media_session_request_stream_direction (SIPMediaSession *session,
+gboolean tpsip_media_session_request_stream_direction (TpsipMediaSession *session,
                                                      guint stream_id,
                                                      guint direction,
                                                      GError **error);
-void sip_media_session_receive_invite (SIPMediaSession *self);
-void sip_media_session_receive_reinvite (SIPMediaSession *self);
-void sip_media_session_accept (SIPMediaSession *self);
-void sip_media_session_reject (SIPMediaSession *self,
+void tpsip_media_session_receive_invite (TpsipMediaSession *self);
+void tpsip_media_session_receive_reinvite (TpsipMediaSession *self);
+void tpsip_media_session_accept (TpsipMediaSession *self);
+void tpsip_media_session_reject (TpsipMediaSession *self,
                                gint status,
                                const char *message);
 
-SIPChannelHoldState sip_media_session_get_hold_state (SIPMediaSession *session);
-void sip_media_session_request_hold (SIPMediaSession *session,
+TpsipChannelHoldState tpsip_media_session_get_hold_state (TpsipMediaSession *session);
+void tpsip_media_session_request_hold (TpsipMediaSession *session,
                                      gboolean hold);
 
-gboolean sip_media_session_start_telephony_event (SIPMediaSession *self,
+gboolean tpsip_media_session_start_telephony_event (TpsipMediaSession *self,
                                                   guint stream_id,
                                                   guchar event,
                                                   GError **error);
-gboolean sip_media_session_stop_telephony_event  (SIPMediaSession *self,
+gboolean tpsip_media_session_stop_telephony_event  (TpsipMediaSession *self,
                                                   guint stream_id,
                                                   GError **error);
 
-gint sip_media_session_rate_native_transport (SIPMediaSession *session,
+gint tpsip_media_session_rate_native_transport (TpsipMediaSession *session,
                                               const GValue *transport);
 
 #ifdef ENABLE_DEBUG
 
-#define SESSION_DEBUG(s, ...)    sip_media_session_debug (s, __VA_ARGS__)
+#define SESSION_DEBUG(s, ...)    tpsip_media_session_debug (s, __VA_ARGS__)
 
-void sip_media_session_debug (SIPMediaSession *session,
+void tpsip_media_session_debug (TpsipMediaSession *session,
 			      const gchar *format, ...);
 
 #else
@@ -128,4 +128,4 @@ void sip_media_session_debug (SIPMediaSession *session,
 
 G_END_DECLS
 
-#endif /* #ifndef __SIP_MEDIA_SESSION_H__*/
+#endif /* #ifndef __TPSIP_MEDIA_SESSION_H__*/

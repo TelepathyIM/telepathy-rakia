@@ -1,5 +1,5 @@
 /*
- * sip-media-stream.c - Source for SIPMediaStream
+ * sip-media-stream.c - Source for TpsipMediaStream
  * Copyright (C) 2006 Collabora Ltd.
  * Copyright (C) 2006,2007 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
@@ -41,7 +41,7 @@
 
 #include "signals-marshal.h"
 
-#define DEBUG_FLAG SIP_DEBUG_MEDIA
+#define DEBUG_FLAG TPSIP_DEBUG_MEDIA
 #include "debug.h"
 
 
@@ -50,8 +50,8 @@
 
 static void stream_handler_iface_init (gpointer, gpointer);
 
-G_DEFINE_TYPE_WITH_CODE(SIPMediaStream,
-    sip_media_stream,
+G_DEFINE_TYPE_WITH_CODE(TpsipMediaStream,
+    tpsip_media_stream,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_MEDIA_STREAM_HANDLER,
       stream_handler_iface_init)
@@ -84,11 +84,11 @@ enum
 };
 
 /* private structure */
-typedef struct _SIPMediaStreamPrivate SIPMediaStreamPrivate;
+typedef struct _TpsipMediaStreamPrivate TpsipMediaStreamPrivate;
 
-struct _SIPMediaStreamPrivate
+struct _TpsipMediaStreamPrivate
 {
-  SIPMediaSession *session;       /** see gobj. prop. 'media-session' */
+  TpsipMediaSession *session;       /** see gobj. prop. 'media-session' */
   gchar *object_path;             /** see gobj. prop. 'object-path' */
   guint id;                       /** see gobj. prop. 'id' */
   guint media_type;               /** see gobj. prop. 'media-type' */
@@ -121,16 +121,16 @@ struct _SIPMediaStreamPrivate
   gboolean dispose_has_run;
 };
 
-#define SIP_MEDIA_STREAM_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_STREAM, SIPMediaStreamPrivate))
+#define TPSIP_MEDIA_STREAM_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_STREAM, TpsipMediaStreamPrivate))
 
-static void push_remote_codecs (SIPMediaStream *stream);
-static void push_remote_candidates (SIPMediaStream *stream);
-static void push_active_candidate_pair (SIPMediaStream *stream);
-static void priv_update_sending (SIPMediaStream *stream,
+static void push_remote_codecs (TpsipMediaStream *stream);
+static void push_remote_candidates (TpsipMediaStream *stream);
+static void push_active_candidate_pair (TpsipMediaStream *stream);
+static void priv_update_sending (TpsipMediaStream *stream,
                                  TpMediaStreamDirection direction,
                                  guint pending_send_flags);
-static void priv_update_local_sdp(SIPMediaStream *stream);
-static void priv_generate_sdp (SIPMediaStream *stream);
+static void priv_update_local_sdp(TpsipMediaStream *stream);
+static void priv_generate_sdp (TpsipMediaStream *stream);
 
 #if 0
 #ifdef ENABLE_DEBUG
@@ -152,9 +152,9 @@ static const char *debug_tp_transports[] = {
  ***********************************************************************/
 
 static void
-sip_media_stream_init (SIPMediaStream *self)
+tpsip_media_stream_init (TpsipMediaStream *self)
 {
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
 
   priv->playing = FALSE;
   priv->sending = FALSE;
@@ -175,17 +175,17 @@ sip_media_stream_init (SIPMediaStream *self)
 }
 
 static GObject *
-sip_media_stream_constructor (GType type, guint n_props,
+tpsip_media_stream_constructor (GType type, guint n_props,
 			      GObjectConstructParam *props)
 {
   GObject *obj;
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStreamPrivate *priv;
   DBusGConnection *bus;
 
   /* call base class constructor */
-  obj = G_OBJECT_CLASS (sip_media_stream_parent_class)->
+  obj = G_OBJECT_CLASS (tpsip_media_stream_parent_class)->
            constructor (type, n_props, props);
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (SIP_MEDIA_STREAM (obj));
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (TPSIP_MEDIA_STREAM (obj));
 
   /* go for the bus */
   bus = tp_get_bus ();
@@ -195,13 +195,13 @@ sip_media_stream_constructor (GType type, guint n_props,
 }
 
 static void
-sip_media_stream_get_property (GObject    *object,
+tpsip_media_stream_get_property (GObject    *object,
 			       guint       property_id,
 			       GValue     *value,
 			       GParamSpec *pspec)
 {
-  SIPMediaStream *stream = SIP_MEDIA_STREAM (object);
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  TpsipMediaStream *stream = TPSIP_MEDIA_STREAM (object);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   switch (property_id)
     {
@@ -232,13 +232,13 @@ sip_media_stream_get_property (GObject    *object,
 }
 
 static void
-sip_media_stream_set_property (GObject      *object,
+tpsip_media_stream_set_property (GObject      *object,
 			       guint         property_id,
 			       const GValue *value,
 			       GParamSpec   *pspec)
 {
-  SIPMediaStream *stream = SIP_MEDIA_STREAM (object);
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  TpsipMediaStream *stream = TPSIP_MEDIA_STREAM (object);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   switch (property_id)
     {
@@ -269,30 +269,30 @@ sip_media_stream_set_property (GObject      *object,
     }
 }
 
-static void sip_media_stream_dispose (GObject *object);
-static void sip_media_stream_finalize (GObject *object);
+static void tpsip_media_stream_dispose (GObject *object);
+static void tpsip_media_stream_finalize (GObject *object);
 
 static void
-sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
+tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
 {
-  GObjectClass *object_class = G_OBJECT_CLASS (sip_media_stream_class);
-  GType stream_type = G_OBJECT_CLASS_TYPE (sip_media_stream_class);
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+  GType stream_type = G_OBJECT_CLASS_TYPE (klass);
   GParamSpec *param_spec;
 
-  g_type_class_add_private (sip_media_stream_class, sizeof (SIPMediaStreamPrivate));
+  g_type_class_add_private (klass, sizeof (TpsipMediaStreamPrivate));
 
-  object_class->constructor = sip_media_stream_constructor;
+  object_class->constructor = tpsip_media_stream_constructor;
 
-  object_class->get_property = sip_media_stream_get_property;
-  object_class->set_property = sip_media_stream_set_property;
+  object_class->get_property = tpsip_media_stream_get_property;
+  object_class->set_property = tpsip_media_stream_set_property;
 
-  object_class->dispose = sip_media_stream_dispose;
-  object_class->finalize = sip_media_stream_finalize;
+  object_class->dispose = tpsip_media_stream_dispose;
+  object_class->finalize = tpsip_media_stream_finalize;
 
   param_spec = g_param_spec_object ("media-session", "GabbleMediaSession object",
                                     "SIP media session object that owns this "
                                     "media stream object.",
-                                    SIP_TYPE_MEDIA_SESSION,
+                                    TPSIP_TYPE_MEDIA_SESSION,
                                     G_PARAM_CONSTRUCT_ONLY |
                                     G_PARAM_READWRITE |
                                     G_PARAM_STATIC_NICK |
@@ -344,7 +344,7 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
                                    param_spec);
 
   /* We don't change the following two as individual properties
-   * after construction, use sip_media_stream_set_direction() */
+   * after construction, use tpsip_media_stream_set_direction() */
 
   param_spec = g_param_spec_uint ("direction", "Stream direction",
                                   "A value indicating the current "
@@ -412,10 +412,10 @@ sip_media_stream_class_init (SIPMediaStreamClass *sip_media_stream_class)
 }
 
 void
-sip_media_stream_dispose (GObject *object)
+tpsip_media_stream_dispose (GObject *object)
 {
-  SIPMediaStream *self = SIP_MEDIA_STREAM (object);
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  TpsipMediaStream *self = TPSIP_MEDIA_STREAM (object);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
 
   if (priv->dispose_has_run)
     return;
@@ -424,17 +424,17 @@ sip_media_stream_dispose (GObject *object)
 
   /* release any references held by the object here */
 
-  if (G_OBJECT_CLASS (sip_media_stream_parent_class)->dispose)
-    G_OBJECT_CLASS (sip_media_stream_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (tpsip_media_stream_parent_class)->dispose)
+    G_OBJECT_CLASS (tpsip_media_stream_parent_class)->dispose (object);
 
   DEBUG ("exit");
 }
 
 void
-sip_media_stream_finalize (GObject *object)
+tpsip_media_stream_finalize (GObject *object)
 {
-  SIPMediaStream *self = SIP_MEDIA_STREAM (object);
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  TpsipMediaStream *self = TPSIP_MEDIA_STREAM (object);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
 
   /* free any data held directly by the object here */
   g_free (priv->object_path);
@@ -446,7 +446,7 @@ sip_media_stream_finalize (GObject *object)
   g_free (priv->native_candidate_id);
   g_free (priv->remote_candidate_id);
 
-  G_OBJECT_CLASS (sip_media_stream_parent_class)->finalize (object);
+  G_OBJECT_CLASS (tpsip_media_stream_parent_class)->finalize (object);
 
   DEBUG ("exit");
 }
@@ -456,13 +456,13 @@ sip_media_stream_finalize (GObject *object)
  ***********************************************************************/
 
 /**
- * sip_media_stream_codec_choice
+ * tpsip_media_stream_codec_choice
  *
  * Implements DBus method CodecChoice
  * on interface org.freedesktop.Telepathy.Media.StreamHandler
  */
 static void
-sip_media_stream_codec_choice (TpSvcMediaStreamHandler *iface,
+tpsip_media_stream_codec_choice (TpSvcMediaStreamHandler *iface,
                                guint codec_id,
                                DBusGMethodInvocation *context)
 {
@@ -475,53 +475,53 @@ sip_media_stream_codec_choice (TpSvcMediaStreamHandler *iface,
 }
 
 /**
- * sip_media_stream_error
+ * tpsip_media_stream_error
  *
  * Implements DBus method Error
  * on interface org.freedesktop.Telepathy.Media.StreamHandler
  */
 static void
-sip_media_stream_error (TpSvcMediaStreamHandler *iface,
+tpsip_media_stream_error (TpSvcMediaStreamHandler *iface,
                         guint errno,
                         const gchar *message,
                         DBusGMethodInvocation *context)
 {
   /* Note: Inform the connection manager that an error occured in this stream. */
 
-  SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  TpsipMediaStreamPrivate *priv;
 
-  g_assert (SIP_IS_MEDIA_STREAM (obj));
+  g_assert (TPSIP_IS_MEDIA_STREAM (obj));
 
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   SESSION_DEBUG(priv->session, "Media.StreamHandler::Error called -- terminating session");
 
-  sip_media_session_terminate (priv->session);
+  tpsip_media_session_terminate (priv->session);
 
   tp_svc_media_stream_handler_return_from_error (context);
 }
 
 
 /**
- * sip_media_stream_native_candidates_prepared
+ * tpsip_media_stream_native_candidates_prepared
  *
  * Implements DBus method NativeCandidatesPrepared
  * on interface org.freedesktop.Telepathy.Media.StreamHandler
  */
 static void
-sip_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
+tpsip_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
                                              DBusGMethodInvocation *context)
 {
   /* purpose: "Informs the connection manager that all possible native candisates
    *          have been discovered for the moment." 
    */
 
-  SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  TpsipMediaStreamPrivate *priv;
 
-  g_assert (SIP_IS_MEDIA_STREAM (obj));
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  g_assert (TPSIP_IS_MEDIA_STREAM (obj));
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   DEBUG("enter");
 
@@ -537,21 +537,21 @@ sip_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
 
 
 /**
- * sip_media_stream_new_active_candidate_pair
+ * tpsip_media_stream_new_active_candidate_pair
  *
  * Implements DBus method NewActiveCandidatePair
  * on interface org.freedesktop.Telepathy.Media.StreamHandler
  */
 static void
-sip_media_stream_new_active_candidate_pair (TpSvcMediaStreamHandler *iface,
+tpsip_media_stream_new_active_candidate_pair (TpSvcMediaStreamHandler *iface,
                                             const gchar *native_candidate_id,
                                             const gchar *remote_candidate_id,
                                             DBusGMethodInvocation *context)
 {
-  SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  TpsipMediaStreamPrivate *priv;
 
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   DEBUG("stream engine reported new active candidate pair %s-%s",
         native_candidate_id, remote_candidate_id);
@@ -574,26 +574,26 @@ sip_media_stream_new_active_candidate_pair (TpSvcMediaStreamHandler *iface,
 
 
 /**
- * sip_media_stream_new_native_candidate
+ * tpsip_media_stream_new_native_candidate
  *
  * Implements DBus method NewNativeCandidate
  * on interface org.freedesktop.Telepathy.Media.StreamHandler
  */
 static void
-sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
+tpsip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
                                        const gchar *candidate_id,
                                        const GPtrArray *transports,
                                        DBusGMethodInvocation *context)
 {
-  SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  TpsipMediaStreamPrivate *priv;
   GPtrArray *candidates;
   GValue candidate = { 0, };
   GValue transport = { 0, };
   gint tr_goodness;
 
-  g_assert (SIP_IS_MEDIA_STREAM (obj));
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  g_assert (TPSIP_IS_MEDIA_STREAM (obj));
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   if (priv->stream_sdp != NULL)
     {
@@ -607,8 +607,8 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
   /* Rate the preferability of the address */
   g_value_init (&transport, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT);
   g_value_set_static_boxed (&transport, g_ptr_array_index (transports, 0));
-  tr_goodness = sip_media_session_rate_native_transport (priv->session,
-                                                         &transport);
+  tr_goodness = tpsip_media_session_rate_native_transport (priv->session,
+                                                           &transport);
 
   candidates = g_value_get_boxed (&priv->native_candidates);
 
@@ -643,13 +643,13 @@ sip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
 
 /**
- * sip_media_stream_ready
+ * tpsip_media_stream_ready
  *
  * Implements DBus method Ready
  * on interface org.freedesktop.Telepathy.Media.StreamHandler
  */
 static void
-sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
+tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
                         const GPtrArray *codecs,
                         DBusGMethodInvocation *context)
 {
@@ -661,15 +661,15 @@ sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
    *   candidates first
    */
 
-  SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  TpsipMediaStreamPrivate *priv;
   GValue val = { 0, };
 
   DEBUG ("enter");
 
-  g_assert (SIP_IS_MEDIA_STREAM (obj));
+  g_assert (TPSIP_IS_MEDIA_STREAM (obj));
 
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   priv->ready_received = TRUE;
 
@@ -710,13 +710,13 @@ sip_media_stream_ready (TpSvcMediaStreamHandler *iface,
 /* FIXME: set_local_codecs not implemented */
 
 /**
- * sip_media_stream_stream_state
+ * tpsip_media_stream_stream_state
  *
  * Implements DBus method StreamState
  * on interface org.freedesktop.Telepathy.Media.StreamHandler
  */
 static void
-sip_media_stream_stream_state (TpSvcMediaStreamHandler *iface,
+tpsip_media_stream_stream_state (TpSvcMediaStreamHandler *iface,
                                guint state,
                                DBusGMethodInvocation *context)
 {
@@ -726,9 +726,9 @@ sip_media_stream_stream_state (TpSvcMediaStreamHandler *iface,
    * - set the stream state for session
    */
 
-  SIPMediaStream *obj = SIP_MEDIA_STREAM (iface);
-  SIPMediaStreamPrivate *priv;
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  TpsipMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  TpsipMediaStreamPrivate *priv;
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   if (priv->state != state)
     {
@@ -741,13 +741,13 @@ sip_media_stream_stream_state (TpSvcMediaStreamHandler *iface,
 }
 
 /**
- * sip_media_stream_supported_codecs
+ * tpsip_media_stream_supported_codecs
  *
  * Implements DBus method SupportedCodecs
  * on interface org.freedesktop.Telepathy.Media.StreamHandler
  */
 static void
-sip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
+tpsip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
                                    const GPtrArray *codecs,
                                    DBusGMethodInvocation *context)
 {
@@ -760,9 +760,9 @@ sip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
    * - emit SupportedCodecs
    */ 
 
-  SIPMediaStream *self = SIP_MEDIA_STREAM (iface);
-  SIPMediaStreamPrivate *priv;
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  TpsipMediaStream *self = TPSIP_MEDIA_STREAM (iface);
+  TpsipMediaStreamPrivate *priv;
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
 
   DEBUG("got codec intersection containing %u codecs from stream-engine",
         codecs->len);
@@ -798,21 +798,21 @@ sip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
  ***********************************************************************/
 
 guint
-sip_media_stream_get_id (SIPMediaStream *self)
+tpsip_media_stream_get_id (TpsipMediaStream *self)
 {
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
   return priv->id;
 }
 
 guint
-sip_media_stream_get_media_type (SIPMediaStream *self)
+tpsip_media_stream_get_media_type (TpsipMediaStream *self)
 {
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
   return priv->media_type;
 }
 
 void
-sip_media_stream_close (SIPMediaStream *self)
+tpsip_media_stream_close (TpsipMediaStream *self)
 {
   tp_svc_media_stream_handler_emit_close (self);
 }
@@ -821,15 +821,15 @@ sip_media_stream_close (SIPMediaStream *self)
  * Described the local stream configuration in SDP (RFC2327),
  * or NULL if stream not configured yet.
  */
-const char *sip_media_stream_local_sdp (SIPMediaStream *obj)
+const char *tpsip_media_stream_local_sdp (TpsipMediaStream *obj)
 {
-  SIPMediaStreamPrivate *priv;
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  TpsipMediaStreamPrivate *priv;
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
   return priv->stream_sdp;
 }
 
 static inline guint
-sip_tp_stream_direction_from_remote (sdp_mode_t mode)
+tpsip_tp_stream_direction_from_remote (sdp_mode_t mode)
 {
   return ((mode & sdp_recvonly)? TP_MEDIA_STREAM_DIRECTION_SEND : 0)
        | ((mode & sdp_sendonly)? TP_MEDIA_STREAM_DIRECTION_RECEIVE : 0);
@@ -851,11 +851,11 @@ sip_tp_stream_direction_from_remote (sdp_mode_t mode)
  *         FALSE if the update is not acceptable.
  */
 gboolean
-sip_media_stream_set_remote_media (SIPMediaStream *stream,
+tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
                                    const sdp_media_t *new_media,
                                    guint direction_up_mask)
 {
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStreamPrivate *priv;
   sdp_connection_t *sdp_conn;
   const sdp_media_t *old_media;
   gboolean transport_changed = TRUE;
@@ -863,7 +863,7 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
 
   DEBUG ("enter");
 
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   /* Do sanity checks */
 
@@ -901,7 +901,7 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
       return TRUE;
     }
 
-  new_direction = sip_tp_stream_direction_from_remote (new_media->m_mode);
+  new_direction = tpsip_tp_stream_direction_from_remote (new_media->m_mode);
 
   /* Make sure the peer can only enable sending or receiving direction
    * if it's allowed to */
@@ -928,7 +928,7 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
     {
      /* Make sure we stop sending before we use the new set of codecs
       * intended for the new connection */
-      sip_media_stream_set_sending (stream, FALSE);
+      tpsip_media_stream_set_sending (stream, FALSE);
 
       push_remote_candidates (stream);
     }
@@ -951,7 +951,7 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
   push_active_candidate_pair (stream);
 
   /* Set the final direction and sending status */
-  sip_media_stream_set_direction (stream,
+  tpsip_media_stream_set_direction (stream,
                                   new_direction,
                                   TRUE);
 
@@ -965,7 +965,7 @@ sip_media_stream_set_remote_media (SIPMediaStream *stream,
  * @return G_MAXUINT if the media type cannot be mapped
  */
 guint
-sip_tp_media_type (sdp_media_e sip_mtype)
+tpsip_tp_media_type (sdp_media_e sip_mtype)
 {
   switch (sip_mtype)
     {
@@ -981,10 +981,10 @@ sip_tp_media_type (sdp_media_e sip_mtype)
  * Sets the media state to playing or non-playing. When not playing,
  * received RTP packets may not be played locally.
  */
-void sip_media_stream_set_playing (SIPMediaStream *stream, gboolean playing)
+void tpsip_media_stream_set_playing (TpsipMediaStream *stream, gboolean playing)
 {
-  SIPMediaStreamPrivate *priv;
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  TpsipMediaStreamPrivate *priv;
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   if (same_boolean (priv->playing, playing))
     return;
@@ -1003,10 +1003,10 @@ void sip_media_stream_set_playing (SIPMediaStream *stream, gboolean playing)
  * captured media are not sent over the network.
  */
 void
-sip_media_stream_set_sending (SIPMediaStream *stream, gboolean sending)
+tpsip_media_stream_set_sending (TpsipMediaStream *stream, gboolean sending)
 {
-  SIPMediaStreamPrivate *priv;
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  TpsipMediaStreamPrivate *priv;
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   if (same_boolean(priv->sending, sending))
     return;
@@ -1021,11 +1021,11 @@ sip_media_stream_set_sending (SIPMediaStream *stream, gboolean sending)
 }
 
 static void
-priv_update_sending (SIPMediaStream *stream,
+priv_update_sending (TpsipMediaStream *stream,
                      TpMediaStreamDirection direction,
                      guint pending_send_flags)
 {
-  sip_media_stream_set_sending (stream,
+  tpsip_media_stream_set_sending (stream,
         (direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0
         && !(pending_send_flags
              & (TP_MEDIA_STREAM_PENDING_REMOTE_SEND
@@ -1033,12 +1033,12 @@ priv_update_sending (SIPMediaStream *stream,
 }
 
 gboolean
-sip_media_stream_set_direction (SIPMediaStream *stream,
+tpsip_media_stream_set_direction (TpsipMediaStream *stream,
                                 TpMediaStreamDirection direction,
                                 gboolean remote_agreed)
 {
-  SIPMediaStreamPrivate *priv;
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  TpsipMediaStreamPrivate *priv;
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   if (priv->direction == direction)
     return FALSE;
@@ -1067,9 +1067,9 @@ sip_media_stream_set_direction (SIPMediaStream *stream,
 }
 
 void
-sip_media_stream_release_pending_send (SIPMediaStream *stream)
+tpsip_media_stream_release_pending_send (TpsipMediaStream *stream)
 {
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   if (!(priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND))
     return;
@@ -1088,39 +1088,39 @@ sip_media_stream_release_pending_send (SIPMediaStream *stream)
  * Returns true if the stream has a valid SDP description and
  * connection has been established with the stream engine.
  */
-gboolean sip_media_stream_is_local_ready (SIPMediaStream *self)
+gboolean tpsip_media_stream_is_local_ready (TpsipMediaStream *self)
 {
-  SIPMediaStreamPrivate *priv;
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  TpsipMediaStreamPrivate *priv;
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
   g_assert (priv->stream_sdp == NULL || priv->ready_received);
   return (priv->stream_sdp != NULL);
 }
 
 gboolean
-sip_media_stream_is_codec_intersect_pending (SIPMediaStream *self)
+tpsip_media_stream_is_codec_intersect_pending (TpsipMediaStream *self)
 {
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
   return priv->codec_intersect_pending;
 }
 
 void
-sip_media_stream_start_telephony_event (SIPMediaStream *self, guchar event)
+tpsip_media_stream_start_telephony_event (TpsipMediaStream *self, guchar event)
 {
   tp_svc_media_stream_handler_emit_start_telephony_event (
         (TpSvcMediaStreamHandler *)self, event);
 }
 
 void
-sip_media_stream_stop_telephony_event  (SIPMediaStream *self)
+tpsip_media_stream_stop_telephony_event  (TpsipMediaStream *self)
 {
   tp_svc_media_stream_handler_emit_stop_telephony_event (
         (TpSvcMediaStreamHandler *)self);
 }
 
 static void
-priv_generate_sdp (SIPMediaStream *self)
+priv_generate_sdp (TpsipMediaStream *self)
 {
-  SIPMediaStreamPrivate *priv = SIP_MEDIA_STREAM_GET_PRIVATE (self);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
 
   if (priv->stream_sdp != NULL)
     return;
@@ -1194,9 +1194,9 @@ pass_as_is:
  *
  * @pre Ready signal must be receiveid (priv->ready_received)
  */
-static void push_remote_codecs (SIPMediaStream *stream)
+static void push_remote_codecs (TpsipMediaStream *stream)
 {
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStreamPrivate *priv;
   GPtrArray *codecs;
   GType codecs_type;
   GType codec_type;
@@ -1206,7 +1206,7 @@ static void push_remote_codecs (SIPMediaStream *stream)
 
   DEBUG ("enter");
 
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   sdpmedia = priv->remote_media; 
   if (sdpmedia == NULL)
@@ -1281,9 +1281,9 @@ static void push_remote_codecs (SIPMediaStream *stream)
   g_boxed_free (codecs_type, codecs);
 }
 
-static void push_remote_candidates (SIPMediaStream *stream)
+static void push_remote_candidates (TpsipMediaStream *stream)
 {
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStreamPrivate *priv;
   GValue candidate = { 0 };
   GValue transport = { 0 };
   GPtrArray *candidates;
@@ -1299,7 +1299,7 @@ static void push_remote_candidates (SIPMediaStream *stream)
 
   DEBUG("enter");
 
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   media = priv->remote_media; 
   if (media == NULL)
@@ -1372,13 +1372,13 @@ static void push_remote_candidates (SIPMediaStream *stream)
 }
 
 static void
-push_active_candidate_pair (SIPMediaStream *stream)
+push_active_candidate_pair (TpsipMediaStream *stream)
 {
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStreamPrivate *priv;
 
   DEBUG("enter");
 
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   if (priv->ready_received
       && priv->native_candidate_id != NULL
@@ -1428,9 +1428,9 @@ priv_marshal_param (gpointer key,
 * object, state.
 */
 static void
-priv_update_local_sdp(SIPMediaStream *stream)
+priv_update_local_sdp(TpsipMediaStream *stream)
 {
-  SIPMediaStreamPrivate *priv;
+  TpsipMediaStreamPrivate *priv;
   GString *mline;
   GString *alines;
   gchar *cline;
@@ -1456,8 +1456,8 @@ priv_update_local_sdp(SIPMediaStream *stream)
    * - no IPv6 support (missing from the Farsight API?)
    */
 
-  g_assert (SIP_IS_MEDIA_STREAM (stream));
-  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  g_assert (TPSIP_IS_MEDIA_STREAM (stream));
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   candidates = g_value_get_boxed (&priv->native_candidates);
   codecs = g_value_get_boxed (&priv->native_codecs);
@@ -1617,7 +1617,7 @@ stream_handler_iface_init (gpointer g_iface, gpointer iface_data)
   TpSvcMediaStreamHandlerClass *klass = (TpSvcMediaStreamHandlerClass *)g_iface;
 
 #define IMPLEMENT(x) tp_svc_media_stream_handler_implement_##x (\
-    klass, (tp_svc_media_stream_handler_##x##_impl) sip_media_stream_##x)
+    klass, (tp_svc_media_stream_handler_##x##_impl) tpsip_media_stream_##x)
   IMPLEMENT(codec_choice);
   IMPLEMENT(error);
   IMPLEMENT(native_candidates_prepared);

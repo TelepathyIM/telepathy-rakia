@@ -1,5 +1,5 @@
 /*
- * sip-text-channel.c - Source for SIPTextChannel
+ * sip-text-channel.c - Source for TpsipTextChannel
  * Copyright (C) 2005-2007 Collabora Ltd.
  * Copyright (C) 2005-2007 Nokia Corporation
  * @author Martti Mela <first.surname@nokia.com>
@@ -41,13 +41,13 @@
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
 
-#define DEBUG_FLAG SIP_DEBUG_IM
+#define DEBUG_FLAG TPSIP_DEBUG_IM
 #include "debug.h"
 
 static void channel_iface_init (gpointer, gpointer);
 static void text_iface_init (gpointer, gpointer);
 
-G_DEFINE_TYPE_WITH_CODE (SIPTextChannel, sip_text_channel, G_TYPE_OBJECT,
+G_DEFINE_TYPE_WITH_CODE (TpsipTextChannel, tpsip_text_channel, G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
@@ -67,9 +67,9 @@ enum
 
 /* private structures */
 
-typedef struct _SIPTextPendingMessage SIPTextPendingMessage;
+typedef struct _TpsipTextPendingMessage TpsipTextPendingMessage;
 
-struct _SIPTextPendingMessage
+struct _TpsipTextPendingMessage
 {
   guint id;
   nua_handle_t *nh;
@@ -83,11 +83,11 @@ struct _SIPTextPendingMessage
   gchar *text;
 };
 
-typedef struct _SIPTextChannelPrivate SIPTextChannelPrivate;
+typedef struct _TpsipTextChannelPrivate TpsipTextChannelPrivate;
 
-struct _SIPTextChannelPrivate
+struct _TpsipTextChannelPrivate
 {
-  SIPConnection *conn;
+  TpsipConnection *conn;
   gchar *object_path;
   TpHandle handle;
 
@@ -102,32 +102,32 @@ struct _SIPTextChannelPrivate
 };
 
 
-#define _sip_text_pending_new() \
-	(g_slice_new(SIPTextPendingMessage))
-#define _sip_text_pending_new0() \
-	(g_slice_new0(SIPTextPendingMessage))
+#define _tpsip_text_pending_new() \
+	(g_slice_new(TpsipTextPendingMessage))
+#define _tpsip_text_pending_new0() \
+	(g_slice_new0(TpsipTextPendingMessage))
 
-#define SIP_TEXT_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_TEXT_CHANNEL, SIPTextChannelPrivate))
+#define TPSIP_TEXT_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_TEXT_CHANNEL, TpsipTextChannelPrivate))
 
-static void _sip_text_pending_free(SIPTextPendingMessage *msg)
+static void _tpsip_text_pending_free(TpsipTextPendingMessage *msg)
 {
   if (msg->text)
     g_free (msg->text);
 
   nua_handle_unref (msg->nh);
 
-  g_slice_free (SIPTextPendingMessage, msg);
+  g_slice_free (TpsipTextPendingMessage, msg);
 }
 
-static void _sip_text_pending_free_walk(gpointer data, gpointer user_data)
+static void _tpsip_text_pending_free_walk(gpointer data, gpointer user_data)
 {
-  _sip_text_pending_free ((SIPTextPendingMessage *) data);
+  _tpsip_text_pending_free ((TpsipTextPendingMessage *) data);
 }
 
 static void
-sip_text_channel_init (SIPTextChannel *obj)
+tpsip_text_channel_init (TpsipTextChannel *obj)
 {
-  SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (obj);
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (obj);
 
   DEBUG("enter");
 
@@ -136,21 +136,21 @@ sip_text_channel_init (SIPTextChannel *obj)
 }
 
 static
-GObject *sip_text_channel_constructor(GType type,
+GObject *tpsip_text_channel_constructor(GType type,
 				      guint n_props,
 				      GObjectConstructParam *props)
 {
   GObject *obj;
-  SIPTextChannelPrivate *priv;
+  TpsipTextChannelPrivate *priv;
   DBusGConnection *bus;
 
   DEBUG("enter");
 
   obj =
-    G_OBJECT_CLASS(sip_text_channel_parent_class)->constructor(type,
+    G_OBJECT_CLASS(tpsip_text_channel_parent_class)->constructor(type,
 							       n_props,
 							       props);
-  priv = SIP_TEXT_CHANNEL_GET_PRIVATE(SIP_TEXT_CHANNEL(obj));
+  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(TPSIP_TEXT_CHANNEL(obj));
 
   bus = tp_get_bus();
   dbus_g_connection_register_g_object(bus, priv->object_path, obj);
@@ -159,39 +159,39 @@ GObject *sip_text_channel_constructor(GType type,
 }
 
 
-static void sip_text_channel_get_property(GObject    *object,
+static void tpsip_text_channel_get_property(GObject    *object,
 					  guint       property_id,
 					  GValue     *value,
 					  GParamSpec *pspec);
-static void sip_text_channel_set_property(GObject     *object,
+static void tpsip_text_channel_set_property(GObject     *object,
 					  guint        property_id,
 					  const GValue *value,
 					  GParamSpec   *pspec);
-static void sip_text_channel_dispose(GObject *object);
-static void sip_text_channel_finalize(GObject *object);
+static void tpsip_text_channel_dispose(GObject *object);
+static void tpsip_text_channel_finalize(GObject *object);
 
 static void
-sip_text_channel_class_init(SIPTextChannelClass *sip_text_channel_class)
+tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
 {
-  GObjectClass *object_class = G_OBJECT_CLASS (sip_text_channel_class);
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GParamSpec *param_spec;
 
   DEBUG("enter");
 
-  g_type_class_add_private (sip_text_channel_class, sizeof (SIPTextChannelPrivate));
+  g_type_class_add_private (klass, sizeof (TpsipTextChannelPrivate));
 
-  object_class->get_property = sip_text_channel_get_property;
-  object_class->set_property = sip_text_channel_set_property;
+  object_class->get_property = tpsip_text_channel_get_property;
+  object_class->set_property = tpsip_text_channel_set_property;
 
-  object_class->constructor = sip_text_channel_constructor;
+  object_class->constructor = tpsip_text_channel_constructor;
 
-  object_class->dispose = sip_text_channel_dispose;
-  object_class->finalize = sip_text_channel_finalize;
+  object_class->dispose = tpsip_text_channel_dispose;
+  object_class->finalize = tpsip_text_channel_finalize;
 
-  param_spec = g_param_spec_object("connection", "SIPConnection object",
+  param_spec = g_param_spec_object("connection", "TpsipConnection object",
 				   "SIP connection object that owns this "
 				   "SIP media channel object.",
-				   SIP_TYPE_CONNECTION,
+				   TPSIP_TYPE_CONNECTION,
 				   G_PARAM_CONSTRUCT_ONLY |
 				   G_PARAM_READWRITE |
 				   G_PARAM_STATIC_NICK |
@@ -207,14 +207,14 @@ sip_text_channel_class_init(SIPTextChannelClass *sip_text_channel_class)
       "channel-type");
 }
 
-static
-void sip_text_channel_get_property(GObject *object,
+static void
+tpsip_text_channel_get_property(GObject *object,
 				   guint property_id,
 				   GValue *value,
 				   GParamSpec *pspec)
 {
-  SIPTextChannel *chan = SIP_TEXT_CHANNEL(object);
-  SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE(chan);
+  TpsipTextChannel *chan = TPSIP_TEXT_CHANNEL(object);
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(chan);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -243,15 +243,14 @@ void sip_text_channel_get_property(GObject *object,
   }
 }
 
-static
-void
-sip_text_channel_set_property(GObject *object,
+static void
+tpsip_text_channel_set_property(GObject *object,
 			      guint property_id,
 			      const GValue *value,
 			      GParamSpec *pspec)
 {
-  SIPTextChannel *chan = SIP_TEXT_CHANNEL (object);
-  SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (chan);
+  TpsipTextChannel *chan = TPSIP_TEXT_CHANNEL (object);
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (chan);
 
   switch (property_id) {
   case PROP_CONNECTION:
@@ -280,10 +279,10 @@ sip_text_channel_set_property(GObject *object,
 }
 
 static void
-sip_text_channel_dispose(GObject *object)
+tpsip_text_channel_dispose(GObject *object)
 {
-  SIPTextChannel *self = SIP_TEXT_CHANNEL (object);
-  SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  TpsipTextChannel *self = TPSIP_TEXT_CHANNEL (object);
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
 
   if (priv->dispose_has_run)
     return;
@@ -291,19 +290,19 @@ sip_text_channel_dispose(GObject *object)
   priv->dispose_has_run = TRUE;
 
   if (!priv->closed)
-    sip_text_channel_close (self);
+    tpsip_text_channel_close (self);
 
   /* release any references held by the object here */
 
-  if (G_OBJECT_CLASS (sip_text_channel_parent_class)->dispose)
-    G_OBJECT_CLASS (sip_text_channel_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (tpsip_text_channel_parent_class)->dispose)
+    G_OBJECT_CLASS (tpsip_text_channel_parent_class)->dispose (object);
 }
 
 static void
-sip_text_channel_finalize(GObject *object)
+tpsip_text_channel_finalize(GObject *object)
 {
-  SIPTextChannel *self = SIP_TEXT_CHANNEL (object);
-  SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  TpsipTextChannel *self = TPSIP_TEXT_CHANNEL (object);
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
 
   DEBUG("enter");
 
@@ -312,7 +311,7 @@ sip_text_channel_finalize(GObject *object)
       g_warning ("zapping %u pending incoming messages",
                  g_queue_get_length (priv->pending_messages));
       g_queue_foreach (priv->pending_messages,
-                       _sip_text_pending_free_walk, NULL);
+                       _tpsip_text_pending_free_walk, NULL);
     }
   g_queue_free (priv->pending_messages);
 
@@ -321,50 +320,50 @@ sip_text_channel_finalize(GObject *object)
       g_message ("zapping %u pending outgoing message requests",
                  g_queue_get_length (priv->messages_to_be_acknowledged));
       g_queue_foreach (priv->messages_to_be_acknowledged,
-                       _sip_text_pending_free_walk, NULL);
+                       _tpsip_text_pending_free_walk, NULL);
     }
   g_queue_free (priv->messages_to_be_acknowledged);
 
   g_free (priv->object_path);
 
-  G_OBJECT_CLASS (sip_text_channel_parent_class)->finalize (object);
+  G_OBJECT_CLASS (tpsip_text_channel_parent_class)->finalize (object);
 }
 
-static gint sip_pending_message_compare(gconstpointer msg, gconstpointer id)
+static gint tpsip_pending_message_compare(gconstpointer msg, gconstpointer id)
 {
-  SIPTextPendingMessage *message = (SIPTextPendingMessage *)(msg);
+  TpsipTextPendingMessage *message = (TpsipTextPendingMessage *)(msg);
   return (message->id != GPOINTER_TO_INT(id));
 }
 
-static gint sip_acknowledged_messages_compare(gconstpointer msg,
+static gint tpsip_acknowledged_messages_compare(gconstpointer msg,
 					      gconstpointer id)
 {
-  SIPTextPendingMessage *message = (SIPTextPendingMessage *)msg;
+  TpsipTextPendingMessage *message = (TpsipTextPendingMessage *)msg;
   nua_handle_t *nh = (nua_handle_t *) id;
   return (message->nh != nh);
 }
 
 /**
- * sip_text_channel_acknowledge_pending_messages
+ * tpsip_text_channel_acknowledge_pending_messages
  *
  * Implements DBus method AcknowledgePendingMessages
  * on interface org.freedesktop.Telepathy.Channel.Type.Text
  */
 static void
-sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
+tpsip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 					      const GArray *ids,
 					      DBusGMethodInvocation *context)
 {
-  SIPTextChannel *obj = SIP_TEXT_CHANNEL (iface);
-  SIPTextChannelPrivate *priv;
+  TpsipTextChannel *obj = TPSIP_TEXT_CHANNEL (iface);
+  TpsipTextChannelPrivate *priv;
   TpHandleRepoIface *contact_repo;
   GList **nodes;
-  SIPTextPendingMessage *msg;
+  TpsipTextPendingMessage *msg;
   guint i;
 
   DEBUG("enter");
   
-  priv = SIP_TEXT_CHANNEL_GET_PRIVATE(obj);
+  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(obj);
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
 
@@ -376,7 +375,7 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 
       nodes[i] = g_queue_find_custom (priv->pending_messages,
                                       GINT_TO_POINTER (id),
-                                      sip_pending_message_compare);
+                                      tpsip_pending_message_compare);
 
       if (nodes[i] == NULL)
         {
@@ -396,14 +395,14 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 
   for (i = 0; i < ids->len; i++)
     {
-      msg = (SIPTextPendingMessage *) nodes[i]->data;
+      msg = (TpsipTextPendingMessage *) nodes[i]->data;
 
       DEBUG("acknowledging message id %u", msg->id);
 
       g_queue_remove (priv->pending_messages, msg);
 
       tp_handle_unref (contact_repo, msg->sender);
-      _sip_text_pending_free (msg);
+      _tpsip_text_pending_free (msg);
     }
 
   g_free(nodes);
@@ -413,27 +412,27 @@ sip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 
 
 /**
- * sip_text_channel_close_async
+ * tpsip_text_channel_close_async
  *
  * Implements DBus method Close
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-sip_text_channel_close_async (TpSvcChannel *iface,
+tpsip_text_channel_close_async (TpSvcChannel *iface,
                               DBusGMethodInvocation *context)
 {
-  sip_text_channel_close (SIP_TEXT_CHANNEL(iface));
+  tpsip_text_channel_close (TPSIP_TEXT_CHANNEL(iface));
   tp_svc_channel_return_from_close (context);
 }
 
 void
-sip_text_channel_close (SIPTextChannel *self)
+tpsip_text_channel_close (TpsipTextChannel *self)
 {
-  SIPTextChannelPrivate *priv;
+  TpsipTextChannelPrivate *priv;
 
   DEBUG("enter");
 
-  priv = SIP_TEXT_CHANNEL_GET_PRIVATE(self);
+  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(self);
   if (!priv->closed)
     {
       priv->closed = TRUE;
@@ -442,13 +441,13 @@ sip_text_channel_close (SIPTextChannel *self)
 }
 
 /**
- * sip_text_channel_get_channel_type
+ * tpsip_text_channel_get_channel_type
  *
  * Implements DBus method GetChannelType
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-sip_text_channel_get_channel_type (TpSvcChannel *iface,
+tpsip_text_channel_get_channel_type (TpSvcChannel *iface,
                                    DBusGMethodInvocation *context)
 {
   DEBUG("enter");
@@ -459,21 +458,21 @@ sip_text_channel_get_channel_type (TpSvcChannel *iface,
 
 
 /**
- * sip_text_channel_get_handle
+ * tpsip_text_channel_get_handle
  *
  * Implements DBus method GetHandle
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-sip_text_channel_get_handle (TpSvcChannel *iface,
+tpsip_text_channel_get_handle (TpSvcChannel *iface,
                              DBusGMethodInvocation *context)
 {
-  SIPTextChannel *obj = SIP_TEXT_CHANNEL (iface);
-  SIPTextChannelPrivate *priv;
+  TpsipTextChannel *obj = TPSIP_TEXT_CHANNEL (iface);
+  TpsipTextChannelPrivate *priv;
 
   DEBUG("enter");
 
-  priv = SIP_TEXT_CHANNEL_GET_PRIVATE(obj);
+  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(obj);
 
   tp_svc_channel_return_from_get_handle (context, TP_HANDLE_TYPE_CONTACT,
       priv->handle);
@@ -481,13 +480,13 @@ sip_text_channel_get_handle (TpSvcChannel *iface,
 
 
 /**
- * sip_text_channel_get_interfaces
+ * tpsip_text_channel_get_interfaces
  *
  * Implements DBus method GetInterfaces
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-sip_text_channel_get_interfaces(TpSvcChannel *iface,
+tpsip_text_channel_get_interfaces(TpSvcChannel *iface,
                                 DBusGMethodInvocation *context)
 {
   const char *interfaces[] = { NULL };
@@ -498,13 +497,13 @@ sip_text_channel_get_interfaces(TpSvcChannel *iface,
 
 
 /**
- * sip_text_channel_get_message_types
+ * tpsip_text_channel_get_message_types
  *
  * Implements DBus method GetMessageTypes
  * on interface org.freedesktop.Telepathy.Channel.Type.Text
  */
 static void
-sip_text_channel_get_message_types(TpSvcChannelTypeText *iface,
+tpsip_text_channel_get_message_types(TpSvcChannelTypeText *iface,
                                    DBusGMethodInvocation *context)
 {
   GArray *ret = g_array_sized_new (FALSE, FALSE, sizeof (guint), 1);
@@ -517,7 +516,7 @@ sip_text_channel_get_message_types(TpSvcChannelTypeText *iface,
 }
 
 static void
-sip_pending_message_list_add (GPtrArray *list, SIPTextPendingMessage *msg)
+tpsip_pending_message_list_add (GPtrArray *list, TpsipTextPendingMessage *msg)
 {
   GValue val = { 0 };
   GType message_type;
@@ -539,24 +538,24 @@ sip_pending_message_list_add (GPtrArray *list, SIPTextPendingMessage *msg)
 }
 
 /**
- * sip_text_channel_list_pending_messages
+ * tpsip_text_channel_list_pending_messages
  *
  * Implements DBus method ListPendingMessages
  * on interface org.freedesktop.Telepathy.Channel.Type.Text
  */
 static void
-sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
+tpsip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
                                        gboolean clear,
                                        DBusGMethodInvocation *context)
 {
-  SIPTextChannel *self = (SIPTextChannel*) iface;
-  SIPTextChannelPrivate *priv;
+  TpsipTextChannel *self = (TpsipTextChannel*) iface;
+  TpsipTextChannelPrivate *priv;
   GPtrArray *messages;
   GList *cur;
   guint count;
 
-  g_assert (SIP_IS_TEXT_CHANNEL(self));
-  priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  g_assert (TPSIP_IS_TEXT_CHANNEL(self));
+  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
 
   count = g_queue_get_length (priv->pending_messages);
   messages = g_ptr_array_sized_new (count);
@@ -564,16 +563,16 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
   if (clear)
     {
       while ((cur = g_queue_pop_head_link (priv->pending_messages)) != NULL)
-        sip_pending_message_list_add (messages,
-                                      (SIPTextPendingMessage *) cur->data);
+        tpsip_pending_message_list_add (messages,
+                                        (TpsipTextPendingMessage *) cur->data);
     }
   else
     {
       for (cur = g_queue_peek_head_link(priv->pending_messages);
            cur != NULL;
            cur = cur->next)
-        sip_pending_message_list_add (messages,
-                                      (SIPTextPendingMessage *) cur->data);
+        tpsip_pending_message_list_add (messages,
+                                        (TpsipTextPendingMessage *) cur->data);
     }
 
   tp_svc_channel_type_text_return_from_list_pending_messages (context,
@@ -584,7 +583,7 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
 
 
 /**
- * sip_text_channel_send
+ * tpsip_text_channel_send
  *
  * Implements DBus method Send
  * on interface org.freedesktop.Telepathy.Channel.Type.Text
@@ -596,14 +595,14 @@ sip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
 static void
-sip_text_channel_send(TpSvcChannelTypeText *iface,
+tpsip_text_channel_send(TpSvcChannelTypeText *iface,
                       guint type,
                       const gchar *text,
                       DBusGMethodInvocation *context)
 {
-  SIPTextChannel *self = SIP_TEXT_CHANNEL(iface);
-  SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (self);
-  SIPTextPendingMessage *msg = NULL;
+  TpsipTextChannel *self = TPSIP_TEXT_CHANNEL(iface);
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  TpsipTextPendingMessage *msg = NULL;
   nua_handle_t *msg_nh = NULL;
 
   DEBUG("enter");
@@ -619,9 +618,9 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
     }
 
   /* XXX: would it be helpful to bind the channel, or the
-   * SIPTextPendingMessage, or something, to the NH? */
+   * TpsipTextPendingMessage, or something, to the NH? */
 
-  msg_nh = sip_conn_create_request_handle (priv->conn, priv->handle);
+  msg_nh = tpsip_conn_create_request_handle (priv->conn, priv->handle);
   g_assert (msg_nh != NULL);
 
   nua_message(msg_nh,
@@ -629,7 +628,7 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
 	      SIPTAG_PAYLOAD_STR(text),
 	      TAG_END());
 
-  msg = _sip_text_pending_new();
+  msg = _tpsip_text_pending_new();
   msg->nh = msg_nh;
   msg->text = g_strdup(text);
   msg->type = type;
@@ -641,19 +640,19 @@ sip_text_channel_send(TpSvcChannelTypeText *iface,
 }
 
 void
-sip_text_channel_emit_message_status(SIPTextChannel *obj,
+tpsip_text_channel_emit_message_status(TpsipTextChannel *obj,
                                      nua_handle_t *nh,
                                      int status)
 {
-  SIPTextChannelPrivate *priv = SIP_TEXT_CHANNEL_GET_PRIVATE (obj);
-  SIPTextPendingMessage *msg;
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (obj);
+  TpsipTextPendingMessage *msg;
   TpChannelTextSendError send_error;
   GList *node;
 
   DEBUG("enter");
 
   node = g_queue_find_custom(priv->messages_to_be_acknowledged, nh,
-			     sip_acknowledged_messages_compare);
+			     tpsip_acknowledged_messages_compare);
 
   /* Shouldn't happen... */
   if (!node) {
@@ -661,7 +660,7 @@ sip_text_channel_emit_message_status(SIPTextChannel *obj,
     return;
   }
   
-  msg = (SIPTextPendingMessage *)node->data;
+  msg = (TpsipTextPendingMessage *)node->data;
 
   g_return_if_fail (msg != NULL);
 
@@ -715,26 +714,26 @@ sip_text_channel_emit_message_status(SIPTextChannel *obj,
   }
 
   g_queue_remove(priv->messages_to_be_acknowledged, msg);
-  _sip_text_pending_free(msg);
+  _tpsip_text_pending_free(msg);
 }
 
-void sip_text_channel_receive(SIPTextChannel *chan,
+void tpsip_text_channel_receive(TpsipTextChannel *chan,
 			      TpHandle sender,
 			      const char *message)
 {
-  SIPTextPendingMessage *msg;
-  SIPTextChannelPrivate *priv;
+  TpsipTextPendingMessage *msg;
+  TpsipTextChannelPrivate *priv;
   TpHandleRepoIface *contact_repo;
 
   DEBUG("enter");
 
   g_assert(chan != NULL);
-  g_assert(SIP_IS_TEXT_CHANNEL(chan));
-  priv = SIP_TEXT_CHANNEL_GET_PRIVATE (chan);
+  g_assert(TPSIP_IS_TEXT_CHANNEL(chan));
+  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (chan);
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
 
-  msg = _sip_text_pending_new();
+  msg = _tpsip_text_pending_new();
 
   msg->id = priv->recv_id++;
   msg->timestamp = time(NULL);
@@ -759,7 +758,7 @@ channel_iface_init(gpointer g_iface, gpointer iface_data)
   TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
 
 #define IMPLEMENT(x, suffix) tp_svc_channel_implement_##x (\
-    klass, sip_text_channel_##x##suffix)
+    klass, tpsip_text_channel_##x##suffix)
   IMPLEMENT(close,_async);
   IMPLEMENT(get_channel_type,);
   IMPLEMENT(get_handle,);
@@ -773,7 +772,7 @@ text_iface_init (gpointer g_iface, gpointer iface_data)
   TpSvcChannelTypeTextClass *klass = (TpSvcChannelTypeTextClass *)g_iface;
 
 #define IMPLEMENT(x) tp_svc_channel_type_text_implement_##x (klass,\
-    sip_text_channel_##x)
+    tpsip_text_channel_##x)
   IMPLEMENT(acknowledge_pending_messages);
   IMPLEMENT(get_message_types);
   IMPLEMENT(list_pending_messages);

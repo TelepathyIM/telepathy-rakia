@@ -1,5 +1,5 @@
 /*
- * sip-connection-private.h - Private structures for SIPConnection
+ * sip-connection-private.h - Private structures for TpsipConnection
  * Copyright (C) 2005-2007 Collabora Ltd.
  * Copyright (C) 2005-2007 Nokia Corporation
  *
@@ -17,16 +17,16 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __SIP_CONNECTION_PRIVATE_H__
-#define __SIP_CONNECTION_PRIVATE_H__
+#ifndef __TPSIP_CONNECTION_PRIVATE_H__
+#define __TPSIP_CONNECTION_PRIVATE_H__
 
 #include <telepathy-glib/channel-factory-iface.h>
 
 #include "sip-connection-sofia.h"
 
-struct _SIPConnectionPrivate
+struct _TpsipConnectionPrivate
 {
-  SIPConnectionSofia *sofia;
+  TpsipConnectionSofia *sofia;
   nua_t  *sofia_nua;
   su_home_t *sofia_home;
   nua_handle_t *register_op;
@@ -47,7 +47,7 @@ struct _SIPConnectionPrivate
   gchar *auth_user;
   gchar *password;
   gchar *transport;
-  SIPConnectionKeepaliveMechanism keepalive_mechanism;
+  TpsipConnectionKeepaliveMechanism keepalive_mechanism;
   gint keepalive_interval;
   gboolean discover_stun;
   gchar *stun_host;
@@ -62,8 +62,8 @@ struct _SIPConnectionPrivate
   gboolean dispose_has_run;
 };
 
-#define SIP_PROTOCOL_STRING               "sip"
+/* #define TPSIP_PROTOCOL_STRING               "sip" */
 
-#define SIP_CONNECTION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_CONNECTION, SIPConnectionPrivate))
+#define TPSIP_CONNECTION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_CONNECTION, TpsipConnectionPrivate))
 
-#endif /*__SIP_CONNECTION_PRIVATE_H__*/
+#endif /*__TPSIP_CONNECTION_PRIVATE_H__*/

@@ -1,5 +1,5 @@
 /*
- * sip-media-channel.c - Source for SIPMediaChannel
+ * sip-media-channel.c - Source for TpsipMediaChannel
  * Copyright (C) 2005-2008 Collabora Ltd.
  * Copyright (C) 2005-2008 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
@@ -43,7 +43,7 @@
 
 #include "sip-connection-helpers.h"
 
-#define DEBUG_FLAG SIP_DEBUG_MEDIA
+#define DEBUG_FLAG TPSIP_DEBUG_MEDIA
 #include "debug.h"
 
 static void channel_iface_init (gpointer, gpointer);
@@ -54,7 +54,7 @@ static void priv_group_mixin_iface_init (gpointer, gpointer);
 static void call_state_iface_init (gpointer, gpointer);
 static void hold_iface_init (gpointer, gpointer);
 
-G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
+G_DEFINE_TYPE_WITH_CODE (TpsipMediaChannel, tpsip_media_channel,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP,
@@ -63,9 +63,9 @@ G_DEFINE_TYPE_WITH_CODE (SIPMediaChannel, sip_media_channel,
       media_signalling_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DTMF,
       dtmf_iface_init);
-    G_IMPLEMENT_INTERFACE (SIP_TYPE_SVC_CHANNEL_INTERFACE_CALL_STATE,
+    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_SVC_CHANNEL_INTERFACE_CALL_STATE,
       call_state_iface_init);
-    G_IMPLEMENT_INTERFACE (SIP_TYPE_SVC_CHANNEL_INTERFACE_HOLD,
+    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_SVC_CHANNEL_INTERFACE_HOLD,
       hold_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_STREAMED_MEDIA,
       streamed_media_iface_init);
@@ -106,29 +106,29 @@ const TpPropertySignature media_channel_property_signatures[NUM_TP_PROPS] =
 };
 
 /* private structure */
-typedef struct _SIPMediaChannelPrivate SIPMediaChannelPrivate;
+typedef struct _TpsipMediaChannelPrivate TpsipMediaChannelPrivate;
 
-struct _SIPMediaChannelPrivate
+struct _TpsipMediaChannelPrivate
 {
   gboolean dispose_has_run;
   gboolean closed;
-  SIPConnection *conn;
-  SIPMediaFactory *factory;
-  SIPMediaSession *session;
+  TpsipConnection *conn;
+  TpsipMediaFactory *factory;
+  TpsipMediaSession *session;
   gchar *object_path;
   GHashTable *call_states;
 };
 
-#define SIP_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_CHANNEL, SIPMediaChannelPrivate))
+#define TPSIP_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_CHANNEL, TpsipMediaChannelPrivate))
 
 /***********************************************************************
  * Set: Gobject interface
  ***********************************************************************/
 
 static void
-sip_media_channel_init (SIPMediaChannel *self)
+tpsip_media_channel_init (TpsipMediaChannel *self)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   /* allocate any data required by the object here */
   priv->call_states = g_hash_table_new (NULL, NULL);
@@ -136,25 +136,25 @@ sip_media_channel_init (SIPMediaChannel *self)
   /* initialise the properties mixin *before* GObject
    * sets the construct-time properties */
   tp_properties_mixin_init (G_OBJECT (self),
-      G_STRUCT_OFFSET (SIPMediaChannel, properties));
+      G_STRUCT_OFFSET (TpsipMediaChannel, properties));
 }
 
 static GObject *
-sip_media_channel_constructor (GType type, guint n_props,
+tpsip_media_channel_constructor (GType type, guint n_props,
 			       GObjectConstructParam *props)
 {
   GObject *obj;
-  SIPMediaChannelPrivate *priv;
+  TpsipMediaChannelPrivate *priv;
   DBusGConnection *bus;
   TpBaseConnection *conn;
   TpHandleRepoIface *contact_repo;
 
   DEBUG("enter");
   
-  obj = G_OBJECT_CLASS (sip_media_channel_parent_class)->
+  obj = G_OBJECT_CLASS (tpsip_media_channel_parent_class)->
            constructor (type, n_props, props);
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (SIP_MEDIA_CHANNEL (obj));
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (TPSIP_MEDIA_CHANNEL (obj));
   conn = (TpBaseConnection *)(priv->conn);
   contact_repo = tp_base_connection_get_handles (conn,
       TP_HANDLE_TYPE_CONTACT);
@@ -166,7 +166,7 @@ sip_media_channel_constructor (GType type, guint n_props,
   dbus_g_connection_register_g_object (bus, priv->object_path, obj);
 
   tp_group_mixin_init (obj,
-                       G_STRUCT_OFFSET (SIPMediaChannel, group),
+                       G_STRUCT_OFFSET (TpsipMediaChannel, group),
                        contact_repo,
                        conn->self_handle);
 
@@ -176,30 +176,30 @@ sip_media_channel_constructor (GType type, guint n_props,
   return obj;
 }
 
-static void sip_media_channel_dispose (GObject *object);
-static void sip_media_channel_finalize (GObject *object);
-static void sip_media_channel_get_property (GObject    *object,
+static void tpsip_media_channel_dispose (GObject *object);
+static void tpsip_media_channel_finalize (GObject *object);
+static void tpsip_media_channel_get_property (GObject    *object,
 					    guint       property_id,
 					    GValue     *value,
 					    GParamSpec *pspec);
-static void sip_media_channel_set_property (GObject     *object,
+static void tpsip_media_channel_set_property (GObject     *object,
 					    guint        property_id,
 					    const GValue *value,
 					    GParamSpec   *pspec);
 
-static void priv_create_session (SIPMediaChannel *channel,
+static void priv_create_session (TpsipMediaChannel *channel,
                                  nua_handle_t *nh,
                                  TpHandle peer);
-static void priv_destroy_session(SIPMediaChannel *channel);
+static void priv_destroy_session(TpsipMediaChannel *channel);
 
-static void priv_outbound_call (SIPMediaChannel *channel,
+static void priv_outbound_call (TpsipMediaChannel *channel,
                                 TpHandle peer);
 
-static gboolean sip_media_channel_add_member (GObject *iface,
+static gboolean tpsip_media_channel_add_member (GObject *iface,
                                               TpHandle handle,
                                               const gchar *message,
                                               GError **error);
-static gboolean sip_media_channel_remove_with_reason (
+static gboolean tpsip_media_channel_remove_with_reason (
                                                  GObject *iface,
                                                  TpHandle handle,
                                                  const gchar *message,
@@ -207,29 +207,29 @@ static gboolean sip_media_channel_remove_with_reason (
                                                  GError **error);
 
 static void
-sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
+tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
 {
-  GObjectClass *object_class = G_OBJECT_CLASS (sip_media_channel_class);
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GParamSpec *param_spec;
 
   DEBUG("enter");
 
-  g_type_class_add_private (sip_media_channel_class, sizeof (SIPMediaChannelPrivate));
+  g_type_class_add_private (klass, sizeof (TpsipMediaChannelPrivate));
 
-  object_class->constructor = sip_media_channel_constructor;
+  object_class->constructor = tpsip_media_channel_constructor;
 
-  object_class->get_property = sip_media_channel_get_property;
-  object_class->set_property = sip_media_channel_set_property;
+  object_class->get_property = tpsip_media_channel_get_property;
+  object_class->set_property = tpsip_media_channel_set_property;
 
-  object_class->dispose = sip_media_channel_dispose;
-  object_class->finalize = sip_media_channel_finalize;
+  object_class->dispose = tpsip_media_channel_dispose;
+  object_class->finalize = tpsip_media_channel_finalize;
 
   tp_group_mixin_class_init (object_class,
-                             G_STRUCT_OFFSET (SIPMediaChannelClass, group_class),
-                             sip_media_channel_add_member,
+                             G_STRUCT_OFFSET (TpsipMediaChannelClass, group_class),
+                             tpsip_media_channel_add_member,
                              NULL);
   tp_group_mixin_class_set_remove_with_reason_func(object_class,
-                             sip_media_channel_remove_with_reason);
+                             tpsip_media_channel_remove_with_reason);
 
   g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
       "handle-type");
@@ -240,23 +240,23 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
       "channel-type");
 
   tp_properties_mixin_class_init (object_class,
-      G_STRUCT_OFFSET (SIPMediaChannelClass, properties_class),
+      G_STRUCT_OFFSET (TpsipMediaChannelClass, properties_class),
       media_channel_property_signatures, NUM_TP_PROPS, NULL);
 
-  param_spec = g_param_spec_object ("connection", "SIPConnection object",
+  param_spec = g_param_spec_object ("connection", "TpsipConnection object",
                                     "SIP connection object that owns this "
                                     "SIP media channel object.",
-                                    SIP_TYPE_CONNECTION,
+                                    TPSIP_TYPE_CONNECTION,
                                     G_PARAM_CONSTRUCT_ONLY |
                                     G_PARAM_READWRITE |
                                     G_PARAM_STATIC_NICK |
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 
-  param_spec = g_param_spec_object ("factory", "SIPMediaFactory object",
+  param_spec = g_param_spec_object ("factory", "TpsipMediaFactory object",
                                     "Channel factory object that owns this "
                                     "SIP media channel object.",
-                                    SIP_TYPE_MEDIA_FACTORY,
+                                    TPSIP_TYPE_MEDIA_FACTORY,
                                     G_PARAM_CONSTRUCT_ONLY |
                                     G_PARAM_READWRITE |
                                     G_PARAM_STATIC_NICK |
@@ -294,13 +294,13 @@ sip_media_channel_class_init (SIPMediaChannelClass *sip_media_channel_class)
 }
 
 static void
-sip_media_channel_get_property (GObject    *object,
+tpsip_media_channel_get_property (GObject    *object,
                                 guint       property_id,
                                 GValue     *value,
                                 GParamSpec *pspec)
 {
-  SIPMediaChannel *chan = SIP_MEDIA_CHANNEL (object);
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
+  TpsipMediaChannel *chan = TPSIP_MEDIA_CHANNEL (object);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -347,13 +347,13 @@ sip_media_channel_get_property (GObject    *object,
 }
 
 static void
-sip_media_channel_set_property (GObject     *object,
+tpsip_media_channel_set_property (GObject     *object,
 				guint        property_id,
 				const GValue *value,
 				GParamSpec   *pspec)
 {
-  SIPMediaChannel *chan = SIP_MEDIA_CHANNEL (object);
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
+  TpsipMediaChannel *chan = TPSIP_MEDIA_CHANNEL (object);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
 
   switch (property_id) {
     case PROP_HANDLE_TYPE:
@@ -363,10 +363,10 @@ sip_media_channel_set_property (GObject     *object,
        * meaningfully changable on this channel, so we do nothing */
       break;
     case PROP_CONNECTION:
-      priv->conn = SIP_CONNECTION (g_value_dup_object (value));
+      priv->conn = TPSIP_CONNECTION (g_value_dup_object (value));
       break;
     case PROP_FACTORY:
-      priv->factory = SIP_MEDIA_FACTORY (g_value_dup_object (value));
+      priv->factory = TPSIP_MEDIA_FACTORY (g_value_dup_object (value));
       break;
     case PROP_OBJECT_PATH:
       g_free (priv->object_path);
@@ -395,10 +395,10 @@ sip_media_channel_set_property (GObject     *object,
 }
 
 static void
-sip_media_channel_dispose (GObject *object)
+tpsip_media_channel_dispose (GObject *object)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (object);
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (object);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (priv->dispose_has_run)
     return;
@@ -410,7 +410,7 @@ sip_media_channel_dispose (GObject *object)
   priv_destroy_session(self);
 
   if (!priv->closed)
-    sip_media_channel_close (self);
+    tpsip_media_channel_close (self);
 
   if (priv->factory)
     g_object_unref (priv->factory);
@@ -418,17 +418,17 @@ sip_media_channel_dispose (GObject *object)
   if (priv->conn)
     g_object_unref (priv->conn);
 
-  if (G_OBJECT_CLASS (sip_media_channel_parent_class)->dispose)
-    G_OBJECT_CLASS (sip_media_channel_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (tpsip_media_channel_parent_class)->dispose)
+    G_OBJECT_CLASS (tpsip_media_channel_parent_class)->dispose (object);
 
   DEBUG("exit");
 }
 
 static void
-sip_media_channel_finalize (GObject *object)
+tpsip_media_channel_finalize (GObject *object)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (object);
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (object);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   g_hash_table_destroy (priv->call_states);
 
@@ -438,7 +438,7 @@ sip_media_channel_finalize (GObject *object)
 
   tp_properties_mixin_finalize (object);
 
-  G_OBJECT_CLASS (sip_media_channel_parent_class)->finalize (object);
+  G_OBJECT_CLASS (tpsip_media_channel_parent_class)->finalize (object);
 
   DEBUG("exit");
 }
@@ -448,30 +448,30 @@ sip_media_channel_finalize (GObject *object)
  ***********************************************************************/
 
 /**
- * sip_media_channel_close_async
+ * tpsip_media_channel_close_async
  *
  * Implements DBus method Close
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-sip_media_channel_close_async (TpSvcChannel *iface,
+tpsip_media_channel_close_async (TpSvcChannel *iface,
                                DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
 
-  sip_media_channel_close (self);
+  tpsip_media_channel_close (self);
   tp_svc_channel_return_from_close (context);
 }
 
 void
-sip_media_channel_close (SIPMediaChannel *obj)
+tpsip_media_channel_close (TpsipMediaChannel *obj)
 {
-  SIPMediaChannelPrivate *priv;
+  TpsipMediaChannelPrivate *priv;
 
   DEBUG("enter");
 
-  g_assert (SIP_IS_MEDIA_CHANNEL (obj));
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (obj);
+  g_assert (TPSIP_IS_MEDIA_CHANNEL (obj));
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (obj);
 
   if (priv->closed)
     return;
@@ -479,7 +479,7 @@ sip_media_channel_close (SIPMediaChannel *obj)
   priv->closed = TRUE;
 
   if (priv->session) {
-    sip_media_session_terminate (priv->session);
+    tpsip_media_session_terminate (priv->session);
     g_assert (priv->session == NULL);
   }
 
@@ -489,25 +489,25 @@ sip_media_channel_close (SIPMediaChannel *obj)
 }
 
 void
-sip_media_channel_terminated (SIPMediaChannel *self)
+tpsip_media_channel_terminated (TpsipMediaChannel *self)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   DEBUG("enter");
 
   if (priv->session)
-    sip_media_session_change_state (priv->session,
-                                    SIP_MEDIA_SESSION_STATE_ENDED);
+    tpsip_media_session_change_state (priv->session,
+                                      TPSIP_MEDIA_SESSION_STATE_ENDED);
 }
 
 /**
- * sip_media_channel_get_channel_type
+ * tpsip_media_channel_get_channel_type
  *
  * Implements DBus method GetChannelType
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-sip_media_channel_get_channel_type (TpSvcChannel *obj,
+tpsip_media_channel_get_channel_type (TpSvcChannel *obj,
                                     DBusGMethodInvocation *context)
 {
   tp_svc_channel_return_from_get_channel_type (context,
@@ -516,34 +516,34 @@ sip_media_channel_get_channel_type (TpSvcChannel *obj,
 
 
 /**
- * sip_media_channel_get_handle
+ * tpsip_media_channel_get_handle
  *
  * Implements DBus method GetHandle
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-sip_media_channel_get_handle (TpSvcChannel *iface,
+tpsip_media_channel_get_handle (TpSvcChannel *iface,
                               DBusGMethodInvocation *context)
 {
   tp_svc_channel_return_from_get_handle (context, 0, 0);
 }
 
 /**
- * sip_media_channel_get_interfaces
+ * tpsip_media_channel_get_interfaces
  *
  * Implements DBus method GetInterfaces
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-sip_media_channel_get_interfaces (TpSvcChannel *iface,
+tpsip_media_channel_get_interfaces (TpSvcChannel *iface,
                                   DBusGMethodInvocation *context)
 {
   const gchar *interfaces[] = {
     TP_IFACE_CHANNEL_INTERFACE_GROUP,
     TP_IFACE_CHANNEL_INTERFACE_MEDIA_SIGNALLING,
     TP_IFACE_CHANNEL_INTERFACE_DTMF,
-    SIP_IFACE_CHANNEL_INTERFACE_CALL_STATE,
-    SIP_IFACE_CHANNEL_INTERFACE_HOLD,
+    TPSIP_IFACE_CHANNEL_INTERFACE_CALL_STATE,
+    TPSIP_IFACE_CHANNEL_INTERFACE_HOLD,
     TP_IFACE_PROPERTIES_INTERFACE,
     NULL
   };
@@ -556,7 +556,7 @@ sip_media_channel_get_interfaces (TpSvcChannel *iface,
  ***********************************************************************/
 
 /**
- * sip_media_channel_get_session_handlers
+ * tpsip_media_channel_get_session_handlers
  *
  * Implements DBus method GetSessionHandlers
  * on interface org.freedesktop.Telepathy.Channel.Interface.MediaSignalling
@@ -568,19 +568,19 @@ sip_media_channel_get_interfaces (TpSvcChannel *iface,
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
 static void
-sip_media_channel_get_session_handlers (TpSvcChannelInterfaceMediaSignalling *iface,
+tpsip_media_channel_get_session_handlers (TpSvcChannelInterfaceMediaSignalling *iface,
                                         DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-  SIPMediaChannelPrivate *priv;
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv;
   GPtrArray *ret;
   GValue handler = { 0 };
 
   DEBUG("enter");
 
-  g_assert (SIP_IS_MEDIA_CHANNEL (self));
+  g_assert (TPSIP_IS_MEDIA_CHANNEL (self));
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   ret = g_ptr_array_new ();
 
@@ -627,25 +627,25 @@ sip_media_channel_get_session_handlers (TpSvcChannelInterfaceMediaSignalling *if
  ***********************************************************************/
 
 /**
- * sip_media_channel_list_streams
+ * tpsip_media_channel_list_streams
  *
  * Implements D-Bus method ListStreams
  * on interface org.freedesktop.Telepathy.Channel.Type.StreamedMedia
  */
 static void
-sip_media_channel_list_streams (TpSvcChannelTypeStreamedMedia *iface,
+tpsip_media_channel_list_streams (TpSvcChannelTypeStreamedMedia *iface,
                                 DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-  SIPMediaChannelPrivate *priv;
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv;
   GPtrArray *ret = NULL;
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   ret = g_ptr_array_new ();
 
   if (priv->session != NULL)
-    sip_media_session_list_streams (priv->session, ret);
+    tpsip_media_session_list_streams (priv->session, ret);
 
   tp_svc_channel_type_streamed_media_return_from_list_streams (context, ret);
 
@@ -653,25 +653,25 @@ sip_media_channel_list_streams (TpSvcChannelTypeStreamedMedia *iface,
 }
 
 /**
- * sip_media_channel_remove_streams
+ * tpsip_media_channel_remove_streams
  *
  * Implements D-Bus method RemoveStreams
  * on interface org.freedesktop.Telepathy.Channel.Type.StreamedMedia
  */
 static void
-sip_media_channel_remove_streams (TpSvcChannelTypeStreamedMedia *iface,
+tpsip_media_channel_remove_streams (TpSvcChannelTypeStreamedMedia *iface,
                                   const GArray *streams,
                                   DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-  SIPMediaChannelPrivate *priv;
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv;
   GError *error = NULL;
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (priv->session != NULL)
     {
-       sip_media_session_remove_streams(priv->session,
+       tpsip_media_session_remove_streams(priv->session,
                                         streams,
                                         &error);
     }
@@ -692,26 +692,26 @@ sip_media_channel_remove_streams (TpSvcChannelTypeStreamedMedia *iface,
 }
 
 /**
- * sip_media_channel_request_stream_direction
+ * tpsip_media_channel_request_stream_direction
  *
  * Implements D-Bus method RequestStreamDirection
  * on interface org.freedesktop.Telepathy.Channel.Type.StreamedMedia
  */
 static void
-sip_media_channel_request_stream_direction (TpSvcChannelTypeStreamedMedia *iface,
+tpsip_media_channel_request_stream_direction (TpSvcChannelTypeStreamedMedia *iface,
                                             guint stream_id,
                                             guint stream_direction,
                                             DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-  SIPMediaChannelPrivate *priv;
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv;
   GError *error = NULL;
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (priv->session != NULL)
     {
-      sip_media_session_request_stream_direction (priv->session,
+      tpsip_media_session_request_stream_direction (priv->session,
                                                   stream_id,
                                                   stream_direction,
                                                   &error);
@@ -735,26 +735,26 @@ sip_media_channel_request_stream_direction (TpSvcChannelTypeStreamedMedia *iface
 
 
 /**
- * sip_media_channel_request_streams
+ * tpsip_media_channel_request_streams
  *
  * Implements D-Bus method RequestStreams
  * on interface org.freedesktop.Telepathy.Channel.Type.StreamedMedia
  */
 static void
-sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
+tpsip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
                                    guint contact_handle,
                                    const GArray *types,
                                    DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
   GError *error = NULL;
   GPtrArray *ret = NULL;
-  SIPMediaChannelPrivate *priv;
+  TpsipMediaChannelPrivate *priv;
   TpHandleRepoIface *contact_repo;
 
   DEBUG("enter");
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
@@ -770,7 +770,7 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 
   ret = g_ptr_array_sized_new (types->len);
 
-  if (sip_media_session_request_streams (priv->session, types, ret, &error))
+  if (tpsip_media_session_request_streams (priv->session, types, ret, &error))
     {
       g_assert (types->len == ret->len);
       tp_svc_channel_type_streamed_media_return_from_request_streams (context,
@@ -796,11 +796,11 @@ sip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
  * has been created.
  */
 void
-sip_media_channel_receive_invite (SIPMediaChannel *self, 
+tpsip_media_channel_receive_invite (TpsipMediaChannel *self, 
                                   nua_handle_t *nh,
                                   TpHandle handle)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpBaseConnection *conn = TP_BASE_CONNECTION (priv->conn);
   GObject *obj = G_OBJECT (self);
   TpHandleRepoIface *contact_repo;
@@ -814,7 +814,7 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
        *       media are ready, reply with nua_respond() */
       priv_create_session (self, nh, handle);
       g_assert (priv->session != NULL);
-      sip_media_session_receive_invite (priv->session);
+      tpsip_media_session_receive_invite (priv->session);
     }
   else
     g_warning ("session already exists");
@@ -855,36 +855,36 @@ sip_media_channel_receive_invite (SIPMediaChannel *self,
  * Handle an incoming re-INVITE request.
  */
 void
-sip_media_channel_receive_reinvite (SIPMediaChannel *self)
+tpsip_media_channel_receive_reinvite (TpsipMediaChannel *self)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   g_return_if_fail (priv->session != NULL);
 
-  sip_media_session_receive_reinvite (priv->session);
+  tpsip_media_session_receive_reinvite (priv->session);
 }
 
 gboolean
-sip_media_channel_set_remote_media (SIPMediaChannel *chan,
+tpsip_media_channel_set_remote_media (TpsipMediaChannel *chan,
                                     const sdp_session_t* r_sdp)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
 
   g_return_val_if_fail (priv->session != NULL, FALSE);
 
-  return sip_media_session_set_remote_media (priv->session, r_sdp);
+  return tpsip_media_session_set_remote_media (priv->session, r_sdp);
 }
 
 void
-sip_media_channel_ready (SIPMediaChannel *self)
+tpsip_media_channel_ready (TpsipMediaChannel *self)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   g_return_if_fail (priv->session != NULL);
-  sip_media_session_accept (priv->session);
+  tpsip_media_session_accept (priv->session);
 }
 
 static void
-sip_media_channel_peer_error (SIPMediaChannel *self,
+tpsip_media_channel_peer_error (TpsipMediaChannel *self,
                               TpHandle peer,
                               guint status,
                               const char* message)
@@ -931,41 +931,41 @@ sip_media_channel_peer_error (SIPMediaChannel *self,
 }
 
 static void
-priv_set_call_state (SIPMediaChannel *self,
+priv_set_call_state (TpsipMediaChannel *self,
                      TpHandle peer,
                      guint flags)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   DEBUG ("setting call state %u for peer %u", flags, peer);
   g_hash_table_replace (priv->call_states,
                         GUINT_TO_POINTER (peer),
                         GUINT_TO_POINTER (flags));
-  sip_svc_channel_interface_call_state_emit_call_state_changed (self,
-                                                                peer,
-                                                                flags);
+  tpsip_svc_channel_interface_call_state_emit_call_state_changed (self,
+                                                                  peer,
+                                                                  flags);
 }
 
 static void
-priv_clear_call_state (SIPMediaChannel *self,
+priv_clear_call_state (TpsipMediaChannel *self,
                        TpHandle peer)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   DEBUG ("clearing call state for peer %u", peer);
   if (g_hash_table_remove (priv->call_states,
                            GUINT_TO_POINTER (peer)))
-    sip_svc_channel_interface_call_state_emit_call_state_changed (self,
-                                                                  peer,
-                                                                  0);
+    tpsip_svc_channel_interface_call_state_emit_call_state_changed (self,
+                                                                    peer,
+                                                                    0);
 }
 
 void
-sip_media_channel_call_status (SIPMediaChannel *self,
+tpsip_media_channel_call_status (TpsipMediaChannel *self,
                                guint status,
                                const char* message)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpHandle peer;
 
   DEBUG("peer responded with %u %s", status, message);
@@ -973,11 +973,11 @@ sip_media_channel_call_status (SIPMediaChannel *self,
   g_return_if_fail (priv->session != NULL);
 
   /* Ignore responses to a re-INVITE */
-  if (sip_media_session_get_state (priv->session)
-        != SIP_MEDIA_SESSION_STATE_INVITE_SENT)
+  if (tpsip_media_session_get_state (priv->session)
+        != TPSIP_MEDIA_SESSION_STATE_INVITE_SENT)
     return;
 
-  peer = sip_media_session_get_peer (priv->session);
+  peer = tpsip_media_session_get_peer (priv->session);
 
   if (status >= 200)
     {
@@ -985,24 +985,24 @@ sip_media_channel_call_status (SIPMediaChannel *self,
       priv_clear_call_state (self, peer);
 
       if (status >= 300)
-        sip_media_channel_peer_error (self, peer, status, message);
+        tpsip_media_channel_peer_error (self, peer, status, message);
     }
   else if (status == 180)
     {
-      priv_set_call_state (self, peer, SIP_CHANNEL_CALL_STATE_RINGING);
+      priv_set_call_state (self, peer, TPSIP_CHANNEL_CALL_STATE_RINGING);
     }
   else if (status == 182)
     {
-      priv_set_call_state (self, peer, SIP_CHANNEL_CALL_STATE_QUEUED);
+      priv_set_call_state (self, peer, TPSIP_CHANNEL_CALL_STATE_QUEUED);
     }
 }
 
 void
-sip_media_channel_peer_cancel (SIPMediaChannel *self,
+tpsip_media_channel_peer_cancel (TpsipMediaChannel *self,
                                guint cause,
                                const gchar *message)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
   TpIntSet *set;
   TpHandle actor = 0;
@@ -1010,7 +1010,7 @@ sip_media_channel_peer_cancel (SIPMediaChannel *self,
 
   g_return_if_fail (priv->session != NULL);
 
-  peer = sip_media_session_get_peer (priv->session);
+  peer = tpsip_media_session_get_peer (priv->session);
 
   switch (cause)
     {
@@ -1046,10 +1046,10 @@ sip_media_channel_peer_cancel (SIPMediaChannel *self,
  * Set: Helper functions follow (not based on generated templates)
  ***********************************************************************/
 
-static void priv_session_state_changed_cb (SIPMediaSession *session,
+static void priv_session_state_changed_cb (TpsipMediaSession *session,
 					   guint old_state,
                                            guint state,
-					   SIPMediaChannel *channel)
+					   TpsipMediaChannel *channel)
 {
   TpGroupMixin *mixin = TP_GROUP_MIXIN (channel);
   TpHandle peer;
@@ -1058,11 +1058,11 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 
   DEBUG("enter");
 
-  peer = sip_media_session_get_peer (session);
+  peer = tpsip_media_session_get_peer (session);
 
   switch (state)
     {
-    case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+    case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
       set = tp_intset_new ();
       rset = tp_intset_new ();
 
@@ -1088,7 +1088,7 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
                                    0);
 
       break;
-    case SIP_MEDIA_SESSION_STATE_ACTIVE:
+    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
       set = tp_intset_new ();
 
       /* add the peer to the member list */
@@ -1107,7 +1107,7 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
                                    TP_CHANNEL_GROUP_FLAG_CAN_ADD
                                         | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
       break;
-    case SIP_MEDIA_SESSION_STATE_ENDED:
+    case TPSIP_MEDIA_SESSION_STATE_ENDED:
       set = tp_intset_new ();
 
       /* remove us and the peer from the member list */
@@ -1122,9 +1122,9 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
                                      0, 0);
 
       /* Close the channel; destroy the session first to avoid
-       * the sip_media_session_terminate() path in this case */
+       * the tpsip_media_session_terminate() path in this case */
       priv_destroy_session (channel);
-      sip_media_channel_close (channel);
+      tpsip_media_channel_close (channel);
       break;
     }
 
@@ -1135,15 +1135,15 @@ static void priv_session_state_changed_cb (SIPMediaSession *session,
 /**
  * priv_create_session:
  *
- * Creates a SIPMediaSession object for given peer.
+ * Creates a TpsipMediaSession object for given peer.
  **/
 static void
-priv_create_session (SIPMediaChannel *channel,
+priv_create_session (TpsipMediaChannel *channel,
                      nua_handle_t *nh,
                      TpHandle peer)
 {
-  SIPMediaChannelPrivate *priv;
-  SIPMediaSession *session;
+  TpsipMediaChannelPrivate *priv;
+  TpsipMediaSession *session;
   TpBaseConnection *conn;
   TpHandleRepoIface *contact_repo;
   gchar *object_path;
@@ -1151,7 +1151,7 @@ priv_create_session (SIPMediaChannel *channel,
 
   DEBUG("enter");
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
   g_assert (priv->session == NULL);
   conn = (TpBaseConnection *)(priv->conn);
   contact_repo = tp_base_connection_get_handles (conn,
@@ -1168,7 +1168,7 @@ priv_create_session (SIPMediaChannel *channel,
                 "local-ip-address", &local_ip_address,
                 NULL);
 
-  session = g_object_new (SIP_TYPE_MEDIA_SESSION,
+  session = g_object_new (TPSIP_TYPE_MEDIA_SESSION,
                           "media-channel", channel,
                           "object-path", object_path,
                           "nua-handle", nh,
@@ -1195,10 +1195,10 @@ priv_create_session (SIPMediaChannel *channel,
 }
 
 static void
-priv_destroy_session(SIPMediaChannel *channel)
+priv_destroy_session(TpsipMediaChannel *channel)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
-  SIPMediaSession *session;
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
+  TpsipMediaSession *session;
   TpBaseConnection *conn;
   TpHandleRepoIface *contact_repo;
 
@@ -1212,7 +1212,7 @@ priv_destroy_session(SIPMediaChannel *channel)
   conn = (TpBaseConnection *)(priv->conn);
   contact_repo = tp_base_connection_get_handles (conn,
       TP_HANDLE_TYPE_CONTACT);
-  tp_handle_unref (contact_repo, sip_media_session_get_peer (session));
+  tp_handle_unref (contact_repo, tpsip_media_session_get_peer (session));
 
   priv->session = NULL;
   g_object_unref (session);
@@ -1224,17 +1224,17 @@ priv_destroy_session(SIPMediaChannel *channel)
  * Creates an outbound call session if a session does not exist
  */
 static void
-priv_outbound_call (SIPMediaChannel *channel,
+priv_outbound_call (TpsipMediaChannel *channel,
                     TpHandle peer)
 {
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
   nua_handle_t *nh;
 
   if (priv->session == NULL)
     {
       DEBUG("making outbound call - setting peer handle to %u", peer);
 
-      nh = sip_conn_create_request_handle (priv->conn, peer);
+      nh = tpsip_conn_create_request_handle (priv->conn, peer);
       priv_create_session (channel, nh, peer);
       nua_handle_unref (nh);
     }
@@ -1245,13 +1245,13 @@ priv_outbound_call (SIPMediaChannel *channel,
 }
 
 static gboolean
-sip_media_channel_add_member (GObject *iface,
+tpsip_media_channel_add_member (GObject *iface,
                               TpHandle handle,
                               const gchar *message,
                               GError **error)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (iface);
 
   DEBUG("mixin->self_handle=%d, handle=%d", mixin->self_handle, handle);
@@ -1304,7 +1304,7 @@ sip_media_channel_add_member (GObject *iface,
                                      0, 0);
       tp_intset_destroy (set);
 
-      sip_media_session_accept (priv->session);
+      tpsip_media_session_accept (priv->session);
 
       return TRUE;
     }
@@ -1318,7 +1318,7 @@ sip_media_channel_add_member (GObject *iface,
 }
 
 static gint
-sip_status_from_tp_reason (TpChannelGroupChangeReason reason)
+tpsip_status_from_tp_reason (TpChannelGroupChangeReason reason)
 {
   switch (reason)
     {
@@ -1340,14 +1340,14 @@ sip_status_from_tp_reason (TpChannelGroupChangeReason reason)
 }
 
 static gboolean
-sip_media_channel_remove_with_reason (GObject *obj,
+tpsip_media_channel_remove_with_reason (GObject *obj,
                                       TpHandle handle,
                                       const gchar *message,
                                       guint reason,
                                       GError **error)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (obj);
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (obj);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
 
   /* We handle only one case: removal of the self handle from local pending
@@ -1359,10 +1359,10 @@ sip_media_channel_remove_with_reason (GObject *obj,
       TpIntSet *set;
       gint status;
 
-      status = sip_status_from_tp_reason (reason);
+      status = tpsip_status_from_tp_reason (reason);
 
       /* XXX: raise NotAvailable if it's the wrong state? */
-      sip_media_session_reject (priv->session, status, message);
+      tpsip_media_session_reject (priv->session, status, message);
 
       set = tp_intset_new ();
       tp_intset_add (set, handle);
@@ -1392,43 +1392,43 @@ sip_media_channel_remove_with_reason (GObject *obj,
 }
 
 static void
-sip_media_channel_get_call_states (SIPSvcChannelInterfaceCallState *iface,
+tpsip_media_channel_get_call_states (TpsipSvcChannelInterfaceCallState *iface,
                                    DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  sip_svc_channel_interface_call_state_return_from_get_call_states (
+  tpsip_svc_channel_interface_call_state_return_from_get_call_states (
         context,
         priv->call_states);
 }
 
 static void
-sip_media_channel_get_hold_state (SIPSvcChannelInterfaceHold *iface,
+tpsip_media_channel_get_hold_state (TpsipSvcChannelInterfaceHold *iface,
                                   DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-  SIPMediaChannelPrivate *priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  sip_svc_channel_interface_hold_return_from_get_hold_state (context,
+  tpsip_svc_channel_interface_hold_return_from_get_hold_state (context,
         (priv->session != NULL)
-                ? sip_media_session_get_hold_state (priv->session)
-                : SIP_CHANNEL_HOLD_STATE_NONE);
+                ? tpsip_media_session_get_hold_state (priv->session)
+                : TPSIP_CHANNEL_HOLD_STATE_NONE);
 }
 
 static void
-sip_media_channel_request_hold (SIPSvcChannelInterfaceHold *iface,
+tpsip_media_channel_request_hold (TpsipSvcChannelInterfaceHold *iface,
                                 gboolean hold,
                                 DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-  SIPMediaChannelPrivate *priv;
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv;
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (priv->session != NULL)
     {
-      sip_media_session_request_hold (priv->session,
+      tpsip_media_session_request_hold (priv->session,
                                       hold);
     }
   else
@@ -1438,22 +1438,22 @@ sip_media_channel_request_hold (SIPSvcChannelInterfaceHold *iface,
       dbus_g_method_return_error (context, &e);
     }
 
-  sip_svc_channel_interface_hold_return_from_request_hold (context);
+  tpsip_svc_channel_interface_hold_return_from_request_hold (context);
 }
 
 static void
-sip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
+tpsip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
                               guint stream_id,
                               guchar event,
                               DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-  SIPMediaChannelPrivate *priv;
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv;
   GError *error = NULL;
 
   DEBUG("enter");
 
-  g_assert (SIP_IS_MEDIA_CHANNEL (self));
+  g_assert (TPSIP_IS_MEDIA_CHANNEL (self));
 
   if (event >= NUM_TP_DTMF_EVENTS)
     {
@@ -1464,12 +1464,12 @@ sip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
       return;
     }
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (!sip_media_session_start_telephony_event (priv->session,
-                                                stream_id,
-                                                event,
-                                                &error))
+  if (!tpsip_media_session_start_telephony_event (priv->session,
+                                                  stream_id,
+                                                  event,
+                                                  &error))
     {
       dbus_g_method_return_error (context, error);
       g_error_free (error);
@@ -1480,23 +1480,23 @@ sip_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
 }
 
 static void
-sip_media_channel_stop_tone (TpSvcChannelInterfaceDTMF *iface,
+tpsip_media_channel_stop_tone (TpSvcChannelInterfaceDTMF *iface,
                              guint stream_id,
                              DBusGMethodInvocation *context)
 {
-  SIPMediaChannel *self = SIP_MEDIA_CHANNEL (iface);
-  SIPMediaChannelPrivate *priv;
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv;
   GError *error = NULL;
 
   DEBUG("enter");
 
-  g_assert (SIP_IS_MEDIA_CHANNEL (self));
+  g_assert (TPSIP_IS_MEDIA_CHANNEL (self));
 
-  priv = SIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (!sip_media_session_stop_telephony_event (priv->session,
-                                               stream_id,
-                                               &error))
+  if (!tpsip_media_session_stop_telephony_event (priv->session,
+                                                 stream_id,
+                                                 &error))
     {
       dbus_g_method_return_error (context, error);
       g_error_free (error);
@@ -1512,7 +1512,7 @@ channel_iface_init(gpointer g_iface, gpointer iface_data)
   TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
 
 #define IMPLEMENT(x, suffix) tp_svc_channel_implement_##x (\
-    klass, sip_media_channel_##x##suffix)
+    klass, tpsip_media_channel_##x##suffix)
   IMPLEMENT(close,_async);
   IMPLEMENT(get_channel_type,);
   IMPLEMENT(get_handle,);
@@ -1526,7 +1526,7 @@ streamed_media_iface_init(gpointer g_iface, gpointer iface_data)
   TpSvcChannelTypeStreamedMediaClass *klass = (TpSvcChannelTypeStreamedMediaClass *)g_iface;
 
 #define IMPLEMENT(x) tp_svc_channel_type_streamed_media_implement_##x (\
-    klass, sip_media_channel_##x)
+    klass, tpsip_media_channel_##x)
   IMPLEMENT(list_streams);
   IMPLEMENT(remove_streams);
   IMPLEMENT(request_stream_direction);
@@ -1540,7 +1540,7 @@ media_signalling_iface_init(gpointer g_iface, gpointer iface_data)
   TpSvcChannelInterfaceMediaSignallingClass *klass = (TpSvcChannelInterfaceMediaSignallingClass *)g_iface;
 
 #define IMPLEMENT(x) tp_svc_channel_interface_media_signalling_implement_##x (\
-    klass, sip_media_channel_##x)
+    klass, tpsip_media_channel_##x)
   IMPLEMENT(get_session_handlers);
 #undef IMPLEMENT
 }
@@ -1551,7 +1551,7 @@ dtmf_iface_init (gpointer g_iface, gpointer iface_data)
   TpSvcChannelInterfaceDTMFClass *klass = (TpSvcChannelInterfaceDTMFClass *)g_iface;
 
 #define IMPLEMENT(x) tp_svc_channel_interface_dtmf_implement_##x (\
-    klass, sip_media_channel_##x)
+    klass, tpsip_media_channel_##x)
   IMPLEMENT(start_tone);
   IMPLEMENT(stop_tone);
 #undef IMPLEMENT
@@ -1577,9 +1577,9 @@ static void
 call_state_iface_init (gpointer g_iface,
                        gpointer iface_data)
 {
-  SIPSvcChannelInterfaceCallStateClass *klass = g_iface;
-#define IMPLEMENT(x) sip_svc_channel_interface_call_state_implement_##x (\
-    klass, sip_media_channel_##x)
+  TpsipSvcChannelInterfaceCallStateClass *klass = g_iface;
+#define IMPLEMENT(x) tpsip_svc_channel_interface_call_state_implement_##x (\
+    klass, tpsip_media_channel_##x)
   IMPLEMENT (get_call_states);
 #undef IMPLEMENT
 }
@@ -1588,10 +1588,10 @@ static void
 hold_iface_init (gpointer g_iface,
                  gpointer iface_data)
 {
-  SIPSvcChannelInterfaceHoldClass *klass = g_iface;
+  TpsipSvcChannelInterfaceHoldClass *klass = g_iface;
 
-#define IMPLEMENT(x) sip_svc_channel_interface_hold_implement_##x (\
-    klass, sip_media_channel_##x)
+#define IMPLEMENT(x) tpsip_svc_channel_interface_hold_implement_##x (\
+    klass, tpsip_media_channel_##x)
   IMPLEMENT (get_hold_state);
   IMPLEMENT (request_hold);
 #undef IMPLEMENT

@@ -1,5 +1,5 @@
 /*
- * sip-media-session.c - Source for SIPMediaSession
+ * sip-media-session.c - Source for TpsipMediaSession
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005,2006,2007 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
@@ -43,13 +43,13 @@
 #include "sip-connection-helpers.h"
 #include "signals-marshal.h"
 
-#define DEBUG_FLAG SIP_DEBUG_MEDIA
+#define DEBUG_FLAG TPSIP_DEBUG_MEDIA
 #include "debug.h"
 
 static void session_handler_iface_init (gpointer, gpointer);
 
-G_DEFINE_TYPE_WITH_CODE(SIPMediaSession,
-    sip_media_session,
+G_DEFINE_TYPE_WITH_CODE(TpsipMediaSession,
+    tpsip_media_session,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_MEDIA_SESSION_HANDLER,
       session_handler_iface_init)
@@ -107,17 +107,17 @@ static const char* session_states[] =
 #endif /* ENABLE_DEBUG */
 
 /* private structure */
-typedef struct _SIPMediaSessionPrivate SIPMediaSessionPrivate;
+typedef struct _TpsipMediaSessionPrivate TpsipMediaSessionPrivate;
 
-struct _SIPMediaSessionPrivate
+struct _TpsipMediaSessionPrivate
 {
-  SIPMediaChannel *channel;             /** see gobj. prop. 'media-channel' */
+  TpsipMediaChannel *channel;             /** see gobj. prop. 'media-channel' */
   gchar *object_path;                   /** see gobj. prop. 'object-path' */
   nua_handle_t *nua_op;                 /** see gobj. prop. 'nua-handle' */
   TpHandle peer;                        /** see gobj. prop. 'peer' */
   gchar *local_ip_address;              /** see gobj. prop. 'local-ip-address' */
-  SIPMediaSessionState state;           /** session state */
-  SIPChannelHoldState hold_state;       /** hold state aggregated from stream directions */
+  TpsipMediaSessionState state;           /** session state */
+  TpsipChannelHoldState hold_state;       /** hold state aggregated from stream directions */
   nua_saved_event_t saved_event[1];     /** Saved incoming request event */
   gint local_non_ready;                 /** number of streams with local information update pending */
   guint remote_stream_count;            /** number of streams last seen in a remote offer */
@@ -134,58 +134,58 @@ struct _SIPMediaSessionPrivate
   gboolean dispose_has_run;
 };
 
-#define SIP_MEDIA_SESSION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_SESSION, SIPMediaSessionPrivate))
+#define TPSIP_MEDIA_SESSION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_SESSION, TpsipMediaSessionPrivate))
 
-static void sip_media_session_get_property (GObject    *object,
+static void tpsip_media_session_get_property (GObject    *object,
 					    guint       property_id,
 					    GValue     *value,
 					    GParamSpec *pspec);
-static void sip_media_session_set_property (GObject      *object,
+static void tpsip_media_session_set_property (GObject      *object,
 					    guint         property_id,
 					    const GValue *value,
 					    GParamSpec   *pspec);
 
-static SIPMediaStream *
-sip_media_session_get_stream (SIPMediaSession *self,
+static TpsipMediaStream *
+tpsip_media_session_get_stream (TpsipMediaSession *self,
                               guint stream_id,
                               GError **error);
 
 static gboolean priv_catch_remote_nonupdate (gpointer data);
 static gboolean priv_timeout_session (gpointer data);
-static SIPMediaStream* priv_create_media_stream (SIPMediaSession *session,
+static TpsipMediaStream* priv_create_media_stream (TpsipMediaSession *session,
                                                  guint media_type,
                                                  guint pending_send_flags);
-static void priv_request_response_step (SIPMediaSession *session);
-static void priv_session_invite (SIPMediaSession *session, gboolean reinvite);
-static void priv_local_media_changed (SIPMediaSession *session);
-static gboolean priv_update_remote_media (SIPMediaSession *session,
+static void priv_request_response_step (TpsipMediaSession *session);
+static void priv_session_invite (TpsipMediaSession *session, gboolean reinvite);
+static void priv_local_media_changed (TpsipMediaSession *session);
+static gboolean priv_update_remote_media (TpsipMediaSession *session,
                                           gboolean authoritative);
-static void priv_save_event (SIPMediaSession *self);
-static void priv_zap_event (SIPMediaSession *self);
+static void priv_save_event (TpsipMediaSession *self);
+static void priv_zap_event (TpsipMediaSession *self);
 
-static void sip_media_session_init (SIPMediaSession *obj)
+static void tpsip_media_session_init (TpsipMediaSession *obj)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (obj);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (obj);
 
-  priv->state = SIP_MEDIA_SESSION_STATE_CREATED;
+  priv->state = TPSIP_MEDIA_SESSION_STATE_CREATED;
 
-  priv->hold_state = SIP_CHANNEL_HOLD_STATE_NONE;
+  priv->hold_state = TPSIP_CHANNEL_HOLD_STATE_NONE;
 
   /* allocate any data required by the object here */
   priv->streams = g_ptr_array_new ();
 }
 
 static GObject *
-sip_media_session_constructor (GType type, guint n_props,
+tpsip_media_session_constructor (GType type, guint n_props,
 			       GObjectConstructParam *props)
 {
   GObject *obj;
-  SIPMediaSessionPrivate *priv;
+  TpsipMediaSessionPrivate *priv;
   DBusGConnection *bus;
 
-  obj = G_OBJECT_CLASS (sip_media_session_parent_class)->
+  obj = G_OBJECT_CLASS (tpsip_media_session_parent_class)->
            constructor (type, n_props, props);
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (SIP_MEDIA_SESSION (obj));
+  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (TPSIP_MEDIA_SESSION (obj));
 
   if (priv->nua_op)
     {
@@ -208,13 +208,13 @@ sip_media_session_constructor (GType type, guint n_props,
   return obj;
 }
 
-static void sip_media_session_get_property (GObject    *object,
+static void tpsip_media_session_get_property (GObject    *object,
 					    guint       property_id,
 					    GValue     *value,
 					    GParamSpec *pspec)
 {
-  SIPMediaSession *session = SIP_MEDIA_SESSION (object);
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSession *session = TPSIP_MEDIA_SESSION (object);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   switch (property_id) {
     case PROP_MEDIA_CHANNEL:
@@ -238,17 +238,17 @@ static void sip_media_session_get_property (GObject    *object,
   }
 }
 
-static void sip_media_session_set_property (GObject      *object,
+static void tpsip_media_session_set_property (GObject      *object,
 					    guint         property_id,
 					    const GValue *value,
 					    GParamSpec   *pspec)
 {
-  SIPMediaSession *session = SIP_MEDIA_SESSION (object);
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSession *session = TPSIP_MEDIA_SESSION (object);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   switch (property_id) {
     case PROP_MEDIA_CHANNEL:
-      priv->channel = SIP_MEDIA_CHANNEL (g_value_get_object (value));
+      priv->channel = TPSIP_MEDIA_CHANNEL (g_value_get_object (value));
       break;
     case PROP_OBJECT_PATH:
       g_assert (priv->object_path == NULL);
@@ -274,29 +274,29 @@ static void sip_media_session_set_property (GObject      *object,
   }
 }
 
-static void sip_media_session_dispose (GObject *object);
-static void sip_media_session_finalize (GObject *object);
+static void tpsip_media_session_dispose (GObject *object);
+static void tpsip_media_session_finalize (GObject *object);
 
 static void
-sip_media_session_class_init (SIPMediaSessionClass *sip_media_session_class)
+tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
 {
-  GObjectClass *object_class = G_OBJECT_CLASS (sip_media_session_class);
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GParamSpec *param_spec;
 
-  g_type_class_add_private (sip_media_session_class, sizeof (SIPMediaSessionPrivate));
+  g_type_class_add_private (klass, sizeof (TpsipMediaSessionPrivate));
 
-  object_class->constructor = sip_media_session_constructor;
+  object_class->constructor = tpsip_media_session_constructor;
 
-  object_class->get_property = sip_media_session_get_property;
-  object_class->set_property = sip_media_session_set_property;
+  object_class->get_property = tpsip_media_session_get_property;
+  object_class->set_property = tpsip_media_session_set_property;
 
-  object_class->dispose = sip_media_session_dispose;
-  object_class->finalize = sip_media_session_finalize;
+  object_class->dispose = tpsip_media_session_dispose;
+  object_class->finalize = tpsip_media_session_finalize;
 
-  param_spec = g_param_spec_object ("media-channel", "SIPMediaChannel object",
+  param_spec = g_param_spec_object ("media-channel", "TpsipMediaChannel object",
                                     "SIP media channel object that owns this "
                                     "media session object (not reference counted).",
-                                    SIP_TYPE_MEDIA_CHANNEL,
+                                    TPSIP_TYPE_MEDIA_CHANNEL,
                                     G_PARAM_CONSTRUCT_ONLY |
                                     G_PARAM_READWRITE |
                                     G_PARAM_STATIC_NICK |
@@ -344,7 +344,7 @@ sip_media_session_class_init (SIPMediaSessionClass *sip_media_session_class)
 
   signals[SIG_STATE_CHANGED] =
     g_signal_new ("state-changed",
-                  G_OBJECT_CLASS_TYPE (sip_media_session_class),
+                  G_OBJECT_CLASS_TYPE (klass),
                   G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
                   0,
                   NULL, NULL,
@@ -353,10 +353,10 @@ sip_media_session_class_init (SIPMediaSessionClass *sip_media_session_class)
 }
 
 static void
-sip_media_session_dispose (GObject *object)
+tpsip_media_session_dispose (GObject *object)
 {
-  SIPMediaSession *self = SIP_MEDIA_SESSION (object);
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaSession *self = TPSIP_MEDIA_SESSION (object);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
 
   if (priv->dispose_has_run)
     return;
@@ -371,17 +371,17 @@ sip_media_session_dispose (GObject *object)
   if (priv->timer_id)
     g_source_remove (priv->timer_id);
 
-  if (G_OBJECT_CLASS (sip_media_session_parent_class)->dispose)
-    G_OBJECT_CLASS (sip_media_session_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (tpsip_media_session_parent_class)->dispose)
+    G_OBJECT_CLASS (tpsip_media_session_parent_class)->dispose (object);
 
   DEBUG("exit");
 }
 
 static void
-sip_media_session_finalize (GObject *object)
+tpsip_media_session_finalize (GObject *object)
 {
-  SIPMediaSession *self = SIP_MEDIA_SESSION (object);
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaSession *self = TPSIP_MEDIA_SESSION (object);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   guint i;
 
   /* terminating the session should have discarded the NUA handle */
@@ -390,7 +390,7 @@ sip_media_session_finalize (GObject *object)
   /* free any data held directly by the object here */
 
   for (i = 0; i < priv->streams->len; i++) {
-    SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
+    TpsipMediaStream *stream = g_ptr_array_index (priv->streams, i);
     if (stream != NULL)
       {
         g_warning ("stream %u (%p) left over, reaping", i, stream);
@@ -409,7 +409,7 @@ sip_media_session_finalize (GObject *object)
   g_free (priv->local_ip_address);
   g_free (priv->object_path);
 
-  G_OBJECT_CLASS (sip_media_session_parent_class)->finalize (object);
+  G_OBJECT_CLASS (tpsip_media_session_parent_class)->finalize (object);
 
   DEBUG("exit");
 }
@@ -417,28 +417,28 @@ sip_media_session_finalize (GObject *object)
 
 
 /**
- * sip_media_session_error
+ * tpsip_media_session_error
  *
  * Implements DBus method Error
  * on interface org.freedesktop.Telepathy.Media.SessionHandler
  */
 static void
-sip_media_session_error (TpSvcMediaSessionHandler *iface,
+tpsip_media_session_error (TpSvcMediaSessionHandler *iface,
                          guint errno,
                          const gchar *message,
                          DBusGMethodInvocation *context)
 {
-  SIPMediaSession *obj = SIP_MEDIA_SESSION (iface);
+  TpsipMediaSession *obj = TPSIP_MEDIA_SESSION (iface);
 
   SESSION_DEBUG(obj, "Media.SessionHandler::Error called (%s) terminating session", message);
 
-  sip_media_session_terminate (obj);
+  tpsip_media_session_terminate (obj);
 
   tp_svc_media_session_handler_return_from_error (context);
 }
 
-static void priv_emit_new_stream (SIPMediaSession *self,
-				  SIPMediaStream *stream)
+static void priv_emit_new_stream (TpsipMediaSession *self,
+				  TpsipMediaStream *stream)
 {
   gchar *object_path;
   guint id;
@@ -464,22 +464,22 @@ static void priv_emit_new_stream (SIPMediaSession *self,
 
 
 /**
- * sip_media_session_ready
+ * tpsip_media_session_ready
  *
  * Implements DBus method Ready
  * on interface org.freedesktop.Telepathy.Media.SessionHandler
  */
 static void
-sip_media_session_ready (TpSvcMediaSessionHandler *iface,
+tpsip_media_session_ready (TpSvcMediaSessionHandler *iface,
                          DBusGMethodInvocation *context)
 {
-  SIPMediaSession *obj = SIP_MEDIA_SESSION (iface);
-  SIPMediaSessionPrivate *priv;
+  TpsipMediaSession *obj = TPSIP_MEDIA_SESSION (iface);
+  TpsipMediaSessionPrivate *priv;
   guint i;
 
   DEBUG ("enter");
 
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (obj);
+  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (obj);
 
   if (!priv->se_ready)
     {
@@ -489,7 +489,7 @@ sip_media_session_ready (TpSvcMediaSessionHandler *iface,
 
       for (i = 0; i < priv->streams->len; i++)
         {
-          SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
+          TpsipMediaStream *stream = g_ptr_array_index (priv->streams, i);
           if (stream)
             priv_emit_new_stream (obj, stream);
         }
@@ -503,21 +503,21 @@ sip_media_session_ready (TpSvcMediaSessionHandler *iface,
  ***********************************************************************/
 
 TpHandle
-sip_media_session_get_peer (SIPMediaSession *session)
+tpsip_media_session_get_peer (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   return priv->peer;
 }
 
-SIPMediaSessionState
-sip_media_session_get_state (SIPMediaSession *session)
+TpsipMediaSessionState
+tpsip_media_session_get_state (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   return priv->state;
 }
 
 static gboolean
-sip_media_session_supports_media_type (guint media_type)
+tpsip_media_session_supports_media_type (guint media_type)
 {
   switch (media_type)
     {
@@ -529,25 +529,25 @@ sip_media_session_supports_media_type (guint media_type)
 }
 
 static void
-priv_close_all_streams (SIPMediaSession *session)
+priv_close_all_streams (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   guint i;
   for (i = 0; i < priv->streams->len; i++)
     {
-      SIPMediaStream *stream;
+      TpsipMediaStream *stream;
       stream = g_ptr_array_index (priv->streams, i);
       if (stream != NULL)
-        sip_media_stream_close (stream);
+        tpsip_media_stream_close (stream);
       g_assert (g_ptr_array_index (priv->streams, i) == NULL);
     }
 }
 
 static void
-priv_release_streams_pending_send (SIPMediaSession *session)
+priv_release_streams_pending_send (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  SIPMediaStream *stream;
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaStream *stream;
   guint i;
 
   /* Clear the local pending send flags where applicable */
@@ -555,15 +555,15 @@ priv_release_streams_pending_send (SIPMediaSession *session)
     {
       stream = g_ptr_array_index(priv->streams, i);
       if (stream != NULL)
-        sip_media_stream_release_pending_send (stream);
+        tpsip_media_stream_release_pending_send (stream);
     }
 }
 
 void
-sip_media_session_change_state (SIPMediaSession *session,
-                                SIPMediaSessionState new_state)
+tpsip_media_session_change_state (TpsipMediaSession *session,
+                                TpsipMediaSessionState new_state)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   guint old_state;
 
   if (priv->state == new_state)
@@ -578,24 +578,24 @@ sip_media_session_change_state (SIPMediaSession *session,
 
   switch (new_state)
     {
-    case SIP_MEDIA_SESSION_STATE_CREATED:
+    case TPSIP_MEDIA_SESSION_STATE_CREATED:
       break;
-    case SIP_MEDIA_SESSION_STATE_ENDED:
+    case TPSIP_MEDIA_SESSION_STATE_ENDED:
       priv_close_all_streams (session);
       DEBUG("freeing the NUA handle %p", priv->nua_op);
       if (priv->nua_op != NULL)
         {
-          nua_handle_bind (priv->nua_op, SIP_NH_EXPIRED);
+          nua_handle_bind (priv->nua_op, TPSIP_NH_EXPIRED);
           nua_handle_unref (priv->nua_op);
           priv->nua_op = NULL;
         }
       break;
-    case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-    case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
       priv->catcher_id = g_idle_add (priv_catch_remote_nonupdate, session);
       /* Fall through to the next case */
-    case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
-    case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
+    case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
+    case TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT:
       if (priv->timer_id)
         {
           g_source_remove (priv->timer_id);
@@ -603,9 +603,9 @@ sip_media_session_change_state (SIPMediaSession *session,
       priv->timer_id =
         g_timeout_add (DEFAULT_SESSION_TIMEOUT, priv_timeout_session, session);
       break;
-    case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
       break;
-    case SIP_MEDIA_SESSION_STATE_ACTIVE:
+    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
       if (priv->timer_id)
         {
 	  g_source_remove (priv->timer_id);
@@ -620,22 +620,22 @@ sip_media_session_change_state (SIPMediaSession *session,
 
   g_signal_emit (session, signals[SIG_STATE_CHANGED], 0, old_state, new_state);
 
-  if (new_state == SIP_MEDIA_SESSION_STATE_ACTIVE && priv->pending_offer)
+  if (new_state == TPSIP_MEDIA_SESSION_STATE_ACTIVE && priv->pending_offer)
     priv_session_invite (session, TRUE);
 }
 
 #ifdef ENABLE_DEBUG
 void
-sip_media_session_debug (SIPMediaSession *session,
+tpsip_media_session_debug (TpsipMediaSession *session,
 			 const gchar *format, ...)
 {
   va_list list;
   gchar buf[512];
-  SIPMediaSessionPrivate *priv;
+  TpsipMediaSessionPrivate *priv;
 
-  g_assert (SIP_IS_MEDIA_SESSION (session));
+  g_assert (TPSIP_IS_MEDIA_SESSION (session));
 
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   va_start (list, format);
 
@@ -643,7 +643,7 @@ sip_media_session_debug (SIPMediaSession *session,
 
   va_end (list);
 
-  sip_debug (DEBUG_FLAG, "SIP media session [%-17s]: %s",
+  tpsip_debug (DEBUG_FLAG, "SIP media session [%-17s]: %s",
       session_states[priv->state],
       buf);
 }
@@ -652,7 +652,7 @@ sip_media_session_debug (SIPMediaSession *session,
 static gboolean
 priv_catch_remote_nonupdate (gpointer data)
 {
-  SIPMediaSession *session = data;
+  TpsipMediaSession *session = data;
 
   DEBUG("called");
 
@@ -671,23 +671,23 @@ priv_catch_remote_nonupdate (gpointer data)
 
 static gboolean priv_timeout_session (gpointer data)
 {
-  SIPMediaSession *session = data;
-  SIPMediaSessionPrivate *priv;
+  TpsipMediaSession *session = data;
+  TpsipMediaSessionPrivate *priv;
   TpChannelGroupChangeReason reason;
   gboolean change = FALSE;
   TpHandle actor;
 
   DEBUG("session timed out");
 
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session); 
+  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session); 
 
-  if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_SENT)
+  if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_SENT)
     {
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER;
       actor = 0;
       change = TRUE;
     }
-  else if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED)
+  else if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED)
     {
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_NONE;
       actor = priv->peer;
@@ -703,18 +703,18 @@ static gboolean priv_timeout_session (gpointer data)
       tp_intset_destroy (set);
     }
 
-  sip_media_session_terminate (session);
+  tpsip_media_session_terminate (session);
 
   return FALSE;
 }
 
-void sip_media_session_terminate (SIPMediaSession *session)
+void tpsip_media_session_terminate (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   DEBUG ("enter");
 
-  if (priv->state == SIP_MEDIA_SESSION_STATE_ENDED)
+  if (priv->state == TPSIP_MEDIA_SESSION_STATE_ENDED)
     return;
 
   /* XXX: taken care of by the state change? */
@@ -726,21 +726,21 @@ void sip_media_session_terminate (SIPMediaSession *session)
 
       switch (priv->state)
         {
-        case SIP_MEDIA_SESSION_STATE_ACTIVE:
-        case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-        case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
+        case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
+        case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+        case TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT:
           DEBUG("sending BYE");
           nua_bye (priv->nua_op, TAG_END());
           break;
-        case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
+        case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
           DEBUG("sending CANCEL");
           nua_cancel (priv->nua_op, TAG_END());
           break;
-        case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+        case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
           DEBUG("sending the 480 response to an incoming INVITE");
           nua_respond (priv->nua_op, 480, "Terminated", TAG_END());
           break;
-        case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+        case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
           if (priv->saved_event[0])
             {
               DEBUG("sending the 480 response to an incoming re-INVITE");
@@ -757,14 +757,14 @@ void sip_media_session_terminate (SIPMediaSession *session)
         }
     }
 
-  sip_media_session_change_state (session, SIP_MEDIA_SESSION_STATE_ENDED);
+  tpsip_media_session_change_state (session, TPSIP_MEDIA_SESSION_STATE_ENDED);
 }
 
 gboolean
-sip_media_session_set_remote_media (SIPMediaSession *session,
+tpsip_media_session_set_remote_media (TpsipMediaSession *session,
                                     const sdp_session_t* sdp)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   DEBUG ("enter");
 
@@ -775,12 +775,12 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
       priv->catcher_id = 0;
     }
 
-  if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_SENT
-      || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_SENT)
+  if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_SENT
+      || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT)
     {
-      sip_media_session_change_state (
+      tpsip_media_session_change_state (
                 session,
-                SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED);
+                TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED);
     }
   else
     {
@@ -828,16 +828,16 @@ sip_media_session_set_remote_media (SIPMediaSession *session,
 
   return priv_update_remote_media (
                 session,
-                (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
-                 || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED));
+                (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
+                 || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED));
 }
 
 void
 priv_add_stream_list_entry (GPtrArray *list,
-                            SIPMediaStream *stream,
-                            SIPMediaSession *session)
+                            TpsipMediaStream *stream,
+                            TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   GValue entry = { 0 };
   GType stream_type;
   guint id;
@@ -874,7 +874,7 @@ priv_add_stream_list_entry (GPtrArray *list,
   g_ptr_array_add (list, g_value_get_boxed (&entry));
 }
 
-gboolean sip_media_session_request_streams (SIPMediaSession *session,
+gboolean tpsip_media_session_request_streams (TpsipMediaSession *session,
 					    const GArray *media_types,
 					    GPtrArray *ret,
 					    GError **error)
@@ -886,7 +886,7 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
   /* Validate the media types before creating any streams */
   for (i = 0; i < media_types->len; i++) {
     guint media_type = g_array_index (media_types, guint, i);
-    if (!sip_media_session_supports_media_type (media_type))
+    if (!tpsip_media_session_supports_media_type (media_type))
       {
         g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
                      "media type #%u is not supported", i);
@@ -896,7 +896,7 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
 
   for (i = 0; i < media_types->len; i++) {
     guint media_type = g_array_index (media_types, guint, i);
-    SIPMediaStream *stream;
+    TpsipMediaStream *stream;
 
     stream = priv_create_media_stream (session,
                                        media_type,
@@ -920,11 +920,11 @@ gboolean sip_media_session_request_streams (SIPMediaSession *session,
 }
 
 gboolean
-sip_media_session_remove_streams (SIPMediaSession *self,
+tpsip_media_session_remove_streams (TpsipMediaSession *self,
                                   const GArray *stream_ids,
                                   GError **error)
 {
-  SIPMediaStream *stream;
+  TpsipMediaStream *stream;
   guint stream_id;
   guint i;
 
@@ -933,10 +933,10 @@ sip_media_session_remove_streams (SIPMediaSession *self,
   for (i = 0; i < stream_ids->len; i++)
     {
       stream_id = g_array_index (stream_ids, guint, i);
-      stream = sip_media_session_get_stream (self, stream_id, error);
+      stream = tpsip_media_session_get_stream (self, stream_id, error);
       if (stream == NULL)
         return FALSE;
-      sip_media_stream_close (stream);
+      tpsip_media_stream_close (stream);
     }
 
   priv_local_media_changed (self);
@@ -944,11 +944,11 @@ sip_media_session_remove_streams (SIPMediaSession *self,
   return TRUE;
 }
 
-void sip_media_session_list_streams (SIPMediaSession *session,
+void tpsip_media_session_list_streams (TpsipMediaSession *session,
                                      GPtrArray *ret)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  SIPMediaStream *stream;
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaStream *stream;
   guint i;
 
   for (i = 0; i < priv->streams->len; i++)
@@ -960,15 +960,15 @@ void sip_media_session_list_streams (SIPMediaSession *session,
 }
 
 gboolean
-sip_media_session_request_stream_direction (SIPMediaSession *self,
+tpsip_media_session_request_stream_direction (TpsipMediaSession *self,
                                             guint stream_id,
                                             guint direction,
                                             GError **error)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
-  SIPMediaStream *stream;
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaStream *stream;
 
-  stream = sip_media_session_get_stream (self, stream_id, error);
+  stream = tpsip_media_session_get_stream (self, stream_id, error);
   if (stream == NULL)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
@@ -976,8 +976,8 @@ sip_media_session_request_stream_direction (SIPMediaSession *self,
       return FALSE;
     }
 
-  if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
-      || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED)
+  if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
+      || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED)
     {
       /* While processing a session offer, we can only mask out direction
        * requested by the remote peer */
@@ -988,17 +988,17 @@ sip_media_session_request_stream_direction (SIPMediaSession *self,
       direction &= old_direction;
     }
 
-  if (sip_media_stream_set_direction (stream, direction, FALSE))
+  if (tpsip_media_stream_set_direction (stream, direction, FALSE))
     priv_local_media_changed (self);
 
   return TRUE;
 }
 
 static void
-priv_save_event (SIPMediaSession *self)
+priv_save_event (TpsipMediaSession *self)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
-  SIPConnection *conn = NULL;
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipConnection *conn = NULL;
 
   priv_zap_event (self);
 
@@ -1006,7 +1006,7 @@ priv_save_event (SIPMediaSession *self)
 
   g_return_if_fail (conn != NULL);
 
-  sip_conn_save_event (conn, priv->saved_event);
+  tpsip_conn_save_event (conn, priv->saved_event);
 
   g_object_unref (conn);
 
@@ -1020,9 +1020,9 @@ priv_save_event (SIPMediaSession *self)
 }
 
 static void
-priv_zap_event (SIPMediaSession *self)
+priv_zap_event (TpsipMediaSession *self)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
 
   if (priv->saved_event[0])
     {
@@ -1034,35 +1034,35 @@ priv_zap_event (SIPMediaSession *self)
 }
 
 void
-sip_media_session_receive_invite (SIPMediaSession *self)
+tpsip_media_session_receive_invite (TpsipMediaSession *self)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
 
-  g_return_if_fail (priv->state == SIP_MEDIA_SESSION_STATE_CREATED);  
+  g_return_if_fail (priv->state == TPSIP_MEDIA_SESSION_STATE_CREATED);  
   g_return_if_fail (priv->nua_op != NULL);
 
   nua_respond (priv->nua_op, SIP_180_RINGING, TAG_END());
 
-  sip_media_session_change_state (self, SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED);
+  tpsip_media_session_change_state (self, TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED);
 }
 
 void
-sip_media_session_receive_reinvite (SIPMediaSession *self)
+tpsip_media_session_receive_reinvite (TpsipMediaSession *self)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
 
-  g_return_if_fail (priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE
-                    || priv->state == SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED);
+  g_return_if_fail (priv->state == TPSIP_MEDIA_SESSION_STATE_ACTIVE
+                    || priv->state == TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED);
 
   priv_save_event (self);
 
-  sip_media_session_change_state (self, SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
+  tpsip_media_session_change_state (self, TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
 }
 
 void
-sip_media_session_accept (SIPMediaSession *self)
+tpsip_media_session_accept (TpsipMediaSession *self)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
 
   if (priv->accepted)
     return;
@@ -1077,11 +1077,11 @@ sip_media_session_accept (SIPMediaSession *self)
 }
 
 void
-sip_media_session_reject (SIPMediaSession *self,
+tpsip_media_session_reject (TpsipMediaSession *self,
                           gint status,
                           const char *message)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
 
   if (message != NULL && !message[0])
     message = NULL;
@@ -1092,13 +1092,13 @@ sip_media_session_reject (SIPMediaSession *self,
     nua_respond (priv->nua_op, status, message, TAG_END());
 }
 
-static SIPMediaStream *
-sip_media_session_get_stream (SIPMediaSession *self,
+static TpsipMediaStream *
+tpsip_media_session_get_stream (TpsipMediaSession *self,
                               guint stream_id,
                               GError **error)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
-  SIPMediaStream *stream;
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaStream *stream;
 
   g_assert (priv->streams != NULL);
 
@@ -1121,19 +1121,19 @@ sip_media_session_get_stream (SIPMediaSession *self,
   return stream;
 }
 
-SIPChannelHoldState
-sip_media_session_get_hold_state (SIPMediaSession *self)
+TpsipChannelHoldState
+tpsip_media_session_get_hold_state (TpsipMediaSession *self)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   return priv->hold_state;
 }
 
 void
-sip_media_session_request_hold (SIPMediaSession *self,
+tpsip_media_session_request_hold (TpsipMediaSession *self,
                                 gboolean hold)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
-  SIPMediaStream *stream;
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaStream *stream;
   gboolean media_changed = FALSE;
   guint hold_mask;
   guint unhold_mask;
@@ -1154,7 +1154,7 @@ sip_media_session_request_hold (SIPMediaSession *self,
                         NULL);
           direction &= hold_mask;
           direction |= unhold_mask;
-          if (sip_media_stream_set_direction (stream, direction, FALSE))
+          if (tpsip_media_stream_set_direction (stream, direction, FALSE))
             media_changed = TRUE;
         }
     }
@@ -1164,18 +1164,18 @@ sip_media_session_request_hold (SIPMediaSession *self,
 }
 
 gboolean
-sip_media_session_start_telephony_event (SIPMediaSession *self,
+tpsip_media_session_start_telephony_event (TpsipMediaSession *self,
                                          guint stream_id,
                                          guchar event,
                                          GError **error)
 {
-  SIPMediaStream *stream;
+  TpsipMediaStream *stream;
 
-  stream = sip_media_session_get_stream (self, stream_id, error);
+  stream = tpsip_media_session_get_stream (self, stream_id, error);
   if (stream == NULL)
     return FALSE;
 
-  if (sip_media_stream_get_media_type (stream) != TP_MEDIA_STREAM_TYPE_AUDIO)
+  if (tpsip_media_stream_get_media_type (stream) != TP_MEDIA_STREAM_TYPE_AUDIO)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
                    "non-audio stream %u does not support telephony events", stream_id);
@@ -1184,23 +1184,23 @@ sip_media_session_start_telephony_event (SIPMediaSession *self,
 
   DEBUG("starting telephony event %u on stream %u", (guint) event, stream_id);
 
-  sip_media_stream_start_telephony_event (stream, event);
+  tpsip_media_stream_start_telephony_event (stream, event);
 
   return TRUE;
 }
 
 gboolean
-sip_media_session_stop_telephony_event  (SIPMediaSession *self,
+tpsip_media_session_stop_telephony_event  (TpsipMediaSession *self,
                                          guint stream_id,
                                          GError **error)
 {
-  SIPMediaStream *stream;
+  TpsipMediaStream *stream;
 
-  stream = sip_media_session_get_stream (self, stream_id, error);
+  stream = tpsip_media_session_get_stream (self, stream_id, error);
   if (stream == NULL)
     return FALSE;
 
-  if (sip_media_stream_get_media_type (stream) != TP_MEDIA_STREAM_TYPE_AUDIO)
+  if (tpsip_media_stream_get_media_type (stream) != TP_MEDIA_STREAM_TYPE_AUDIO)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
                    "non-audio stream %u does not support telephony events; spurious use of the stop event?", stream_id);
@@ -1209,16 +1209,16 @@ sip_media_session_stop_telephony_event  (SIPMediaSession *self,
 
   DEBUG("stopping the telephony event on stream %u", stream_id);
 
-  sip_media_stream_stop_telephony_event (stream);
+  tpsip_media_stream_stop_telephony_event (stream);
 
   return TRUE;
 }
 
 gint
-sip_media_session_rate_native_transport (SIPMediaSession *session,
+tpsip_media_session_rate_native_transport (TpsipMediaSession *session,
                                          const GValue *transport)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   gint result = 0;
   gchar *address = NULL;
   guint proto = TP_MEDIA_STREAM_BASE_PROTO_UDP;
@@ -1242,33 +1242,33 @@ sip_media_session_rate_native_transport (SIPMediaSession *session,
   return result;
 }
 
-static void priv_session_set_streams_playing (SIPMediaSession *session, gboolean playing)
+static void priv_session_set_streams_playing (TpsipMediaSession *session, gboolean playing)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  SIPMediaStream *stream;
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaStream *stream;
   guint i;
 
   for (i = 0; i < priv->streams->len; i++)
     {
       stream = g_ptr_array_index(priv->streams, i);
       if (stream != NULL)
-        sip_media_stream_set_playing (stream, playing);
+        tpsip_media_stream_set_playing (stream, playing);
     }
 }
 
 static void
-priv_local_media_changed (SIPMediaSession *session)
+priv_local_media_changed (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   switch (priv->state)
     {
-    case SIP_MEDIA_SESSION_STATE_CREATED:
+    case TPSIP_MEDIA_SESSION_STATE_CREATED:
       /* If all streams are ready, send an offer now */
       priv_request_response_step (session);
       break;
-    case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-    case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
       /* The changes to existing streams will be included in the
        * eventual answer (FIXME: implement postponed direction changes,
        * which are applied after the remote offer has been processed).
@@ -1277,13 +1277,13 @@ priv_local_media_changed (SIPMediaSession *session)
       if (priv->remote_stream_count < priv->streams->len)
         priv->pending_offer = TRUE;
       break;
-    case SIP_MEDIA_SESSION_STATE_INVITE_SENT:
-    case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
-    case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
+    case TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT:
+    case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
       /* Cannot send another offer right now */
       priv->pending_offer = TRUE;
       break;
-    case SIP_MEDIA_SESSION_STATE_ACTIVE:
+    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
       if (priv->local_non_ready == 0)
         priv_session_invite (session, TRUE);
       else
@@ -1295,12 +1295,12 @@ priv_local_media_changed (SIPMediaSession *session)
 }
 
 static void
-priv_update_hold_state (SIPMediaSession *session)
+priv_update_hold_state (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
-  SIPMediaStream *stream;
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaStream *stream;
   gboolean has_streams = FALSE;
-  guint hold_state = SIP_CHANNEL_HOLD_STATE_BOTH;
+  guint hold_state = TPSIP_CHANNEL_HOLD_STATE_BOTH;
   guint i;
 
   /* Starting with bidirectional hold, bid down accordingly to availability
@@ -1316,9 +1316,9 @@ priv_update_hold_state (SIPMediaSession *session)
                         NULL);
 
           if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0)
-            hold_state &= ~SIP_CHANNEL_HOLD_STATE_REMOTE;
+            hold_state &= ~TPSIP_CHANNEL_HOLD_STATE_REMOTE;
           if ((direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE) != 0)
-            hold_state &= ~SIP_CHANNEL_HOLD_STATE_LOCAL;
+            hold_state &= ~TPSIP_CHANNEL_HOLD_STATE_LOCAL;
 
           has_streams = TRUE;
         }
@@ -1328,15 +1328,15 @@ priv_update_hold_state (SIPMediaSession *session)
     {
       DEBUG("changing hold state to %u", hold_state);
       priv->hold_state = hold_state;
-      sip_svc_channel_interface_hold_emit_hold_state_changed (priv->channel,
+      tpsip_svc_channel_interface_hold_emit_hold_state_changed (priv->channel,
                                                               priv->hold_state);
     }
 }
 
 static gboolean
-priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
+priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   const sdp_media_t *media;
   gboolean has_supported_media = FALSE;
   guint direction_up_mask;
@@ -1351,7 +1351,7 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
    */
   if (authoritative)
     direction_up_mask
-        = ((priv->hold_state & SIP_CHANNEL_HOLD_STATE_LOCAL) == 0)
+        = ((priv->hold_state & TPSIP_CHANNEL_HOLD_STATE_LOCAL) == 0)
                 ? TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL
                 : TP_MEDIA_STREAM_DIRECTION_SEND;
   else
@@ -1365,10 +1365,10 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
 
   for (i = 0; media; media = media->m_next, i++)
     {
-      SIPMediaStream *stream = NULL;
+      TpsipMediaStream *stream = NULL;
       guint media_type;
 
-      media_type = sip_tp_media_type (media->m_type);
+      media_type = tpsip_tp_media_type (media->m_type);
 
       if (i >= priv->streams->len)
         stream = priv_create_media_stream (
@@ -1389,14 +1389,14 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
         {
           DEBUG("the stream has been rejected, closing");
         }
-      else if (sip_media_stream_get_media_type (stream) != media_type)
+      else if (tpsip_media_stream_get_media_type (stream) != media_type)
         {
           /* XXX: close this stream and create a new one in its place? */
           g_warning ("The peer has changed the media type, don't know what to do");
         }
       else
         {
-          if (sip_media_stream_set_remote_media (stream,
+          if (tpsip_media_stream_set_remote_media (stream,
                                                  media,
                                                  direction_up_mask))
             {
@@ -1406,7 +1406,7 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
         }
 
       /* There have been problems with the stream update, kill the stream */
-      sip_media_stream_close (stream);
+      tpsip_media_stream_close (stream);
     }
   g_assert(media == NULL);
   g_assert(i <= priv->streams->len);
@@ -1427,12 +1427,12 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
        */
       do
         {
-          SIPMediaStream *stream;
+          TpsipMediaStream *stream;
           stream = g_ptr_array_index(priv->streams, i);
           if (stream != NULL)
             {
               g_message ("closing a mismatched stream %u", i);
-              sip_media_stream_close (stream);
+              tpsip_media_stream_close (stream);
             }
         }
       while (++i < priv->streams->len);
@@ -1447,9 +1447,9 @@ priv_update_remote_media (SIPMediaSession *session, gboolean authoritative)
 }
 
 static void
-priv_session_rollback (SIPMediaSession *session)
+priv_session_rollback (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   DEBUG("enter");
 
@@ -1462,7 +1462,7 @@ priv_session_rollback (SIPMediaSession *session)
     }
   if (priv->backup_remote_sdp == NULL)
     {
-      sip_media_session_terminate (session);
+      tpsip_media_session_terminate (session);
       return;
     }
 
@@ -1488,15 +1488,15 @@ priv_session_rollback (SIPMediaSession *session)
                    TAG_END());
     }
 
-  sip_media_session_change_state (session, SIP_MEDIA_SESSION_STATE_ACTIVE);
+  tpsip_media_session_change_state (session, TPSIP_MEDIA_SESSION_STATE_ACTIVE);
 }
 
 static gboolean
-priv_session_local_sdp (SIPMediaSession *session,
+priv_session_local_sdp (TpsipMediaSession *session,
                         GString *user_sdp,
                         gboolean authoritative)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   gboolean has_supported_media = FALSE;
   guint len;
   guint i;
@@ -1514,11 +1514,11 @@ priv_session_local_sdp (SIPMediaSession *session,
 
   for (i = 0; i < len; i++)
     {
-      SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
+      TpsipMediaStream *stream = g_ptr_array_index (priv->streams, i);
       if (stream)
         {
           user_sdp = g_string_append (user_sdp,
-                                      sip_media_stream_local_sdp (stream));
+                                      tpsip_media_stream_local_sdp (stream));
           has_supported_media = TRUE;
         }
       else
@@ -1533,9 +1533,9 @@ priv_session_local_sdp (SIPMediaSession *session,
 }
 
 static void
-priv_session_invite (SIPMediaSession *session, gboolean reinvite)
+priv_session_invite (TpsipMediaSession *session, gboolean reinvite)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   GString *user_sdp;
 
   DEBUG("enter");
@@ -1553,10 +1553,10 @@ priv_session_invite (SIPMediaSession *session, gboolean reinvite)
                   NUTAG_AUTOANSWER(0),
                   TAG_END());
       priv->pending_offer = FALSE;
-      sip_media_session_change_state (
+      tpsip_media_session_change_state (
                 session,
-                reinvite? SIP_MEDIA_SESSION_STATE_REINVITE_SENT
-                        : SIP_MEDIA_SESSION_STATE_INVITE_SENT);
+                reinvite? TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT
+                        : TPSIP_MEDIA_SESSION_STATE_INVITE_SENT);
     }
   else
     g_warning ("cannot send a valid SDP offer, are there no streams?");
@@ -1565,9 +1565,9 @@ priv_session_invite (SIPMediaSession *session, gboolean reinvite)
 }
 
 static void
-priv_session_respond (SIPMediaSession *session)
+priv_session_respond (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   GString *user_sdp;
 
   g_return_if_fail (priv->nua_op != NULL);
@@ -1581,7 +1581,7 @@ priv_session_respond (SIPMediaSession *session)
       msg = (priv->saved_event[0])
                 ? nua_saved_event_request (priv->saved_event) : NULL;
 
-      nua_respond (priv->nua_op, 200, sip_200_OK,
+      nua_respond (priv->nua_op, SIP_200_OK,
                    TAG_IF(msg, NUTAG_WITH(msg)),
                    SOATAG_USER_SDP_STR (user_sdp->str),
                    SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
@@ -1592,7 +1592,7 @@ priv_session_respond (SIPMediaSession *session)
       if (priv->saved_event[0])
         nua_destroy_event (priv->saved_event);
 
-      sip_media_session_change_state (session, SIP_MEDIA_SESSION_STATE_ACTIVE);
+      tpsip_media_session_change_state (session, TPSIP_MEDIA_SESSION_STATE_ACTIVE);
     }
   else
     {
@@ -1605,16 +1605,16 @@ priv_session_respond (SIPMediaSession *session)
 }
 
 static gboolean
-priv_is_codec_intersect_pending (SIPMediaSession *session)
+priv_is_codec_intersect_pending (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   guint i;
 
   for (i = 0; i < priv->streams->len; i++)
     {
-      SIPMediaStream *stream = g_ptr_array_index (priv->streams, i);
+      TpsipMediaStream *stream = g_ptr_array_index (priv->streams, i);
       if (stream != NULL
-          && sip_media_stream_is_codec_intersect_pending (stream))
+          && tpsip_media_stream_is_codec_intersect_pending (stream))
         return TRUE;
     }
 
@@ -1631,9 +1631,9 @@ priv_is_codec_intersect_pending (SIPMediaSession *session)
  *  - whether session is locally accepted
  */
 static void
-priv_request_response_step (SIPMediaSession *session)
+priv_request_response_step (TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   if (priv->local_non_ready != 0)
     {
@@ -1643,19 +1643,19 @@ priv_request_response_step (SIPMediaSession *session)
 
   switch (priv->state)
     {
-    case SIP_MEDIA_SESSION_STATE_CREATED:
+    case TPSIP_MEDIA_SESSION_STATE_CREATED:
       /* note: we need to be prepared to receive media right after the
        *       offer is sent, so we must set the streams to playing */
       priv_session_set_streams_playing (session, TRUE);
       priv_session_invite (session, FALSE);
       break;
-    case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
       if (priv->accepted
           && !priv_is_codec_intersect_pending (session))
-        sip_media_session_change_state (session,
-                                        SIP_MEDIA_SESSION_STATE_ACTIVE);
+        tpsip_media_session_change_state (session,
+                                        TPSIP_MEDIA_SESSION_STATE_ACTIVE);
       break;
-    case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
       /* TODO: if the call has not yet been accepted locally
        * and the remote endpoint supports 100rel, send them
        * an early session answer in a reliable 183 response */
@@ -1668,11 +1668,11 @@ priv_request_response_step (SIPMediaSession *session)
           priv_session_set_streams_playing (session, TRUE);
         }
       break;
-    case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
       if (!priv_is_codec_intersect_pending (session))
         priv_session_respond (session);
       break;
-    case SIP_MEDIA_SESSION_STATE_ACTIVE:
+    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
       if (priv->pending_offer)
         priv_session_invite (session, TRUE);
       break;
@@ -1682,20 +1682,20 @@ priv_request_response_step (SIPMediaSession *session)
 }
 
 static void
-priv_stream_close_cb (SIPMediaStream *stream,
-                      SIPMediaSession *session)
+priv_stream_close_cb (TpsipMediaStream *stream,
+                      TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv;
+  TpsipMediaSessionPrivate *priv;
   guint id;
 
   DEBUG("enter");
 
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  id = sip_media_stream_get_id (stream);
+  id = tpsip_media_stream_get_id (stream);
   g_return_if_fail (g_ptr_array_index(priv->streams, id) == stream);
 
-  if (!sip_media_stream_is_local_ready (stream))
+  if (!tpsip_media_stream_is_local_ready (stream))
     {
       g_assert (priv->local_non_ready > 0);
       --priv->local_non_ready;
@@ -1709,14 +1709,14 @@ priv_stream_close_cb (SIPMediaStream *stream,
   tp_svc_channel_type_streamed_media_emit_stream_removed (priv->channel, id);
 }
 
-static void priv_stream_ready_cb (SIPMediaStream *stream,
-				  SIPMediaSession *session)
+static void priv_stream_ready_cb (TpsipMediaStream *stream,
+				  TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv;
+  TpsipMediaSessionPrivate *priv;
 
   DEBUG ("enter");
 
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   g_assert (priv->local_non_ready > 0);
   --priv->local_non_ready;
@@ -1724,38 +1724,38 @@ static void priv_stream_ready_cb (SIPMediaStream *stream,
   priv_request_response_step (session);
 }
 
-static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
+static void priv_stream_supported_codecs_cb (TpsipMediaStream *stream,
 					     guint num_codecs,
-					     SIPMediaSession *session)
+					     TpsipMediaSession *session)
 {
-  SIPMediaSessionPrivate *priv;
+  TpsipMediaSessionPrivate *priv;
 
-  g_assert (SIP_IS_MEDIA_SESSION (session));
+  g_assert (TPSIP_IS_MEDIA_SESSION (session));
 
-  priv = SIP_MEDIA_SESSION_GET_PRIVATE (session);
+  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  g_assert (!sip_media_stream_is_codec_intersect_pending (stream));
+  g_assert (!tpsip_media_stream_is_codec_intersect_pending (stream));
 
   if (num_codecs == 0)
     {
       /* This remote media description got no codec intersection. */
       switch (priv->state)
         {
-        case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-        case SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+        case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+        case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
           DEBUG("no codec intersection, closing the stream");
-          sip_media_stream_close (stream);
+          tpsip_media_stream_close (stream);
           break;
-        case SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+        case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
           /* In this case, we have the stream negotiated already,
            * and we don't want to close it just because the remote party
            * offers a different set of codecs.
            * Roll back the whole session to the previously negotiated state. */
           priv_session_rollback (session);
           return;
-        case SIP_MEDIA_SESSION_STATE_ACTIVE:
+        case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
           /* We've most likely rolled back from
-           * SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
+           * TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
            * but we may receive more than one empty codec intersection
            * in the session, so we ignore the rest */
           return;
@@ -1768,53 +1768,53 @@ static void priv_stream_supported_codecs_cb (SIPMediaStream *stream,
 }
 
 static void
-priv_stream_state_changed_cb (SIPMediaStream *stream,
+priv_stream_state_changed_cb (TpsipMediaStream *stream,
                               guint state,
-                              SIPMediaChannel *channel)
+                              TpsipMediaChannel *channel)
 {
-  g_assert (SIP_IS_MEDIA_CHANNEL (channel));
+  g_assert (TPSIP_IS_MEDIA_CHANNEL (channel));
   tp_svc_channel_type_streamed_media_emit_stream_state_changed(
         channel,
-        sip_media_stream_get_id (stream), state);
+        tpsip_media_stream_get_id (stream), state);
 }
 
 static void
-priv_stream_direction_changed_cb (SIPMediaStream *stream,
+priv_stream_direction_changed_cb (TpsipMediaStream *stream,
                                   guint direction,
                                   guint pending_send_flags,
-                                  SIPMediaChannel *channel)
+                                  TpsipMediaChannel *channel)
 {
-  g_assert (SIP_IS_MEDIA_CHANNEL (channel));
+  g_assert (TPSIP_IS_MEDIA_CHANNEL (channel));
   tp_svc_channel_type_streamed_media_emit_stream_direction_changed (
         channel,
-        sip_media_stream_get_id (stream), direction, pending_send_flags);
+        tpsip_media_stream_get_id (stream), direction, pending_send_flags);
 }
 
-static SIPMediaStream*
-priv_create_media_stream (SIPMediaSession *self,
+static TpsipMediaStream*
+priv_create_media_stream (TpsipMediaSession *self,
                           guint media_type,
                           guint pending_send_flags)
 {
-  SIPMediaSessionPrivate *priv = SIP_MEDIA_SESSION_GET_PRIVATE (self);
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   gchar *object_path;
-  SIPMediaStream *stream = NULL;
+  TpsipMediaStream *stream = NULL;
   guint stream_id;
   guint direction;
 
   DEBUG ("enter");
 
-  if (sip_media_session_supports_media_type (media_type)) {
+  if (tpsip_media_session_supports_media_type (media_type)) {
 
     stream_id = priv->streams->len;
     object_path = g_strdup_printf ("%s/MediaStream%u",
                                    priv->object_path,
                                    stream_id);
 
-    direction = ((priv->hold_state & SIP_CHANNEL_HOLD_STATE_LOCAL) == 0)
+    direction = ((priv->hold_state & TPSIP_CHANNEL_HOLD_STATE_LOCAL) == 0)
                 ? TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL
                 : TP_MEDIA_STREAM_DIRECTION_SEND;
 
-    stream = g_object_new (SIP_TYPE_MEDIA_STREAM,
+    stream = g_object_new (TPSIP_TYPE_MEDIA_STREAM,
 			   "media-session", self,
 			   "media-type", media_type,
 			   "object-path", object_path,
@@ -1867,7 +1867,7 @@ session_handler_iface_init (gpointer g_iface, gpointer iface_data)
   TpSvcMediaSessionHandlerClass *klass = (TpSvcMediaSessionHandlerClass *)g_iface;
 
 #define IMPLEMENT(x) tp_svc_media_session_handler_implement_##x (\
-    klass, (tp_svc_media_session_handler_##x##_impl) sip_media_session_##x)
+    klass, (tp_svc_media_session_handler_##x##_impl) tpsip_media_session_##x)
   IMPLEMENT(error);
   IMPLEMENT(ready);
 #undef IMPLEMENT

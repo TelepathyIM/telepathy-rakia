@@ -1,5 +1,5 @@
 /*
- * sip-connection-manager.h - Header for SIPConnectionManager
+ * sip-connection-manager.h - Header for TpsipConnectionManager
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005,2006 Nokia Corporation
  *
@@ -17,8 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __SIP_CONNECTION_MANAGER_H__
-#define __SIP_CONNECTION_MANAGER_H__
+#ifndef __TPSIP_CONNECTION_MANAGER_H__
+#define __TPSIP_CONNECTION_MANAGER_H__
 
 #include <glib-object.h>
 
@@ -26,37 +26,37 @@
 
 G_BEGIN_DECLS
 
-typedef struct _SIPConnectionManager SIPConnectionManager;
-typedef struct _SIPConnectionManagerClass SIPConnectionManagerClass;
-typedef struct _SIPConnectionManagerPrivate SIPConnectionManagerPrivate;
+typedef struct _TpsipConnectionManager TpsipConnectionManager;
+typedef struct _TpsipConnectionManagerClass TpsipConnectionManagerClass;
+typedef struct _TpsipConnectionManagerPrivate TpsipConnectionManagerPrivate;
 
-struct _SIPConnectionManagerClass {
+struct _TpsipConnectionManagerClass {
     TpBaseConnectionManagerClass parent_class;
 };
 
-struct _SIPConnectionManager {
+struct _TpsipConnectionManager {
     TpBaseConnectionManager parent;
-    SIPConnectionManagerPrivate *priv;
+    TpsipConnectionManagerPrivate *priv;
 };
 
-GType sip_connection_manager_get_type(void);
+GType tpsip_connection_manager_get_type(void);
 
 /* TYPE MACROS */
-#define SIP_TYPE_CONNECTION_MANAGER \
-  (sip_connection_manager_get_type())
-#define SIP_CONNECTION_MANAGER(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), SIP_TYPE_CONNECTION_MANAGER, SIPConnectionManager))
-#define SIP_CONNECTION_MANAGER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), SIP_TYPE_CONNECTION_MANAGER, SIPConnectionManagerClass))
-#define SIP_IS_CONNECTION_MANAGER(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), SIP_TYPE_CONNECTION_MANAGER))
-#define SIP_IS_CONNECTION_MANAGER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), SIP_TYPE_CONNECTION_MANAGER))
-#define SIP_CONNECTION_MANAGER_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), SIP_TYPE_CONNECTION_MANAGER, SIPConnectionManagerClass))
+#define TPSIP_TYPE_CONNECTION_MANAGER \
+  (tpsip_connection_manager_get_type())
+#define TPSIP_CONNECTION_MANAGER(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManager))
+#define TPSIP_CONNECTION_MANAGER_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManagerClass))
+#define TPSIP_IS_CONNECTION_MANAGER(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_CONNECTION_MANAGER))
+#define TPSIP_IS_CONNECTION_MANAGER_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_CONNECTION_MANAGER))
+#define TPSIP_CONNECTION_MANAGER_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManagerClass))
 
-extern const TpCMProtocolSpec sofiasip_protocols[];
+extern const TpCMProtocolSpec tpsip_protocols[];
 
 G_END_DECLS
 
-#endif /* #ifndef __SIP_CONNECTION_MANAGER_H__*/
+#endif /* #ifndef __TPSIP_CONNECTION_MANAGER_H__*/

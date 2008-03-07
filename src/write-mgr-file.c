@@ -99,7 +99,7 @@ main (void)
 
   gchar *s = mgr_file_contents(TP_CM_BUS_NAME_BASE "sofiasip",
                                TP_CM_OBJECT_PATH_BASE "sofiasip",
-                               sofiasip_protocols, &error);
+                               tpsip_protocols, &error);
   if (!s)
     {
       fprintf(stderr, error->message);

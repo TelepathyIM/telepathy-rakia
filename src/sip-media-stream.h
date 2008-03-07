@@ -1,5 +1,5 @@
 /*
- * sip-media-stream.h - Header for SIPMediaStream
+ * sip-media-stream.h - Header for TpsipMediaStream
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005,2006 Nokia Corporation
  *
@@ -17,65 +17,65 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __SIP_MEDIA_STREAM_H__
-#define __SIP_MEDIA_STREAM_H__
+#ifndef __TPSIP_MEDIA_STREAM_H__
+#define __TPSIP_MEDIA_STREAM_H__
 
 #include <glib-object.h>
 #include <sofia-sip/sdp.h>
 
 G_BEGIN_DECLS
 
-typedef struct _SIPMediaStream SIPMediaStream;
-typedef struct _SIPMediaStreamClass SIPMediaStreamClass;
+typedef struct _TpsipMediaStream TpsipMediaStream;
+typedef struct _TpsipMediaStreamClass TpsipMediaStreamClass;
 
-struct _SIPMediaStreamClass {
+struct _TpsipMediaStreamClass {
     GObjectClass parent_class;
 };
 
-struct _SIPMediaStream {
+struct _TpsipMediaStream {
     GObject parent;
 };
 
-GType sip_media_stream_get_type(void);
+GType tpsip_media_stream_get_type(void);
 
 /* TYPE MACROS */
-#define SIP_TYPE_MEDIA_STREAM \
-  (sip_media_stream_get_type())
-#define SIP_MEDIA_STREAM(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), SIP_TYPE_MEDIA_STREAM, SIPMediaStream))
-#define SIP_MEDIA_STREAM_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), SIP_TYPE_MEDIA_STREAM, SIPMediaStreamClass))
-#define SIP_IS_MEDIA_STREAM(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), SIP_TYPE_MEDIA_STREAM))
-#define SIP_IS_MEDIA_STREAM_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), SIP_TYPE_MEDIA_STREAM))
-#define SIP_MEDIA_STREAM_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), SIP_TYPE_MEDIA_STREAM, SIPMediaStreamClass))
+#define TPSIP_TYPE_MEDIA_STREAM \
+  (tpsip_media_stream_get_type())
+#define TPSIP_MEDIA_STREAM(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_MEDIA_STREAM, TpsipMediaStream))
+#define TPSIP_MEDIA_STREAM_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_MEDIA_STREAM, TpsipMediaStreamClass))
+#define TPSIP_IS_MEDIA_STREAM(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_MEDIA_STREAM))
+#define TPSIP_IS_MEDIA_STREAM_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_MEDIA_STREAM))
+#define TPSIP_MEDIA_STREAM_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_MEDIA_STREAM, TpsipMediaStreamClass))
 
 /***********************************************************************
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
-void sip_media_stream_close (SIPMediaStream *self);
-guint sip_media_stream_get_id (SIPMediaStream *self);
-guint sip_media_stream_get_media_type (SIPMediaStream *self);
-const char *sip_media_stream_local_sdp (SIPMediaStream *self);
-gboolean sip_media_stream_set_remote_media (SIPMediaStream *self,
+void tpsip_media_stream_close (TpsipMediaStream *self);
+guint tpsip_media_stream_get_id (TpsipMediaStream *self);
+guint tpsip_media_stream_get_media_type (TpsipMediaStream *self);
+const char *tpsip_media_stream_local_sdp (TpsipMediaStream *self);
+gboolean tpsip_media_stream_set_remote_media (TpsipMediaStream *self,
                                             const sdp_media_t *media,
                                             guint direction_up_mask);
-void sip_media_stream_set_playing (SIPMediaStream *self, gboolean playing);
-void sip_media_stream_set_sending (SIPMediaStream *self, gboolean sending);
-gboolean sip_media_stream_set_direction (SIPMediaStream *stream,
+void tpsip_media_stream_set_playing (TpsipMediaStream *self, gboolean playing);
+void tpsip_media_stream_set_sending (TpsipMediaStream *self, gboolean sending);
+gboolean tpsip_media_stream_set_direction (TpsipMediaStream *stream,
                                          TpMediaStreamDirection direction,
                                          gboolean remote_agreed);
-void sip_media_stream_release_pending_send (SIPMediaStream *stream);
-gboolean sip_media_stream_is_local_ready (SIPMediaStream *self);
-gboolean sip_media_stream_is_codec_intersect_pending (SIPMediaStream *self);
-void sip_media_stream_start_telephony_event (SIPMediaStream *self, guchar event);
-void sip_media_stream_stop_telephony_event  (SIPMediaStream *self);
+void tpsip_media_stream_release_pending_send (TpsipMediaStream *stream);
+gboolean tpsip_media_stream_is_local_ready (TpsipMediaStream *self);
+gboolean tpsip_media_stream_is_codec_intersect_pending (TpsipMediaStream *self);
+void tpsip_media_stream_start_telephony_event (TpsipMediaStream *self, guchar event);
+void tpsip_media_stream_stop_telephony_event  (TpsipMediaStream *self);
 
-guint sip_tp_media_type (sdp_media_e sip_mtype);
+guint tpsip_tp_media_type (sdp_media_e sip_mtype);
 
 G_END_DECLS
 
-#endif /* #ifndef __SIP_MEDIA_STREAM_H__*/
+#endif /* #ifndef __TPSIP_MEDIA_STREAM_H__*/

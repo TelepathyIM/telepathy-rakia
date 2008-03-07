@@ -17,8 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __SIP_TEXT_FACTORY_H__
-#define __SIP_TEXT_FACTORY_H__
+#ifndef __TPSIP_TEXT_FACTORY_H__
+#define __TPSIP_TEXT_FACTORY_H__
 
 #include <telepathy-glib/channel-factory-iface.h>
 
@@ -27,37 +27,37 @@
 
 G_BEGIN_DECLS
 
-typedef struct _SIPTextFactory SIPTextFactory;
-typedef struct _SIPTextFactoryClass SIPTextFactoryClass;
+typedef struct _TpsipTextFactory TpsipTextFactory;
+typedef struct _TpsipTextFactoryClass TpsipTextFactoryClass;
 
-struct _SIPTextFactoryClass {
+struct _TpsipTextFactoryClass {
   GObjectClass parent_class;
 };
 
-struct _SIPTextFactory {
+struct _TpsipTextFactory {
   GObject parent;
 };
 
-GType sip_text_factory_get_type(void);
+GType tpsip_text_factory_get_type(void);
 
 /* TYPE MACROS */
-#define SIP_TYPE_TEXT_FACTORY \
-  (sip_text_factory_get_type())
-#define SIP_TEXT_FACTORY(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), SIP_TYPE_TEXT_FACTORY, SIPTextFactory))
-#define SIP_TEXT_FACTORY_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), SIP_TYPE_TEXT_FACTORY, SIPTextFactoryClass))
-#define SIP_IS_TEXT_FACTORY(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), SIP_TYPE_TEXT_FACTORY))
-#define SIP_IS_TEXT_FACTORY_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), SIP_TYPE_TEXT_FACTORY))
-#define SIP_TEXT_FACTORY_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), SIP_TYPE_TEXT_FACTORY, SIPTextFactoryClass))
+#define TPSIP_TYPE_TEXT_FACTORY \
+  (tpsip_text_factory_get_type())
+#define TPSIP_TEXT_FACTORY(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_TEXT_FACTORY, TpsipTextFactory))
+#define TPSIP_TEXT_FACTORY_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_TEXT_FACTORY, TpsipTextFactoryClass))
+#define TPSIP_IS_TEXT_FACTORY(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_TEXT_FACTORY))
+#define TPSIP_IS_TEXT_FACTORY_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_TEXT_FACTORY))
+#define TPSIP_TEXT_FACTORY_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_TEXT_FACTORY, TpsipTextFactoryClass))
 
-SIPTextChannel *sip_text_factory_lookup_channel (TpChannelFactoryIface *iface,
+TpsipTextChannel *tpsip_text_factory_lookup_channel (TpChannelFactoryIface *iface,
     guint handle);
 
-SIPTextChannel *sip_text_factory_new_channel (TpChannelFactoryIface *iface,
+TpsipTextChannel *tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
     TpHandle handle, gpointer request);
 
 G_END_DECLS

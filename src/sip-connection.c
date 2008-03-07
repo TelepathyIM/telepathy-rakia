@@ -1,5 +1,5 @@
 /*
- * sip-connection.c - Source for SIPConnection
+ * sip-connection.c - Source for TpsipConnection
  * Copyright (C) 2005-2007 Collabora Ltd.
  * Copyright (C) 2005-2007 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
@@ -41,12 +41,12 @@
 #include "text-factory.h"
 #include "sip-connection.h"
 
-#define DEBUG_FLAG SIP_DEBUG_CONNECTION
+#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
 static void conn_iface_init (gpointer, gpointer);
 
-G_DEFINE_TYPE_WITH_CODE(SIPConnection, sip_connection,
+G_DEFINE_TYPE_WITH_CODE(TpsipConnection, tpsip_connection,
     TP_TYPE_BASE_CONNECTION,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION,
       conn_iface_init))
@@ -78,7 +78,7 @@ enum
   PROP_PROXY,            /**< outbound SIP proxy (SIP URI) */
   PROP_REGISTRAR,        /**< SIP registrar (SIP URI) */
   PROP_LOOSE_ROUTING,       /**< enable loose routing behavior */
-  PROP_KEEPALIVE_MECHANISM, /**< keepalive mechanism as defined by SIPConnectionKeepaliveMechanism */
+  PROP_KEEPALIVE_MECHANISM, /**< keepalive mechanism as defined by TpsipConnectionKeepaliveMechanism */
   PROP_KEEPALIVE_INTERVAL, /**< keepalive interval in seconds */
   PROP_DISCOVER_BINDING,   /**< enable discovery of public binding */
   PROP_DISCOVER_STUN,      /**< Discover STUN server name using DNS SRV lookup */
@@ -139,7 +139,7 @@ static gchar *normalize_sipuri (TpHandleRepoIface *repo, const gchar *sipuri,
     gpointer context, GError **error);
 
 static void
-sip_create_handle_repos (TpBaseConnection *conn,
+tpsip_create_handle_repos (TpBaseConnection *conn,
                          TpHandleRepoIface *repos[NUM_TP_HANDLE_TYPES])
 {
   repos[TP_HANDLE_TYPE_CONTACT] =
@@ -155,31 +155,31 @@ sip_create_handle_repos (TpBaseConnection *conn,
 }
 
 static GPtrArray *
-sip_connection_create_channel_factories (TpBaseConnection *base)
+tpsip_connection_create_channel_factories (TpBaseConnection *base)
 {
-  SIPConnection *self = SIP_CONNECTION (base);
-  SIPConnectionPrivate *priv;
+  TpsipConnection *self = TPSIP_CONNECTION (base);
+  TpsipConnectionPrivate *priv;
   GPtrArray *factories = g_ptr_array_sized_new (2);
 
-  g_assert (SIP_IS_CONNECTION (self));
-  priv = SIP_CONNECTION_GET_PRIVATE (self);
+  g_assert (TPSIP_IS_CONNECTION (self));
+  priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   priv->text_factory = (TpChannelFactoryIface *)g_object_new (
-      SIP_TYPE_TEXT_FACTORY, "connection", self, NULL);
+      TPSIP_TYPE_TEXT_FACTORY, "connection", self, NULL);
   g_ptr_array_add (factories, priv->text_factory);
 
   priv->media_factory = (TpChannelFactoryIface *)g_object_new (
-      SIP_TYPE_MEDIA_FACTORY, "connection", self, NULL);
+      TPSIP_TYPE_MEDIA_FACTORY, "connection", self, NULL);
   g_ptr_array_add (factories, priv->media_factory);
 
   return factories;
 }
 
 static void
-sip_connection_init (SIPConnection *obj)
+tpsip_connection_init (TpsipConnection *obj)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (obj);
-  priv->sofia = sip_connection_sofia_new (obj);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (obj);
+  priv->sofia = tpsip_connection_sofia_new (obj);
   priv->sofia_home = su_home_new(sizeof (su_home_t));
   priv->auth_table = g_hash_table_new_full (g_direct_hash,
                                             g_direct_equal,
@@ -188,13 +188,13 @@ sip_connection_init (SIPConnection *obj)
 }
 
 static void
-sip_connection_set_property (GObject      *object,
+tpsip_connection_set_property (GObject      *object,
                              guint         property_id,
                              const GValue *value,
                              GParamSpec   *pspec)
 {
-  SIPConnection *self = (SIPConnection*) object;
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+  TpsipConnection *self = (TpsipConnection*) object;
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   switch (property_id) {
   case PROP_ADDRESS: {
@@ -236,23 +236,23 @@ sip_connection_set_property (GObject      *object,
   case PROP_KEEPALIVE_MECHANISM: {
     priv->keepalive_mechanism = g_value_get_enum (value);
     if (priv->sofia_nua) {
-      sip_conn_update_nua_outbound (self);
-      sip_conn_update_nua_keepalive_interval (self);
+      tpsip_conn_update_nua_outbound (self);
+      tpsip_conn_update_nua_keepalive_interval (self);
     }
     break;
   }
   case PROP_KEEPALIVE_INTERVAL: {
     priv->keepalive_interval = g_value_get_int (value);
     if (priv->sofia_nua
-	&& priv->keepalive_mechanism != SIP_CONNECTION_KEEPALIVE_NONE) {
-      sip_conn_update_nua_keepalive_interval(self);
+	&& priv->keepalive_mechanism != TPSIP_CONNECTION_KEEPALIVE_NONE) {
+      tpsip_conn_update_nua_keepalive_interval(self);
     }
     break;
   }
   case PROP_DISCOVER_BINDING: {
     priv->discover_binding = g_value_get_boolean (value);
     if (priv->sofia_nua)
-      sip_conn_update_nua_outbound (self);
+      tpsip_conn_update_nua_outbound (self);
     break;
   }
   case PROP_DISCOVER_STUN:
@@ -299,13 +299,13 @@ sip_connection_set_property (GObject      *object,
 }
 
 static void
-sip_connection_get_property (GObject      *object,
+tpsip_connection_get_property (GObject      *object,
                              guint         property_id,
                              GValue       *value,
                              GParamSpec   *pspec)
 {
-  SIPConnection *self = (SIPConnection *) object;
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+  TpsipConnection *self = (TpsipConnection *) object;
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   switch (property_id) {
   case PROP_ADDRESS: {
@@ -379,52 +379,52 @@ sip_connection_get_property (GObject      *object,
   }
 }
 
-static void sip_connection_dispose (GObject *object);
-static void sip_connection_finalize (GObject *object);
+static void tpsip_connection_dispose (GObject *object);
+static void tpsip_connection_finalize (GObject *object);
 
 static gchar *
-sip_connection_unique_name (TpBaseConnection *base)
+tpsip_connection_unique_name (TpBaseConnection *base)
 {
-  SIPConnection *conn = SIP_CONNECTION (base);
-  SIPConnectionPrivate *priv;
+  TpsipConnection *conn = TPSIP_CONNECTION (base);
+  TpsipConnectionPrivate *priv;
 
-  g_assert (SIP_IS_CONNECTION (conn));
-  priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  g_assert (TPSIP_IS_CONNECTION (conn));
+  priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   return g_strdup (priv->address);
 }
 
-static void sip_connection_disconnected (TpBaseConnection *base);
-static void sip_connection_shut_down (TpBaseConnection *base);
-static gboolean sip_connection_start_connecting (TpBaseConnection *base,
+static void tpsip_connection_disconnected (TpBaseConnection *base);
+static void tpsip_connection_shut_down (TpBaseConnection *base);
+static gboolean tpsip_connection_start_connecting (TpBaseConnection *base,
     GError **error);
 
 static void
-sip_connection_class_init (SIPConnectionClass *sip_connection_class)
+tpsip_connection_class_init (TpsipConnectionClass *klass)
 {
-  GObjectClass *object_class = G_OBJECT_CLASS (sip_connection_class);
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   TpBaseConnectionClass *base_class =
-    (TpBaseConnectionClass *)sip_connection_class;
+    (TpBaseConnectionClass *)klass;
   GParamSpec *param_spec;
 
 #define INST_PROP(x) \
   g_object_class_install_property (object_class,  x, param_spec)
 
   /* Implement pure-virtual methods */
-  base_class->create_handle_repos = sip_create_handle_repos;
-  base_class->get_unique_connection_name = sip_connection_unique_name;
+  base_class->create_handle_repos = tpsip_create_handle_repos;
+  base_class->get_unique_connection_name = tpsip_connection_unique_name;
   base_class->create_channel_factories =
-    sip_connection_create_channel_factories;
-  base_class->disconnected = sip_connection_disconnected;
-  base_class->start_connecting = sip_connection_start_connecting;
-  base_class->shut_down = sip_connection_shut_down;
+    tpsip_connection_create_channel_factories;
+  base_class->disconnected = tpsip_connection_disconnected;
+  base_class->start_connecting = tpsip_connection_start_connecting;
+  base_class->shut_down = tpsip_connection_shut_down;
 
-  g_type_class_add_private (sip_connection_class, sizeof (SIPConnectionPrivate));
+  g_type_class_add_private (klass, sizeof (TpsipConnectionPrivate));
 
-  object_class->dispose = sip_connection_dispose;
-  object_class->finalize = sip_connection_finalize;
+  object_class->dispose = tpsip_connection_dispose;
+  object_class->finalize = tpsip_connection_finalize;
 
-  object_class->set_property = sip_connection_set_property;
-  object_class->get_property = sip_connection_get_property;
+  object_class->set_property = tpsip_connection_set_property;
+  object_class->get_property = tpsip_connection_get_property;
 
   param_spec = g_param_spec_pointer("sofia-root",
                                     "Sofia root",
@@ -436,7 +436,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   INST_PROP(PROP_SOFIA_ROOT);
 
   param_spec = g_param_spec_string("address",
-                                   "SIPConnection construction property",
+                                   "TpsipConnection construction property",
                                    "Public SIP address",
                                    NULL,
                                    G_PARAM_CONSTRUCT_ONLY |
@@ -504,8 +504,8 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
   param_spec = g_param_spec_enum ("keepalive-mechanism",
                                   "Keepalive mechanism",
                                   "SIP registration keepalive mechanism",
-                                  sip_connection_keepalive_mechanism_get_type (),
-                                  SIP_CONNECTION_KEEPALIVE_AUTO, /*default value*/
+                                  tpsip_connection_keepalive_mechanism_get_type (),
+                                  TPSIP_CONNECTION_KEEPALIVE_AUTO, /*default value*/
                                   G_PARAM_CONSTRUCT |
                                   G_PARAM_READWRITE |
                                   G_PARAM_STATIC_NAME |
@@ -556,7 +556,7 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
                                   "STUN port",
                                   "STUN port.",
                                   0, G_MAXUINT16,
-                                  SIP_DEFAULT_STUN_PORT, /*default value*/
+                                  TPSIP_DEFAULT_STUN_PORT, /*default value*/
                                   G_PARAM_CONSTRUCT |
                                   G_PARAM_READWRITE |
                                   G_PARAM_STATIC_NAME |
@@ -601,15 +601,15 @@ sip_connection_class_init (SIPConnectionClass *sip_connection_class)
 }
 
 static void
-sip_connection_shut_down (TpBaseConnection *base)
+tpsip_connection_shut_down (TpBaseConnection *base)
 {
-  SIPConnection *self = SIP_CONNECTION (base);
-  SIPConnectionPrivate *priv;
+  TpsipConnection *self = TPSIP_CONNECTION (base);
+  TpsipConnectionPrivate *priv;
 
   DEBUG ("enter");
 
-  g_assert (SIP_IS_CONNECTION (self));
-  priv = SIP_CONNECTION_GET_PRIVATE (self);
+  g_assert (TPSIP_IS_CONNECTION (self));
+  priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   /* We disposed of the REGISTER handle in the disconnected method */
   g_assert (priv->register_op == NULL);
@@ -623,7 +623,7 @@ sip_connection_shut_down (TpBaseConnection *base)
   if (priv->sofia_nua != NULL)
       nua_shutdown (priv->sofia_nua);
   else
-      sip_connection_sofia_destroy (priv->sofia);
+      tpsip_connection_sofia_destroy (priv->sofia);
 
   priv->sofia = NULL;
   priv->sofia_nua = NULL;
@@ -632,11 +632,11 @@ sip_connection_shut_down (TpBaseConnection *base)
 }
 
 void
-sip_connection_dispose (GObject *object)
+tpsip_connection_dispose (GObject *object)
 {
-  SIPConnection *self = SIP_CONNECTION (object);
+  TpsipConnection *self = TPSIP_CONNECTION (object);
   TpBaseConnection *base = (TpBaseConnection *)self;
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   if (priv->dispose_has_run)
     return;
@@ -645,7 +645,7 @@ sip_connection_dispose (GObject *object)
 
   /* release any references held by the object here */
 
-  DEBUG ("Disposing of SIPConnection %p", self);
+  DEBUG ("Disposing of TpsipConnection %p", self);
 
   /* these are borrowed refs, the real ones are owned by the superclass */
   priv->media_factory = NULL;
@@ -660,15 +660,15 @@ sip_connection_dispose (GObject *object)
       || base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
   g_assert (base->self_handle == 0);
 
-  if (G_OBJECT_CLASS (sip_connection_parent_class)->dispose)
-    G_OBJECT_CLASS (sip_connection_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (tpsip_connection_parent_class)->dispose)
+    G_OBJECT_CLASS (tpsip_connection_parent_class)->dispose (object);
 }
 
 void
-sip_connection_finalize (GObject *obj)
+tpsip_connection_finalize (GObject *obj)
 {
-  SIPConnection *self = SIP_CONNECTION (obj);
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+  TpsipConnection *self = TPSIP_CONNECTION (obj);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   /* free any data held directly by the object here */
 
@@ -694,22 +694,15 @@ sip_connection_finalize (GObject *obj)
 
   g_free (priv->registrar_realm);
 
-  G_OBJECT_CLASS (sip_connection_parent_class)->finalize (obj);
+  G_OBJECT_CLASS (tpsip_connection_parent_class)->finalize (obj);
 }
 
-
-/**
- * sip_connection_connect
- *
- * Implements DBus method Connect
- * on interface org.freedesktop.Telepathy.Connection
- */
 static gboolean
-sip_connection_start_connecting (TpBaseConnection *base,
+tpsip_connection_start_connecting (TpBaseConnection *base,
                                  GError **error)
 {
-  SIPConnection *self = SIP_CONNECTION (base);
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (self);
+  TpsipConnection *self = TPSIP_CONNECTION (base);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
   su_root_t *sofia_root;
   TpHandleRepoIface *contact_repo;
   const gchar *sip_address;
@@ -748,11 +741,11 @@ sip_connection_start_connecting (TpBaseConnection *base,
       return FALSE;
     }
 
-  local_url = sip_conn_get_local_url (self);
+  local_url = tpsip_conn_get_local_url (self);
 
   /* step: create stack instance */
   priv->sofia_nua = nua_create (sofia_root,
-      sip_connection_sofia_callback,
+      tpsip_connection_sofia_callback,
       priv->sofia,
       SOATAG_AF(SOA_AF_IP4_IP6),
       SIPTAG_FROM_STR(sip_address),
@@ -776,15 +769,15 @@ sip_connection_start_connecting (TpBaseConnection *base,
     }
 
   /* Set configuration-dependent tags */
-  sip_conn_update_proxy_and_transport (self);
-  sip_conn_update_nua_outbound (self);
-  sip_conn_update_nua_keepalive_interval (self);
-  sip_conn_update_nua_contact_features (self);
+  tpsip_conn_update_proxy_and_transport (self);
+  tpsip_conn_update_nua_outbound (self);
+  tpsip_conn_update_nua_keepalive_interval (self);
+  tpsip_conn_update_nua_contact_features (self);
 
   if (priv->stun_host != NULL)
-    sip_conn_resolv_stun_server (self, priv->stun_host);
+    tpsip_conn_resolv_stun_server (self, priv->stun_host);
   else if (priv->discover_stun)
-    sip_conn_discover_stun_server (self);
+    tpsip_conn_discover_stun_server (self);
 
   DEBUG("Sofia-SIP NUA at address %p (SIP URI: %s)",
 	priv->sofia_nua, sip_address);
@@ -793,8 +786,8 @@ sip_connection_start_connecting (TpBaseConnection *base,
    * at registration time */
   nua_get_params(priv->sofia_nua, TAG_ANY(), TAG_NULL());
 
-  priv->register_op = sip_conn_create_register_handle (self,
-                                                       base->self_handle);
+  priv->register_op = tpsip_conn_create_register_handle (self,
+                                                         base->self_handle);
   if (priv->register_op == NULL)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
@@ -811,18 +804,18 @@ sip_connection_start_connecting (TpBaseConnection *base,
 
 
 /**
- * sip_connection_disconnected
+ * tpsip_connection_disconnected
  *
  * Called after the connection becomes disconnected.
  */
 static void
-sip_connection_disconnected (TpBaseConnection *base)
+tpsip_connection_disconnected (TpBaseConnection *base)
 {
-  SIPConnection *obj = SIP_CONNECTION (base);
-  SIPConnectionPrivate *priv;
+  TpsipConnection *obj = TPSIP_CONNECTION (base);
+  TpsipConnectionPrivate *priv;
 
-  g_assert (SIP_IS_CONNECTION (obj));
-  priv = SIP_CONNECTION_GET_PRIVATE (obj);
+  g_assert (TPSIP_IS_CONNECTION (obj));
+  priv = TPSIP_CONNECTION_GET_PRIVATE (obj);
 
   DEBUG("enter");
 
@@ -837,16 +830,16 @@ sip_connection_disconnected (TpBaseConnection *base)
 }
 
 /**
- * sip_connection_get_interfaces
+ * tpsip_connection_get_interfaces
  *
  * Implements DBus method GetInterfaces
  * on interface org.freedesktop.Telepathy.Connection
  */
 static void
-sip_connection_get_interfaces (TpSvcConnection *iface,
+tpsip_connection_get_interfaces (TpSvcConnection *iface,
                                DBusGMethodInvocation *context)
 {
-  SIPConnection *self = SIP_CONNECTION (iface);
+  TpsipConnection *self = TPSIP_CONNECTION (iface);
   TpBaseConnection *base = (TpBaseConnection *)self;
   const char *interfaces[] = {
       TP_IFACE_PROPERTIES_INTERFACE,
@@ -864,14 +857,14 @@ normalize_sipuri (TpHandleRepoIface *repo,
                   gpointer context,
                   GError **error)
 {
-    SIPConnection *conn = SIP_CONNECTION (context);
+    TpsipConnection *conn = TPSIP_CONNECTION (context);
 
-    return sip_conn_normalize_uri (conn, sipuri, error);
+    return tpsip_conn_normalize_uri (conn, sipuri, error);
 }
 
 
 /**
- * sip_connection_request_handles
+ * tpsip_connection_request_handles
  *
  * Implements DBus method RequestHandles
  * on interface org.freedesktop.Telepathy.Connection
@@ -883,12 +876,12 @@ normalize_sipuri (TpHandleRepoIface *repo,
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
 static void
-sip_connection_request_handles (TpSvcConnection *iface,
+tpsip_connection_request_handles (TpSvcConnection *iface,
                                 guint handle_type,
                                 const gchar **names,
                                 DBusGMethodInvocation *context)
 {
-  SIPConnection *obj = SIP_CONNECTION (iface);
+  TpsipConnection *obj = TPSIP_CONNECTION (iface);
   TpBaseConnection *base = (TpBaseConnection *)obj;
   gint count = 0;
   gint i;
@@ -975,7 +968,7 @@ conn_iface_init(gpointer g_iface, gpointer iface_data)
   TpSvcConnectionClass *klass = (TpSvcConnectionClass *)g_iface;
 
 #define IMPLEMENT(x) tp_svc_connection_implement_##x (klass,\
-    sip_connection_##x)
+    tpsip_connection_##x)
   IMPLEMENT(get_interfaces);
   IMPLEMENT(request_handles);
 #undef IMPLEMENT

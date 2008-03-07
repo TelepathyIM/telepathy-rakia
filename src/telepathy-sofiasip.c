@@ -1,5 +1,5 @@
 /*
- * sip-connection.c - Source for SIPConnection
+ * sip-connection.c - Source for TpsipConnection
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005,2006 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
@@ -44,7 +44,7 @@ static TpBaseConnectionManager *
 construct_cm (void)
 {
   return (TpBaseConnectionManager *)g_object_new (
-      SIP_TYPE_CONNECTION_MANAGER, NULL);
+      TPSIP_TYPE_CONNECTION_MANAGER, NULL);
 }
 
 #ifdef ENABLE_SYSLOG
@@ -138,9 +138,9 @@ main (int argc, char** argv)
   gpointer logdata;
 
 #ifdef ENABLE_DEBUG
-  sip_debug_set_flags_from_env ();
+  tpsip_debug_set_flags_from_env ();
 
-  if (g_getenv ("SOFIASIP_PERSIST"))
+  if (g_getenv ("TPSIP_PERSIST"))
     {
       tp_debug_set_persistent (TRUE);
     }

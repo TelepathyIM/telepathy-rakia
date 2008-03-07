@@ -23,12 +23,12 @@
 #include "media-factory.h"
 #include "sip-connection.h"
 
-#define DEBUG_FLAG SIP_DEBUG_CONNECTION
+#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
 static void factory_iface_init (gpointer, gpointer);
 
-G_DEFINE_TYPE_WITH_CODE (SIPMediaFactory, sip_media_factory,
+G_DEFINE_TYPE_WITH_CODE (TpsipMediaFactory, tpsip_media_factory,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_FACTORY_IFACE,
       factory_iface_init))
@@ -41,12 +41,12 @@ enum
   LAST_PROPERTY
 };
 
-typedef struct _SIPMediaFactoryPrivate SIPMediaFactoryPrivate;
-struct _SIPMediaFactoryPrivate
+typedef struct _TpsipMediaFactoryPrivate TpsipMediaFactoryPrivate;
+struct _TpsipMediaFactoryPrivate
 {
   /* unreferenced (since it owns this factory) */
-  SIPConnection *conn;
-  /* array of referenced (SIPMediaChannel *) */
+  TpsipConnection *conn;
+  /* array of referenced (TpsipMediaChannel *) */
   GPtrArray *channels;
   /* for unique channel object paths, currently always increments */
   guint channel_index;
@@ -57,12 +57,12 @@ struct _SIPMediaFactoryPrivate
   gboolean dispose_has_run;
 };
 
-#define SIP_MEDIA_FACTORY_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_MEDIA_FACTORY, SIPMediaFactoryPrivate))
+#define TPSIP_MEDIA_FACTORY_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_FACTORY, TpsipMediaFactoryPrivate))
 
 static void
-sip_media_factory_init (SIPMediaFactory *fac)
+tpsip_media_factory_init (TpsipMediaFactory *fac)
 {
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
   priv->conn = NULL;
   priv->channels = g_ptr_array_sized_new (1);
@@ -71,10 +71,10 @@ sip_media_factory_init (SIPMediaFactory *fac)
 }
 
 static void
-sip_media_factory_dispose (GObject *object)
+tpsip_media_factory_dispose (GObject *object)
 {
-  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (object);
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (object);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
   if (priv->dispose_has_run)
     return;
@@ -87,18 +87,18 @@ sip_media_factory_dispose (GObject *object)
 
   g_free (priv->stun_server);
 
-  if (G_OBJECT_CLASS (sip_media_factory_parent_class)->dispose)
-    G_OBJECT_CLASS (sip_media_factory_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (tpsip_media_factory_parent_class)->dispose)
+    G_OBJECT_CLASS (tpsip_media_factory_parent_class)->dispose (object);
 }
 
 static void
-sip_media_factory_get_property (GObject *object,
+tpsip_media_factory_get_property (GObject *object,
                                guint property_id,
                                GValue *value,
                                GParamSpec *pspec)
 {
-  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (object);
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (object);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -117,13 +117,13 @@ sip_media_factory_get_property (GObject *object,
 }
 
 static void
-sip_media_factory_set_property (GObject *object,
+tpsip_media_factory_set_property (GObject *object,
                                guint property_id,
                                const GValue *value,
                                GParamSpec *pspec)
 {
-  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (object);
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (object);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -143,21 +143,21 @@ sip_media_factory_set_property (GObject *object,
 }
 
 static void
-sip_media_factory_class_init (SIPMediaFactoryClass *klass)
+tpsip_media_factory_class_init (TpsipMediaFactoryClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GParamSpec *param_spec;
 
-  g_type_class_add_private (klass, sizeof (SIPMediaFactoryPrivate));
+  g_type_class_add_private (klass, sizeof (TpsipMediaFactoryPrivate));
 
-  object_class->get_property = sip_media_factory_get_property;
-  object_class->set_property = sip_media_factory_set_property;
-  object_class->dispose = sip_media_factory_dispose;
+  object_class->get_property = tpsip_media_factory_get_property;
+  object_class->set_property = tpsip_media_factory_set_property;
+  object_class->dispose = tpsip_media_factory_dispose;
 
-  param_spec = g_param_spec_object ("connection", "SIPConnection object",
+  param_spec = g_param_spec_object ("connection", "TpsipConnection object",
                                     "SIP connection that owns this media "
                                     "channel factory",
-                                    SIP_TYPE_CONNECTION,
+                                    TPSIP_TYPE_CONNECTION,
                                     G_PARAM_CONSTRUCT_ONLY |
                                     G_PARAM_READWRITE |
                                     G_PARAM_STATIC_NICK |
@@ -174,7 +174,7 @@ sip_media_factory_class_init (SIPMediaFactoryClass *klass)
 
   param_spec = g_param_spec_uint ("stun-port", "STUN port",
                                   "STUN port.",
-                                  0, G_MAXUINT16, SIP_DEFAULT_STUN_PORT,
+                                  0, G_MAXUINT16, TPSIP_DEFAULT_STUN_PORT,
                                   G_PARAM_READWRITE |
                                   G_PARAM_STATIC_NAME |
                                   G_PARAM_STATIC_BLURB);
@@ -182,40 +182,40 @@ sip_media_factory_class_init (SIPMediaFactoryClass *klass)
 }
 
 static void
-sip_media_factory_close_one (gpointer data, gpointer user_data)
+tpsip_media_factory_close_one (gpointer data, gpointer user_data)
 {
-  sip_media_channel_close (SIP_MEDIA_CHANNEL(data));
+  tpsip_media_channel_close (TPSIP_MEDIA_CHANNEL(data));
   g_object_unref (data);
 }
 
 static void
-sip_media_factory_close_all (TpChannelFactoryIface *iface)
+tpsip_media_factory_close_all (TpChannelFactoryIface *iface)
 {
-  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (iface);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
   GPtrArray *channels;
 
   channels = priv->channels;
   priv->channels = NULL;
   if (channels)
     {
-      g_ptr_array_foreach (channels, sip_media_factory_close_one, NULL);
+      g_ptr_array_foreach (channels, tpsip_media_factory_close_one, NULL);
       g_ptr_array_free (channels, TRUE);
     }
 }
 
 static void
-sip_media_factory_connecting (TpChannelFactoryIface *iface)
+tpsip_media_factory_connecting (TpChannelFactoryIface *iface)
 {
 }
 
 static void
-sip_media_factory_connected (TpChannelFactoryIface *iface)
+tpsip_media_factory_connected (TpChannelFactoryIface *iface)
 {
 }
 
 static void
-sip_media_factory_disconnected (TpChannelFactoryIface *iface)
+tpsip_media_factory_disconnected (TpChannelFactoryIface *iface)
 {
 }
 
@@ -235,12 +235,12 @@ _foreach_slave (gpointer channel, gpointer user_data)
 }
 
 static void
-sip_media_factory_foreach (TpChannelFactoryIface *iface,
+tpsip_media_factory_foreach (TpChannelFactoryIface *iface,
                           TpChannelFunc foreach,
                           gpointer user_data)
 {
-  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (iface);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
   struct _ForeachData data = { foreach, user_data };
 
@@ -251,13 +251,13 @@ sip_media_factory_foreach (TpChannelFactoryIface *iface,
  * channel_closed:
  *
  * Signal callback for when a media channel is closed. Removes the references
- * that #SIPMediaFactory holds to them.
+ * that #TpsipMediaFactory holds to them.
  */
 static void
-channel_closed (SIPMediaChannel *chan, gpointer user_data)
+channel_closed (TpsipMediaChannel *chan, gpointer user_data)
 {
-  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (user_data);
-  SIPMediaFactoryPrivate *priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (user_data);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
 
   if (priv->channels)
     {
@@ -269,24 +269,24 @@ channel_closed (SIPMediaChannel *chan, gpointer user_data)
 /**
  * new_media_channel
  *
- * Creates a new empty SIPMediaChannel.
+ * Creates a new empty TpsipMediaChannel.
  */
-SIPMediaChannel *
-sip_media_factory_new_channel (SIPMediaFactory *fac,
+TpsipMediaChannel *
+tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
                                gpointer request,
                                TpHandleType handle_type,
                                TpHandle handle,
                                GError **error)
 {
-  SIPMediaFactoryPrivate *priv;
-  SIPMediaChannel *chan;
+  TpsipMediaFactoryPrivate *priv;
+  TpsipMediaChannel *chan;
   TpBaseConnection *conn;
   gchar *object_path;
   const gchar *nat_traversal = "none";
 
-  g_assert (SIP_IS_MEDIA_FACTORY (fac));
+  g_assert (TPSIP_IS_MEDIA_FACTORY (fac));
 
-  priv = SIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
   conn = (TpBaseConnection *)priv->conn;
 
   object_path = g_strdup_printf ("%s/MediaChannel%u", conn->object_path,
@@ -299,7 +299,7 @@ sip_media_factory_new_channel (SIPMediaFactory *fac,
       nat_traversal = "stun";
     }
 
-  chan = g_object_new (SIP_TYPE_MEDIA_CHANNEL,
+  chan = g_object_new (TPSIP_TYPE_MEDIA_CHANNEL,
                        "connection", priv->conn,
                        "factory", fac,
                        "object-path", object_path,
@@ -344,7 +344,7 @@ err:
 }
 
 static TpChannelFactoryRequestStatus
-sip_media_factory_request (TpChannelFactoryIface *iface,
+tpsip_media_factory_request (TpChannelFactoryIface *iface,
                           const gchar *chan_type,
                           TpHandleType handle_type,
                           TpHandle handle,
@@ -352,7 +352,7 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
                           TpChannelIface **ret,
                           GError **error_ret)
 {
-  SIPMediaFactory *fac = SIP_MEDIA_FACTORY (iface);
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (iface);
   TpChannelIface *chan;
   TpChannelFactoryRequestStatus status = TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
   GError *error = NULL;
@@ -362,7 +362,7 @@ sip_media_factory_request (TpChannelFactoryIface *iface,
       return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
     }
 
-  chan = (TpChannelIface *) sip_media_factory_new_channel (fac,
+  chan = (TpChannelIface *) tpsip_media_factory_new_channel (fac,
                                                            request,
                                                            handle_type,
                                                            handle,
@@ -397,7 +397,7 @@ factory_iface_init (gpointer g_iface, gpointer iface_data)
 {
   TpChannelFactoryIfaceClass *klass = (TpChannelFactoryIfaceClass *) g_iface;
 
-#define IMPLEMENT(x) klass->x = sip_media_factory_##x
+#define IMPLEMENT(x) klass->x = tpsip_media_factory_##x
   IMPLEMENT(close_all);
   IMPLEMENT(foreach);
   IMPLEMENT(request);

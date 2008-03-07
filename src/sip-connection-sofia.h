@@ -1,6 +1,6 @@
 /*
- * sip-connection-sofia.h - Source for SIPConnection Sofia event handling
- * Copyright (C) 2006 Nokia Corporation
+ * sip-connection-sofia.h - Header for TpsipConnection Sofia event handling
+ * Copyright (C) 2006-2008 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -17,35 +17,35 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __SIP_CONNECTION_SOFIA_H__
-#define __SIP_CONNECTION_SOFIA_H__
+#ifndef __TPSIP_CONNECTION_SOFIA_H__
+#define __TPSIP_CONNECTION_SOFIA_H__
 
 #include "sip-sofia-decls.h"
 #include "sip-connection.h"
 
 G_BEGIN_DECLS
 
-typedef struct _SIPConnectionSofia {
+typedef struct _TpsipConnectionSofia {
   /* The owner SIP connection object */
-  SIPConnection *conn;
+  TpsipConnection *conn;
   /* Event loop root for Sofia-SIP */
   su_root_t *sofia_root;
-} SIPConnectionSofia;
+} TpsipConnectionSofia;
 
-SIPConnectionSofia * sip_connection_sofia_new (SIPConnection *conn);
-void sip_connection_sofia_destroy (SIPConnectionSofia *);
+TpsipConnectionSofia * tpsip_connection_sofia_new (TpsipConnection *conn);
+void tpsip_connection_sofia_destroy (TpsipConnectionSofia *conn);
 
 /**
  * Callback for events delivered by the SIP stack.
  *
  * See libsofia-sip-ua/nua/nua.h documentation.
  */
-void sip_connection_sofia_callback(nua_event_t event,
+void tpsip_connection_sofia_callback(nua_event_t event,
 				   int status, char const *phrase,
-				   nua_t *nua, SIPConnectionSofia *sofia,
+				   nua_t *nua, TpsipConnectionSofia *sofia,
 				   nua_handle_t *nh, nua_hmagic_t *op, sip_t const *sip,
 				   tagi_t tags[]);
 
 G_END_DECLS
 
-#endif /* #ifndef __SIP_CONNECTION_SOFIA_H__*/
+#endif /* #ifndef __TPSIP_CONNECTION_SOFIA_H__*/

@@ -1,5 +1,5 @@
 /*
- * sip-media-channel.h - Header for SIPMediaChannel
+ * sip-media-channel.h - Header for TpsipMediaChannel
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005 Nokia Corporation
  *
@@ -17,8 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __SIP_MEDIA_CHANNEL_H__
-#define __SIP_MEDIA_CHANNEL_H__
+#ifndef __TPSIP_MEDIA_CHANNEL_H__
+#define __TPSIP_MEDIA_CHANNEL_H__
 
 #include <glib-object.h>
 
@@ -33,59 +33,59 @@
 
 G_BEGIN_DECLS
 
-typedef struct _SIPMediaChannel SIPMediaChannel;
-typedef struct _SIPMediaChannelClass SIPMediaChannelClass;
+typedef struct _TpsipMediaChannel TpsipMediaChannel;
+typedef struct _TpsipMediaChannelClass TpsipMediaChannelClass;
 
-struct _SIPMediaChannelClass {
+struct _TpsipMediaChannelClass {
     GObjectClass parent_class;
     TpGroupMixinClass group_class;
     TpPropertiesMixinClass properties_class;
 };
 
-struct _SIPMediaChannel {
+struct _TpsipMediaChannel {
     GObject parent;
     TpGroupMixin group;
     TpPropertiesMixin properties;
 };
 
-GType sip_media_channel_get_type(void);
+GType tpsip_media_channel_get_type(void);
 
 /* TYPE MACROS */
-#define SIP_TYPE_MEDIA_CHANNEL \
-  (sip_media_channel_get_type())
-#define SIP_MEDIA_CHANNEL(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), SIP_TYPE_MEDIA_CHANNEL, SIPMediaChannel))
-#define SIP_MEDIA_CHANNEL_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), SIP_TYPE_MEDIA_CHANNEL, SIPMediaChannelClass))
-#define SIP_IS_MEDIA_CHANNEL(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), SIP_TYPE_MEDIA_CHANNEL))
-#define SIP_IS_MEDIA_CHANNEL_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), SIP_TYPE_MEDIA_CHANNEL))
-#define SIP_MEDIA_CHANNEL_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), SIP_TYPE_MEDIA_CHANNEL, SIPMediaChannelClass))
+#define TPSIP_TYPE_MEDIA_CHANNEL \
+  (tpsip_media_channel_get_type())
+#define TPSIP_MEDIA_CHANNEL(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_MEDIA_CHANNEL, TpsipMediaChannel))
+#define TPSIP_MEDIA_CHANNEL_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_MEDIA_CHANNEL, TpsipMediaChannelClass))
+#define TPSIP_IS_MEDIA_CHANNEL(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_MEDIA_CHANNEL))
+#define TPSIP_IS_MEDIA_CHANNEL_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_MEDIA_CHANNEL))
+#define TPSIP_MEDIA_CHANNEL_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_MEDIA_CHANNEL, TpsipMediaChannelClass))
 
 
-void sip_media_channel_close (SIPMediaChannel *self);
+void tpsip_media_channel_close (TpsipMediaChannel *self);
 
 /***********************************************************************
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
-void sip_media_channel_terminated (SIPMediaChannel *self);
-void sip_media_channel_receive_invite   (SIPMediaChannel *self,
+void tpsip_media_channel_terminated (TpsipMediaChannel *self);
+void tpsip_media_channel_receive_invite   (TpsipMediaChannel *self,
                                          nua_handle_t *nh,
                                          TpHandle handle);
-void sip_media_channel_receive_reinvite (SIPMediaChannel *self);
-gboolean sip_media_channel_set_remote_media (SIPMediaChannel *chan,
+void tpsip_media_channel_receive_reinvite (TpsipMediaChannel *self);
+gboolean tpsip_media_channel_set_remote_media (TpsipMediaChannel *chan,
                                              const sdp_session_t *r_sdp);
-void sip_media_channel_ready (SIPMediaChannel *self);
-void sip_media_channel_call_status (SIPMediaChannel *self,
+void tpsip_media_channel_ready (TpsipMediaChannel *self);
+void tpsip_media_channel_call_status (TpsipMediaChannel *self,
                                     guint status,
                                     const char* message);
-void sip_media_channel_peer_cancel (SIPMediaChannel *self,
+void tpsip_media_channel_peer_cancel (TpsipMediaChannel *self,
                                     guint cause,
                                     const char* text);
 
 G_END_DECLS
 
-#endif /* #ifndef __SIP_MEDIA_CHANNEL_H__*/
+#endif /* #ifndef __TPSIP_MEDIA_CHANNEL_H__*/

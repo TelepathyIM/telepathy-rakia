@@ -1,5 +1,5 @@
 /*
- * sip-connection-helpers.c - Helper routines used by SIPConnection
+ * sip-connection-helpers.c - Helper routines used by TpsipConnection
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2006, 2007 Nokia Corporation
  *
@@ -33,27 +33,27 @@
 
 #include "sip-connection-private.h"
 
-#define DEBUG_FLAG SIP_DEBUG_CONNECTION
+#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
 /* Default keepalive timeout in seconds,
  * a value obtained from Sofia-SIP documentation */
-#define SIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL 120
+#define TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL 120
 
 /* The user is not allowed to set keepalive timeout to lower than that,
  * to avoid wasting traffic and device power */
-#define SIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL 30
+#define TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL 30
 
 /* The user is not allowed to set keepalive timeout to lower than that
  * for REGISTER keepalives, to avoid wasting traffic and device power.
  * REGISTER is special because it may tie resources on the server side */
-#define SIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER 50
+#define TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER 50
 
-/* The value of SIP_NH_EXPIRED. This can be anything that is neither NULL
+/* The value of TPSIP_NH_EXPIRED. This can be anything that is neither NULL
  * nor a media channel */
-NUA_HMAGIC_T * const _sip_nh_expired = (NUA_HMAGIC_T *)"";
+NUA_HMAGIC_T * const _tpsip_nh_expired = (NUA_HMAGIC_T *)"";
 
-static sip_to_t *priv_sip_to_url_make (SIPConnection *conn,
+static sip_to_t *priv_sip_to_url_make (TpsipConnection *conn,
                                        su_home_t *home,
                                        TpHandle contact)
 {
@@ -80,10 +80,10 @@ static sip_to_t *priv_sip_to_url_make (SIPConnection *conn,
 }
 
 nua_handle_t *
-sip_conn_create_register_handle (SIPConnection *conn,
+tpsip_conn_create_register_handle (TpsipConnection *conn,
                                  TpHandle contact)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   nua_handle_t *result = NULL;
   su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
   sip_to_t *to;
@@ -102,10 +102,10 @@ sip_conn_create_register_handle (SIPConnection *conn,
 }
 
 nua_handle_t *
-sip_conn_create_request_handle (SIPConnection *conn,
+tpsip_conn_create_request_handle (TpsipConnection *conn,
                                 TpHandle contact)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   nua_handle_t *result = NULL;
   su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
   sip_to_t *to;
@@ -130,17 +130,17 @@ sip_conn_create_request_handle (SIPConnection *conn,
 }
 
 void
-sip_conn_save_event (SIPConnection *conn,
+tpsip_conn_save_event (TpsipConnection *conn,
                      nua_saved_event_t ret_saved [1])
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   nua_save_event (priv->sofia_nua, ret_saved);
 }
 
 void
-sip_conn_update_proxy_and_transport (SIPConnection *conn)
+tpsip_conn_update_proxy_and_transport (TpsipConnection *conn)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
 
   if (priv->proxy_url != NULL)
     {
@@ -180,9 +180,9 @@ sip_conn_update_proxy_and_transport (SIPConnection *conn)
 }
 
 const url_t *
-sip_conn_get_local_url (SIPConnection *conn)
+tpsip_conn_get_local_url (TpsipConnection *conn)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   url_t *url;
 
   url = url_make (priv->sofia_home, "sip:*:*");
@@ -323,9 +323,9 @@ priv_nua_set_outbound_options (nua_t* nua, GHashTable* option_table)
 }
 
 void
-sip_conn_update_nua_outbound (SIPConnection *conn)
+tpsip_conn_update_nua_outbound (TpsipConnection *conn)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   GHashTable *option_table;
 
   g_return_if_fail (priv->sofia_nua != NULL);
@@ -338,22 +338,22 @@ sip_conn_update_nua_outbound (SIPConnection *conn)
   /* Set options that affect keepalive behavior */
   switch (priv->keepalive_mechanism)
     {
-    case SIP_CONNECTION_KEEPALIVE_NONE:
-    case SIP_CONNECTION_KEEPALIVE_REGISTER:
+    case TPSIP_CONNECTION_KEEPALIVE_NONE:
+    case TPSIP_CONNECTION_KEEPALIVE_REGISTER:
       /* For REGISTER keepalives, we use NUTAG_M_FEATURES */
       g_hash_table_insert (option_table,
                            g_strdup ("options-keepalive"),
                            GINT_TO_POINTER(FALSE));
       break;
-    case SIP_CONNECTION_KEEPALIVE_OPTIONS:
+    case TPSIP_CONNECTION_KEEPALIVE_OPTIONS:
       g_hash_table_insert (option_table,
                            g_strdup ("options-keepalive"),
                            GINT_TO_POINTER(TRUE));
       break;
-    case SIP_CONNECTION_KEEPALIVE_STUN:
+    case TPSIP_CONNECTION_KEEPALIVE_STUN:
       /* Not supported */
       break;
-    case SIP_CONNECTION_KEEPALIVE_AUTO:
+    case TPSIP_CONNECTION_KEEPALIVE_AUTO:
     default:
       break;
     }
@@ -373,15 +373,15 @@ sip_conn_update_nua_outbound (SIPConnection *conn)
 }
 
 static void
-priv_sanitize_keepalive_interval (SIPConnectionPrivate *priv)
+priv_sanitize_keepalive_interval (TpsipConnectionPrivate *priv)
 {
   gint minimum_interval;
   if (priv->keepalive_interval > 0)
     {
       minimum_interval =
-              (priv->keepalive_mechanism == SIP_CONNECTION_KEEPALIVE_REGISTER)
-              ? SIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER
-              : SIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL;
+              (priv->keepalive_mechanism == TPSIP_CONNECTION_KEEPALIVE_REGISTER)
+              ? TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER
+              : TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL;
       if (priv->keepalive_interval < minimum_interval)
         {
           g_warning ("keepalive interval is too low, pushing to %d", minimum_interval);
@@ -391,19 +391,19 @@ priv_sanitize_keepalive_interval (SIPConnectionPrivate *priv)
 }
 
 void
-sip_conn_update_nua_keepalive_interval (SIPConnection *conn)
+tpsip_conn_update_nua_keepalive_interval (TpsipConnection *conn)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   long keepalive_interval;
 
   if (priv->keepalive_interval < 0)
     return;
 
-  if (priv->keepalive_mechanism == SIP_CONNECTION_KEEPALIVE_NONE)
+  if (priv->keepalive_mechanism == TPSIP_CONNECTION_KEEPALIVE_NONE)
     keepalive_interval = 0;
   else if (priv->keepalive_interval == 0)
     /* XXX: figure out proper default timeouts depending on transport */
-    keepalive_interval = SIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
+    keepalive_interval = TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
   else
     {
       priv_sanitize_keepalive_interval (priv);
@@ -419,13 +419,13 @@ sip_conn_update_nua_keepalive_interval (SIPConnection *conn)
 }
 
 void
-sip_conn_update_nua_contact_features (SIPConnection *conn)
+tpsip_conn_update_nua_contact_features (TpsipConnection *conn)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   char *contact_features;
   guint timeout;
 
-  if (priv->keepalive_mechanism != SIP_CONNECTION_KEEPALIVE_REGISTER)
+  if (priv->keepalive_mechanism != TPSIP_CONNECTION_KEEPALIVE_REGISTER)
     return;
 
   if (priv->keepalive_interval < 0)
@@ -434,7 +434,7 @@ sip_conn_update_nua_contact_features (SIPConnection *conn)
   priv_sanitize_keepalive_interval (priv);
   timeout = (priv->keepalive_interval > 0)
         ? priv->keepalive_interval
-        : SIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
+        : TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
   contact_features = g_strdup_printf ("expires=%u", timeout);
   nua_set_params(priv->sofia_nua,
 		 NUTAG_M_FEATURES(contact_features),
@@ -443,9 +443,9 @@ sip_conn_update_nua_contact_features (SIPConnection *conn)
 }
 
 static void
-sip_conn_set_stun_server_address (SIPConnection *conn, const gchar *address)
+tpsip_conn_set_stun_server_address (TpsipConnection *conn, const gchar *address)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   g_return_if_fail (priv->media_factory != NULL);
   g_object_set (priv->media_factory,
                 "stun-server", address,
@@ -456,8 +456,8 @@ sip_conn_set_stun_server_address (SIPConnection *conn, const gchar *address)
 static void
 priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **answers)
 {
-  SIPConnection *conn = SIP_CONNECTION (ctx);
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnection *conn = TPSIP_CONNECTION (ctx);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   sres_a_record_t *ans = NULL;
 
   if (NULL != answers)
@@ -483,8 +483,8 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
     }
 
   if (NULL != ans)
-    sip_conn_set_stun_server_address (conn,
-                                      inet_ntoa (ans->a_addr));
+    tpsip_conn_set_stun_server_address (conn,
+                                        inet_ntoa (ans->a_addr));
   else
     g_debug ("Couldn't resolv STUN server address, ignoring.");
 
@@ -492,20 +492,20 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
 }
 
 void
-sip_conn_resolv_stun_server (SIPConnection *conn, const gchar *stun_host)
+tpsip_conn_resolv_stun_server (TpsipConnection *conn, const gchar *stun_host)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   struct in_addr test_addr;
 
   if (stun_host == NULL)
     {
-      sip_conn_set_stun_server_address (conn, NULL);
+      tpsip_conn_set_stun_server_address (conn, NULL);
       return;
     }
 
   if (inet_aton (stun_host, &test_addr))
     {
-      sip_conn_set_stun_server_address (conn, stun_host);
+      tpsip_conn_set_stun_server_address (conn, stun_host);
       return;
     }
   
@@ -530,8 +530,8 @@ priv_stun_discover_cb (sres_context_t *ctx,
                        sres_query_t *query,
                        sres_record_t **answers)
 {
-  SIPConnection *conn = SIP_CONNECTION (ctx);
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnection *conn = TPSIP_CONNECTION (ctx);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   sres_srv_record_t *sel = NULL;
   int n_sel_items = 0;
   int i;
@@ -616,16 +616,16 @@ priv_stun_discover_cb (sres_context_t *ctx,
       DEBUG ("discovery got STUN server %s:%u",
              sel->srv_target, sel->srv_port);
       priv->stun_port = sel->srv_port;
-      sip_conn_resolv_stun_server (conn, sel->srv_target);
+      tpsip_conn_resolv_stun_server (conn, sel->srv_target);
     }
 
   sres_free_answers (priv->sofia_resolver, answers);
 }
 
 void
-sip_conn_discover_stun_server (SIPConnection *conn)
+tpsip_conn_discover_stun_server (TpsipConnection *conn)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   char *srv_domain;
 
   if ((NULL == priv->account_url) || (NULL == priv->account_url->url_host))
@@ -815,11 +815,11 @@ priv_strip_whitespace (su_home_t *home, const gchar *string)
 }
 
 gchar *
-sip_conn_normalize_uri (SIPConnection *conn,
+tpsip_conn_normalize_uri (TpsipConnection *conn,
                         const gchar *sipuri,
                         GError **error)
 {
-  SIPConnectionPrivate *priv = SIP_CONNECTION_GET_PRIVATE (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   su_home_t home[1] = { SU_HOME_INIT (home) };
   url_t *url = NULL;;
   gchar *retval = NULL;

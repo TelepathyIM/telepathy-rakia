@@ -22,13 +22,13 @@
 #include <string.h>
 #include "text-factory.h"
 
-#define DEBUG_FLAG SIP_DEBUG_IM
+#define DEBUG_FLAG TPSIP_DEBUG_IM
 #include "debug.h"
 
 
 static void factory_iface_init (gpointer, gpointer);
 
-G_DEFINE_TYPE_WITH_CODE (SIPTextFactory, sip_text_factory,
+G_DEFINE_TYPE_WITH_CODE (TpsipTextFactory, tpsip_text_factory,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_FACTORY_IFACE,
       factory_iface_init))
@@ -39,22 +39,22 @@ enum
   LAST_PROPERTY
 };
 
-typedef struct _SIPTextFactoryPrivate SIPTextFactoryPrivate;
-struct _SIPTextFactoryPrivate
+typedef struct _TpsipTextFactoryPrivate TpsipTextFactoryPrivate;
+struct _TpsipTextFactoryPrivate
 {
-  SIPConnection *conn;
-  /* guint handle => SIPTextChannel *channel */
+  TpsipConnection *conn;
+  /* guint handle => TpsipTextChannel *channel */
   GHashTable *channels;
 
   gboolean dispose_has_run;
 };
 
-#define SIP_TEXT_FACTORY_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_TEXT_FACTORY, SIPTextFactoryPrivate))
+#define TPSIP_TEXT_FACTORY_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_TEXT_FACTORY, TpsipTextFactoryPrivate))
 
 static void
-sip_text_factory_init (SIPTextFactory *fac)
+tpsip_text_factory_init (TpsipTextFactory *fac)
 {
-  SIPTextFactoryPrivate *priv = SIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
 
   priv->conn = NULL;
   priv->channels = g_hash_table_new_full (g_direct_hash, g_direct_equal,
@@ -64,10 +64,10 @@ sip_text_factory_init (SIPTextFactory *fac)
 }
 
 static void
-sip_text_factory_dispose (GObject *object)
+tpsip_text_factory_dispose (GObject *object)
 {
-  SIPTextFactory *fac = SIP_TEXT_FACTORY (object);
-  SIPTextFactoryPrivate *priv = SIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (object);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
 
   if (priv->dispose_has_run)
     return;
@@ -78,18 +78,18 @@ sip_text_factory_dispose (GObject *object)
 
   g_assert (priv->channels == NULL);
 
-  if (G_OBJECT_CLASS (sip_text_factory_parent_class)->dispose)
-    G_OBJECT_CLASS (sip_text_factory_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (tpsip_text_factory_parent_class)->dispose)
+    G_OBJECT_CLASS (tpsip_text_factory_parent_class)->dispose (object);
 }
 
 static void
-sip_text_factory_get_property (GObject *object,
+tpsip_text_factory_get_property (GObject *object,
                                guint property_id,
                                GValue *value,
                                GParamSpec *pspec)
 {
-  SIPTextFactory *fac = SIP_TEXT_FACTORY (object);
-  SIPTextFactoryPrivate *priv = SIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (object);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -102,13 +102,13 @@ sip_text_factory_get_property (GObject *object,
 }
 
 static void
-sip_text_factory_set_property (GObject *object,
+tpsip_text_factory_set_property (GObject *object,
                                guint property_id,
                                const GValue *value,
                                GParamSpec *pspec)
 {
-  SIPTextFactory *fac = SIP_TEXT_FACTORY (object);
-  SIPTextFactoryPrivate *priv = SIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (object);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -121,21 +121,21 @@ sip_text_factory_set_property (GObject *object,
 }
 
 static void
-sip_text_factory_class_init (SIPTextFactoryClass *klass)
+tpsip_text_factory_class_init (TpsipTextFactoryClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GParamSpec *param_spec;
 
-  g_type_class_add_private (klass, sizeof (SIPTextFactoryPrivate));
+  g_type_class_add_private (klass, sizeof (TpsipTextFactoryPrivate));
 
-  object_class->get_property = sip_text_factory_get_property;
-  object_class->set_property = sip_text_factory_set_property;
-  object_class->dispose = sip_text_factory_dispose;
+  object_class->get_property = tpsip_text_factory_get_property;
+  object_class->set_property = tpsip_text_factory_set_property;
+  object_class->dispose = tpsip_text_factory_dispose;
 
-  param_spec = g_param_spec_object ("connection", "SIPConnection object",
+  param_spec = g_param_spec_object ("connection", "TpsipConnection object",
                                     "SIP connection that owns this text "
                                     "channel factory",
-                                    SIP_TYPE_CONNECTION,
+                                    TPSIP_TYPE_CONNECTION,
                                     G_PARAM_CONSTRUCT_ONLY |
                                     G_PARAM_READWRITE |
                                     G_PARAM_STATIC_NICK |
@@ -144,19 +144,19 @@ sip_text_factory_class_init (SIPTextFactoryClass *klass)
 }
 
 static gboolean
-sip_text_factory_close_one (gpointer key,
+tpsip_text_factory_close_one (gpointer key,
                             gpointer data,
                             gpointer user_data)
 {
-  sip_text_channel_close (SIP_TEXT_CHANNEL(data));
+  tpsip_text_channel_close (TPSIP_TEXT_CHANNEL(data));
   return TRUE;
 }
 
 static void
-sip_text_factory_close_all (TpChannelFactoryIface *iface)
+tpsip_text_factory_close_all (TpChannelFactoryIface *iface)
 {
-  SIPTextFactory *fac = SIP_TEXT_FACTORY (iface);
-  SIPTextFactoryPrivate *priv = SIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
   GHashTable *channels;
 
   if (!priv->channels)
@@ -165,21 +165,21 @@ sip_text_factory_close_all (TpChannelFactoryIface *iface)
   channels = priv->channels;
   priv->channels = NULL;
 
-  g_hash_table_foreach_remove (channels, sip_text_factory_close_one, NULL);
+  g_hash_table_foreach_remove (channels, tpsip_text_factory_close_one, NULL);
 }
 
 static void
-sip_text_factory_connecting (TpChannelFactoryIface *iface)
+tpsip_text_factory_connecting (TpChannelFactoryIface *iface)
 {
 }
 
 static void
-sip_text_factory_connected (TpChannelFactoryIface *iface)
+tpsip_text_factory_connected (TpChannelFactoryIface *iface)
 {
 }
 
 static void
-sip_text_factory_disconnected (TpChannelFactoryIface *iface)
+tpsip_text_factory_disconnected (TpChannelFactoryIface *iface)
 {
 }
 
@@ -199,13 +199,13 @@ _foreach_slave (gpointer key, gpointer value, gpointer user_data)
 }
 
 static void
-sip_text_factory_foreach (TpChannelFactoryIface *iface,
+tpsip_text_factory_foreach (TpChannelFactoryIface *iface,
                           TpChannelFunc foreach,
                           gpointer user_data)
 {
   struct _ForeachData data = { foreach, user_data };
-  SIPTextFactory *fac = SIP_TEXT_FACTORY (iface);
-  SIPTextFactoryPrivate *priv = SIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
 
   g_hash_table_foreach (priv->channels, _foreach_slave, &data);
 }
@@ -214,13 +214,13 @@ sip_text_factory_foreach (TpChannelFactoryIface *iface,
  * text_channel_closed_cb:
  *
  * Signal callback for when a text channel is closed. Removes the references
- * that #SIPChannelFactory holds to them.
+ * that #TpsipChannelFactory holds to them.
  */
 static void
-channel_closed (SIPTextChannel *chan, gpointer user_data)
+channel_closed (TpsipTextChannel *chan, gpointer user_data)
 {
-  SIPTextFactory *fac = SIP_TEXT_FACTORY (user_data);
-  SIPTextFactoryPrivate *priv = SIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (user_data);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
   TpHandle contact_handle;
 
   g_object_get (chan, "handle", &contact_handle, NULL);
@@ -233,22 +233,22 @@ channel_closed (SIPTextChannel *chan, gpointer user_data)
 /**
  * new_text_channel
  *
- * Creates a new empty SIPTextChannel.
+ * Creates a new empty TpsipTextChannel.
  */
-SIPTextChannel *
-sip_text_factory_new_channel (TpChannelFactoryIface *iface,
+TpsipTextChannel *
+tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
                               TpHandle handle,
                               gpointer request)
 {
-  SIPTextFactory *fac = SIP_TEXT_FACTORY (iface);
-  SIPTextFactoryPrivate *priv;
-  SIPTextChannel *chan;
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
+  TpsipTextFactoryPrivate *priv;
+  TpsipTextChannel *chan;
   gchar *object_path;
   TpBaseConnection *conn;
 
-  g_assert (SIP_IS_TEXT_FACTORY (fac));
+  g_assert (TPSIP_IS_TEXT_FACTORY (fac));
 
-  priv = SIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
   conn = (TpBaseConnection *)(priv->conn);
 
   object_path = g_strdup_printf ("%s/TextChannel%u",
@@ -256,7 +256,7 @@ sip_text_factory_new_channel (TpChannelFactoryIface *iface,
 
   g_debug ("%s: object path %s", G_STRFUNC, object_path);
 
-  chan = g_object_new (SIP_TYPE_TEXT_CHANNEL,
+  chan = g_object_new (TPSIP_TYPE_TEXT_CHANNEL,
                        "connection", priv->conn,
                        "object-path", object_path,
                        "handle", handle,
@@ -274,19 +274,19 @@ sip_text_factory_new_channel (TpChannelFactoryIface *iface,
   return chan;
 }
 
-SIPTextChannel *
-sip_text_factory_lookup_channel (TpChannelFactoryIface *iface,
+TpsipTextChannel *
+tpsip_text_factory_lookup_channel (TpChannelFactoryIface *iface,
                                  guint handle)
 {
-  SIPTextFactory *fac = SIP_TEXT_FACTORY (iface);
-  SIPTextFactoryPrivate *priv = SIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
 
-  return (SIPTextChannel *)g_hash_table_lookup (priv->channels,
+  return (TpsipTextChannel *)g_hash_table_lookup (priv->channels,
       GUINT_TO_POINTER(handle));
 }
 
 static TpChannelFactoryRequestStatus
-sip_text_factory_request (TpChannelFactoryIface *iface,
+tpsip_text_factory_request (TpChannelFactoryIface *iface,
                           const gchar *chan_type,
                           TpHandleType handle_type,
                           guint handle,
@@ -294,8 +294,8 @@ sip_text_factory_request (TpChannelFactoryIface *iface,
                           TpChannelIface **ret,
                           GError **error)
 {
-  SIPTextFactory *fac = SIP_TEXT_FACTORY (iface);
-  SIPTextFactoryPrivate *priv = SIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
   TpChannelIface *chan;
   TpChannelFactoryRequestStatus status;
 
@@ -313,7 +313,7 @@ sip_text_factory_request (TpChannelFactoryIface *iface,
   chan = g_hash_table_lookup (priv->channels, GINT_TO_POINTER (handle));
   if (!chan)
     {
-      chan = (TpChannelIface *)sip_text_factory_new_channel (iface, handle,
+      chan = (TpChannelIface *)tpsip_text_factory_new_channel (iface, handle,
           request);
       status = TP_CHANNEL_FACTORY_REQUEST_STATUS_CREATED;
     }
@@ -326,7 +326,7 @@ factory_iface_init (gpointer g_iface, gpointer iface_data)
 {
   TpChannelFactoryIfaceClass *klass = (TpChannelFactoryIfaceClass *) g_iface;
 
-#define IMPLEMENT(x) klass->x = sip_text_factory_##x
+#define IMPLEMENT(x) klass->x = tpsip_text_factory_##x
   IMPLEMENT(close_all);
   IMPLEMENT(foreach);
   IMPLEMENT(request);

@@ -1,5 +1,5 @@
 /*
- * sip-connection-manager.c - Source for SIPConnectionManager
+ * sip-connection-manager.c - Source for TpsipConnectionManager
  * Copyright (C) 2005-2007 Collabora Ltd.
  * Copyright (C) 2005-2007 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
@@ -35,13 +35,13 @@
 #include "signals-marshal.h"
 #include "sip-sofia-decls.h"
 
-#define DEBUG_FLAG SIP_DEBUG_CONNECTION
+#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
-G_DEFINE_TYPE(SIPConnectionManager, sip_connection_manager,
+G_DEFINE_TYPE(TpsipConnectionManager, tpsip_connection_manager,
     TP_TYPE_BASE_CONNECTION_MANAGER)
 
-/* private structure *//* typedef struct _SIPConnectionManagerPrivate SIPConnectionManagerPrivate; */
+/* private structure *//* typedef struct _TpsipConnectionManagerPrivate TpsipConnectionManagerPrivate; */
 
 typedef struct {
     gchar *account;
@@ -63,18 +63,18 @@ typedef struct {
     gchar *extra_auth_user;
     gchar *extra_auth_password;
     gboolean avoid_difficult;
-} SIPConnParams;
+} TpsipConnParams;
 
 static void *
 alloc_params (void)
 {
-  return g_slice_new0 (SIPConnParams);
+  return g_slice_new0 (TpsipConnParams);
 }
 
 static void
 free_params (void *p)
 {
-  SIPConnParams *params = (SIPConnParams *)p;
+  TpsipConnParams *params = (TpsipConnParams *)p;
 
   g_free (params->account);
   g_free (params->auth_user);
@@ -88,121 +88,121 @@ free_params (void *p)
   g_free (params->extra_auth_user);
   g_free (params->extra_auth_password);
 
-  g_slice_free (SIPConnParams, params);
+  g_slice_free (TpsipConnParams, params);
 }
 
 enum {
-    SIP_CONN_PARAM_ACCOUNT = 0,
-    SIP_CONN_PARAM_AUTH_USER,
-    SIP_CONN_PARAM_PASSWORD,
-    SIP_CONN_PARAM_REGISTRAR,
-    SIP_CONN_PARAM_PROXY_HOST,
-    SIP_CONN_PARAM_PORT,
-    SIP_CONN_PARAM_TRANSPORT,
-    SIP_CONN_PARAM_LOOSE_ROUTING,
-    SIP_CONN_PARAM_DISCOVER_BINDING,
-    SIP_CONN_PARAM_KEEPALIVE_MECHANISM,
-    SIP_CONN_PARAM_KEEPALIVE_INTERVAL,
-    SIP_CONN_PARAM_DISCOVER_STUN,
-    SIP_CONN_PARAM_STUN_SERVER,
-    SIP_CONN_PARAM_STUN_PORT,
-    SIP_CONN_PARAM_LOCAL_IP_ADDRESS,
-    SIP_CONN_PARAM_LOCAL_PORT,
-    SIP_CONN_PARAM_EXTRA_AUTH_USER,
-    SIP_CONN_PARAM_EXTRA_AUTH_PASSWORD,
-    SIP_CONN_PARAM_AVOID_DIFFICULT,
-    N_SIP_CONN_PARAMS
+    TPSIP_CONN_PARAM_ACCOUNT = 0,
+    TPSIP_CONN_PARAM_AUTH_USER,
+    TPSIP_CONN_PARAM_PASSWORD,
+    TPSIP_CONN_PARAM_REGISTRAR,
+    TPSIP_CONN_PARAM_PROXY_HOST,
+    TPSIP_CONN_PARAM_PORT,
+    TPSIP_CONN_PARAM_TRANSPORT,
+    TPSIP_CONN_PARAM_LOOSE_ROUTING,
+    TPSIP_CONN_PARAM_DISCOVER_BINDING,
+    TPSIP_CONN_PARAM_KEEPALIVE_MECHANISM,
+    TPSIP_CONN_PARAM_KEEPALIVE_INTERVAL,
+    TPSIP_CONN_PARAM_DISCOVER_STUN,
+    TPSIP_CONN_PARAM_STUN_SERVER,
+    TPSIP_CONN_PARAM_STUN_PORT,
+    TPSIP_CONN_PARAM_LOCAL_IP_ADDRESS,
+    TPSIP_CONN_PARAM_LOCAL_PORT,
+    TPSIP_CONN_PARAM_EXTRA_AUTH_USER,
+    TPSIP_CONN_PARAM_EXTRA_AUTH_PASSWORD,
+    TPSIP_CONN_PARAM_AVOID_DIFFICULT,
+    N_TPSIP_CONN_PARAMS
 };
 
-static const TpCMParamSpec sip_params[] = {
+static const TpCMParamSpec tpsip_params[] = {
     /* Account (a sip: URI) */
     { "account", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_REQUIRED | TP_CONN_MGR_PARAM_FLAG_REGISTER,
-      NULL, G_STRUCT_OFFSET (SIPConnParams, account) },
+      NULL, G_STRUCT_OFFSET (TpsipConnParams, account) },
     /* Username to register with, if different than in the account URI */
     { "auth-user", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, auth_user) },
+      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, auth_user) },
     /* Password */
     { "password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, /* according to the .manager file this is 
       TP_CONN_MGR_PARAM_FLAG_REQUIRED | TP_CONN_MGR_PARAM_FLAG_REGISTER,
       but in the code this is not the case */
-      NULL, G_STRUCT_OFFSET (SIPConnParams, password) },
+      NULL, G_STRUCT_OFFSET (TpsipConnParams, password) },
     /* Registrar */
     { "registrar", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, registrar) },
+      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, registrar) },
     /* Used to compose proxy URI */
     { "proxy-host", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, proxy_host) },
+      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, proxy_host) },
     /* Used to compose proxy URI */
     { "port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(SIP_DEFAULT_PORT),
-      G_STRUCT_OFFSET (SIPConnParams, port) },
+      G_STRUCT_OFFSET (TpsipConnParams, port) },
     /* Used to compose proxy URI */
     { "transport", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "auto",
-      G_STRUCT_OFFSET (SIPConnParams, transport) },
+      G_STRUCT_OFFSET (TpsipConnParams, transport) },
     /* Enables loose routing as per RFC 3261 */
     { "loose-routing", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(FALSE),
-      G_STRUCT_OFFSET (SIPConnParams, loose_routing) },
+      G_STRUCT_OFFSET (TpsipConnParams, loose_routing) },
     /* Used to enable proactive NAT traversal techniques */
     { "discover-binding", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
-      G_STRUCT_OFFSET (SIPConnParams, discover_binding) },
+      G_STRUCT_OFFSET (TpsipConnParams, discover_binding) },
     /* Mechanism used for connection keepalive maintenance */
     { "keepalive-mechanism", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, keepalive_mechanism) },
+      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, keepalive_mechanism) },
     /* KA interval */
     { "keepalive-interval", DBUS_TYPE_INT32_AS_STRING, G_TYPE_INT,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, keepalive_interval) },
+      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, keepalive_interval) },
     /* Use SRV DNS lookup to discover STUN server */
     { "discover-stun", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
-      G_STRUCT_OFFSET (SIPConnParams, discover_stun) },
+      G_STRUCT_OFFSET (TpsipConnParams, discover_stun) },
     /* STUN server */
     { "stun-server", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, stun_server) },
+      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, stun_server) },
     /* STUN port */
     { "stun-port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT,
-      GUINT_TO_POINTER(SIP_DEFAULT_STUN_PORT),
-      G_STRUCT_OFFSET (SIPConnParams, stun_port) },
+      GUINT_TO_POINTER(TPSIP_DEFAULT_STUN_PORT),
+      G_STRUCT_OFFSET (TpsipConnParams, stun_port) },
     /* Local IP address to use, workaround purposes only */
     { "local-ip-address", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, local_ip_address) },
+      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, local_ip_address) },
     /* Local port for SIP, workaround purposes only */
     { "local-port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, local_port) },
+      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, local_port) },
     /* Extra authentication */
     { "extra-auth-user", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, extra_auth_user) },
+      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_user) },
     { "extra-auth-password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (SIPConnParams, extra_auth_password) },
+      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_password) },
     /* Not used */
     { "avoid-difficult", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(FALSE),
-      G_STRUCT_OFFSET (SIPConnParams, avoid_difficult) },
+      G_STRUCT_OFFSET (TpsipConnParams, avoid_difficult) },
     { NULL, NULL, 0, 0, NULL, 0 }
 };
 
-const TpCMProtocolSpec sofiasip_protocols[] = {
-  { "sip", sip_params, alloc_params, free_params },
+const TpCMProtocolSpec tpsip_protocols[] = {
+  { "sip", tpsip_params, alloc_params, free_params },
   { NULL, NULL }
 };
 
-struct _SIPConnectionManagerPrivate
+struct _TpsipConnectionManagerPrivate
 {
   su_root_t *sofia_root;
 };
 
-#define SIP_CONNECTION_MANAGER_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), SIP_TYPE_CONNECTION_MANAGER, SIPConnectionManagerPrivate))
+#define TPSIP_CONNECTION_MANAGER_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManagerPrivate))
 
 static void
-sip_connection_manager_init (SIPConnectionManager *obj)
+tpsip_connection_manager_init (TpsipConnectionManager *obj)
 {
-  SIPConnectionManagerPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (obj,
-        SIP_TYPE_CONNECTION_MANAGER, SIPConnectionManagerPrivate);
+  TpsipConnectionManagerPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (obj,
+        TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManagerPrivate);
   GSource *source;
 
   obj->priv = priv;
@@ -213,39 +213,39 @@ sip_connection_manager_init (SIPConnectionManager *obj)
   g_source_attach(source, NULL);
 }
 
-static void sip_connection_manager_finalize (GObject *object);
-static TpBaseConnection *sip_connection_manager_new_connection (
+static void tpsip_connection_manager_finalize (GObject *object);
+static TpBaseConnection *tpsip_connection_manager_new_connection (
     TpBaseConnectionManager *base, const gchar *proto,
     TpIntSet *params_present, void *parsed_params, GError **error);
 
 static void
-sip_connection_manager_class_init (SIPConnectionManagerClass *sip_connection_manager_class)
+tpsip_connection_manager_class_init (TpsipConnectionManagerClass *klass)
 {
-  GObjectClass *object_class = G_OBJECT_CLASS (sip_connection_manager_class);
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   TpBaseConnectionManagerClass *base_class = 
-    (TpBaseConnectionManagerClass *)sip_connection_manager_class;
+    (TpBaseConnectionManagerClass *)klass;
 
-  g_type_class_add_private (sip_connection_manager_class, sizeof (SIPConnectionManagerPrivate));
+  g_type_class_add_private (klass, sizeof (TpsipConnectionManagerPrivate));
 
-  object_class->finalize = sip_connection_manager_finalize;
+  object_class->finalize = tpsip_connection_manager_finalize;
 
-  base_class->new_connection = sip_connection_manager_new_connection;
+  base_class->new_connection = tpsip_connection_manager_new_connection;
   base_class->cm_dbus_name = "sofiasip";
-  base_class->protocol_params = sofiasip_protocols;
+  base_class->protocol_params = tpsip_protocols;
 }
 
 void
-sip_connection_manager_finalize (GObject *object)
+tpsip_connection_manager_finalize (GObject *object)
 {
-  SIPConnectionManager *self = SIP_CONNECTION_MANAGER (object);
-  SIPConnectionManagerPrivate *priv = SIP_CONNECTION_MANAGER_GET_PRIVATE (self);
+  TpsipConnectionManager *self = TPSIP_CONNECTION_MANAGER (object);
+  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
   GSource *source;
 
   source = su_root_gsource(priv->sofia_root);
   g_source_destroy(source);
   su_root_destroy(priv->sofia_root);
 
-  G_OBJECT_CLASS (sip_connection_manager_parent_class)->finalize (object);
+  G_OBJECT_CLASS (tpsip_connection_manager_parent_class)->finalize (object);
 }
 
 static gchar *
@@ -330,22 +330,22 @@ priv_compose_default_proxy_uri (const gchar *sip_address,
   return result;
 }
 
-static SIPConnectionKeepaliveMechanism
+static TpsipConnectionKeepaliveMechanism
 priv_parse_keepalive (const gchar *str)
 {
   if (str == NULL || strcmp (str, "auto") == 0)
-    return SIP_CONNECTION_KEEPALIVE_AUTO;
+    return TPSIP_CONNECTION_KEEPALIVE_AUTO;
   if (strcmp (str, "register") == 0)
-    return SIP_CONNECTION_KEEPALIVE_REGISTER;
+    return TPSIP_CONNECTION_KEEPALIVE_REGISTER;
   if (strcmp (str, "options") == 0)
-    return SIP_CONNECTION_KEEPALIVE_OPTIONS;
+    return TPSIP_CONNECTION_KEEPALIVE_OPTIONS;
   if (strcmp (str, "stun") == 0)
-    return SIP_CONNECTION_KEEPALIVE_STUN;
+    return TPSIP_CONNECTION_KEEPALIVE_STUN;
   if (strcmp (str, "off") == 0)
-    return SIP_CONNECTION_KEEPALIVE_NONE;
+    return TPSIP_CONNECTION_KEEPALIVE_NONE;
 
   g_warning ("unsupported keepalive-method value \"%s\", falling back to auto", str);
-  return SIP_CONNECTION_KEEPALIVE_AUTO;
+  return TPSIP_CONNECTION_KEEPALIVE_AUTO;
 }
 
 #define SET_PROPERTY_IF_PARAM_SET(prop, param, member) \
@@ -372,24 +372,18 @@ check_not_empty_if_present (const gchar *name,
   return TRUE;
 }
 
-/**
- * sip_connection_manager_request_connection
- *
- * Implements DBus method RequestConnection
- * on interface org.freedesktop.Telepathy.ConnectionManager
- */
 static TpBaseConnection *
-sip_connection_manager_new_connection (TpBaseConnectionManager *base,
+tpsip_connection_manager_new_connection (TpBaseConnectionManager *base,
                                        const gchar *proto,
                                        TpIntSet *params_present,
                                        void *parsed_params,
                                        GError **error)
 {
-  SIPConnectionManager *obj = SIP_CONNECTION_MANAGER (base);
+  TpsipConnectionManager *obj = TPSIP_CONNECTION_MANAGER (base);
   TpBaseConnection *connection = NULL;
-  SIPConnParams *params = (SIPConnParams *)parsed_params;
+  TpsipConnParams *params = (TpsipConnParams *)parsed_params;
   gchar *proxy = NULL;
-  SIPConnectionKeepaliveMechanism keepalive_mechanism;
+  TpsipConnectionKeepaliveMechanism keepalive_mechanism;
 
   if (strcmp (proto, "sip")) {
     g_set_error (error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
@@ -427,7 +421,7 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   DEBUG("New SIP connection to %s", params->account);
 
-  connection = (TpBaseConnection *)g_object_new(SIP_TYPE_CONNECTION,
+  connection = (TpBaseConnection *)g_object_new(TPSIP_TYPE_CONNECTION,
                             "protocol", "sip",
 			    "sofia-root", obj->priv->sofia_root,
 			    "address", params->account,
@@ -448,45 +442,45 @@ sip_connection_manager_new_connection (TpBaseConnectionManager *base,
   if (params->transport != NULL && strcmp (params->transport, "auto") != 0)
     g_object_set (connection, "transport", params->transport, NULL);
 
-  SET_PROPERTY_IF_PARAM_SET ("auth-user", SIP_CONN_PARAM_AUTH_USER,
+  SET_PROPERTY_IF_PARAM_SET ("auth-user", TPSIP_CONN_PARAM_AUTH_USER,
       params->auth_user);
 
-  SET_PROPERTY_IF_PARAM_SET ("password", SIP_CONN_PARAM_PASSWORD,
+  SET_PROPERTY_IF_PARAM_SET ("password", TPSIP_CONN_PARAM_PASSWORD,
       params->password);
 
-  SET_PROPERTY_IF_PARAM_SET ("registrar", SIP_CONN_PARAM_REGISTRAR,
+  SET_PROPERTY_IF_PARAM_SET ("registrar", TPSIP_CONN_PARAM_REGISTRAR,
       params->registrar);
 
-  SET_PROPERTY_IF_PARAM_SET ("loose-routing", SIP_CONN_PARAM_LOOSE_ROUTING,
+  SET_PROPERTY_IF_PARAM_SET ("loose-routing", TPSIP_CONN_PARAM_LOOSE_ROUTING,
       params->loose_routing);
 
-  SET_PROPERTY_IF_PARAM_SET ("discover-binding", SIP_CONN_PARAM_DISCOVER_BINDING,
+  SET_PROPERTY_IF_PARAM_SET ("discover-binding", TPSIP_CONN_PARAM_DISCOVER_BINDING,
       params->discover_binding);
 
-  SET_PROPERTY_IF_PARAM_SET ("discover-stun", SIP_CONN_PARAM_DISCOVER_STUN,
+  SET_PROPERTY_IF_PARAM_SET ("discover-stun", TPSIP_CONN_PARAM_DISCOVER_STUN,
       params->discover_stun);
 
-  SET_PROPERTY_IF_PARAM_SET ("stun-server", SIP_CONN_PARAM_STUN_SERVER,
+  SET_PROPERTY_IF_PARAM_SET ("stun-server", TPSIP_CONN_PARAM_STUN_SERVER,
       params->stun_server);
 
-  SET_PROPERTY_IF_PARAM_SET ("stun-port", SIP_CONN_PARAM_STUN_PORT,
+  SET_PROPERTY_IF_PARAM_SET ("stun-port", TPSIP_CONN_PARAM_STUN_PORT,
       params->stun_port);
 
   SET_PROPERTY_IF_PARAM_SET ("keepalive-interval",
-      SIP_CONN_PARAM_KEEPALIVE_INTERVAL, params->keepalive_interval);
+      TPSIP_CONN_PARAM_KEEPALIVE_INTERVAL, params->keepalive_interval);
 
   keepalive_mechanism = priv_parse_keepalive (params->keepalive_mechanism);
   g_object_set (connection, "keepalive-mechanism", keepalive_mechanism, NULL);
 
-  SET_PROPERTY_IF_PARAM_SET ("local-ip-address", SIP_CONN_PARAM_LOCAL_IP_ADDRESS,
+  SET_PROPERTY_IF_PARAM_SET ("local-ip-address", TPSIP_CONN_PARAM_LOCAL_IP_ADDRESS,
       params->local_ip_address);
 
-  SET_PROPERTY_IF_PARAM_SET ("local-port", SIP_CONN_PARAM_LOCAL_PORT,
+  SET_PROPERTY_IF_PARAM_SET ("local-port", TPSIP_CONN_PARAM_LOCAL_PORT,
       params->local_port);
 
-  SET_PROPERTY_IF_PARAM_SET ("extra-auth-user", SIP_CONN_PARAM_EXTRA_AUTH_USER,
+  SET_PROPERTY_IF_PARAM_SET ("extra-auth-user", TPSIP_CONN_PARAM_EXTRA_AUTH_USER,
       params->extra_auth_user);
-  SET_PROPERTY_IF_PARAM_SET ("extra-auth-password", SIP_CONN_PARAM_EXTRA_AUTH_PASSWORD,
+  SET_PROPERTY_IF_PARAM_SET ("extra-auth-password", TPSIP_CONN_PARAM_EXTRA_AUTH_PASSWORD,
       params->extra_auth_password);
 
   return connection;
