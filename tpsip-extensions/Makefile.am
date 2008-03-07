@@ -20,7 +20,7 @@ libtpsip_extensions_la_LIBADD = \
 # The client-specific parts are built into a separate .o file, so the linker
 # can discard them when linking services. The service-specific parts are
 # in svc-*.c, so we don't need an extensions-svc.c.
-libsip_extensions_la_SOURCES = \
+libtpsip_extensions_la_SOURCES = \
     extensions.c \
     extensions-cli.c \
     extensions.h
