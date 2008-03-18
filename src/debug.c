@@ -35,6 +35,7 @@ static const GDebugKey tpsip_debug_keys[] = {
   { "media-channel", TPSIP_DEBUG_MEDIA },
   { "connection",    TPSIP_DEBUG_CONNECTION },
   { "im",            TPSIP_DEBUG_IM },
+  { "events",        TPSIP_DEBUG_EVENTS },
 };
 
 void tpsip_debug_set_flags_from_env ()

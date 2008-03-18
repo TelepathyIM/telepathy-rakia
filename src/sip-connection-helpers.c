@@ -28,7 +28,8 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
 
-#include "sip-sofia-decls.h"
+#include "sip-connection-helpers.h"
+
 #include <sofia-sip/sip.h>
 #include <sofia-sip/sip_header.h>
 
@@ -513,7 +514,7 @@ tpsip_conn_resolv_stun_server (TpsipConnection *conn, const gchar *stun_host)
   if (NULL == priv->sofia_resolver)
     {
       priv->sofia_resolver =
-        sres_resolver_create (priv->sofia->sofia_root, NULL, TAG_END());
+        sres_resolver_create (priv->sofia_root, NULL, TAG_END());
     }
   g_return_if_fail (priv->sofia_resolver != NULL);
 
@@ -638,7 +639,7 @@ tpsip_conn_discover_stun_server (TpsipConnection *conn)
   if (NULL == priv->sofia_resolver)
     {
       priv->sofia_resolver =
-        sres_resolver_create (priv->sofia->sofia_root, NULL, TAG_END());
+        sres_resolver_create (priv->sofia_root, NULL, TAG_END());
     }
   g_return_if_fail (priv->sofia_resolver != NULL);
 

@@ -24,7 +24,7 @@
 #include <glib.h>
 
 #include "sip-connection.h"
-#include "sip-sofia-decls.h"
+#include <tpsip/sofia-decls.h>
 
 G_BEGIN_DECLS
 

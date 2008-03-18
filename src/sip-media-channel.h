@@ -27,8 +27,7 @@
 #include <telepathy-glib/group-mixin.h>
 #include <telepathy-glib/properties-mixin.h>
 
-#include "sip-sofia-decls.h"
-
+#include <tpsip/sofia-decls.h>
 #include <sofia-sip/sdp.h>
 
 
@@ -72,20 +71,9 @@ void tpsip_media_channel_close (TpsipMediaChannel *self);
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
-void tpsip_media_channel_terminated (TpsipMediaChannel *self);
 void tpsip_media_channel_receive_invite   (TpsipMediaChannel *self,
-                                         nua_handle_t *nh,
-                                         TpHandle handle);
-void tpsip_media_channel_receive_reinvite (TpsipMediaChannel *self);
-gboolean tpsip_media_channel_set_remote_media (TpsipMediaChannel *chan,
-                                             const sdp_session_t *r_sdp);
-void tpsip_media_channel_ready (TpsipMediaChannel *self);
-void tpsip_media_channel_call_status (TpsipMediaChannel *self,
-                                    guint status,
-                                    const char* message);
-void tpsip_media_channel_peer_cancel (TpsipMediaChannel *self,
-                                    guint cause,
-                                    const char* text);
+                                           nua_handle_t *nh,
+                                           TpHandle handle);
 
 G_END_DECLS
 

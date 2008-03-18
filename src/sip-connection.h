@@ -22,16 +22,15 @@
 #define __TPSIP_CONNECTION_H__
 
 #include <glib-object.h>
-#include <dbus/dbus-glib.h>
 
 #include <telepathy-glib/base-connection.h>
 
+#include <tpsip/event-target.h>
+
+
 G_BEGIN_DECLS
 
-typedef struct _TpsipConnection TpsipConnection;
-typedef struct _TpsipConnectionClass TpsipConnectionClass;
-typedef struct _TpsipConnectionPrivate TpsipConnectionPrivate;
-
+#define TPSIP_DEFAULT_STUN_PORT 3478
 
 typedef enum
 {
@@ -42,6 +41,9 @@ typedef enum
   TPSIP_CONNECTION_KEEPALIVE_STUN,	/** Maintain registration with STUN as described in IETF draft-sip-outbound */
 } TpsipConnectionKeepaliveMechanism;
 
+typedef struct _TpsipConnection TpsipConnection;
+typedef struct _TpsipConnectionClass TpsipConnectionClass;
+typedef struct _TpsipConnectionPrivate TpsipConnectionPrivate;
 
 struct _TpsipConnectionClass {
     TpBaseConnectionClass parent_class;
@@ -50,10 +52,6 @@ struct _TpsipConnectionClass {
 struct _TpsipConnection {
     TpBaseConnection parent;
 };
-
-GType tpsip_connection_get_type(void);
-
-#define TPSIP_DEFAULT_STUN_PORT 3478
 
 /* TYPE MACROS */
 #define TPSIP_TYPE_CONNECTION \
@@ -68,6 +66,11 @@ GType tpsip_connection_get_type(void);
   (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_CONNECTION))
 #define TPSIP_CONNECTION_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_CONNECTION, TpsipConnectionClass))
+
+GType tpsip_connection_get_type (void) G_GNUC_CONST;
+
+void tpsip_connection_connect_auth_handler (TpsipConnection *self,
+                                            TpsipEventTarget *target);
 
 G_END_DECLS
 

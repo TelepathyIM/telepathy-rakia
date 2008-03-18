@@ -188,21 +188,6 @@ tpsip_media_session_constructor (GType type, guint n_props,
            constructor (type, n_props, props);
   priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (TPSIP_MEDIA_SESSION (obj));
 
-  if (priv->nua_op)
-    {
-      nua_hmagic_t *nua_op_magic;
-
-      g_assert (priv->channel != NULL);
-
-      /* migrating a NUA handle between two active media channels
-       * makes no sense either */
-      nua_op_magic = nua_handle_magic (priv->nua_op);
-      g_return_val_if_fail (nua_op_magic == NULL || nua_op_magic == priv->channel, NULL);
-
-      /* tell the NUA that we're handling this call */
-      nua_handle_bind (priv->nua_op, priv->channel);
-    }
-
   bus = tp_get_bus ();
   dbus_g_connection_register_g_object (bus, priv->object_path, obj);
 
@@ -583,10 +568,9 @@ tpsip_media_session_change_state (TpsipMediaSession *session,
       break;
     case TPSIP_MEDIA_SESSION_STATE_ENDED:
       priv_close_all_streams (session);
-      DEBUG("freeing the NUA handle %p", priv->nua_op);
+      DEBUG("releasing the NUA handle %p", priv->nua_op);
       if (priv->nua_op != NULL)
         {
-          nua_handle_bind (priv->nua_op, TPSIP_NH_EXPIRED);
           nua_handle_unref (priv->nua_op);
           priv->nua_op = NULL;
         }
@@ -723,8 +707,6 @@ void tpsip_media_session_terminate (TpsipMediaSession *session)
 
   if (priv->nua_op != NULL)
     {
-      g_assert (nua_handle_magic (priv->nua_op) == priv->channel);
-
       switch (priv->state)
         {
         case TPSIP_MEDIA_SESSION_STATE_ACTIVE:

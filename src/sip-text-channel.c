@@ -28,9 +28,6 @@
 #include <string.h>
 #include <time.h>
 
-#include <sofia-sip/sip.h>
-#include <sofia-sip/sip_header.h>
-
 #include <telepathy-glib/channel-iface.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/errors.h>
@@ -38,18 +35,31 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-channel.h>
 
+#include <tpsip/event-target.h>
+
 #include "sip-text-channel.h"
 
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
 
+#include <sofia-sip/sip.h>
+#include <sofia-sip/sip_header.h>
+
 #define DEBUG_FLAG TPSIP_DEBUG_IM
 #include "debug.h"
 
+static gboolean
+tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
+                                     const TpsipNuaEvent *ev,
+                                     tagi_t            tags[],
+                                     gpointer          foo);
+
+static void event_target_iface_init (gpointer, gpointer);
 static void channel_iface_init (gpointer, gpointer);
 static void text_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (TpsipTextChannel, tpsip_text_channel, G_TYPE_OBJECT,
+    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, event_target_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
@@ -153,6 +163,13 @@ GObject *tpsip_text_channel_constructor(GType type,
 							       n_props,
 							       props);
   priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(TPSIP_TEXT_CHANNEL(obj));
+
+  tpsip_connection_connect_auth_handler (priv->conn, TPSIP_EVENT_TARGET (obj));
+
+  g_signal_connect (obj,
+                    "nua-event::nua_r_message",
+                    G_CALLBACK (tpsip_text_channel_nua_r_message_cb),
+                    NULL);
 
   bus = tp_get_bus();
   dbus_g_connection_register_g_object(bus, priv->object_path, obj);
@@ -598,9 +615,9 @@ tpsip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
  */
 static void
 tpsip_text_channel_send(TpSvcChannelTypeText *iface,
-                      guint type,
-                      const gchar *text,
-                      DBusGMethodInvocation *context)
+                        guint type,
+                        const gchar *text,
+                        DBusGMethodInvocation *context)
 {
   TpsipTextChannel *self = TPSIP_TEXT_CHANNEL(iface);
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
@@ -619,11 +636,16 @@ tpsip_text_channel_send(TpSvcChannelTypeText *iface,
       return;
     }
 
-  /* XXX: would it be helpful to bind the channel, or the
-   * TpsipTextPendingMessage, or something, to the NH? */
-
   msg_nh = tpsip_conn_create_request_handle (priv->conn, priv->handle);
-  g_assert (msg_nh != NULL);
+  if (msg_nh == NULL)
+    {
+      GError e = { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "Request creation failed" };
+      dbus_g_method_return_error (context, &e);
+      return;
+    }
+
+  tpsip_event_target_attach (msg_nh, (GObject *) self);
 
   nua_message(msg_nh,
 	      SIPTAG_CONTENT_TYPE_STR("text/plain"),
@@ -641,39 +663,43 @@ tpsip_text_channel_send(TpSvcChannelTypeText *iface,
   tp_svc_channel_type_text_return_from_send (context);
 }
 
-void
-tpsip_text_channel_emit_message_status(TpsipTextChannel *obj,
-                                     nua_handle_t *nh,
-                                     int status)
+static gboolean
+tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
+                                     const TpsipNuaEvent *ev,
+                                     tagi_t            tags[],
+                                     gpointer          foo)
 {
-  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (obj);
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
   TpsipTextPendingMessage *msg;
   TpChannelTextSendError send_error;
   GList *node;
 
   DEBUG("enter");
 
-  node = g_queue_find_custom(priv->messages_to_be_acknowledged, nh,
-			     tpsip_acknowledged_messages_compare);
+  node = g_queue_find_custom (priv->messages_to_be_acknowledged,
+                              ev->nua_handle,
+			      tpsip_acknowledged_messages_compare);
 
   /* Shouldn't happen... */
-  if (!node) {
-    g_warning ("message not found");
-    return;
-  }
-  
+  if (node == NULL)
+    {
+      g_warning ("message pending sent acknowledgement not found");
+      return FALSE;
+    }
+
   msg = (TpsipTextPendingMessage *)node->data;
 
-  g_return_if_fail (msg != NULL);
+  g_assert (msg != NULL);
 
-  if (status >= 200 && status < 300)
+  if (ev->status >= 200 && ev->status < 300)
     {
-      tp_svc_channel_type_text_emit_sent ((TpSvcChannelTypeText *)obj,
+      DEBUG("message with timestamp %u delivered", (guint)msg->timestamp);
+      tp_svc_channel_type_text_emit_sent (self,
           msg->timestamp, msg->type, msg->text);
     }
   else
     {
-      switch (status)
+      switch (ev->status)
         {
         case 401:
         case 403:
@@ -709,14 +735,14 @@ tpsip_text_channel_emit_message_status(TpsipTextChannel *obj,
           send_error = TP_CHANNEL_TEXT_SEND_ERROR_UNKNOWN;
       }
 
-    DEBUG("emitting send error %d %s", (int)send_error, msg->text);
-
-    tp_svc_channel_type_text_emit_send_error ((TpSvcChannelTypeText *)obj,
+    tp_svc_channel_type_text_emit_send_error (self,
 	send_error, msg->timestamp, msg->type, msg->text);  
   }
 
   g_queue_remove(priv->messages_to_be_acknowledged, msg);
   _tpsip_text_pending_free(msg);
+
+  return TRUE;
 }
 
 void tpsip_text_channel_receive(TpsipTextChannel *chan,
@@ -752,6 +778,11 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
   tp_svc_channel_type_text_emit_received ((TpSvcChannelTypeText *)chan,
       msg->id, msg->timestamp, msg->sender, msg->type,
       0 /* flags */, msg->text);
+}
+
+static void
+event_target_iface_init (gpointer g_iface, gpointer iface_data)
+{
 }
 
 static void

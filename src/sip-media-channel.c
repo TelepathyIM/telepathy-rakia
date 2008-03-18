@@ -24,6 +24,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <telepathy-glib/channel-iface.h>
 #include <telepathy-glib/dbus.h>
@@ -32,6 +33,8 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/intset.h>
 #include <telepathy-glib/svc-channel.h>
+
+#include <tpsip/event-target.h>
 
 /* Hold and CallState interfaces */
 #include <tpsip-extensions/extensions.h>
@@ -46,6 +49,7 @@
 #define DEBUG_FLAG TPSIP_DEBUG_MEDIA
 #include "debug.h"
 
+static void event_target_init (gpointer, gpointer);
 static void channel_iface_init (gpointer, gpointer);
 static void media_signalling_iface_init (gpointer, gpointer);
 static void streamed_media_iface_init (gpointer, gpointer);
@@ -56,6 +60,7 @@ static void hold_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (TpsipMediaChannel, tpsip_media_channel,
     G_TYPE_OBJECT,
+    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, event_target_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP,
       priv_group_mixin_iface_init);
@@ -141,7 +146,7 @@ tpsip_media_channel_init (TpsipMediaChannel *self)
 
 static GObject *
 tpsip_media_channel_constructor (GType type, guint n_props,
-			       GObjectConstructParam *props)
+			         GObjectConstructParam *props)
 {
   GObject *obj;
   TpsipMediaChannelPrivate *priv;
@@ -486,18 +491,6 @@ tpsip_media_channel_close (TpsipMediaChannel *obj)
   tp_svc_channel_emit_closed ((TpSvcChannel *)obj);
 
   return;
-}
-
-void
-tpsip_media_channel_terminated (TpsipMediaChannel *self)
-{
-  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-
-  DEBUG("enter");
-
-  if (priv->session)
-    tpsip_media_session_change_state (priv->session,
-                                      TPSIP_MEDIA_SESSION_STATE_ENDED);
 }
 
 /**
@@ -851,36 +844,21 @@ tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
                                TP_CHANNEL_GROUP_FLAG_CAN_ADD);
 }
 
-/**
- * Handle an incoming re-INVITE request.
- */
-void
-tpsip_media_channel_receive_reinvite (TpsipMediaChannel *self)
+static gboolean
+priv_nua_i_invite_cb (TpsipMediaChannel *self,
+                      const TpsipNuaEvent  *ev,
+                      tagi_t             tags[],
+                      gpointer           foo)
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  g_return_if_fail (priv->session != NULL);
-
-  tpsip_media_session_receive_reinvite (priv->session);
-}
-
-gboolean
-tpsip_media_channel_set_remote_media (TpsipMediaChannel *chan,
-                                    const sdp_session_t* r_sdp)
-{
-  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
+  /* nua_i_invite delivered for a bound handle means a re-INVITE */
 
   g_return_val_if_fail (priv->session != NULL, FALSE);
 
-  return tpsip_media_session_set_remote_media (priv->session, r_sdp);
-}
+  tpsip_media_session_receive_reinvite (priv->session);
 
-void
-tpsip_media_channel_ready (TpsipMediaChannel *self)
-{
-  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  g_return_if_fail (priv->session != NULL);
-  tpsip_media_session_accept (priv->session);
+  return TRUE;
 }
 
 static void
@@ -960,22 +938,25 @@ priv_clear_call_state (TpsipMediaChannel *self,
                                                                     0);
 }
 
-void
-tpsip_media_channel_call_status (TpsipMediaChannel *self,
-                               guint status,
-                               const char* message)
+static gboolean
+priv_nua_r_invite_cb (TpsipMediaChannel *self,
+                      const TpsipNuaEvent  *ev,
+                      tagi_t             tags[],
+                      gpointer           foo)
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  gint status = ev->status;
+  const gchar *message = ev->text;
   TpHandle peer;
 
-  DEBUG("peer responded with %u %s", status, message);
+  DEBUG("peer responded with %03d %s", status, message);
 
-  g_return_if_fail (priv->session != NULL);
+  g_return_val_if_fail (priv->session != NULL, FALSE);
 
   /* Ignore responses to a re-INVITE */
   if (tpsip_media_session_get_state (priv->session)
         != TPSIP_MEDIA_SESSION_STATE_INVITE_SENT)
-    return;
+    return TRUE;
 
   peer = tpsip_media_session_get_peer (priv->session);
 
@@ -995,20 +976,42 @@ tpsip_media_channel_call_status (TpsipMediaChannel *self,
     {
       priv_set_call_state (self, peer, TPSIP_CHANNEL_CALL_STATE_QUEUED);
     }
+
+  return TRUE;
 }
 
-void
-tpsip_media_channel_peer_cancel (TpsipMediaChannel *self,
-                               guint cause,
-                               const gchar *message)
+static gboolean
+priv_nua_i_cancel_cb (TpsipMediaChannel *self,
+                      const TpsipNuaEvent  *ev,
+                      tagi_t             tags[],
+                      gpointer           foo)
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
   TpIntSet *set;
   TpHandle actor = 0;
   TpHandle peer;
+  const sip_reason_t *reason;
+  guint cause = 0;
+  const gchar *message = NULL;
 
-  g_return_if_fail (priv->session != NULL);
+  g_return_val_if_fail (priv->session != NULL, FALSE);
+
+  if (ev->sip != NULL)
+    for (reason = ev->sip->sip_reason;
+         reason != NULL;
+         reason = reason->re_next)
+      {
+        const char *protocol = reason->re_protocol; 
+        if (protocol == NULL || strcmp (protocol, "SIP") != 0)
+          continue;
+        if (reason->re_cause != NULL)
+          {
+            cause = (guint) g_ascii_strtoull (reason->re_cause, NULL, 10);
+            message = reason->re_text;
+            break;
+          }
+      }
 
   peer = tpsip_media_session_get_peer (priv->session);
 
@@ -1040,11 +1043,67 @@ tpsip_media_channel_peer_cancel (TpsipMediaChannel *self,
                                  TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
   tp_intset_destroy (set);
+
+  return TRUE;
 }
 
-/***********************************************************************
- * Set: Helper functions follow (not based on generated templates)
- ***********************************************************************/
+static gboolean
+priv_nua_i_state_cb (TpsipMediaChannel *self,
+                     const TpsipNuaEvent  *ev,
+                     tagi_t             tags[],
+                     gpointer           foo)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  const sdp_session_t *r_sdp = NULL;
+  int offer_recv = 0;
+  int answer_recv = 0;
+  int ss_state = nua_callstate_init;
+
+  g_return_val_if_fail (priv->session != NULL, FALSE);
+
+  tl_gets(tags,
+          NUTAG_CALLSTATE_REF(ss_state),
+          NUTAG_OFFER_RECV_REF(offer_recv),
+          NUTAG_ANSWER_RECV_REF(answer_recv),
+          SOATAG_REMOTE_SDP_REF(r_sdp),
+          TAG_END());
+
+  if (r_sdp)
+    {
+      g_return_val_if_fail (answer_recv || offer_recv, FALSE);
+      if (!tpsip_media_session_set_remote_media (priv->session, r_sdp))
+        {
+          tpsip_media_channel_close (self);
+          return TRUE;
+        }
+    }
+
+  DEBUG("call with handle %p is %s", ev->nua_handle, nua_callstate_name (ss_state));
+
+  switch ((enum nua_callstate)ss_state)
+    {
+    case nua_callstate_received:
+    case nua_callstate_early:
+      break;
+    
+    case nua_callstate_completing:
+      /* In auto-ack mode, we don't need to call nua_ack(), see NUTAG_AUTOACK() */
+      break;
+
+    case nua_callstate_ready:
+      tpsip_media_session_accept (priv->session);
+      break;
+
+    case nua_callstate_terminated:
+      tpsip_media_session_change_state (priv->session,
+                                        TPSIP_MEDIA_SESSION_STATE_ENDED);
+      break;
+    default:
+      break;
+  }
+
+  return TRUE;
+}
 
 static void priv_session_state_changed_cb (TpsipMediaSession *session,
 					   guint old_state,
@@ -1132,6 +1191,36 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
     tp_intset_destroy (set);
 }
 
+static void
+priv_connect_nua_handlers (TpsipMediaChannel *self, nua_handle_t *nh)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  tpsip_event_target_attach (nh, (GObject *) self);
+
+  /* have the connection handle authentication, before all other
+   * response callbacks */
+  tpsip_connection_connect_auth_handler (priv->conn, TPSIP_EVENT_TARGET (self));
+
+  g_signal_connect (self,
+                    "nua-event::nua_r_invite",
+                    G_CALLBACK (priv_nua_r_invite_cb),
+                    NULL);
+  g_signal_connect (self,
+                    "nua-event::nua_i_invite",
+                    G_CALLBACK (priv_nua_i_invite_cb),
+                    NULL);
+  g_signal_connect (self,
+                    "nua-event::nua_i_cancel",
+                    G_CALLBACK (priv_nua_i_cancel_cb),
+                    NULL);
+  g_signal_connect (self,
+                    "nua-event::nua_i_state",
+                    G_CALLBACK (priv_nua_i_state_cb),
+                    NULL);
+
+}
+
 /**
  * priv_create_session:
  *
@@ -1152,10 +1241,14 @@ priv_create_session (TpsipMediaChannel *channel,
   DEBUG("enter");
 
   priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
-  g_assert (priv->session == NULL);
   conn = (TpBaseConnection *)(priv->conn);
   contact_repo = tp_base_connection_get_handles (conn,
       TP_HANDLE_TYPE_CONTACT);
+
+  g_assert (priv->session == NULL);
+
+  /* Bind the channel object to the handle to handle NUA events */
+  priv_connect_nua_handlers (channel, nh);
 
   object_path = g_strdup_printf ("%s/MediaSession%u", priv->object_path, peer);
 
@@ -1504,6 +1597,11 @@ tpsip_media_channel_stop_tone (TpSvcChannelInterfaceDTMF *iface,
     }
 
   tp_svc_channel_interface_dtmf_return_from_stop_tone (context);
+}
+
+static void
+event_target_init(gpointer g_iface, gpointer iface_data)
+{
 }
 
 static void

@@ -23,11 +23,12 @@
 
 #include <telepathy-glib/channel-factory-iface.h>
 
-#include "sip-connection-sofia.h"
+#include <tpsip/sofia-decls.h>
+#include <sofia-sip/sresolv.h>
 
 struct _TpsipConnectionPrivate
 {
-  TpsipConnectionSofia *sofia;
+  su_root_t *sofia_root;
   nua_t  *sofia_nua;
   su_home_t *sofia_home;
   nua_handle_t *register_op;

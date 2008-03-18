@@ -24,18 +24,19 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <dbus/dbus-glib.h>
-#include <dbus/dbus-protocol.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <dbus/dbus-protocol.h>
 
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/svc-connection-manager.h>
 
+#include <tpsip/sofia-decls.h>
+#include <sofia-sip/su_glib.h>
+
 #include "sip-connection-manager.h"
 #include "sip-connection.h"
-#include "signals-marshal.h"
-#include "sip-sofia-decls.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
@@ -376,12 +377,13 @@ check_not_empty_if_present (const gchar *name,
 
 static TpBaseConnection *
 tpsip_connection_manager_new_connection (TpBaseConnectionManager *base,
-                                       const gchar *proto,
-                                       TpIntSet *params_present,
-                                       void *parsed_params,
-                                       GError **error)
+                                         const gchar *proto,
+                                         TpIntSet *params_present,
+                                         void *parsed_params,
+                                         GError **error)
 {
-  TpsipConnectionManager *obj = TPSIP_CONNECTION_MANAGER (base);
+  TpsipConnectionManager *self = TPSIP_CONNECTION_MANAGER (base);
+  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
   TpBaseConnection *connection = NULL;
   TpsipConnParams *params = (TpsipConnParams *)parsed_params;
   gchar *proxy = NULL;
@@ -425,7 +427,7 @@ tpsip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   connection = (TpBaseConnection *)g_object_new(TPSIP_TYPE_CONNECTION,
                             "protocol", "sip",
-			    "sofia-root", obj->priv->sofia_root,
+			    "sofia-root", priv->sofia_root,
 			    "address", params->account,
                             NULL);
 

@@ -25,7 +25,7 @@
 
 #include <telepathy-glib/handle.h>
 
-#include "sip-sofia-decls.h"
+#include <tpsip/sofia-decls.h>
 
 typedef struct _TpsipHandleStorage TpsipHandleStorage;
 
@@ -61,13 +61,9 @@ GType tpsip_text_channel_get_type(void);
 
 void tpsip_text_channel_close (TpsipTextChannel *self);
 
-void tpsip_text_channel_emit_message_status(TpsipTextChannel *obj,
-                                          nua_handle_t *nh,
-                                          int status);
-
 void tpsip_text_channel_receive (TpsipTextChannel *obj,
-                               TpHandle        sender,
-                               const char     *message);
+                                 TpHandle        sender,
+                                 const char     *message);
 
 
 G_END_DECLS

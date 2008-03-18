@@ -39,24 +39,30 @@
 #include <telepathy-glib/intset.h>
 #include <telepathy-glib/svc-connection.h>
 
+#include <tpsip/event-target.h>
+
+#include "sip-connection.h"
 #include "media-factory.h"
 #include "text-factory.h"
-#include "sip-connection.h"
-
-#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "debug.h"
-
-static void conn_iface_init (gpointer, gpointer);
-
-G_DEFINE_TYPE_WITH_CODE(TpsipConnection, tpsip_connection,
-    TP_TYPE_BASE_CONNECTION,
-    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION,
-      conn_iface_init))
 
 #include "sip-connection-enumtypes.h"
 #include "sip-connection-helpers.h"
 #include "sip-connection-private.h"
 #include "sip-connection-sofia.h"
+
+#include <sofia-sip/msg_header.h>
+#include <sofia-sip/sip_status.h>
+
+#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
+#include "debug.h"
+
+static void event_target_iface_init (gpointer, gpointer);
+static void conn_iface_init (gpointer, gpointer);
+
+G_DEFINE_TYPE_WITH_CODE(TpsipConnection, tpsip_connection,
+    TP_TYPE_BASE_CONNECTION,
+    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, event_target_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION, conn_iface_init))
 
 #define ERROR_IF_NOT_CONNECTED_ASYNC(BASE, CONTEXT) \
   if ((BASE)->status != TP_CONNECTION_STATUS_CONNECTED) \
@@ -181,7 +187,6 @@ static void
 tpsip_connection_init (TpsipConnection *obj)
 {
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (obj);
-  priv->sofia = tpsip_connection_sofia_new (obj);
   priv->sofia_home = su_home_new(sizeof (su_home_t));
   priv->auth_table = g_hash_table_new_full (g_direct_hash,
                                             g_direct_equal,
@@ -289,8 +294,7 @@ tpsip_connection_set_property (GObject      *object,
     break;
   }
   case PROP_SOFIA_ROOT: {
-    g_return_if_fail (priv->sofia != NULL);
-    priv->sofia->sofia_root = g_value_get_pointer (value);
+    priv->sofia_root = g_value_get_pointer (value);
     break;
   }
   default:
@@ -370,8 +374,7 @@ tpsip_connection_get_property (GObject      *object,
     break;
   }
   case PROP_SOFIA_ROOT: {
-    g_return_if_fail (priv->sofia != NULL);
-    g_value_set_pointer (value, priv->sofia->sofia_root);
+    g_value_set_pointer (value, priv->sofia_root);
     break;
   }
   default:
@@ -600,6 +603,378 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
                                    G_PARAM_STATIC_NAME |
                                    G_PARAM_STATIC_BLURB);
   INST_PROP(PROP_EXTRA_AUTH_PASSWORD);
+
+#undef INST_PROP
+}
+
+static gboolean
+priv_handle_auth (TpsipConnection* self,
+                  int status,
+                  nua_handle_t *nh,
+                  const sip_t *sip,
+                  gboolean home_realm)
+{
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  sip_www_authenticate_t const *wa;
+  sip_proxy_authenticate_t const *pa;
+  const char *method = NULL;
+  const char *realm = NULL;
+  const char *user =  NULL;
+  const char *password =  NULL;
+  gchar *auth = NULL;
+
+  if (status != 401 && status != 407)
+    return FALSE;
+
+  DEBUG("response presents an authentication challenge");
+
+  g_return_val_if_fail (sip != NULL, FALSE);
+
+  wa = sip->sip_www_authenticate;
+  pa = sip->sip_proxy_authenticate;
+
+  /* step: figure out the realm of the challenge */
+  if (wa) {
+    realm = msg_header_find_param ((msg_common_t *) wa, "realm=");
+    method = wa->au_scheme;
+  }
+  else if (pa) {
+    realm = msg_header_find_param ((msg_common_t *) pa, "realm=");
+    method = pa->au_scheme;
+  }
+
+  if (realm == NULL)
+    {
+      g_warning ("no realm presented for authentication");
+      return FALSE;
+    }
+
+  /* step: determine which set of credentials to use */
+  if (home_realm)
+    {
+      /* Save the realm presented by the registrar */
+      if (priv->registrar_realm == NULL)
+        priv->registrar_realm = g_strdup (realm);
+      else if (wa && strcmp(priv->registrar_realm, realm) != 0)
+        {
+          g_message ("registrar realm changed from %s to %s", priv->registrar_realm, realm);
+          g_free (priv->registrar_realm);
+          priv->registrar_realm = g_strdup (realm);
+        }
+    }
+  else if (priv->registrar_realm != NULL
+           && strcmp(priv->registrar_realm, realm) == 0)
+    home_realm = TRUE;
+
+  if (home_realm)
+    {
+      /* use authentication username if provided */
+      user = priv->auth_user;
+      password = priv->password;
+
+      DEBUG("using the primary auth credentials");
+    }
+  else
+    {
+      if (priv->extra_auth_user)
+        user = priv->extra_auth_user;
+      else
+        /* fall back to the main username */
+        user = priv->auth_user;
+      password = priv->extra_auth_password;
+
+      DEBUG("using the extra auth credentials");
+    }
+
+  if (user == NULL)
+    {
+      sip_from_t const *sipfrom = sip->sip_from;
+      if (sipfrom && sipfrom->a_url[0].url_user)
+        /* or use the userpart in "From" header */
+        user = sipfrom->a_url[0].url_user;
+    }
+
+  if (password == NULL)
+    password = "";
+
+  /* step: if all info is available, create an authorization response */
+  g_assert (realm != NULL);
+  if (user && method) {
+    if (realm[0] == '"')
+      auth = g_strdup_printf ("%s:%s:%s:%s", 
+                              method, realm, user, password);
+    else
+      auth = g_strdup_printf ("%s:\"%s\":%s:%s", 
+                              method, realm, user, password);
+
+    DEBUG("%s authenticating user='%s' realm=%s",
+          wa ? "server" : "proxy", user, realm);
+  }
+
+  if (auth == NULL)
+    {
+      g_warning ("authentication data are incomplete");
+      return FALSE;
+    }
+
+  /* step: authenticate */
+  nua_authenticate(nh, NUTAG_AUTH(auth), TAG_END());
+
+  g_free (auth);
+
+  return TRUE;
+}
+
+static gboolean
+tpsip_connection_auth_cb (TpsipEventTarget *target,
+                          const TpsipNuaEvent *ev,
+                          tagi_t            tags[],
+                          TpsipConnection  *self)
+{
+  return priv_handle_auth (self,
+                           ev->status,
+                           ev->nua_handle,
+                           ev->sip,
+                           FALSE);
+}
+
+void
+tpsip_connection_connect_auth_handler (TpsipConnection *self,
+                                       TpsipEventTarget *target)
+{
+  g_signal_connect_object (target,
+                           "nua-event",
+                           G_CALLBACK (tpsip_connection_auth_cb),
+                           self,
+                           0);
+}
+
+static gboolean
+tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
+                                    const TpsipNuaEvent *ev,
+                                    tagi_t               tags[],
+                                    gpointer             foo)
+{
+  TpConnectionStatus conn_status = TP_CONNECTION_STATUS_DISCONNECTED;
+  TpConnectionStatusReason reason = 0;
+
+  if (ev->status < 200)
+    return TRUE;
+
+  if (priv_handle_auth (self, ev->status, ev->nua_handle, ev->sip, TRUE))
+    return TRUE;
+
+  switch (ev->status)
+    {
+    case 401:
+    case 403:
+    case 407:
+      DEBUG("REGISTER failed, possibly wrong credentials, disconnecting");
+      conn_status = TP_CONNECTION_STATUS_DISCONNECTED;
+      reason = TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED;
+      break;
+    default:
+      if (ev->status >= 300)
+        {
+          DEBUG("REGISTER failed, disconnecting");
+          conn_status = TP_CONNECTION_STATUS_DISCONNECTED;
+          reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
+        }
+      else /* if (ev->status == 200) */
+        {
+          DEBUG("succesfully registered to the network");
+          conn_status = TP_CONNECTION_STATUS_CONNECTED;
+          reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
+        }
+    }
+
+  tp_base_connection_change_status ((TpBaseConnection *) self,
+                                    conn_status, reason);
+
+  return TRUE;
+}
+
+static gboolean
+tpsip_connection_nua_i_invite_cb (TpsipConnection   *self,
+                                  const TpsipNuaEvent  *ev,
+                                  tagi_t             tags[],
+                                  gpointer           foo)
+{
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  TpsipMediaChannel *channel;
+  TpHandleRepoIface *contact_repo;
+  TpHandle handle;
+  GError *error = NULL;
+
+  /* figure out a handle for the identity */
+
+  contact_repo = tp_base_connection_get_handles ((TpBaseConnection *)self,
+                                                 TP_HANDLE_TYPE_CONTACT);
+
+  handle = priv_handle_parse_from (ev->sip, priv->sofia_home, contact_repo);
+  if (!handle)
+    {
+      g_message ("incoming INVITE with invalid sender information");
+      nua_respond (ev->nua_handle, 400, "Invalid From address", TAG_END());
+      return TRUE;
+    }
+
+  DEBUG("Got incoming invite from <%s>", 
+        tp_handle_inspect (contact_repo, handle));
+
+  channel = tpsip_media_factory_new_channel (
+                TPSIP_MEDIA_FACTORY (priv->media_factory),
+                NULL,
+                TP_HANDLE_TYPE_NONE,
+                0,
+                &error);
+  if (channel)
+    {
+      tpsip_media_channel_receive_invite (channel, ev->nua_handle, handle);
+    }
+  else
+    {
+      g_warning ("creation of SIP media channel failed: %s", error->message);
+      g_error_free (error);
+      nua_respond (ev->nua_handle, SIP_500_INTERNAL_SERVER_ERROR, TAG_END());
+    }
+
+  tp_handle_unref (contact_repo, handle);
+
+  return TRUE;
+}
+
+static gboolean
+tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
+                                   const TpsipNuaEvent  *ev,
+                                   tagi_t             tags[],
+                                   gpointer           foo)
+{
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  TpsipTextChannel *channel;
+  TpHandleRepoIface *contact_repo;
+  TpHandle handle;
+  const sip_t *sip = ev->sip;
+  char *text = NULL;
+
+  /* Block anything else except text/plain messages (like isComposings) */
+  if (sip->sip_content_type
+      && (g_ascii_strcasecmp ("text/plain", sip->sip_content_type->c_type)))
+    {
+      nua_respond (ev->nua_handle,
+                   SIP_415_UNSUPPORTED_MEDIA,
+                   SIPTAG_ACCEPT_STR("text/plain"),
+                   NUTAG_WITH_THIS(ev->nua),
+                   TAG_END());
+      goto end;
+    }
+
+  /* If there is some text, assure it's in UTF-8 encoding */
+  if (sip->sip_payload && sip->sip_payload->pl_len > 0)
+    {
+      const char *charset = NULL;
+      if (sip->sip_content_type && sip->sip_content_type->c_params != 0)
+        {
+          charset = msg_params_find (sip->sip_content_type->c_params, "charset=");
+        }
+
+      /* Default charset is UTF-8, we only need to convert if it's a different one */
+      if (charset && g_ascii_strcasecmp (charset, "UTF-8"))
+        {
+          GError *error;
+          gsize in_len, out_len;
+          text = g_convert (sip->sip_payload->pl_data, sip->sip_payload->pl_len,
+              "UTF-8", charset, &in_len, &out_len, &error);
+
+          if (text == NULL)
+            {
+              gint status;
+              gchar *message;
+
+              status = (error->code == G_CONVERT_ERROR_ILLEGAL_SEQUENCE)
+                       ? 400 : 500;
+              message = g_strdup_printf ("Character set conversion failed"
+                                                " for the message body: %s",
+                                         error->message);
+              nua_respond (ev->nua_handle,
+                           status, message,
+                           NUTAG_WITH_THIS(ev->nua),
+                           TAG_END());
+
+              g_free (message);
+              g_error_free (error);
+              goto end;
+            }
+          if (in_len != sip->sip_payload->pl_len)
+            {
+              nua_respond (ev->nua_handle,
+                           400, "Incomplete character sequence at the "
+                                "end of the message body",
+                           NUTAG_WITH_THIS(ev->nua),
+                           TAG_END());
+              goto end;
+            }
+        }
+      else
+        {
+          if (!g_utf8_validate (sip->sip_payload->pl_data,
+                                sip->sip_payload->pl_len,
+                                NULL))
+            {
+              nua_respond (ev->nua_handle,
+                           400, "Invalid characters in the message body",
+                           NUTAG_WITH_THIS(ev->nua),
+                           TAG_END());
+              goto end;
+            }
+          text = g_strndup (sip->sip_payload->pl_data, sip->sip_payload->pl_len);
+        }
+    }
+  else
+    {
+      text = g_strdup ("");
+    }
+
+  contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
+
+  handle = priv_handle_parse_from (sip, priv->sofia_home, contact_repo);
+
+  if (handle)
+    {
+      DEBUG("Got incoming message from <%s>", 
+            tp_handle_inspect (contact_repo, handle));
+
+      channel = tpsip_text_factory_lookup_channel (priv->text_factory, handle);
+
+      if (!channel)
+        {
+          channel = tpsip_text_factory_new_channel (priv->text_factory, handle,
+              NULL);
+          g_assert (channel != NULL);
+        }
+
+      tpsip_text_channel_receive (channel, handle, text);
+
+      tp_handle_unref (contact_repo, handle);
+
+      nua_respond (ev->nua_handle,
+                   SIP_200_OK,
+                   NUTAG_WITH_THIS(ev->nua),
+                   TAG_END());
+    }
+  else
+    {
+      nua_respond (ev->nua_handle,
+                   400, "Invalid From address",
+                   NUTAG_WITH_THIS(ev->nua),
+                   TAG_END());
+    }
+
+end:
+  g_free (text);
+
+  return TRUE;
 }
 
 static void
@@ -616,18 +991,9 @@ tpsip_connection_shut_down (TpBaseConnection *base)
   /* We disposed of the REGISTER handle in the disconnected method */
   g_assert (priv->register_op == NULL);
 
-  g_assert (priv->sofia != NULL);
-
-  /* Detach the Sofia adapter and let it destroy the NUA handle and itself
-   * in the shutdown callback. If there's no NUA stack, destroy it manually. */
-  priv->sofia->conn = NULL;
-
   if (priv->sofia_nua != NULL)
-      nua_shutdown (priv->sofia_nua);
-  else
-      tpsip_connection_sofia_destroy (priv->sofia);
+    nua_shutdown (priv->sofia_nua);
 
-  priv->sofia = NULL;
   priv->sofia_nua = NULL;
 
   tp_base_connection_finish_shutdown (base);
@@ -705,18 +1071,14 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
 {
   TpsipConnection *self = TPSIP_CONNECTION (base);
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
-  su_root_t *sofia_root;
   TpHandleRepoIface *contact_repo;
   const gchar *sip_address;
   const url_t *local_url;
 
   g_assert (base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
 
-  g_assert (priv->sofia != NULL);
-
   /* the construct parameters will be non-empty */
-  sofia_root = priv->sofia->sofia_root;
-  g_assert (sofia_root != NULL);
+  g_assert (priv->sofia_root != NULL);
   g_return_val_if_fail (priv->address != NULL, FALSE);
 
   /* FIXME: we should defer setting the self handle until we've found out from
@@ -746,9 +1108,9 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
   local_url = tpsip_conn_get_local_url (self);
 
   /* step: create stack instance */
-  priv->sofia_nua = nua_create (sofia_root,
+  priv->sofia_nua = nua_create (priv->sofia_root,
       tpsip_connection_sofia_callback,
-      priv->sofia,
+      self,
       SOATAG_AF(SOA_AF_IP4_IP6),
       SIPTAG_FROM_STR(sip_address),
       NUTAG_URL(local_url),
@@ -781,12 +1143,24 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
   else if (priv->discover_stun)
     tpsip_conn_discover_stun_server (self);
 
-  DEBUG("Sofia-SIP NUA at address %p (SIP URI: %s)",
-	priv->sofia_nua, sip_address);
+  DEBUG("initialized a Sofia-SIP NUA at address %p", priv->sofia_nua);
 
   /* for debugging purposes, request a dump of stack configuration
    * at registration time */
-  nua_get_params(priv->sofia_nua, TAG_ANY(), TAG_NULL());
+  nua_get_params (priv->sofia_nua, TAG_ANY(), TAG_NULL());
+
+  g_signal_connect (self,
+                    "nua-event::nua_i_invite",
+                    G_CALLBACK (tpsip_connection_nua_i_invite_cb),
+                    NULL);
+  g_signal_connect (self,
+                    "nua-event::nua_i_message",
+                    G_CALLBACK (tpsip_connection_nua_i_message_cb),
+                    NULL);
+  g_signal_connect (self,
+                    "nua-event::nua_r_register",
+                    G_CALLBACK (tpsip_connection_nua_r_register_cb),
+                    NULL);
 
   priv->register_op = tpsip_conn_create_register_handle (self,
                                                          base->self_handle);
@@ -797,9 +1171,9 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
       return FALSE;
     }
 
-  nua_register(priv->register_op, TAG_NULL());
+  tpsip_event_target_attach (priv->register_op, (GObject *) self);
 
-  DEBUG("exit");
+  nua_register (priv->register_op, TAG_NULL());
 
   return TRUE;
 }
@@ -839,7 +1213,7 @@ tpsip_connection_disconnected (TpBaseConnection *base)
  */
 static void
 tpsip_connection_get_interfaces (TpSvcConnection *iface,
-                               DBusGMethodInvocation *context)
+                                 DBusGMethodInvocation *context)
 {
   TpsipConnection *self = TPSIP_CONNECTION (iface);
   TpBaseConnection *base = (TpBaseConnection *)self;
@@ -974,4 +1348,9 @@ conn_iface_init(gpointer g_iface, gpointer iface_data)
   IMPLEMENT(get_interfaces);
   IMPLEMENT(request_handles);
 #undef IMPLEMENT
+}
+
+static void
+event_target_iface_init (gpointer g_iface, gpointer iface_data)
+{
 }

@@ -71,7 +71,6 @@ BUILT_SOURCES = \
 		sip-connection-enumtypes.c
 
 libtpsip_convenience_la_SOURCES = \
-    sip-sofia-decls.h \
     sip-text-channel.h \
     sip-text-channel.c \
     sip-media-channel.h \
@@ -100,6 +99,7 @@ nodist_libtpsip_convenience_la_SOURCES = \
     $(BUILT_SOURCES)
 
 libtpsip_convenience_la_LIBADD = \
+    $(top_builddir)/tpsip/libtpsip.la \
     $(top_builddir)/tpsip-extensions/libtpsip-extensions.la
 
 telepathy_sofiasip_SOURCES = \
