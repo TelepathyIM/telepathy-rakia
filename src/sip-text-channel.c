@@ -658,7 +658,9 @@ tpsip_text_channel_send(TpSvcChannelTypeText *iface,
   msg->type = type;
   msg->timestamp = time(NULL);
 
-  g_queue_push_tail(priv->messages_to_be_acknowledged, msg);
+  g_queue_push_tail (priv->messages_to_be_acknowledged, msg);
+
+  DEBUG("message queued for delivery with timestamp %u", (guint)msg->timestamp);
 
   tp_svc_channel_type_text_return_from_send (context);
 }
