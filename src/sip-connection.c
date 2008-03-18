@@ -1221,7 +1221,7 @@ tpsip_connection_get_interfaces (TpSvcConnection *iface,
 
   g_assert (TPSIP_IS_CONNECTION (iface));
 
-  ERROR_IF_NOT_CONNECTED_ASYNC (base, context)
+  ERROR_IF_NOT_CONNECTED_ASYNC ((TpBaseConnection *) iface, context)
   tp_svc_connection_return_from_get_interfaces (context, interfaces);
 }
 
