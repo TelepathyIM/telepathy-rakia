@@ -411,9 +411,6 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
     (TpBaseConnectionClass *)klass;
   GParamSpec *param_spec;
 
-#define INST_PROP(x) \
-  g_object_class_install_property (object_class,  x, param_spec)
-
   /* Implement pure-virtual methods */
   base_class->create_handle_repos = tpsip_create_handle_repos;
   base_class->get_unique_connection_name = tpsip_connection_unique_name;
@@ -430,6 +427,9 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
 
   object_class->set_property = tpsip_connection_set_property;
   object_class->get_property = tpsip_connection_get_property;
+
+#define INST_PROP(x) \
+  g_object_class_install_property (object_class,  x, param_spec)
 
   param_spec = g_param_spec_pointer("sofia-root",
                                     "Sofia root",
