@@ -31,7 +31,6 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/handle-repo-dynamic.h>
-#include <telepathy-glib/handle-repo-static.h>
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
 
@@ -124,20 +123,29 @@ priv_url_from_string_value (su_home_t *home, const GValue *value)
   return (url_str)? url_make (home, url_str) : NULL;
 }
 
-/* keep these two in sync */
-enum
+static TpHandle
+priv_handle_parse_from (const sip_t *sip,
+                        su_home_t *home,
+                        TpHandleRepoIface *contact_repo)
 {
-  LIST_HANDLE_PUBLISH = 1,
-  LIST_HANDLE_SUBSCRIBE,
-  LIST_HANDLE_KNOWN,
-};
-static const char *list_handle_strings[] = 
-{
-    "publish",    /* LIST_HANDLE_PUBLISH */
-    "subscribe",  /* LIST_HANDLE_SUBSCRIBE */
-    "known",      /* LIST_HANDLE_KNOWN */
-    NULL
-};
+  TpHandle handle = 0;
+  gchar *url_str;
+
+  g_return_val_if_fail (sip != NULL, 0);
+
+  if (sip->sip_from)
+    {
+      url_str = url_as_string (home, sip->sip_from->a_url);
+
+      handle = tp_handle_ensure (contact_repo, url_str, NULL, NULL);
+
+      su_free (home, url_str);
+
+      /* TODO: set qdata for the display name */
+    }
+
+  return handle;
+}
 
 static gchar *normalize_sipuri (TpHandleRepoIface *repo, const gchar *sipuri,
     gpointer context, GError **error);
@@ -152,10 +160,6 @@ tpsip_create_handle_repos (TpBaseConnection *conn,
           "normalize-function", normalize_sipuri,
           "default-normalize-context", conn,
           NULL);
-  repos[TP_HANDLE_TYPE_LIST] =
-      (TpHandleRepoIface *)g_object_new (TP_TYPE_STATIC_HANDLE_REPO,
-          "handle-type", TP_HANDLE_TYPE_LIST,
-          "handle-names", list_handle_strings, NULL);
 }
 
 static GPtrArray *
