@@ -986,7 +986,6 @@ tpsip_connection_shut_down (TpBaseConnection *base)
 
   DEBUG ("enter");
 
-  g_assert (TPSIP_IS_CONNECTION (self));
   priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   /* We disposed of the REGISTER handle in the disconnected method */
@@ -1191,7 +1190,6 @@ tpsip_connection_disconnected (TpBaseConnection *base)
   TpsipConnection *obj = TPSIP_CONNECTION (base);
   TpsipConnectionPrivate *priv;
 
-  g_assert (TPSIP_IS_CONNECTION (obj));
   priv = TPSIP_CONNECTION_GET_PRIVATE (obj);
 
   DEBUG("enter");
