@@ -1013,7 +1013,7 @@ tpsip_connection_dispose (GObject *object)
 
   /* release any references held by the object here */
 
-  DEBUG ("Disposing of TpsipConnection %p", self);
+  DEBUG("disposing of TpsipConnection %p", self);
 
   /* these are borrowed refs, the real ones are owned by the superclass */
   priv->media_factory = NULL;
@@ -1215,13 +1215,11 @@ static void
 tpsip_connection_get_interfaces (TpSvcConnection *iface,
                                  DBusGMethodInvocation *context)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (iface);
-  TpBaseConnection *base = (TpBaseConnection *)self;
-  const char *interfaces[] = {
+  static const char *interfaces[] = {
       TP_IFACE_PROPERTIES_INTERFACE,
       NULL };
 
-  DEBUG ("called");
+  g_assert (TPSIP_IS_CONNECTION (iface));
 
   ERROR_IF_NOT_CONNECTED_ASYNC (base, context)
   tp_svc_connection_return_from_get_interfaces (context, interfaces);
