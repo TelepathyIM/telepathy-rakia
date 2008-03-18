@@ -1095,13 +1095,26 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       break;
 
     case nua_callstate_terminated:
-      tpsip_media_session_change_state (priv->session,
-                                        TPSIP_MEDIA_SESSION_STATE_ENDED);
+      /* handled by the nua_i_terminated handler */
       break;
+
     default:
       break;
   }
 
+  return TRUE;
+}
+
+static gboolean
+priv_nua_i_terminated_cb (TpsipMediaChannel   *self,
+                          const TpsipNuaEvent *ev,
+                          tagi_t               tags[],
+                          gpointer             foo)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  g_return_val_if_fail (priv->session != NULL, FALSE);
+  tpsip_media_session_change_state (priv->session,
+                                    TPSIP_MEDIA_SESSION_STATE_ENDED);
   return TRUE;
 }
 
@@ -1217,6 +1230,10 @@ priv_connect_nua_handlers (TpsipMediaChannel *self, nua_handle_t *nh)
   g_signal_connect (self,
                     "nua-event::nua_i_state",
                     G_CALLBACK (priv_nua_i_state_cb),
+                    NULL);
+  g_signal_connect (self,
+                    "nua-event::nua_i_terminated",
+                    G_CALLBACK (priv_nua_i_terminated_cb),
                     NULL);
 
 }
