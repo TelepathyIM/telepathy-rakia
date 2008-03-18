@@ -27,16 +27,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DBUS_API_SUBJECT_TO_CHANGE 1
-#include <dbus/dbus-glib-lowlevel.h>
-
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/handle-repo-dynamic.h>
 #include <telepathy-glib/handle-repo-static.h>
 #include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/intset.h>
 #include <telepathy-glib/svc-connection.h>
 
 #include <tpsip/event-target.h>
@@ -1238,106 +1234,6 @@ normalize_sipuri (TpHandleRepoIface *repo,
     return tpsip_conn_normalize_uri (conn, sipuri, error);
 }
 
-
-/**
- * tpsip_connection_request_handles
- *
- * Implements DBus method RequestHandles
- * on interface org.freedesktop.Telepathy.Connection
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-static void
-tpsip_connection_request_handles (TpSvcConnection *iface,
-                                guint handle_type,
-                                const gchar **names,
-                                DBusGMethodInvocation *context)
-{
-  TpsipConnection *obj = TPSIP_CONNECTION (iface);
-  TpBaseConnection *base = (TpBaseConnection *)obj;
-  gint count = 0;
-  gint i;
-  const gchar **h;
-  GArray *handles;
-  GError *error = NULL;
-  const gchar *client_name;
-  TpHandleRepoIface *repo = tp_base_connection_get_handles (base, handle_type);
-
-  DEBUG("enter");
-
-  ERROR_IF_NOT_CONNECTED_ASYNC (base, context)
-
-  if (!tp_handle_type_is_valid (handle_type, &error))
-    {
-      dbus_g_method_return_error (context, error);
-      g_error_free (error);
-      return;
-    }
- 
-  if (repo == NULL)
-    {
-      tp_g_set_error_unsupported_handle_type (handle_type, &error);
-      dbus_g_method_return_error (context, error);
-      g_error_free (error);
-      return;
-    }
-
-  for (h = names; *h != NULL; h++)
-    ++count;
-
-  handles = g_array_sized_new(FALSE, FALSE, sizeof(guint), count);
-
-  client_name = dbus_g_method_get_sender (context);
-
-  for (i = 0; i < count; i++) {
-    TpHandle handle;
-
-    handle = tp_handle_ensure (repo, names[i], NULL, &error);
-
-    if (handle == 0)
-      {
-        DEBUG("requested handle %s was invalid", names[i]);
-        goto ERROR_IN_LOOP;
-      }
-
-    DEBUG("verify handle '%s' => %u (%s)", names[i],
-        handle, tp_handle_inspect (repo, handle));
-
-    if (!tp_handle_client_hold (repo, client_name, handle, &error))
-      {
-        /* oops */
-        tp_handle_unref (repo, handle);
-        goto ERROR_IN_LOOP;
-      }
-
-    /* now the client owns the handle, so we can drop our reference */
-    tp_handle_unref (repo, handle);
-
-    g_array_append_val(handles, handle);
-    continue;
-
-ERROR_IN_LOOP:
-    for (; i >= 0; --i)
-      {
-        tp_handle_client_release (repo, client_name,
-            (TpHandle) g_array_index (handles, guint, i),
-            NULL);
-      }
-
-    dbus_g_method_return_error (context, error);
-    g_error_free (error);
-    g_array_free (handles, TRUE);
-    return;
-  }
-
-  tp_svc_connection_return_from_request_handles (context, handles);
-  g_array_free (handles, TRUE);
-}
-
 static void
 conn_iface_init(gpointer g_iface, gpointer iface_data)
 {
@@ -1346,7 +1242,6 @@ conn_iface_init(gpointer g_iface, gpointer iface_data)
 #define IMPLEMENT(x) tp_svc_connection_implement_##x (klass,\
     tpsip_connection_##x)
   IMPLEMENT(get_interfaces);
-  IMPLEMENT(request_handles);
 #undef IMPLEMENT
 }
 
