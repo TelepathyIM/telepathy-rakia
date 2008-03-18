@@ -1205,26 +1205,6 @@ tpsip_connection_disconnected (TpBaseConnection *base)
     }
 }
 
-/**
- * tpsip_connection_get_interfaces
- *
- * Implements DBus method GetInterfaces
- * on interface org.freedesktop.Telepathy.Connection
- */
-static void
-tpsip_connection_get_interfaces (TpSvcConnection *iface,
-                                 DBusGMethodInvocation *context)
-{
-  static const char *interfaces[] = {
-      TP_IFACE_PROPERTIES_INTERFACE,
-      NULL };
-
-  g_assert (TPSIP_IS_CONNECTION (iface));
-
-  ERROR_IF_NOT_CONNECTED_ASYNC ((TpBaseConnection *) iface, context)
-  tp_svc_connection_return_from_get_interfaces (context, interfaces);
-}
-
 static gchar *
 normalize_sipuri (TpHandleRepoIface *repo,
                   const gchar *sipuri,
@@ -1239,12 +1219,6 @@ normalize_sipuri (TpHandleRepoIface *repo,
 static void
 conn_iface_init(gpointer g_iface, gpointer iface_data)
 {
-  TpSvcConnectionClass *klass = (TpSvcConnectionClass *)g_iface;
-
-#define IMPLEMENT(x) tp_svc_connection_implement_##x (klass,\
-    tpsip_connection_##x)
-  IMPLEMENT(get_interfaces);
-#undef IMPLEMENT
 }
 
 static void
