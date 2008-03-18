@@ -115,6 +115,7 @@ fi
 
 AC_CONFIG_FILES([
   Makefile
+  tpsip/Makefile
   tpsip-extensions/Makefile
   src/Makefile
   m4/Makefile
