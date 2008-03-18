@@ -629,7 +629,7 @@ tpsip_text_channel_send(TpSvcChannelTypeText *iface,
   if (priv->handle == 0)
     {
       GError invalid =  { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-          "invalid recipient" };
+          "Invalid recipient" };
 
       g_warning ("invalid recipient handle %d", priv->handle);
       dbus_g_method_return_error (context, &invalid);
