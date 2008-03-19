@@ -43,8 +43,10 @@ void tpsip_debug_set_flags_from_env ()
   const gchar *flags_string;
 
   flags_string = g_getenv ("TPSIP_DEBUG");
+  if (flags_string == NULL)
+    flags_string = g_getenv ("SOFIASIP_DEBUG");
 
-  if (flags_string)
+  if (flags_string != NULL)
     {
       tp_debug_set_flags (flags_string);
 

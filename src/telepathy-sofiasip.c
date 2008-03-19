@@ -141,7 +141,7 @@ main (int argc, char** argv)
 #ifdef ENABLE_DEBUG
   tpsip_debug_set_flags_from_env ();
 
-  if (g_getenv ("TPSIP_PERSIST"))
+  if (g_getenv ("TPSIP_PERSIST") || g_getenv ("SOFIASIP_PERSIST"))
     {
       tp_debug_set_persistent (TRUE);
     }
