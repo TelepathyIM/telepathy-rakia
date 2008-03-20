@@ -36,7 +36,8 @@ def go(register_cb, params=None):
     default_params = {
         'account': 'testacc@127.0.0.1',
         'password': 'testpwd',
-        'port': dbus.UInt32(9090),
+        'proxy-host': '127.0.0.1',
+        'port': dbus.UInt16(9090),
     }
 
     if params is not None:
