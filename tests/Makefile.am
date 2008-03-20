@@ -6,7 +6,7 @@ TWISTED_TESTS = \
     test-message.py
 
 _check-twisted:
-	$(MAKE) check TESTS="$(TWISTED_TESTS)" TESTS_ENVIRONMENT=python
+	$(MAKE) check TESTS="$(TWISTED_TESTS)" TESTS_ENVIRONMENT=$(PYTHON)
 
 check-twisted:
 	chmod u+x *.sh
