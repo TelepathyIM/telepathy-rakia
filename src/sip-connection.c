@@ -769,6 +769,7 @@ tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
     case 401:
     case 403:
     case 407:
+    case 904:   /* XXX: used by the stack to report auth loops */
       DEBUG("REGISTER failed, possibly wrong credentials, disconnecting");
       conn_status = TP_CONNECTION_STATUS_DISCONNECTED;
       reason = TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED;
