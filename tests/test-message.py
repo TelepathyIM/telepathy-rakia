@@ -78,22 +78,24 @@ def expect_msg_recv(event, data):
     if event.args[5] != 'Hi':
         return False
 
-    send_message(data, 'ŠĐČĆŽ'.decode('utf-8').encode('windows-1250'), 'windows-1250')
+    send_message(data, u'straight ASCII'.encode('us-ascii'), 'us-ascii')
     return True
 
-# Test conversion from different encodings
+# Test conversion from an 8-bit encoding.
+# Due to limited set of encodings available in some environments,
+# try with US ASCII and ISO 8859-1.
 
 @match('dbus-signal', signal='Received')
-def expect_msg_recv_cp1250(event, data):
-    if event.args[5] != 'ŠĐČĆŽ'.decode('utf-8'):
+def expect_msg_recv_us_ascii(event, data):
+    if event.args[5] != u'straight ASCII':
         return False
 
-    send_message(data, 'こんにちは'.decode('utf-8').encode('EUC-JP'), 'EUC-JP')
+    send_message(data, u'Hyv\xe4!'.encode('iso-8859-1'), 'iso-8859-1')
     return True
 
 @match('dbus-signal', signal='Received')
-def expect_msg_recv_euc_jp(event, data):
-    if event.args[5] != 'こんにちは'.decode('utf-8'):
+def expect_msg_recv_iso8859_1(event, data):
+    if event.args[5] != u'Hyv\xe4!':
         return False
 
     data['conn_iface'].Disconnect()
