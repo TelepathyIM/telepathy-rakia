@@ -99,9 +99,9 @@ void tpsip_media_session_reject (TpsipMediaSession *self,
                                gint status,
                                const char *message);
 
-TpsipChannelHoldState tpsip_media_session_get_hold_state (TpsipMediaSession *session);
+TpsipLocalHoldState tpsip_media_session_get_hold_state (TpsipMediaSession *session);
 void tpsip_media_session_request_hold (TpsipMediaSession *session,
-                                     gboolean hold);
+                                       gboolean hold);
 
 gboolean tpsip_media_session_start_telephony_event (TpsipMediaSession *self,
                                                   guint stream_id,

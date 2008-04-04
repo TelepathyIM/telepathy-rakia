@@ -75,6 +75,12 @@ void tpsip_media_channel_receive_invite   (TpsipMediaChannel *self,
                                            nua_handle_t *nh,
                                            TpHandle handle);
 
+guint
+tpsip_media_channel_change_call_state (TpsipMediaChannel *self,
+                                       TpHandle peer,
+                                       guint flags_add,
+                                       guint flags_remove);
+
 G_END_DECLS
 
 #endif /* #ifndef __TPSIP_MEDIA_CHANNEL_H__*/

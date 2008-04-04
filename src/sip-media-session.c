@@ -117,8 +117,8 @@ struct _TpsipMediaSessionPrivate
   nua_handle_t *nua_op;                 /** see gobj. prop. 'nua-handle' */
   TpHandle peer;                        /** see gobj. prop. 'peer' */
   gchar *local_ip_address;              /** see gobj. prop. 'local-ip-address' */
-  TpsipMediaSessionState state;           /** session state */
-  TpsipChannelHoldState hold_state;       /** hold state aggregated from stream directions */
+  TpsipMediaSessionState state;         /** session state */
+  TpsipLocalHoldState hold_state;       /** local hold state aggregated from stream directions */
   nua_saved_event_t saved_event[1];     /** Saved incoming request event */
   gint local_non_ready;                 /** number of streams with local information update pending */
   guint remote_stream_count;            /** number of streams last seen in a remote offer */
@@ -170,7 +170,7 @@ static void tpsip_media_session_init (TpsipMediaSession *obj)
 
   priv->state = TPSIP_MEDIA_SESSION_STATE_CREATED;
 
-  priv->hold_state = TPSIP_CHANNEL_HOLD_STATE_NONE;
+  priv->hold_state = TPSIP_LOCAL_HOLD_STATE_UNHELD;
 
   /* allocate any data required by the object here */
   priv->streams = g_ptr_array_new ();
@@ -1104,11 +1104,19 @@ tpsip_media_session_get_stream (TpsipMediaSession *self,
   return stream;
 }
 
-TpsipChannelHoldState
+TpsipLocalHoldState
 tpsip_media_session_get_hold_state (TpsipMediaSession *self)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   return priv->hold_state;
+}
+
+static gboolean
+tpsip_media_session_is_local_hold_ongoing (TpsipMediaSession *self)
+{
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  return (priv->hold_state == TPSIP_LOCAL_HOLD_STATE_HELD
+          || priv->hold_state == TPSIP_LOCAL_HOLD_STATE_PENDING_HOLD);
 }
 
 void
@@ -1278,16 +1286,15 @@ priv_local_media_changed (TpsipMediaSession *session)
 }
 
 static void
-priv_update_hold_state (TpsipMediaSession *session)
+priv_update_remote_hold (TpsipMediaSession *session)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   TpsipMediaStream *stream;
   gboolean has_streams = FALSE;
-  guint hold_state = TPSIP_CHANNEL_HOLD_STATE_BOTH;
+  gboolean remote_held = TRUE;
   guint i;
 
-  /* Starting with bidirectional hold, bid down accordingly to availability
-   * of streams unheld localy or remotely */
+  /* The call is remotely unheld if there's at least one sending stream */
   for (i = 0; i < priv->streams->len; i++)
     {
       stream = g_ptr_array_index(priv->streams, i);
@@ -1299,21 +1306,25 @@ priv_update_hold_state (TpsipMediaSession *session)
                         NULL);
 
           if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0)
-            hold_state &= ~TPSIP_CHANNEL_HOLD_STATE_REMOTE;
-          if ((direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE) != 0)
-            hold_state &= ~TPSIP_CHANNEL_HOLD_STATE_LOCAL;
+            remote_held = FALSE;
 
           has_streams = TRUE;
         }
     }
 
-  if (has_streams && priv->hold_state != hold_state)
-    {
-      DEBUG("changing hold state to %u", hold_state);
-      priv->hold_state = hold_state;
-      tpsip_svc_channel_interface_hold_emit_hold_state_changed (priv->channel,
-                                                              priv->hold_state);
-    }
+  if (!has_streams)
+    return;
+
+  if (remote_held)
+    tpsip_media_channel_change_call_state (priv->channel,
+                                           priv->peer,
+                                           TP_CHANNEL_CALL_STATE_HELD,
+                                           0);
+  else
+    tpsip_media_channel_change_call_state (priv->channel,
+                                           priv->peer,
+                                           0,
+                                           TP_CHANNEL_CALL_STATE_HELD);
 }
 
 static gboolean
@@ -1334,9 +1345,9 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
    */
   if (authoritative)
     direction_up_mask
-        = ((priv->hold_state & TPSIP_CHANNEL_HOLD_STATE_LOCAL) == 0)
-                ? TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL
-                : TP_MEDIA_STREAM_DIRECTION_SEND;
+        = tpsip_media_session_is_local_hold_ongoing (session)
+                ? TP_MEDIA_STREAM_DIRECTION_SEND
+                : TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
   else
     direction_up_mask = 0;
 
@@ -1422,7 +1433,7 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
     }
 
   if (has_supported_media)
-    priv_update_hold_state (session);
+    priv_update_remote_hold (session);
 
   DEBUG("exit");
 
@@ -1793,9 +1804,9 @@ priv_create_media_stream (TpsipMediaSession *self,
                                    priv->object_path,
                                    stream_id);
 
-    direction = ((priv->hold_state & TPSIP_CHANNEL_HOLD_STATE_LOCAL) == 0)
-                ? TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL
-                : TP_MEDIA_STREAM_DIRECTION_SEND;
+    direction = tpsip_media_session_is_local_hold_ongoing (self)
+                ? TP_MEDIA_STREAM_DIRECTION_SEND
+                : TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
 
     stream = g_object_new (TPSIP_TYPE_MEDIA_STREAM,
 			   "media-session", self,

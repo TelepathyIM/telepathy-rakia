@@ -36,7 +36,7 @@
 
 #include <tpsip/event-target.h>
 
-/* Hold and CallState interfaces */
+/* Hold interface */
 #include <tpsip-extensions/extensions.h>
 
 #include "sip-media-channel.h"
@@ -68,7 +68,7 @@ G_DEFINE_TYPE_WITH_CODE (TpsipMediaChannel, tpsip_media_channel,
       media_signalling_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DTMF,
       dtmf_iface_init);
-    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_SVC_CHANNEL_INTERFACE_CALL_STATE,
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_CALL_STATE,
       call_state_iface_init);
     G_IMPLEMENT_INTERFACE (TPSIP_TYPE_SVC_CHANNEL_INTERFACE_HOLD,
       hold_iface_init);
@@ -535,7 +535,7 @@ tpsip_media_channel_get_interfaces (TpSvcChannel *iface,
     TP_IFACE_CHANNEL_INTERFACE_GROUP,
     TP_IFACE_CHANNEL_INTERFACE_MEDIA_SIGNALLING,
     TP_IFACE_CHANNEL_INTERFACE_DTMF,
-    TPSIP_IFACE_CHANNEL_INTERFACE_CALL_STATE,
+    TP_IFACE_CHANNEL_INTERFACE_CALL_STATE,
     TPSIP_IFACE_CHANNEL_INTERFACE_HOLD,
     TP_IFACE_PROPERTIES_INTERFACE,
     NULL
@@ -908,34 +908,37 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
   tp_intset_destroy (set);
 }
 
-static void
-priv_set_call_state (TpsipMediaChannel *self,
-                     TpHandle peer,
-                     guint flags)
+guint
+tpsip_media_channel_change_call_state (TpsipMediaChannel *self,
+                                       TpHandle peer,
+                                       guint flags_add,
+                                       guint flags_remove)
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  gpointer key = GUINT_TO_POINTER (peer);
+  guint old_state;
+  guint new_state;
 
-  DEBUG ("setting call state %u for peer %u", flags, peer);
-  g_hash_table_replace (priv->call_states,
-                        GUINT_TO_POINTER (peer),
-                        GUINT_TO_POINTER (flags));
-  tpsip_svc_channel_interface_call_state_emit_call_state_changed (self,
-                                                                  peer,
-                                                                  flags);
-}
+  /* XXX: check if the peer is a member? */
 
-static void
-priv_clear_call_state (TpsipMediaChannel *self,
-                       TpHandle peer)
-{
-  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  old_state = GPOINTER_TO_UINT (g_hash_table_lookup (priv->call_states, key));
+  new_state = (old_state | flags_add) & ~flags_remove;
 
-  DEBUG ("clearing call state for peer %u", peer);
-  if (g_hash_table_remove (priv->call_states,
-                           GUINT_TO_POINTER (peer)))
-    tpsip_svc_channel_interface_call_state_emit_call_state_changed (self,
-                                                                    peer,
-                                                                    0);
+  if (new_state != old_state)
+    {
+      DEBUG ("setting call state %u for peer %u", new_state, peer);
+      if (new_state == 0)
+        g_hash_table_remove (priv->call_states, key);
+      else
+        g_hash_table_replace (priv->call_states, key,
+                              GUINT_TO_POINTER (new_state));
+
+      tp_svc_channel_interface_call_state_emit_call_state_changed (self,
+                                                                   peer,
+                                                                   new_state);
+    }
+
+  return new_state;
 }
 
 static gboolean
@@ -962,19 +965,23 @@ priv_nua_r_invite_cb (TpsipMediaChannel *self,
 
   if (status >= 200)
     {
-      /* The final response, clear the Ringing call state flag if set */
-      priv_clear_call_state (self, peer);
+      /* The final response, clear the Ringing and Queued call state flags */
+      tpsip_media_channel_change_call_state (self, peer, 0,
+                TP_CHANNEL_CALL_STATE_RINGING |
+                TP_CHANNEL_CALL_STATE_QUEUED);
 
       if (status >= 300)
         tpsip_media_channel_peer_error (self, peer, status, message);
     }
   else if (status == 180)
     {
-      priv_set_call_state (self, peer, TPSIP_CHANNEL_CALL_STATE_RINGING);
+      tpsip_media_channel_change_call_state (self, peer,
+                TP_CHANNEL_CALL_STATE_RINGING, 0);
     }
   else if (status == 182)
     {
-      priv_set_call_state (self, peer, TPSIP_CHANNEL_CALL_STATE_QUEUED);
+      tpsip_media_channel_change_call_state (self, peer,
+                TP_CHANNEL_CALL_STATE_QUEUED, 0);
     }
 
   return TRUE;
@@ -1502,20 +1509,20 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
 }
 
 static void
-tpsip_media_channel_get_call_states (TpsipSvcChannelInterfaceCallState *iface,
-                                   DBusGMethodInvocation *context)
+tpsip_media_channel_get_call_states (TpSvcChannelInterfaceCallState *iface,
+                                     DBusGMethodInvocation *context)
 {
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  tpsip_svc_channel_interface_call_state_return_from_get_call_states (
+  tp_svc_channel_interface_call_state_return_from_get_call_states (
         context,
         priv->call_states);
 }
 
 static void
 tpsip_media_channel_get_hold_state (TpsipSvcChannelInterfaceHold *iface,
-                                  DBusGMethodInvocation *context)
+                                    DBusGMethodInvocation *context)
 {
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
@@ -1523,7 +1530,8 @@ tpsip_media_channel_get_hold_state (TpsipSvcChannelInterfaceHold *iface,
   tpsip_svc_channel_interface_hold_return_from_get_hold_state (context,
         (priv->session != NULL)
                 ? tpsip_media_session_get_hold_state (priv->session)
-                : TPSIP_CHANNEL_HOLD_STATE_NONE);
+                : TPSIP_LOCAL_HOLD_STATE_UNHELD,
+        TPSIP_LOCAL_HOLD_STATE_REASON_NONE);
 }
 
 static void
@@ -1692,8 +1700,8 @@ static void
 call_state_iface_init (gpointer g_iface,
                        gpointer iface_data)
 {
-  TpsipSvcChannelInterfaceCallStateClass *klass = g_iface;
-#define IMPLEMENT(x) tpsip_svc_channel_interface_call_state_implement_##x (\
+  TpSvcChannelInterfaceCallStateClass *klass = g_iface;
+#define IMPLEMENT(x) tp_svc_channel_interface_call_state_implement_##x (\
     klass, tpsip_media_channel_##x)
   IMPLEMENT (get_call_states);
 #undef IMPLEMENT
