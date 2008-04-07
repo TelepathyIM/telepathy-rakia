@@ -1121,7 +1121,7 @@ tpsip_media_session_is_local_hold_ongoing (TpsipMediaSession *self)
 
 void
 tpsip_media_session_request_hold (TpsipMediaSession *self,
-                                gboolean hold)
+                                  gboolean hold)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   TpsipMediaStream *stream;
@@ -1140,6 +1140,7 @@ tpsip_media_session_request_hold (TpsipMediaSession *self,
       if (stream != NULL)
         {
           guint direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+
           g_object_get (stream,
                         "direction", &direction,
                         NULL);
@@ -1147,6 +1148,8 @@ tpsip_media_session_request_hold (TpsipMediaSession *self,
           direction |= unhold_mask;
           if (tpsip_media_stream_set_direction (stream, direction, FALSE))
             media_changed = TRUE;
+
+          tp_svc_media_stream_handler_emit_set_stream_held (stream, hold);
         }
     }
 

@@ -65,6 +65,7 @@ enum
     SIG_SUPPORTED_CODECS,
     SIG_STATE_CHANGED,
     SIG_DIRECTION_CHANGED,
+    SIG_UNHOLD_FAILURE,
 
     SIG_LAST_SIGNAL
 };
@@ -81,6 +82,7 @@ enum
   PROP_STATE,
   PROP_DIRECTION,
   PROP_PENDING_SEND_FLAGS,
+  PROP_HOLD_STATE,
   LAST_PROPERTY
 };
 
@@ -96,6 +98,7 @@ struct _TpsipMediaStreamPrivate
   guint state;                    /** see gobj. prop. 'state' */
   guint direction;                /** see gobj. prop. 'direction' */
   guint pending_send_flags;       /** see gobj. prop. 'pending-send-flags' */
+  gboolean hold_state;            /** see gobj. prop. 'hold-state' */
 
   gchar *stream_sdp;              /** SDP description of the stream */
 
@@ -227,6 +230,9 @@ tpsip_media_stream_get_property (GObject    *object,
     case PROP_PENDING_SEND_FLAGS:
       g_value_set_uint (value, priv->pending_send_flags);
       break;
+    case PROP_HOLD_STATE:
+      g_value_set_boolean (value, priv->hold_state);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
@@ -264,6 +270,9 @@ tpsip_media_stream_set_property (GObject      *object,
       break;
     case PROP_PENDING_SEND_FLAGS:
       priv->pending_send_flags = g_value_get_uint (value);
+      break;
+    case PROP_HOLD_STATE:
+      priv->hold_state = g_value_get_boolean (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -374,6 +383,18 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
                                    PROP_PENDING_SEND_FLAGS,
                                    param_spec);
 
+  param_spec = g_param_spec_boolean ("hold-state", "Hold state",
+                                     "Hold state of the media stream "
+                                        "as reported by the stream engine",
+                                     FALSE,
+                                     G_PARAM_CONSTRUCT |
+                                     G_PARAM_READWRITE |
+                                     G_PARAM_STATIC_NAME |
+                                     G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class,
+                                   PROP_HOLD_STATE,
+                                   param_spec);
+
   /* signals not exported by DBus interface */
   signals[SIG_READY] =
     g_signal_new ("ready",
@@ -410,6 +431,15 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
                   NULL, NULL,
                   _tpsip_marshal_VOID__UINT_UINT,
                   G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
+
+  signals[SIG_UNHOLD_FAILURE] =
+    g_signal_new ("unhold-failure",
+                  stream_type,
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+                  0,
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
 }
 
 void
@@ -792,6 +822,23 @@ tpsip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
     g_warning("SupportedCodecs called when no intersection is ongoing");
 
   tp_svc_media_stream_handler_return_from_supported_codecs (context);
+}
+
+static void
+tpsip_media_stream_hold_state (TpSvcMediaStreamHandler *self,
+                               gboolean held,
+                               DBusGMethodInvocation *context)
+{
+  g_object_set (self, "hold-state", held, NULL);
+  tp_svc_media_stream_handler_return_from_hold_state (context);
+}
+
+static void
+tpsip_media_stream_unhold_failure (TpSvcMediaStreamHandler *self,
+                                   DBusGMethodInvocation *context)
+{
+  g_signal_emit (self, signals[SIG_UNHOLD_FAILURE], 0);
+  tp_svc_media_stream_handler_return_from_unhold_failure (context);
 }
 
 /***********************************************************************
@@ -1628,5 +1675,7 @@ stream_handler_iface_init (gpointer g_iface, gpointer iface_data)
   /* IMPLEMENT(set_local_codecs); */
   IMPLEMENT(stream_state);
   IMPLEMENT(supported_codecs);
+  IMPLEMENT(hold_state);
+  IMPLEMENT(unhold_failure);
 #undef IMPLEMENT
 }
