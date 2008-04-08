@@ -1211,8 +1211,9 @@ priv_finalize_hold (TpsipMediaSession *self)
       unhold_mask = TP_MEDIA_STREAM_DIRECTION_RECEIVE;
       break;
     default:
-      /* This function should not be called in final hold states */
-      g_return_if_reached ();
+      /* This internal function must not be called in final hold states */
+      g_assert_not_reached ();
+      return;
     }
 
   priv->hold_state = final_hold_state;
@@ -1882,13 +1883,12 @@ priv_stream_direction_changed_cb (TpsipMediaStream *stream,
 }
 
 static void
-priv_stream_hold_state_cb (gpointer unused,
+priv_stream_hold_state_cb (TpsipMediaStream *stream,
                            GParamSpec *pspec,
                            TpsipMediaSession *session)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   gboolean hold;
-  TpsipMediaStream *stream;
   guint i;
 
   /* Determine the hold state all streams shall come to */
@@ -1901,9 +1901,11 @@ priv_stream_hold_state_cb (gpointer unused,
       hold = FALSE;
       break;
     default:
-      /* The stream engine should not change hold states if no hold/unhold is
-       * pending */
-      g_return_if_reached ();
+      g_message ("unexpected hold state change from a stream");
+
+      /* Try to follow the changes and report the resulting hold state */
+      g_object_get (stream, "hold-state", &hold, NULL);
+      priv->hold_reason = TPSIP_LOCAL_HOLD_STATE_REASON_NONE;
     }
 
   /* Check if all streams have reached the desired hold state */
