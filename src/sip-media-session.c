@@ -36,6 +36,9 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-media-interfaces.h>
 
+/* Hold interface */
+#include <tpsip-extensions/extensions.h>
+
 #include "config.h"
 
 #include "sip-media-session.h"
@@ -119,6 +122,7 @@ struct _TpsipMediaSessionPrivate
   gchar *local_ip_address;              /** see gobj. prop. 'local-ip-address' */
   TpsipMediaSessionState state;         /** session state */
   TpsipLocalHoldState hold_state;       /** local hold state aggregated from stream directions */
+  TpsipLocalHoldStateReason hold_reason;  /** last used hold state change reason */
   nua_saved_event_t saved_event[1];     /** Saved incoming request event */
   gint local_non_ready;                 /** number of streams with local information update pending */
   guint remote_stream_count;            /** number of streams last seen in a remote offer */
@@ -171,6 +175,7 @@ static void tpsip_media_session_init (TpsipMediaSession *obj)
   priv->state = TPSIP_MEDIA_SESSION_STATE_CREATED;
 
   priv->hold_state = TPSIP_LOCAL_HOLD_STATE_UNHELD;
+  priv->hold_reason = TPSIP_LOCAL_HOLD_STATE_REASON_NONE;
 
   /* allocate any data required by the object here */
   priv->streams = g_ptr_array_new ();
@@ -1119,28 +1124,109 @@ tpsip_media_session_is_local_hold_ongoing (TpsipMediaSession *self)
           || priv->hold_state == TPSIP_LOCAL_HOLD_STATE_PENDING_HOLD);
 }
 
-void
-tpsip_media_session_request_hold (TpsipMediaSession *self,
-                                  gboolean hold)
+static void
+priv_initiate_hold (TpsipMediaSession *self,
+                    gboolean hold,
+                    TpsipLocalHoldStateReason reason)
+{
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  gboolean stream_hold_requested = FALSE;
+  TpsipMediaStream *stream;
+  guint i;
+
+  if (hold)
+    {
+      if (priv->hold_state == TPSIP_LOCAL_HOLD_STATE_HELD)
+        {
+          g_message ("redundant hold request");
+          return;
+        }
+    }
+  else
+    {
+      if (priv->hold_state == TPSIP_LOCAL_HOLD_STATE_UNHELD)
+        {
+          g_message ("redundant unhold request");
+          return;
+        }
+    }
+
+  /* Emit the hold notification for every stream that needs it */
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      stream = g_ptr_array_index(priv->streams, i);
+      if (stream != NULL)
+        {
+          gboolean stream_held = FALSE;
+          g_object_get (stream,
+                        "hold-state", &stream_held,
+                        NULL);
+          if ((!stream_held) != (!hold))
+            {
+              tp_svc_media_stream_handler_emit_set_stream_held (stream, hold);
+              stream_hold_requested = TRUE;
+            }
+        }
+    }
+
+  if (stream_hold_requested)
+    {
+      priv->hold_state = hold? TPSIP_LOCAL_HOLD_STATE_PENDING_HOLD
+                             : TPSIP_LOCAL_HOLD_STATE_PENDING_UNHOLD;
+    }
+  else
+    {
+      /* There were no streams to flip, short cut to the final state */
+      priv->hold_state = hold? TPSIP_LOCAL_HOLD_STATE_HELD
+                             : TPSIP_LOCAL_HOLD_STATE_UNHELD;
+    }
+  priv->hold_reason = reason;
+
+  tpsip_svc_channel_interface_hold_emit_hold_state_changed (self,
+                                                            priv->hold_state,
+                                                            reason);
+}
+
+static void
+priv_finalize_hold (TpsipMediaSession *self)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   TpsipMediaStream *stream;
   gboolean media_changed = FALSE;
+  TpsipLocalHoldState final_hold_state;
   guint hold_mask;
   guint unhold_mask;
   guint i;
 
-  hold_mask = hold? TP_MEDIA_STREAM_DIRECTION_SEND
-                  : TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
-  unhold_mask = hold? 0 : TP_MEDIA_STREAM_DIRECTION_RECEIVE;
+  switch (priv->hold_state)
+    {
+    case TPSIP_LOCAL_HOLD_STATE_PENDING_HOLD:
+      final_hold_state = TPSIP_LOCAL_HOLD_STATE_HELD;
+      hold_mask = TP_MEDIA_STREAM_DIRECTION_SEND;
+      unhold_mask = 0;
+      break;
+    case TPSIP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+      final_hold_state = TPSIP_LOCAL_HOLD_STATE_UNHELD;
+      hold_mask = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+      unhold_mask = TP_MEDIA_STREAM_DIRECTION_RECEIVE;
+      break;
+    default:
+      /* This function should not be called in final hold states */
+      g_return_if_reached ();
+    }
 
+  priv->hold_state = final_hold_state;
+  tpsip_svc_channel_interface_hold_emit_hold_state_changed (self,
+                                                            final_hold_state,
+                                                            priv->hold_reason);
+
+  /* Set stream directions accordingly to the achieved hold state */
   for (i = 0; i < priv->streams->len; i++)
     {
       stream = g_ptr_array_index(priv->streams, i);
       if (stream != NULL)
         {
           guint direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
-
           g_object_get (stream,
                         "direction", &direction,
                         NULL);
@@ -1148,13 +1234,21 @@ tpsip_media_session_request_hold (TpsipMediaSession *self,
           direction |= unhold_mask;
           if (tpsip_media_stream_set_direction (stream, direction, FALSE))
             media_changed = TRUE;
-
-          tp_svc_media_stream_handler_emit_set_stream_held (stream, hold);
         }
     }
 
+  /* Push the new SDP to the peer */
   if (media_changed)
     priv_local_media_changed (self);
+}
+
+void
+tpsip_media_session_request_hold (TpsipMediaSession *self,
+                                  gboolean hold)
+{
+  priv_initiate_hold (self,
+                      hold,
+                      TPSIP_LOCAL_HOLD_STATE_REASON_REQUESTED);
 }
 
 gboolean
@@ -1787,6 +1881,59 @@ priv_stream_direction_changed_cb (TpsipMediaStream *stream,
         tpsip_media_stream_get_id (stream), direction, pending_send_flags);
 }
 
+static void
+priv_stream_hold_state_cb (gpointer unused,
+                           GParamSpec *pspec,
+                           TpsipMediaSession *session)
+{
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  gboolean hold;
+  TpsipMediaStream *stream;
+  guint i;
+
+  /* Determine the hold state all streams shall come to */
+  switch (priv->hold_state)
+    {
+    case TPSIP_LOCAL_HOLD_STATE_PENDING_HOLD:
+      hold = TRUE;
+      break;
+    case TPSIP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+      hold = FALSE;
+      break;
+    default:
+      /* The stream engine should not change hold states if no hold/unhold is
+       * pending */
+      g_return_if_reached ();
+    }
+
+  /* Check if all streams have reached the desired hold state */
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      stream = g_ptr_array_index (priv->streams, i);
+      if (stream != NULL)
+        {
+          gboolean stream_held = FALSE;
+          g_object_get (stream, "hold-state", &stream_held, NULL);
+          if ((!stream_held) != (!hold))
+            {
+              DEBUG("hold/unhold not complete yet");
+              return;
+            }
+        }
+    }
+
+  priv_finalize_hold (session);
+}
+
+static void
+priv_stream_unhold_failure_cb (TpsipMediaStream *stream,
+                               TpsipMediaSession *session)
+{
+  priv_initiate_hold (session,
+                      TRUE,
+                      TPSIP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE);
+}
+
 static TpsipMediaStream*
 priv_create_media_stream (TpsipMediaSession *self,
                           guint media_type,
@@ -1837,6 +1984,12 @@ priv_create_media_stream (TpsipMediaSession *self,
     g_signal_connect (stream, "direction-changed",
                       (GCallback) priv_stream_direction_changed_cb,
                       priv->channel);
+    g_signal_connect (stream, "notify::hold-state",
+                      G_CALLBACK (priv_stream_hold_state_cb),
+                      self);
+    g_signal_connect (stream, "unhold-failure",
+                      G_CALLBACK (priv_stream_unhold_failure_cb),
+                      self);
 
     g_assert (priv->local_non_ready >= 0);
     ++priv->local_non_ready;
