@@ -1526,12 +1526,24 @@ tpsip_media_channel_get_hold_state (TpsipSvcChannelInterfaceHold *iface,
 {
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpsipLocalHoldState hold_state = TPSIP_LOCAL_HOLD_STATE_UNHELD;
+  TpsipLocalHoldStateReason hold_reason = TPSIP_LOCAL_HOLD_STATE_REASON_NONE;
+
+  if (priv->session == NULL)
+    {
+      GError e = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+                  "The media session is not available"};
+      dbus_g_method_return_error (context, &e);
+    }
+
+  g_object_get (priv->session,
+                "hold-state", &hold_state,
+                "hold-state-reason", &hold_reason,
+                NULL);
 
   tpsip_svc_channel_interface_hold_return_from_get_hold_state (context,
-        (priv->session != NULL)
-                ? tpsip_media_session_get_hold_state (priv->session)
-                : TPSIP_LOCAL_HOLD_STATE_UNHELD,
-        TPSIP_LOCAL_HOLD_STATE_REASON_NONE);
+                                                               hold_state,
+                                                               hold_reason);
 }
 
 static void

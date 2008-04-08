@@ -75,6 +75,8 @@ enum
   PROP_OBJECT_PATH,
   PROP_NUA_OP,
   PROP_PEER,
+  PROP_HOLD_STATE,
+  PROP_HOLD_STATE_REASON,
   PROP_LOCAL_IP_ADDRESS,
   LAST_PROPERTY
 };
@@ -173,7 +175,6 @@ static void tpsip_media_session_init (TpsipMediaSession *obj)
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (obj);
 
   priv->state = TPSIP_MEDIA_SESSION_STATE_CREATED;
-
   priv->hold_state = TPSIP_LOCAL_HOLD_STATE_UNHELD;
   priv->hold_reason = TPSIP_LOCAL_HOLD_STATE_REASON_NONE;
 
@@ -219,6 +220,12 @@ static void tpsip_media_session_get_property (GObject    *object,
       break;
     case PROP_PEER:
       g_value_set_uint (value, priv->peer);
+      break;
+    case PROP_HOLD_STATE:
+      g_value_set_uint (value, priv->hold_state);
+      break;
+    case PROP_HOLD_STATE_REASON:
+      g_value_set_uint (value, priv->hold_reason);
       break;
     case PROP_LOCAL_IP_ADDRESS:
       g_value_set_string (value, priv->local_ip_address);
@@ -322,6 +329,31 @@ tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
                                   G_PARAM_STATIC_NAME |
                                   G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_PEER, param_spec);
+
+  param_spec = g_param_spec_uint ("hold-state", "Local hold state",
+                                  "The current Local_Hold_State value"
+                                  " as reported by the Hold interface"
+                                  " for the channel",
+                                  TPSIP_LOCAL_HOLD_STATE_UNHELD,
+                                  TPSIP_LOCAL_HOLD_STATE_PENDING_UNHOLD,
+                                  TPSIP_LOCAL_HOLD_STATE_UNHELD,
+                                  G_PARAM_READABLE |
+                                  G_PARAM_STATIC_NAME |
+                                  G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class, PROP_HOLD_STATE, param_spec);
+
+  param_spec = g_param_spec_uint ("hold-state-reason",
+                                  "Local hold state change reason",
+                                  "The last Local_Hold_State_Reason value"
+                                  " as reported by the Hold interface"
+                                  " for the channel",
+                                  TPSIP_LOCAL_HOLD_STATE_REASON_NONE,
+                                  TPSIP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE,
+                                  TPSIP_LOCAL_HOLD_STATE_REASON_NONE,
+                                  G_PARAM_READABLE |
+                                  G_PARAM_STATIC_NAME |
+                                  G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class, PROP_HOLD_STATE_REASON, param_spec);
 
   param_spec = g_param_spec_string ("local-ip-address", "Local IP address",
                                     "The local IP address preferred for "
