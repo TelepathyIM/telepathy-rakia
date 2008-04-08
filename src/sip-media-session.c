@@ -117,27 +117,27 @@ typedef struct _TpsipMediaSessionPrivate TpsipMediaSessionPrivate;
 
 struct _TpsipMediaSessionPrivate
 {
-  TpsipMediaChannel *channel;             /** see gobj. prop. 'media-channel' */
-  gchar *object_path;                   /** see gobj. prop. 'object-path' */
-  nua_handle_t *nua_op;                 /** see gobj. prop. 'nua-handle' */
-  TpHandle peer;                        /** see gobj. prop. 'peer' */
-  gchar *local_ip_address;              /** see gobj. prop. 'local-ip-address' */
-  TpsipMediaSessionState state;         /** session state */
-  TpsipLocalHoldState hold_state;       /** local hold state aggregated from stream directions */
-  TpsipLocalHoldStateReason hold_reason;  /** last used hold state change reason */
-  nua_saved_event_t saved_event[1];     /** Saved incoming request event */
-  gint local_non_ready;                 /** number of streams with local information update pending */
-  guint remote_stream_count;            /** number of streams last seen in a remote offer */
+  TpsipMediaChannel *channel;             /* see gobj. prop. 'media-channel' */
+  gchar *object_path;                     /* see gobj. prop. 'object-path' */
+  nua_handle_t *nua_op;                   /* see gobj. prop. 'nua-handle' */
+  TpHandle peer;                          /* see gobj. prop. 'peer' */
+  gchar *local_ip_address;                /* see gobj. prop. 'local-ip-address' */
+  TpsipMediaSessionState state;           /* session state */
+  TpsipLocalHoldState hold_state;         /* local hold state aggregated from stream directions */
+  TpsipLocalHoldStateReason hold_reason;  /* last used hold state change reason */
+  nua_saved_event_t saved_event[1];       /* Saved incoming request event */
+  gint local_non_ready;                   /* number of streams with local information update pending */
+  guint remote_stream_count;              /* number of streams last seen in a remote offer */
   guint catcher_id;
   guint timer_id;
-  su_home_t *home;                      /** Sofia memory home for remote SDP session structure */
-  su_home_t *backup_home;               /** Sofia memory home for previous generation remote SDP session*/
-  sdp_session_t *remote_sdp;            /** last received remote session */
-  sdp_session_t *backup_remote_sdp;     /** previous remote session */
+  su_home_t *home;                        /* Sofia memory home for remote SDP session structure */
+  su_home_t *backup_home;                 /* Sofia memory home for previous generation remote SDP session*/
+  sdp_session_t *remote_sdp;              /* last received remote session */
+  sdp_session_t *backup_remote_sdp;       /* previous remote session */
   GPtrArray *streams;
-  gboolean accepted;                    /**< session has been locally accepted for use */
-  gboolean se_ready;                    /**< connection established with stream-engine */
-  gboolean pending_offer;               /**< local media have been changed, but a re-INVITE is pending */
+  gboolean accepted;                      /*< session has been locally accepted for use */
+  gboolean se_ready;                      /*< connection established with stream-engine */
+  gboolean pending_offer;                 /*< local media have been changed, but a re-INVITE is pending */
   gboolean dispose_has_run;
 };
 
@@ -1854,8 +1854,6 @@ static void priv_stream_supported_codecs_cb (TpsipMediaStream *stream,
 {
   TpsipMediaSessionPrivate *priv;
 
-  g_assert (TPSIP_IS_MEDIA_SESSION (session));
-
   priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
   g_assert (!tpsip_media_stream_is_codec_intersect_pending (stream));
@@ -2004,19 +2002,19 @@ priv_create_media_stream (TpsipMediaSession *self,
     g_free (object_path);
  
     g_signal_connect (stream, "close",
-                      (GCallback) priv_stream_close_cb,
+                      G_CALLBACK (priv_stream_close_cb),
                       self);
     g_signal_connect (stream, "ready",
-		      (GCallback) priv_stream_ready_cb,
+		      G_CALLBACK (priv_stream_ready_cb),
 		      self);
     g_signal_connect (stream, "supported-codecs",
-		      (GCallback) priv_stream_supported_codecs_cb,
+		      G_CALLBACK (priv_stream_supported_codecs_cb),
 		      self);
     g_signal_connect (stream, "state-changed",
-                      (GCallback) priv_stream_state_changed_cb,
+                      G_CALLBACK (priv_stream_state_changed_cb),
                       priv->channel);
     g_signal_connect (stream, "direction-changed",
-                      (GCallback) priv_stream_direction_changed_cb,
+                      G_CALLBACK (priv_stream_direction_changed_cb),
                       priv->channel);
     g_signal_connect (stream, "notify::hold-state",
                       G_CALLBACK (priv_stream_hold_state_cb),

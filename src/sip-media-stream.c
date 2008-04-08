@@ -91,22 +91,21 @@ typedef struct _TpsipMediaStreamPrivate TpsipMediaStreamPrivate;
 
 struct _TpsipMediaStreamPrivate
 {
-  TpsipMediaSession *session;       /** see gobj. prop. 'media-session' */
-  gchar *object_path;             /** see gobj. prop. 'object-path' */
-  guint id;                       /** see gobj. prop. 'id' */
-  guint media_type;               /** see gobj. prop. 'media-type' */
-  guint state;                    /** see gobj. prop. 'state' */
-  guint direction;                /** see gobj. prop. 'direction' */
-  guint pending_send_flags;       /** see gobj. prop. 'pending-send-flags' */
-  gboolean hold_state;            /** see gobj. prop. 'hold-state' */
+  TpsipMediaSession *session;     /* see gobj. prop. 'media-session' */
+  gchar *object_path;             /* see gobj. prop. 'object-path' */
+  guint id;                       /* see gobj. prop. 'id' */
+  guint media_type;               /* see gobj. prop. 'media-type' */
+  guint state;                    /* see gobj. prop. 'state' */
+  guint direction;                /* see gobj. prop. 'direction' */
+  guint pending_send_flags;       /* see gobj. prop. 'pending-send-flags' */
+  gboolean hold_state;            /* see gobj. prop. 'hold-state' */
 
-  gchar *stream_sdp;              /** SDP description of the stream */
+  gchar *stream_sdp;              /* SDP description of the stream */
 
-
-  GValue native_codecs;           /** intersected codec list */
+  GValue native_codecs;           /* intersected codec list */
   GValue native_candidates;
 
-  const sdp_media_t *remote_media; /** pointer to the SDP media structure
+  const sdp_media_t *remote_media; /* pointer to the SDP media structure
                                     *  owned by the session object */
 
   guint remote_candidate_counter;
@@ -114,14 +113,14 @@ struct _TpsipMediaStreamPrivate
 
   gchar *native_candidate_id;
 
-  gboolean ready_received;              /** our ready method has been called */
-  gboolean playing;                     /** stream set to playing */
-  gboolean sending;                     /** stream set to sending */
-  gboolean native_cands_prepared;       /** all candidates discovered */
-  gboolean native_codecs_prepared;      /** all codecs discovered */
-  gboolean push_remote_cands_pending;   /** SetRemoteCandidates emission is pending */
-  gboolean push_remote_codecs_pending;  /** SetRemoteCodecs emission is pending */
-  gboolean codec_intersect_pending;     /** codec intersection is pending */
+  gboolean ready_received;              /* our ready method has been called */
+  gboolean playing;                     /* stream set to playing */
+  gboolean sending;                     /* stream set to sending */
+  gboolean native_cands_prepared;       /* all candidates discovered */
+  gboolean native_codecs_prepared;      /* all codecs discovered */
+  gboolean push_remote_cands_pending;   /* SetRemoteCandidates emission is pending */
+  gboolean push_remote_codecs_pending;  /* SetRemoteCodecs emission is pending */
+  gboolean codec_intersect_pending;     /* codec intersection is pending */
   gboolean dispose_has_run;
 };
 
