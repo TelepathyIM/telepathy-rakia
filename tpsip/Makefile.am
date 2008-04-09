@@ -8,7 +8,8 @@
 
 noinst_LTLIBRARIES = libtpsip.la
 
-AM_CPPFLAGS = @GLIB_CFLAGS@ @TELEPATHY_GLIB_CFLAGS@ @SOFIA_SIP_UA_CFLAGS@
+AM_CPPFLAGS = @GLIB_CFLAGS@ @TELEPATHY_GLIB_CFLAGS@ @SOFIA_SIP_UA_CFLAGS@ \
+	      -I$(top_builddir) -I$(top_srcdir)
 
 tpsip_includedir = $(includedir)/telepathy-sofiasip-0.6/tpsip
 
