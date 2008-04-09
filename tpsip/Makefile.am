@@ -28,6 +28,8 @@ nodist_libtpsip_la_SOURCES = \
 	signals-marshal.h \
 	signals-marshal.c
 
+EXTRA_DIST = signals-marshal.list
+
 CLEANFILES = $(BUILT_SOURCES)
 
 signals-marshal.c: ${srcdir}/signals-marshal.list
