@@ -1461,7 +1461,7 @@ static void push_remote_candidates (TpsipMediaStream *stream)
   g_value_take_boxed (&transport,
                       dbus_g_type_specialized_construct (transport_type));
   dbus_g_type_struct_set (&transport,
-                          0, 0,         /* component number */
+                          0, 1,         /* component number */
                           1, sdp_conn->c_address,
                           2, port,
                           3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
@@ -1577,7 +1577,7 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   gchar *tr_subtype = NULL;
   gchar *tr_profile = NULL;
   guint tr_port;
-  /* guint tr_component; */
+  guint tr_component;
   guint tr_proto;
   /* guint tr_type; */
   /* gdouble tr_pref; */
@@ -1617,7 +1617,13 @@ priv_update_local_sdp(TpsipMediaStream *stream)
       g_value_set_static_boxed (&transport, g_ptr_array_index (ca_tports, 0));
 
       dbus_g_type_struct_get (&transport,
-                              /* 0, &tr_component, */
+                              0, &tr_component,
+                              G_MAXUINT);
+
+      if (tr_component != 1)
+        continue;
+
+      dbus_g_type_struct_get (&transport,
                               1, &tr_addr,
                               2, &tr_port,
                               3, &tr_proto,
