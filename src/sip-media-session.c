@@ -1214,7 +1214,7 @@ priv_initiate_hold (TpsipMediaSession *self,
     }
   priv->hold_reason = reason;
 
-  tpsip_svc_channel_interface_hold_emit_hold_state_changed (self,
+  tpsip_svc_channel_interface_hold_emit_hold_state_changed (priv->channel,
                                                             priv->hold_state,
                                                             reason);
 }
@@ -1249,7 +1249,7 @@ priv_finalize_hold (TpsipMediaSession *self)
     }
 
   priv->hold_state = final_hold_state;
-  tpsip_svc_channel_interface_hold_emit_hold_state_changed (self,
+  tpsip_svc_channel_interface_hold_emit_hold_state_changed (priv->channel,
                                                             final_hold_state,
                                                             priv->hold_reason);
 
