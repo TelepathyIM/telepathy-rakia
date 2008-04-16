@@ -65,7 +65,6 @@ typedef struct {
     guint local_port;
     gchar *extra_auth_user;
     gchar *extra_auth_password;
-    gboolean avoid_difficult;
 } TpsipConnParams;
 
 static void *
@@ -113,7 +112,6 @@ enum {
     TPSIP_CONN_PARAM_LOCAL_PORT,
     TPSIP_CONN_PARAM_EXTRA_AUTH_USER,
     TPSIP_CONN_PARAM_EXTRA_AUTH_PASSWORD,
-    TPSIP_CONN_PARAM_AVOID_DIFFICULT,
     N_TPSIP_CONN_PARAMS
 };
 
@@ -182,10 +180,6 @@ static const TpCMParamSpec tpsip_params[] = {
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_user) },
     { "extra-auth-password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_password) },
-    /* Not used */
-    { "avoid-difficult", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
-      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(FALSE),
-      G_STRUCT_OFFSET (TpsipConnParams, avoid_difficult) },
     { NULL, NULL, 0, 0, NULL, 0 }
 };
 
