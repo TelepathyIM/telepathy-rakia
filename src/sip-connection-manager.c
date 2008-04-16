@@ -175,7 +175,7 @@ static const TpCMParamSpec tpsip_params[] = {
     /* Local port for SIP, workaround purposes only */
     { "local-port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT,
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, local_port) },
-    /* Extra authentication */
+    /* Extra-realm authentication */
     { "extra-auth-user", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_user) },
     { "extra-auth-password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
