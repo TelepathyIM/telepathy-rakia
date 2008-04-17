@@ -522,8 +522,6 @@ tpsip_media_stream_error (TpSvcMediaStreamHandler *iface,
   TpsipMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
   TpsipMediaStreamPrivate *priv;
 
-  g_assert (TPSIP_IS_MEDIA_STREAM (obj));
-
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   SESSION_DEBUG(priv->session, "Media.StreamHandler::Error called -- terminating session");
@@ -551,7 +549,6 @@ tpsip_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
   TpsipMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
   TpsipMediaStreamPrivate *priv;
 
-  g_assert (TPSIP_IS_MEDIA_STREAM (obj));
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   DEBUG("enter");
@@ -623,7 +620,6 @@ tpsip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
   GValue transport = { 0, };
   gint tr_goodness;
 
-  g_assert (TPSIP_IS_MEDIA_STREAM (obj));
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
   if (priv->stream_sdp != NULL)
@@ -697,8 +693,6 @@ tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
   GValue val = { 0, };
 
   DEBUG ("enter");
-
-  g_assert (TPSIP_IS_MEDIA_STREAM (obj));
 
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
@@ -1504,7 +1498,6 @@ priv_update_local_sdp(TpsipMediaStream *stream)
    * - no IPv6 support (missing from the Farsight API?)
    */
 
-  g_assert (TPSIP_IS_MEDIA_STREAM (stream));
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   candidates = g_value_get_boxed (&priv->native_candidates);
