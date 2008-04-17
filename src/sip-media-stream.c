@@ -677,8 +677,8 @@ tpsip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
  */
 static void
 tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
-                        const GPtrArray *codecs,
-                        DBusGMethodInvocation *context)
+                          const GPtrArray *codecs,
+                          DBusGMethodInvocation *context)
 {
   /* purpose: "Inform the connection manager that a client is ready to handle
    *          this StreamHandler. Also provide it with info about all supported
@@ -695,6 +695,13 @@ tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
   DEBUG ("enter");
 
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
+
+  if (priv->ready_received)
+    {
+      g_message ("Ready called more than once");
+      tp_svc_media_stream_handler_return_from_ready (context);
+      return;
+    }
 
   priv->ready_received = TRUE;
 
