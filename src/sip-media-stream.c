@@ -513,24 +513,16 @@ tpsip_media_stream_codec_choice (TpSvcMediaStreamHandler *iface,
  */
 static void
 tpsip_media_stream_error (TpSvcMediaStreamHandler *iface,
-                        guint errno,
-                        const gchar *message,
-                        DBusGMethodInvocation *context)
+                          guint errno,
+                          const gchar *message,
+                          DBusGMethodInvocation *context)
 {
-  /* Note: Inform the connection manager that an error occured in this stream. */
+  DEBUG("StreamHandler.Error called: %u %s", errno, message);
 
-  TpsipMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
-  TpsipMediaStreamPrivate *priv;
-
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
-
-  SESSION_DEBUG(priv->session, "Media.StreamHandler::Error called -- terminating session");
-
-  tpsip_media_session_terminate (priv->session);
+  tpsip_media_stream_close (TPSIP_MEDIA_STREAM (iface));
 
   tp_svc_media_stream_handler_return_from_error (context);
 }
-
 
 /**
  * tpsip_media_stream_native_candidates_prepared
