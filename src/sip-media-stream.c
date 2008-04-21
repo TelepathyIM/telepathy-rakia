@@ -1420,6 +1420,7 @@ static void push_remote_candidates (TpsipMediaStream *stream)
   TpsipMediaStreamPrivate *priv;
   GValue candidate = { 0 };
   GValue transport = { 0 };
+  GValue transport_rtcp = { 0 };
   GPtrArray *candidates;
   GPtrArray *transports;
   GType candidate_type;
@@ -1473,11 +1474,29 @@ static void push_remote_candidates (TpsipMediaStream *stream)
                           /* 9, "", */
                           G_MAXUINT);
 
+  g_value_init (&transport_rtcp, transport_type);
+  g_value_take_boxed (&transport_rtcp,
+                      dbus_g_type_specialized_construct (transport_type));
+  dbus_g_type_struct_set (&transport_rtcp,
+                          0, 2,         /* component number */
+                          1, sdp_conn->c_address,
+                          2, port + 1,
+                          3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
+                          4, "RTP",
+                          5, "AVP",
+                          /* 6, 0.0f, */
+                          7, TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
+                          /* 8, "", */
+                          /* 9, "", */
+                          G_MAXUINT);
+
+
   DEBUG("remote address=<%s>, port=<%u>", sdp_conn->c_address, port);
 
   transports_type = TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT_LIST;
   transports = dbus_g_type_specialized_construct (transports_type);
   g_ptr_array_add (transports, g_value_get_boxed (&transport));
+  g_ptr_array_add (transports, g_value_get_boxed (&transport_rtcp));
 
   g_free (priv->remote_candidate_id);
   candidate_id = g_strdup_printf ("L%u", ++priv->remote_candidate_counter);
