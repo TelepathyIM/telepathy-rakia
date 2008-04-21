@@ -1363,7 +1363,8 @@ tpsip_media_session_rate_native_transport (TpsipMediaSession *session,
   return result;
 }
 
-static void priv_session_set_streams_playing (TpsipMediaSession *session, gboolean playing)
+static void
+priv_session_set_streams_playing (TpsipMediaSession *session, gboolean playing)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   TpsipMediaStream *stream;
@@ -1670,6 +1671,10 @@ priv_session_invite (TpsipMediaSession *session, gboolean reinvite)
 
   if (priv_session_local_sdp (session, user_sdp, TRUE))
     {
+      /* We need to be prepared to receive media right after the
+       * offer is sent, so we must set the streams to playing */
+      priv_session_set_streams_playing (session, TRUE);
+
       nua_invite (priv->nua_op,
                   SOATAG_USER_SDP_STR(user_sdp->str),
                   SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
@@ -1677,6 +1682,7 @@ priv_session_invite (TpsipMediaSession *session, gboolean reinvite)
                   NUTAG_AUTOANSWER(0),
                   TAG_END());
       priv->pending_offer = FALSE;
+
       tpsip_media_session_change_state (
                 session,
                 reinvite? TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT
@@ -1701,6 +1707,10 @@ priv_session_respond (TpsipMediaSession *session)
   if (priv_session_local_sdp (session, user_sdp, FALSE))
     {
       msg_t *msg;
+
+      /* We need to be prepared to receive media right after the
+       * answer is sent, so we must set the streams to playing */
+      priv_session_set_streams_playing (session, TRUE);
 
       msg = (priv->saved_event[0])
                 ? nua_saved_event_request (priv->saved_event) : NULL;
@@ -1768,9 +1778,6 @@ priv_request_response_step (TpsipMediaSession *session)
   switch (priv->state)
     {
     case TPSIP_MEDIA_SESSION_STATE_CREATED:
-      /* note: we need to be prepared to receive media right after the
-       *       offer is sent, so we must set the streams to playing */
-      priv_session_set_streams_playing (session, TRUE);
       priv_session_invite (session, FALSE);
       break;
     case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
@@ -1785,12 +1792,7 @@ priv_request_response_step (TpsipMediaSession *session)
        * an early session answer in a reliable 183 response */
       if (priv->accepted
           && !priv_is_codec_intersect_pending (session))
-        {
-          priv_session_respond (session);
-
-          /* note: we have accepted the call, set the streams to playing */
-          priv_session_set_streams_playing (session, TRUE);
-        }
+        priv_session_respond (session);
       break;
     case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
       if (!priv_is_codec_intersect_pending (session))
