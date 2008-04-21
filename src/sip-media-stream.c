@@ -660,6 +660,23 @@ tpsip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
   tp_svc_media_stream_handler_return_from_new_native_candidate (context);
 }
 
+static void
+priv_set_local_codecs (TpsipMediaStream *self,
+                       const GPtrArray *codecs)
+{
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  GValue val = { 0, };
+
+  SESSION_DEBUG(priv->session, "putting list of %d locally supported "
+                "codecs from stream-engine into cache", codecs->len);
+  g_value_init (&val, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST);
+  g_value_set_static_boxed (&val, codecs);
+  g_value_copy (&val, &priv->native_codecs);
+
+  priv->native_codecs_prepared = TRUE;
+  if (priv->native_cands_prepared)
+    priv_generate_sdp (self);
+}
 
 /**
  * tpsip_media_stream_ready
@@ -682,7 +699,6 @@ tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
 
   TpsipMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
   TpsipMediaStreamPrivate *priv;
-  GValue val = { 0, };
 
   DEBUG ("enter");
 
@@ -697,15 +713,7 @@ tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
 
   priv->ready_received = TRUE;
 
-  SESSION_DEBUG(priv->session, "putting list of %d locally supported "
-                "codecs from stream-engine into cache", codecs->len);
-  g_value_init (&val, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST);
-  g_value_set_static_boxed (&val, codecs);
-  g_value_copy (&val, &priv->native_codecs);
-
-  priv->native_codecs_prepared = TRUE;
-  if (priv->native_cands_prepared)
-    priv_generate_sdp (obj);
+  priv_set_local_codecs (obj, codecs);
 
   /* Push the initial sending/playing state */
   tp_svc_media_stream_handler_emit_set_stream_sending (
@@ -731,7 +739,14 @@ tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
   tp_svc_media_stream_handler_return_from_ready (context);
 }
 
-/* FIXME: set_local_codecs not implemented */
+static void
+tpsip_media_stream_set_local_codecs (TpSvcMediaStreamHandler *iface,
+                                     const GPtrArray *codecs,
+                                     DBusGMethodInvocation *context)
+{
+  priv_set_local_codecs (TPSIP_MEDIA_STREAM (iface), codecs);
+  tp_svc_media_stream_handler_return_from_set_local_codecs (context);
+}
 
 /**
  * tpsip_media_stream_stream_state
@@ -1664,7 +1679,7 @@ stream_handler_iface_init (gpointer g_iface, gpointer iface_data)
   IMPLEMENT(new_active_candidate_pair);
   IMPLEMENT(new_native_candidate);
   IMPLEMENT(ready);
-  /* IMPLEMENT(set_local_codecs); */
+  IMPLEMENT(set_local_codecs);
   IMPLEMENT(stream_state);
   IMPLEMENT(supported_codecs);
   IMPLEMENT(hold_state);
