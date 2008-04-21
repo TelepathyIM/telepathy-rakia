@@ -79,13 +79,4 @@ void tpsip_debug (TpsipDebugFlags flag,
     }
 }
 
-void
-tpsip_debug_setup_logfile (void)
-{
-  const gchar *logfile_name;
-  logfile_name = g_getenv ("TPSIP_LOGFILE");
-  if (logfile_name != NULL)
-    tp_debug_divert_messages (logfile_name);
-}
-
 #endif /* ENABLE_DEBUG */

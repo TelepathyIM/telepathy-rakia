@@ -140,13 +140,14 @@ main (int argc, char** argv)
 
 #ifdef ENABLE_DEBUG
   tpsip_debug_set_flags_from_env ();
-  tpsip_debug_setup_logfile ();
 
   if (g_getenv ("TPSIP_PERSIST") || g_getenv ("SOFIASIP_PERSIST"))
     {
       tp_debug_set_persistent (TRUE);
     }
 #endif
+
+  tp_debug_divert_messages (g_getenv ("TPSIP_LOGFILE"));
 
   logdata = sofia_log_init ();
 
