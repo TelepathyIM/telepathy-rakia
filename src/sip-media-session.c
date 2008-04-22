@@ -1499,8 +1499,7 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
         stream = priv_create_media_stream (
                         session,
                         media_type,
-                        (priv->accepted)?
-                                0 : TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
+                        TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
       else
         stream = g_ptr_array_index(priv->streams, i);
 
