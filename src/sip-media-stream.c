@@ -65,7 +65,6 @@ enum
     SIG_SUPPORTED_CODECS,
     SIG_STATE_CHANGED,
     SIG_DIRECTION_CHANGED,
-    SIG_UNHOLD_FAILURE,
 
     SIG_LAST_SIGNAL
 };
@@ -431,15 +430,6 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
                   NULL, NULL,
                   _tpsip_marshal_VOID__UINT_UINT,
                   G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
-
-  signals[SIG_UNHOLD_FAILURE] =
-    g_signal_new ("unhold-failure",
-                  stream_type,
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
 }
 
 void
@@ -713,13 +703,25 @@ tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
 
   priv->ready_received = TRUE;
 
-  priv_set_local_codecs (obj, codecs);
+  SESSION_DEBUG(priv->session, "putting list of %d locally supported "
+                "codecs from stream-engine into cache", codecs->len);
+  g_value_init (&val, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST);
+  g_value_set_static_boxed (&val, codecs);
+  g_value_copy (&val, &priv->native_codecs);
+
+  priv->native_codecs_prepared = TRUE;
+  if (priv->native_cands_prepared)
+    priv_generate_sdp (obj);
 
   /* Push the initial sending/playing state */
-  tp_svc_media_stream_handler_emit_set_stream_sending (
-        iface, priv->sending);
   tp_svc_media_stream_handler_emit_set_stream_playing (
         iface, priv->playing);
+  tp_svc_media_stream_handler_emit_set_stream_sending (
+        iface, priv->sending);
+
+  priv->native_codecs_prepared = TRUE;
+  if (priv->native_cands_prepared)
+    priv_generate_sdp (obj);
 
   if (priv->push_remote_cands_pending)
     {
@@ -891,6 +893,21 @@ tpsip_tp_stream_direction_from_remote (sdp_mode_t mode)
        | ((mode & sdp_sendonly)? TP_MEDIA_STREAM_DIRECTION_RECEIVE : 0);
 }
 
+/*
+ * Returns stream direction as requested by the latest local or remote
+ * direction change.
+ */
+static TpMediaStreamDirection
+priv_get_requested_direction (SIPMediaStreamPrivate *priv)
+{
+  TpMediaStreamDirection direction;
+
+  direction = priv->direction;
+  if (priv->pending_send_flags != 0)
+    direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
+  return direction;
+}
+
 /** 
  * Sets the remote candidates and codecs for this stream, as 
  * received via signaling.
@@ -915,6 +932,7 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
   sdp_connection_t *sdp_conn;
   const sdp_media_t *old_media;
   gboolean transport_changed = TRUE;
+  guint old_direction;
   guint new_direction;
 
   DEBUG ("enter");
@@ -957,11 +975,12 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
       return TRUE;
     }
 
-  new_direction = tpsip_tp_stream_direction_from_remote (new_media->m_mode);
+  new_direction = sip_tp_stream_direction_from_remote (new_media->m_mode);
 
-  /* Make sure the peer can only enable sending or receiving direction
-   * if it's allowed to */
-  new_direction &= priv->direction | direction_up_mask;
+  /* Make sure the answer can only remove sending or receiving bits
+   * of the offer */
+  if (!authoritative)
+    new_direction &= priv->direction;
 
   /* Check if the transport candidate needs to be changed */
   if (old_media != NULL)
@@ -1006,10 +1025,10 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
    *       (and playing status?) once remote info set */
   push_active_candidate_pair (stream);
 
-  /* Set the final direction and sending status */
+  /* Set the final direction and clear remote pending send flag */
   tpsip_media_stream_set_direction (stream,
                                   new_direction,
-                                  TRUE);
+                                  TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
 
   return TRUE;
 }
@@ -1081,63 +1100,83 @@ priv_update_sending (TpsipMediaStream *stream,
                      TpMediaStreamDirection direction,
                      guint pending_send_flags)
 {
-  tpsip_media_stream_set_sending (stream,
+  sip_media_stream_set_sending (stream,
         (direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0
         && !(pending_send_flags
              & (TP_MEDIA_STREAM_PENDING_REMOTE_SEND
                 | TP_MEDIA_STREAM_PENDING_LOCAL_SEND)));
 }
 
-gboolean
+void
 tpsip_media_stream_set_direction (TpsipMediaStream *stream,
                                 TpMediaStreamDirection direction,
-                                gboolean remote_agreed)
+                                guint pending_send_mask)
 {
-  TpsipMediaStreamPrivate *priv;
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  SIPMediaStreamPrivate *priv;
+  priv = SIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  if (priv->direction == direction)
-    return FALSE;
+  if ((direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0
+      && (priv->pending_send_flags & ~pending_send_mask) == 0)
+    {
+      /* We're requested to start sending, but we need to confirm this
+       * with the client or the remote party.
+       * Clear the sending bit and set the pending send flag. */
+      direction &= ~(guint)TP_MEDIA_STREAM_DIRECTION_SEND;
+      pending_send_flags |= pending_send_mask;
+    }
 
-  /* Set pending send flag if we're going to start sending,
-   * but need to agree about this with the remote party */
-  if (!remote_agreed
-      && (direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0)
-    priv->pending_send_flags |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
+  if (priv->direction == direction
+      && priv->pending_send_flags == pending_send_flags)
+    return;
+
+  old_sdp_direction = priv_get_requested_direction (priv);
 
   priv->direction = direction;
+  priv->pending_send_flags = pending_send_flags;
 
   DEBUG("set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
 
   g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
                  priv->direction, priv->pending_send_flags);
 
-  /* TODO: SDP should not be cached, but created on demand */
-  if (priv->native_cands_prepared && priv->native_codecs_prepared)
-    priv_update_local_sdp (stream);
-
   if (priv->remote_media != NULL)
     priv_update_sending (stream, priv->direction, priv->pending_send_flags);
 
-  return TRUE;
+  if (priv->native_cands_prepared
+      && priv->native_codecs_prepared
+      && priv_get_requested_direction (priv)
+         != old_sdp_direction)
+    priv_update_local_sdp (stream);
 }
 
 void
-tpsip_media_stream_release_pending_send (TpsipMediaStream *stream)
+sip_media_stream_release_pending_send (SIPMediaStream *stream)
 {
   TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  if (!(priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND))
-    return;
-
-  /* Don't release pending send for new streams that haven't been negotiated */
+  /* Don't apply pending send for new streams that haven't been negotiated */
   if (priv->remote_media == NULL)
     return;
 
-  priv->pending_send_flags = 0;
-  g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
-                 priv->direction, 0);
-  priv_update_sending (stream, priv->direction, 0);
+  if ((priv->pending_send_flags & pending_send_mask) != 0)
+    {
+      priv->direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
+      priv->pending_send_flags &= ~pending_send_mask;
+
+      DEBUG("set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
+
+      g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
+                     priv->direction, 0);
+    }
+
+  /* Always check to enable sending because the session could become accepted */
+  priv_update_sending (stream, priv->direction, priv->pending_send_flags);
+}
+
+TpMediaStreamDirection
+sip_media_stream_get_requested_direction (SIPMediaStream *self)
+{
+  return priv_get_requested_direction (SIP_MEDIA_STREAM_GET_PRIVATE (self));
 }
 
 /**
@@ -1579,7 +1618,7 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   iproto = (strchr (tr_addr, ':') == NULL)? "IP4" : "IP6";
   cline = g_strdup_printf ("c=IN %s %s\r\n", iproto, tr_addr);
 
-  switch (priv->direction)
+  switch (priv_get_requested_direction (priv))
     {
     case TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL:
       dirline = "";
@@ -1664,6 +1703,8 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   g_string_free (mline, TRUE);
   g_free (cline);
   g_string_free (alines, TRUE);
+
+  g_signal_emit (stream, signals[SIG_LOCAL_MEDIA_UPDATED], 0);
 }
 
 static void

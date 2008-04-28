@@ -64,16 +64,16 @@ const char *tpsip_media_stream_local_sdp (TpsipMediaStream *self);
 gboolean tpsip_media_stream_set_remote_media (TpsipMediaStream *self,
                                             const sdp_media_t *media,
                                             guint direction_up_mask);
-void tpsip_media_stream_set_playing (TpsipMediaStream *self, gboolean playing);
-void tpsip_media_stream_set_sending (TpsipMediaStream *self, gboolean sending);
-gboolean tpsip_media_stream_set_direction (TpsipMediaStream *stream,
+void sip_media_stream_set_playing (SIPMediaStream *self, gboolean playing);
+void sip_media_stream_set_sending (SIPMediaStream *self, gboolean sending);
+gboolean sip_media_stream_set_direction (SIPMediaStream *stream,
                                          TpMediaStreamDirection direction,
                                          gboolean remote_agreed);
-void tpsip_media_stream_release_pending_send (TpsipMediaStream *stream);
-gboolean tpsip_media_stream_is_local_ready (TpsipMediaStream *self);
-gboolean tpsip_media_stream_is_codec_intersect_pending (TpsipMediaStream *self);
-void tpsip_media_stream_start_telephony_event (TpsipMediaStream *self, guchar event);
-void tpsip_media_stream_stop_telephony_event  (TpsipMediaStream *self);
+void sip_media_stream_release_pending_send (SIPMediaStream *stream);
+gboolean sip_media_stream_is_local_ready (SIPMediaStream *self);
+gboolean sip_media_stream_is_codec_intersect_pending (SIPMediaStream *self);
+void sip_media_stream_start_telephony_event (SIPMediaStream *self, guchar event);
+void sip_media_stream_stop_telephony_event  (SIPMediaStream *self);
 
 guint tpsip_tp_media_type (sdp_media_e sip_mtype);
 
