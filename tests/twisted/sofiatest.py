@@ -7,6 +7,8 @@ import servicetest
 from twisted.protocols import sip
 from twisted.internet import reactor
 
+import os
+import sys
 import dbus
 import dbus.glib
 
@@ -27,12 +29,12 @@ class SipProxy(sip.RegisterProxy):
         if message.method == 'REGISTER':
             return sip.RegisterProxy.handle_request(self, message, addr)
         if message.method == 'MESSAGE':
-            self.test_handler.handle_event(servicetest.Event('sip-message',
+            self.event_func(servicetest.Event('sip-message',
                 uri=str(message.uri), headers=message.headers, body=message.body,
                 sip_message=message))
 
 
-def go(register_cb, params=None):
+def prepare_test(event_func, register_cb, params=None):
     default_params = {
         'account': 'testacc@127.0.0.1',
         'password': 'testpwd',
@@ -43,11 +45,83 @@ def go(register_cb, params=None):
     if params is not None:
         default_params.update(params)
 
+    bus, conn = servicetest.prepare_test(event_func,
+        'sofiasip', 'sip', default_params)
+
+    sip = SipProxy()
+    sip.event_func = event_func
+    sip.registrar_handler = register_cb
+    reactor.listenUDP(int(default_params['port']), sip)
+    return bus, conn, sip
+
+def default_register_cb(message, host, port):
+    return True
+
+def go(params=None, register_cb=default_register_cb, start=None):
     handler = servicetest.EventTest()
-    servicetest.prepare_test(handler, 'sofiasip', 'sip', default_params)
-    handler.data['sip'] = SipProxy()
+    bus, conn, sip = \
+        prepare_test(handler.handle_event, register_cb, params)
+    handler.data = {
+        'bus': bus,
+        'conn': conn,
+        'conn_iface': dbus.Interface(conn,
+            'org.freedesktop.Telepathy.Connection'),
+        'sip': sip}
+    handler.data['test'] = handler
     handler.data['sip'].test_handler = handler
-    reactor.listenUDP(9090, handler.data['sip'])
-    handler.data['sip'].registrar_handler = register_cb
-    servicetest.run_test(handler)
+    handler.verbose = (os.environ.get('CHECK_TWISTED_VERBOSE', '') != '')
+    map(handler.expect, servicetest.load_event_handlers())
+
+    if '-v' in sys.argv:
+        handler.verbose = True
+
+    if start is None:
+        handler.data['conn'].Connect()
+    else:
+        start(handler.data)
+
+    reactor.run()
+
+def exec_test(fun, params=None, register_cb=default_register_cb, timeout=None):
+    queue = servicetest.IteratingEventQueue(timeout)
+
+    queue.verbose = (os.environ.get('CHECK_TWISTED_VERBOSE', '') != '')
+    if '-v' in sys.argv:
+        queue.verbose = True
+
+    bus, conn, sip = prepare_test(queue.append,
+        params=params, register_cb=register_cb)
+
+    if sys.stdout.isatty():
+        def red(s):
+            return '\x1b[31m%s\x1b[0m' % s
+
+        def green(s):
+            return '\x1b[32m%s\x1b[0m' % s
+
+        patterns = {
+            'handled': green,
+            'not handled': red,
+            }
+
+        class Colourer:
+            def __init__(self, fh, patterns):
+                self.fh = fh
+                self.patterns = patterns
+
+            def write(self, s):
+                f = self.patterns.get(s, lambda x: x)
+                self.fh.write(f(s))
+
+        sys.stdout = Colourer(sys.stdout, patterns)
+
+    try:
+        fun(queue, bus, conn, sip)
+    finally:
+        try:
+            conn.Disconnect()
+            # second call destroys object
+            conn.Disconnect()
+        except dbus.DBusException, e:
+            pass
 
