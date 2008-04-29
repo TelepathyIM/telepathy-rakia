@@ -1181,6 +1181,11 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
     priv_update_local_sdp (stream);
 }
 
+/*
+ * Checks for the pending send flag(s) present in @pending_send_mask,
+ * if set, enable the sending bit in the stream direction and clear
+ * the flag(s) that have been checked.
+ */
 void
 tpsip_media_stream_apply_pending_send (TpsipMediaStream *stream,
                                        guint pending_send_mask)
