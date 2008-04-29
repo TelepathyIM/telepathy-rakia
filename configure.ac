@@ -113,6 +113,16 @@ if test -z "$PYTHON"; then
   AC_MSG_ERROR([Python is required to compile this package])
 fi
 
+dnl Check for twisted python for tests
+AC_MSG_CHECKING([for TwistedPython with SIP protocol support])
+if $PYTHON -c "import twisted.protocols.sip, twisted.internet.reactor" >/dev/null 2>&1; then
+  AC_MSG_RESULT([yes])
+  AM_CONDITIONAL([WANT_TWISTED_TESTS], true)
+else
+  AC_MSG_RESULT([no])
+  AM_CONDITIONAL([WANT_TWISTED_TESTS], false)
+fi
+
 AC_CONFIG_FILES([
   Makefile
   tpsip/Makefile

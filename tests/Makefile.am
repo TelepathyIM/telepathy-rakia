@@ -1,36 +1,28 @@
-TESTS = 
-TWISTED_TESTS = \
-    test-register.py \
-    test-register-fail.py \
-    test-handle-normalisation.py \
-    test-message.py
+if WANT_TWISTED_TESTS
+CHECKTWISTED = twisted
+endif
+SUBDIRS = $(CHECKTWISTED)
 
-_check-twisted:
-	$(MAKE) check TESTS="$(TWISTED_TESTS)" TESTS_ENVIRONMENT=$(PYTHON)
+noinst_PROGRAMS = \
+	tp_caller
 
-check-twisted:
-	chmod u+x *.sh
-	sh run-with-tmp-session-bus.sh $(MAKE) _check-twisted
+AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @LOUDMOUTH_CFLAGS@ \
+    @COVERAGE_CFLAGS@ @TP_GLIB_CFLAGS@ \
+    -I $(top_srcdir)/src -I $(top_builddir)/src
+ALL_LIBS = @DBUS_LIBS@ @GLIB_LIBS@ @LOUDMOUTH_LIBS@ @TP_GLIB_LIBS@
 
-exec-with-log.sh: exec-with-log.sh.in
-	@sed -e "s|[@]abs_top_builddir[@]|@abs_top_builddir@|g" $< > $@
+check-valgrind:
+	G_SLICE=always-malloc \
+	G_DEBUG=gc-friendly \
+	$(MAKE) \
+		TESTS_ENVIRONMENT="\
+		libtool --mode=execute valgrind \
+			--leak-check=full \
+			--show-reachable=no \
+			--error-exitcode=1" \
+		check
 
-%.conf: %.conf.in
-	@sed -e "s|[@]abs_top_builddir[@]|@abs_top_builddir@|g" $< > $@
+check_c_sources = \
+	tp_caller.c
 
-%.service: %.service.in
-	@sed -e "s|[@]abs_top_builddir[@]|@abs_top_builddir@|g" $< > $@
-
-# D-Bus service file for testing
-service_in_files = org.freedesktop.Telepathy.ConnectionManager.sofiasip.service.in
-service_files = $(service_in_files:.service.in=.service)
-
-# D-Bus config file for testing
-conf_in_files = run-with-tmp-session-bus.conf.in
-conf_files = $(conf_in_files:.conf.in=.conf)
-
-BUILT_SOURCES = $(service_files) $(conf_files) exec-with-log.sh
-
-EXTRA_DIST = $(TWISTED_TESTS) $(service_in_files) $(conf_in_files) exec-with-log.sh.in
-
-CLEANFILES = $(BUILT_SOURCES) sofiasip-[1-9]*.log
+include $(top_srcdir)/tools/check-coding-style.mk
