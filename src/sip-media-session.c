@@ -1970,13 +1970,6 @@ priv_stream_unhold_failure_cb (TpsipMediaStream *stream,
                       TPSIP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE);
 }
 
-static void
-priv_stream_local_media_updated_cb (TpsipMediaStream *stream,
-                                    TpsipMediaSession *session)
-{
-  priv_local_media_changed (session);
-}
-
 static TpsipMediaStream*
 priv_create_media_stream (TpsipMediaSession *self,
                           guint media_type,
@@ -2035,9 +2028,9 @@ priv_create_media_stream (TpsipMediaSession *self,
     g_signal_connect (stream, "direction-changed",
                       G_CALLBACK (priv_stream_direction_changed_cb),
                       priv->channel);
-    g_signal_connect (stream, "local-media-updated",
-                      G_CALLBACK (priv_stream_local_media_updated_cb),
-                      self);
+    g_signal_connect_swapped (stream, "local-media-updated",
+                              G_CALLBACK (priv_local_media_changed),
+                              self);
     g_signal_connect (stream, "notify::hold-state",
                       G_CALLBACK (priv_stream_hold_state_cb),
                       self);
