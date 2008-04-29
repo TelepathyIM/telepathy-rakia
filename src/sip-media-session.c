@@ -1428,6 +1428,7 @@ priv_update_remote_hold (TpsipMediaSession *session)
   TpsipMediaStream *stream;
   gboolean has_streams = FALSE;
   gboolean remote_held = TRUE;
+  guint direction;
   guint i;
 
   /* The call is remotely unheld if there's at least one sending stream */
@@ -1436,10 +1437,7 @@ priv_update_remote_hold (TpsipMediaSession *session)
       stream = g_ptr_array_index(priv->streams, i);
       if (stream != NULL)
         {
-          guint direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
-          g_object_get (stream,
-                        "direction", &direction,
-                        NULL);
+          direction = tpsip_media_stream_get_requested_direction (stream);
 
           if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0)
             remote_held = FALSE;
