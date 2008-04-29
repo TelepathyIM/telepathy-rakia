@@ -567,7 +567,8 @@ priv_close_all_streams (TpsipMediaSession *session)
 }
 
 static void
-priv_release_streams_pending_send (SIPMediaSession *session)
+priv_apply_streams_pending_send (TpsipMediaSession *session,
+                                 guint pending_send_mask)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   TpsipMediaStream *stream;
@@ -578,7 +579,7 @@ priv_release_streams_pending_send (SIPMediaSession *session)
     {
       stream = g_ptr_array_index(priv->streams, i);
       if (stream != NULL)
-        sip_media_stream_release_pending_send (stream);
+        tpsip_media_stream_apply_pending_send (stream, pending_send_mask);
     }
 }
 
@@ -983,9 +984,9 @@ void tpsip_media_session_list_streams (TpsipMediaSession *session,
 
 gboolean
 tpsip_media_session_request_stream_direction (TpsipMediaSession *self,
-                                            guint stream_id,
-                                            guint direction,
-                                            GError **error)
+                                              guint stream_id,
+                                              guint direction,
+                                              GError **error)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   TpsipMediaStream *stream;
@@ -998,16 +999,19 @@ tpsip_media_session_request_stream_direction (TpsipMediaSession *self,
       return FALSE;
     }
 
-  if (priv->state == SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
-      || priv->state == SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED)
+  SESSION_DEBUG (self, "direction %u requested for stream %u", direction, stream_id);
+
+  if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
+      || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED)
     {
       /* While processing a session offer, we can only mask out direction
        * requested by the remote peer */
-      direction &= sip_media_stream_get_requested_direction (stream);
+      direction &= tpsip_media_stream_get_requested_direction (stream);
     }
 
-  if (sip_media_stream_set_direction (stream, direction, FALSE))
-    priv_local_media_changed (self);
+  tpsip_media_stream_set_direction (stream,
+                                    direction,
+                                    TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
 
   return TRUE;
 }
@@ -1114,10 +1118,16 @@ tpsip_media_session_reject (TpsipMediaSession *self,
     nua_respond (priv->nua_op, status, message, TAG_END());
 }
 
-static SIPMediaStream *
-sip_media_session_get_stream (SIPMediaSession *self,
-                              guint stream_id,
-                              GError **error)
+gboolean tpsip_media_session_is_accepted (TpsipMediaSession *self)
+{
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  return priv->accepted;
+}
+
+static TpsipMediaStream *
+tpsip_media_session_get_stream (TpsipMediaSession *self,
+                                guint stream_id,
+                                GError **error)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   TpsipMediaStream *stream;
@@ -1915,8 +1925,69 @@ priv_stream_direction_changed_cb (TpsipMediaStream *stream,
         tpsip_media_stream_get_id (stream), direction, pending_send_flags);
 }
 
-static SIPMediaStream*
-priv_create_media_stream (SIPMediaSession *self,
+static void
+priv_stream_hold_state_cb (TpsipMediaStream *stream,
+                           GParamSpec *pspec,
+                           TpsipMediaSession *session)
+{
+  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  gboolean hold;
+  guint i;
+
+  /* Determine the hold state all streams shall come to */
+  switch (priv->hold_state)
+    {
+    case TPSIP_LOCAL_HOLD_STATE_PENDING_HOLD:
+      hold = TRUE;
+      break;
+    case TPSIP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+      hold = FALSE;
+      break;
+    default:
+      g_message ("unexpected hold state change from a stream");
+
+      /* Try to follow the changes and report the resulting hold state */
+      g_object_get (stream, "hold-state", &hold, NULL);
+      priv->hold_reason = TPSIP_LOCAL_HOLD_STATE_REASON_NONE;
+    }
+
+  /* Check if all streams have reached the desired hold state */
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      stream = g_ptr_array_index (priv->streams, i);
+      if (stream != NULL)
+        {
+          gboolean stream_held = FALSE;
+          g_object_get (stream, "hold-state", &stream_held, NULL);
+          if ((!stream_held) != (!hold))
+            {
+              DEBUG("hold/unhold not complete yet");
+              return;
+            }
+        }
+    }
+
+  priv_finalize_hold (session);
+}
+
+static void
+priv_stream_unhold_failure_cb (TpsipMediaStream *stream,
+                               TpsipMediaSession *session)
+{
+  priv_initiate_hold (session,
+                      TRUE,
+                      TPSIP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE);
+}
+
+static void
+priv_stream_local_media_updated_cb (TpsipMediaStream *stream,
+                                    TpsipMediaSession *session)
+{
+  priv_local_media_changed (session);
+}
+
+static TpsipMediaStream*
+priv_create_media_stream (TpsipMediaSession *self,
                           guint media_type,
                           guint pending_send_flags)
 {
@@ -1924,6 +1995,7 @@ priv_create_media_stream (SIPMediaSession *self,
   gchar *object_path;
   TpsipMediaStream *stream = NULL;
   guint stream_id;
+  TpMediaStreamDirection direction;
 
   DEBUG ("enter");
 
@@ -1933,19 +2005,25 @@ priv_create_media_stream (SIPMediaSession *self,
     object_path = g_strdup_printf ("%s/MediaStream%u",
                                    priv->object_path,
                                    stream_id);
-    direction = (pending_send_flags == 0)
+    if (tpsip_media_session_is_local_hold_ongoing (self))
+      {
+        direction = (pending_send_flags == 0)
+                ? TP_MEDIA_STREAM_DIRECTION_SEND
+                : TP_MEDIA_STREAM_DIRECTION_NONE;
+      }
+    else
+      {
+        direction = (pending_send_flags == 0)
                 ? TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL
                 : TP_MEDIA_STREAM_DIRECTION_RECEIVE;
-
-    direction = tpsip_media_session_is_local_hold_ongoing (self)
-                ? TP_MEDIA_STREAM_DIRECTION_SEND
-                : TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+      }
 
     stream = g_object_new (TPSIP_TYPE_MEDIA_STREAM,
 			   "media-session", self,
 			   "media-type", media_type,
 			   "object-path", object_path,
 			   "id", stream_id,
+                           "direction", direction,
                            "pending-send-flags", pending_send_flags,
 			   NULL);
 
@@ -1966,6 +2044,15 @@ priv_create_media_stream (SIPMediaSession *self,
     g_signal_connect (stream, "direction-changed",
                       G_CALLBACK (priv_stream_direction_changed_cb),
                       priv->channel);
+    g_signal_connect (stream, "local-media-updated",
+                      G_CALLBACK (priv_stream_local_media_updated_cb),
+                      self);
+    g_signal_connect (stream, "notify::hold-state",
+                      G_CALLBACK (priv_stream_hold_state_cb),
+                      self);
+    g_signal_connect (stream, "unhold-failure",
+                      G_CALLBACK (priv_stream_unhold_failure_cb),
+                      self);
 
     g_assert (priv->local_non_ready >= 0);
     ++priv->local_non_ready;
