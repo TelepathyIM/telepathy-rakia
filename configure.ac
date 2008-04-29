@@ -131,6 +131,8 @@ AC_CONFIG_FILES([
   m4/Makefile
   data/Makefile
   tests/Makefile
+  tests/twisted/Makefile
+  tests/twisted/tools/Makefile
   tools/Makefile
   docs/Makefile
 ])
