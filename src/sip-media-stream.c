@@ -1199,7 +1199,7 @@ tpsip_media_stream_apply_pending_send (TpsipMediaStream *stream,
       DEBUG("set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
 
       g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
-                     priv->direction, 0);
+                     priv->direction, priv->pending_send_flags);
     }
 
   /* Always check to enable sending because the session could become accepted */
