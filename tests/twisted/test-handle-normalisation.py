@@ -36,10 +36,7 @@ def expect_connected(event, data):
 def expect_disconnected(event, data):    
     return True
 
-def register_cb(message, host, port):
-    return True
-
 if __name__ == '__main__':
-    go(register_cb)
+    go()
 
 

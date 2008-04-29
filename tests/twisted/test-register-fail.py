@@ -1,18 +1,15 @@
-from servicetest import match
-from sofiatest import go
+"""
+Test SIP registration failure.
+"""
 
-@match('dbus-signal', signal='StatusChanged', args=[1, 1])
-def expect_connecting(event, data):
+from sofiatest import exec_test
+
+def test(q, bus, conn, sip):
+    conn.Connect()
+    q.expect('dbus-signal', signal='StatusChanged', args=[1, 1])
+    q.expect('dbus-signal', signal='StatusChanged', args=[2, 3])
     return True
-
-@match('dbus-signal', signal='StatusChanged', args=[2, 3])
-def expect_disconnected(event, data):    
-    return True
-
-def register_cb(message, host, port):
-    return False
 
 if __name__ == '__main__':
-    go(register_cb)
-
+    exec_test(test, register_cb=lambda *args: False)
 
