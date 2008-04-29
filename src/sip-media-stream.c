@@ -723,7 +723,8 @@ tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
 
   priv->ready_received = TRUE;
 
-  priv_set_local_codecs (obj, codecs);
+  if (codecs->len != 0)
+    priv_set_local_codecs (obj, codecs);
 
   /* Push the initial sending/playing state */
   tp_svc_media_stream_handler_emit_set_stream_playing (
