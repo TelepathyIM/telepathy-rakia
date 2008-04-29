@@ -1236,7 +1236,6 @@ priv_finalize_hold (TpsipMediaSession *self)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   TpsipMediaStream *stream;
-  gboolean media_changed = FALSE;
   TpsipLocalHoldState final_hold_state;
   guint hold_mask;
   guint unhold_mask;
@@ -1271,20 +1270,14 @@ priv_finalize_hold (TpsipMediaSession *self)
       stream = g_ptr_array_index(priv->streams, i);
       if (stream != NULL)
         {
-          guint direction = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
-          g_object_get (stream,
-                        "direction", &direction,
-                        NULL);
+          guint direction = tpsip_media_stream_get_requested_direction (stream);
           direction &= hold_mask;
           direction |= unhold_mask;
-          if (tpsip_media_stream_set_direction (stream, direction, FALSE))
-            media_changed = TRUE;
+          tpsip_media_stream_set_direction (stream,
+                                            direction,
+                                            TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
         }
     }
-
-  /* Push the new SDP to the peer */
-  if (media_changed)
-    priv_local_media_changed (self);
 }
 
 void
