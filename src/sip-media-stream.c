@@ -906,6 +906,19 @@ tpsip_tp_stream_direction_from_remote (sdp_mode_t mode)
        | ((mode & sdp_sendonly)? TP_MEDIA_STREAM_DIRECTION_RECEIVE : 0);
 }
 
+static gboolean
+tpsip_sdp_codecs_differ (const sdp_rtpmap_t *m1, const sdp_rtpmap_t *m2)
+{
+  while (m1 != NULL && m2 != NULL)
+    {
+      if (sdp_rtpmap_cmp (m1, m2) != 0)
+        return TRUE;
+      m1 = m1->rm_next;
+      m2 = m2->rm_next;
+    }
+  return m1 != NULL || m2 != NULL;
+}
+
 /*
  * Returns stream direction as requested by the latest local or remote
  * direction change.
@@ -938,13 +951,14 @@ priv_get_requested_direction (TpsipMediaStreamPrivate *priv)
  */
 gboolean
 tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
-                                   const sdp_media_t *new_media,
-                                   guint direction_up_mask)
+                                     const sdp_media_t *new_media,
+                                     guint direction_up_mask)
 {
   TpsipMediaStreamPrivate *priv;
   sdp_connection_t *sdp_conn;
   const sdp_media_t *old_media;
   gboolean transport_changed = TRUE;
+  gboolean codecs_changed = TRUE;
   guint old_direction;
   guint new_direction;
 
@@ -954,7 +968,7 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
 
   /* Do sanity checks */
 
-  g_return_val_if_fail (new_media != NULL, -1);
+  g_return_val_if_fail (new_media != NULL, FALSE);
 
   if (new_media->m_rejected || new_media->m_port == 0)
     {
@@ -995,11 +1009,15 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
    * if it's allowed to */
   new_direction &= old_direction | direction_up_mask;
 
-  /* Check if the transport candidate needs to be changed */
   if (old_media != NULL)
     {
+      /* Check if the transport candidate needs to be changed */
       if (!sdp_connection_cmp (sdp_media_connections (old_media), sdp_conn))
         transport_changed = FALSE;
+
+      /* Check if the codec list needs to be updated */
+      codecs_changed = tpsip_sdp_codecs_differ (old_media->m_rtpmaps,
+                                                new_media->m_rtpmaps);
 
       /* Disable sending at this point if it will be disabled
        * accordingly to the new direction */
@@ -1014,21 +1032,25 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
 
   if (transport_changed)
     {
-     /* Make sure we stop sending before we use the new set of codecs
-      * intended for the new connection */
-      tpsip_media_stream_set_sending (stream, FALSE);
+      /* Make sure we stop sending before we use the new set of codecs
+       * intended for the new connection */
+      if (codecs_changed) 
+        tpsip_media_stream_set_sending (stream, FALSE);
 
       push_remote_candidates (stream);
     }
 
-  if (!priv->codec_intersect_pending)
+  if (codecs_changed)
     {
-      priv->codec_intersect_pending = TRUE;
-      push_remote_codecs (stream);
-    }
-  else
-    {
-      priv->push_remote_codecs_pending = TRUE;
+      if (!priv->codec_intersect_pending)
+        {
+          priv->codec_intersect_pending = TRUE;
+          push_remote_codecs (stream);
+        }
+      else
+        {
+          priv->push_remote_codecs_pending = TRUE;
+        }
     }
 
   /* TODO: this will go to session change commit code */
