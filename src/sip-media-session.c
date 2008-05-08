@@ -1175,6 +1175,8 @@ priv_initiate_hold (TpsipMediaSession *self,
   TpsipMediaStream *stream;
   guint i;
 
+  DEBUG("enter");
+
   if (hold)
     {
       if (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD)
@@ -1236,6 +1238,8 @@ priv_finalize_hold (TpsipMediaSession *self)
   guint hold_mask;
   guint unhold_mask;
   guint i;
+
+  DEBUG("enter");
 
   switch (priv->hold_state)
     {
