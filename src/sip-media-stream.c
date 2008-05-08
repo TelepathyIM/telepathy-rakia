@@ -1482,7 +1482,7 @@ static void push_remote_candidates (TpsipMediaStream *stream)
                           1, sdp_conn->c_address,
                           2, port + 1,
                           3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
-                          4, "RTP",
+                          4, "RTCP",
                           5, "AVP",
                           /* 6, 0.0f, */
                           7, TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
