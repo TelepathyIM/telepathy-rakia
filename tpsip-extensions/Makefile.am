@@ -8,8 +8,7 @@ AM_CFLAGS = \
 
 EXTRA_DIST = \
     all.xml \
-    channel.xml \
-    Channel_Interface_Hold.xml
+    channel.xml
 
 noinst_LTLIBRARIES = libtpsip-extensions.la
 
