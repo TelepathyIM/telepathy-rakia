@@ -36,9 +36,6 @@
 
 #include <tpsip/event-target.h>
 
-/* Hold interface */
-#include <tpsip-extensions/extensions.h>
-
 #include "sip-media-channel.h"
 #include "media-factory.h"
 #include "sip-connection.h"
@@ -70,7 +67,7 @@ G_DEFINE_TYPE_WITH_CODE (TpsipMediaChannel, tpsip_media_channel,
       dtmf_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_CALL_STATE,
       call_state_iface_init);
-    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_SVC_CHANNEL_INTERFACE_HOLD,
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_HOLD,
       hold_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_STREAMED_MEDIA,
       streamed_media_iface_init);
@@ -536,7 +533,7 @@ tpsip_media_channel_get_interfaces (TpSvcChannel *iface,
     TP_IFACE_CHANNEL_INTERFACE_MEDIA_SIGNALLING,
     TP_IFACE_CHANNEL_INTERFACE_DTMF,
     TP_IFACE_CHANNEL_INTERFACE_CALL_STATE,
-    TPSIP_IFACE_CHANNEL_INTERFACE_HOLD,
+    TP_IFACE_CHANNEL_INTERFACE_HOLD,
     TP_IFACE_PROPERTIES_INTERFACE,
     NULL
   };
@@ -1521,13 +1518,13 @@ tpsip_media_channel_get_call_states (TpSvcChannelInterfaceCallState *iface,
 }
 
 static void
-tpsip_media_channel_get_hold_state (TpsipSvcChannelInterfaceHold *iface,
+tpsip_media_channel_get_hold_state (TpSvcChannelInterfaceHold *iface,
                                     DBusGMethodInvocation *context)
 {
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  TpsipLocalHoldState hold_state = TPSIP_LOCAL_HOLD_STATE_UNHELD;
-  TpsipLocalHoldStateReason hold_reason = TPSIP_LOCAL_HOLD_STATE_REASON_NONE;
+  TpLocalHoldState hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
+  TpLocalHoldStateReason hold_reason = TP_LOCAL_HOLD_STATE_REASON_NONE;
 
   if (priv->session == NULL)
     {
@@ -1541,15 +1538,15 @@ tpsip_media_channel_get_hold_state (TpsipSvcChannelInterfaceHold *iface,
                 "hold-state-reason", &hold_reason,
                 NULL);
 
-  tpsip_svc_channel_interface_hold_return_from_get_hold_state (context,
-                                                               hold_state,
-                                                               hold_reason);
+  tp_svc_channel_interface_hold_return_from_get_hold_state (context,
+                                                            hold_state,
+                                                            hold_reason);
 }
 
 static void
-tpsip_media_channel_request_hold (TpsipSvcChannelInterfaceHold *iface,
-                                gboolean hold,
-                                DBusGMethodInvocation *context)
+tpsip_media_channel_request_hold (TpSvcChannelInterfaceHold *iface,
+                                  gboolean hold,
+                                  DBusGMethodInvocation *context)
 {
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
   TpsipMediaChannelPrivate *priv;
@@ -1558,8 +1555,7 @@ tpsip_media_channel_request_hold (TpsipSvcChannelInterfaceHold *iface,
 
   if (priv->session != NULL)
     {
-      tpsip_media_session_request_hold (priv->session,
-                                      hold);
+      tpsip_media_session_request_hold (priv->session, hold);
     }
   else
     {
@@ -1568,7 +1564,7 @@ tpsip_media_channel_request_hold (TpsipSvcChannelInterfaceHold *iface,
       dbus_g_method_return_error (context, &e);
     }
 
-  tpsip_svc_channel_interface_hold_return_from_request_hold (context);
+  tp_svc_channel_interface_hold_return_from_request_hold (context);
 }
 
 static void
@@ -1723,9 +1719,9 @@ static void
 hold_iface_init (gpointer g_iface,
                  gpointer iface_data)
 {
-  TpsipSvcChannelInterfaceHoldClass *klass = g_iface;
+  TpSvcChannelInterfaceHoldClass *klass = g_iface;
 
-#define IMPLEMENT(x) tpsip_svc_channel_interface_hold_implement_##x (\
+#define IMPLEMENT(x) tp_svc_channel_interface_hold_implement_##x (\
     klass, tpsip_media_channel_##x)
   IMPLEMENT (get_hold_state);
   IMPLEMENT (request_hold);
