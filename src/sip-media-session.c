@@ -36,9 +36,6 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-media-interfaces.h>
 
-/* Hold interface */
-#include <tpsip-extensions/extensions.h>
-
 #include "config.h"
 
 #include "sip-media-session.h"
@@ -123,8 +120,8 @@ struct _TpsipMediaSessionPrivate
   TpHandle peer;                          /* see gobj. prop. 'peer' */
   gchar *local_ip_address;                /* see gobj. prop. 'local-ip-address' */
   TpsipMediaSessionState state;           /* session state */
-  TpsipLocalHoldState hold_state;         /* local hold state aggregated from stream directions */
-  TpsipLocalHoldStateReason hold_reason;  /* last used hold state change reason */
+  TpLocalHoldState hold_state;         /* local hold state aggregated from stream directions */
+  TpLocalHoldStateReason hold_reason;  /* last used hold state change reason */
   nua_saved_event_t saved_event[1];       /* Saved incoming request event */
   gint local_non_ready;                   /* number of streams with local information update pending */
   guint remote_stream_count;              /* number of streams last seen in a remote offer */
@@ -175,8 +172,8 @@ static void tpsip_media_session_init (TpsipMediaSession *obj)
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (obj);
 
   priv->state = TPSIP_MEDIA_SESSION_STATE_CREATED;
-  priv->hold_state = TPSIP_LOCAL_HOLD_STATE_UNHELD;
-  priv->hold_reason = TPSIP_LOCAL_HOLD_STATE_REASON_NONE;
+  priv->hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
+  priv->hold_reason = TP_LOCAL_HOLD_STATE_REASON_NONE;
 
   /* allocate any data required by the object here */
   priv->streams = g_ptr_array_new ();
@@ -334,9 +331,9 @@ tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
                                   "The current Local_Hold_State value"
                                   " as reported by the Hold interface"
                                   " for the channel",
-                                  TPSIP_LOCAL_HOLD_STATE_UNHELD,
-                                  TPSIP_LOCAL_HOLD_STATE_PENDING_UNHOLD,
-                                  TPSIP_LOCAL_HOLD_STATE_UNHELD,
+                                  TP_LOCAL_HOLD_STATE_UNHELD,
+                                  TP_LOCAL_HOLD_STATE_PENDING_UNHOLD,
+                                  TP_LOCAL_HOLD_STATE_UNHELD,
                                   G_PARAM_READABLE |
                                   G_PARAM_STATIC_NAME |
                                   G_PARAM_STATIC_BLURB);
@@ -347,9 +344,9 @@ tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
                                   "The last Local_Hold_State_Reason value"
                                   " as reported by the Hold interface"
                                   " for the channel",
-                                  TPSIP_LOCAL_HOLD_STATE_REASON_NONE,
-                                  TPSIP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE,
-                                  TPSIP_LOCAL_HOLD_STATE_REASON_NONE,
+                                  TP_LOCAL_HOLD_STATE_REASON_NONE,
+                                  TP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE,
+                                  TP_LOCAL_HOLD_STATE_REASON_NONE,
                                   G_PARAM_READABLE |
                                   G_PARAM_STATIC_NAME |
                                   G_PARAM_STATIC_BLURB);
@@ -1153,7 +1150,7 @@ tpsip_media_session_get_stream (TpsipMediaSession *self,
   return stream;
 }
 
-TpsipLocalHoldState
+TpLocalHoldState
 tpsip_media_session_get_hold_state (TpsipMediaSession *self)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
@@ -1164,14 +1161,14 @@ static gboolean
 tpsip_media_session_is_local_hold_ongoing (TpsipMediaSession *self)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
-  return (priv->hold_state == TPSIP_LOCAL_HOLD_STATE_HELD
-          || priv->hold_state == TPSIP_LOCAL_HOLD_STATE_PENDING_HOLD);
+  return (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD
+          || priv->hold_state == TP_LOCAL_HOLD_STATE_PENDING_HOLD);
 }
 
 static void
 priv_initiate_hold (TpsipMediaSession *self,
                     gboolean hold,
-                    TpsipLocalHoldStateReason reason)
+                    TpLocalHoldStateReason reason)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   gboolean stream_hold_requested = FALSE;
@@ -1180,7 +1177,7 @@ priv_initiate_hold (TpsipMediaSession *self,
 
   if (hold)
     {
-      if (priv->hold_state == TPSIP_LOCAL_HOLD_STATE_HELD)
+      if (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD)
         {
           g_message ("redundant hold request");
           return;
@@ -1188,7 +1185,7 @@ priv_initiate_hold (TpsipMediaSession *self,
     }
   else
     {
-      if (priv->hold_state == TPSIP_LOCAL_HOLD_STATE_UNHELD)
+      if (priv->hold_state == TP_LOCAL_HOLD_STATE_UNHELD)
         {
           g_message ("redundant unhold request");
           return;
@@ -1215,20 +1212,19 @@ priv_initiate_hold (TpsipMediaSession *self,
 
   if (stream_hold_requested)
     {
-      priv->hold_state = hold? TPSIP_LOCAL_HOLD_STATE_PENDING_HOLD
-                             : TPSIP_LOCAL_HOLD_STATE_PENDING_UNHOLD;
+      priv->hold_state = hold? TP_LOCAL_HOLD_STATE_PENDING_HOLD
+                             : TP_LOCAL_HOLD_STATE_PENDING_UNHOLD;
     }
   else
     {
       /* There were no streams to flip, short cut to the final state */
-      priv->hold_state = hold? TPSIP_LOCAL_HOLD_STATE_HELD
-                             : TPSIP_LOCAL_HOLD_STATE_UNHELD;
+      priv->hold_state = hold? TP_LOCAL_HOLD_STATE_HELD
+                             : TP_LOCAL_HOLD_STATE_UNHELD;
     }
   priv->hold_reason = reason;
 
-  tpsip_svc_channel_interface_hold_emit_hold_state_changed (priv->channel,
-                                                            priv->hold_state,
-                                                            reason);
+  tp_svc_channel_interface_hold_emit_hold_state_changed (priv->channel,
+      priv->hold_state, reason);
 }
 
 static void
@@ -1236,20 +1232,20 @@ priv_finalize_hold (TpsipMediaSession *self)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   TpsipMediaStream *stream;
-  TpsipLocalHoldState final_hold_state;
+  TpLocalHoldState final_hold_state;
   guint hold_mask;
   guint unhold_mask;
   guint i;
 
   switch (priv->hold_state)
     {
-    case TPSIP_LOCAL_HOLD_STATE_PENDING_HOLD:
-      final_hold_state = TPSIP_LOCAL_HOLD_STATE_HELD;
+    case TP_LOCAL_HOLD_STATE_PENDING_HOLD:
+      final_hold_state = TP_LOCAL_HOLD_STATE_HELD;
       hold_mask = TP_MEDIA_STREAM_DIRECTION_SEND;
       unhold_mask = 0;
       break;
-    case TPSIP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
-      final_hold_state = TPSIP_LOCAL_HOLD_STATE_UNHELD;
+    case TP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+      final_hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
       hold_mask = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
       unhold_mask = TP_MEDIA_STREAM_DIRECTION_RECEIVE;
       break;
@@ -1260,9 +1256,8 @@ priv_finalize_hold (TpsipMediaSession *self)
     }
 
   priv->hold_state = final_hold_state;
-  tpsip_svc_channel_interface_hold_emit_hold_state_changed (priv->channel,
-                                                            final_hold_state,
-                                                            priv->hold_reason);
+  tp_svc_channel_interface_hold_emit_hold_state_changed (priv->channel,
+      final_hold_state, priv->hold_reason);
 
   /* Set stream directions accordingly to the achieved hold state */
   for (i = 0; i < priv->streams->len; i++)
@@ -1286,7 +1281,7 @@ tpsip_media_session_request_hold (TpsipMediaSession *self,
 {
   priv_initiate_hold (self,
                       hold,
-                      TPSIP_LOCAL_HOLD_STATE_REASON_REQUESTED);
+                      TP_LOCAL_HOLD_STATE_REASON_REQUESTED);
 }
 
 gboolean
@@ -1928,10 +1923,10 @@ priv_stream_hold_state_cb (TpsipMediaStream *stream,
   /* Determine the hold state all streams shall come to */
   switch (priv->hold_state)
     {
-    case TPSIP_LOCAL_HOLD_STATE_PENDING_HOLD:
+    case TP_LOCAL_HOLD_STATE_PENDING_HOLD:
       hold = TRUE;
       break;
-    case TPSIP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+    case TP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
       hold = FALSE;
       break;
     default:
@@ -1939,7 +1934,7 @@ priv_stream_hold_state_cb (TpsipMediaStream *stream,
 
       /* Try to follow the changes and report the resulting hold state */
       g_object_get (stream, "hold-state", &hold, NULL);
-      priv->hold_reason = TPSIP_LOCAL_HOLD_STATE_REASON_NONE;
+      priv->hold_reason = TP_LOCAL_HOLD_STATE_REASON_NONE;
     }
 
   /* Check if all streams have reached the desired hold state */
@@ -1967,7 +1962,7 @@ priv_stream_unhold_failure_cb (TpsipMediaStream *stream,
 {
   priv_initiate_hold (session,
                       TRUE,
-                      TPSIP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE);
+                      TP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE);
 }
 
 static TpsipMediaStream*
