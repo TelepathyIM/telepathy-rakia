@@ -904,7 +904,8 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
       NULL, set, NULL, NULL, peer, reason);
   tp_intset_destroy (set);
 
-  sip_media_channel_close (self);
+  sip_media_session_change_state (priv->session,
+                                  SIP_MEDIA_SESSION_STATE_ENDED);
 }
 
 guint
