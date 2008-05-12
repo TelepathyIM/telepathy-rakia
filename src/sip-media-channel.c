@@ -859,10 +859,19 @@ priv_nua_i_invite_cb (TpsipMediaChannel *self,
 }
 
 static void
+tpsip_media_channel_end_session_locally (TpsipMediaChannel *self)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  g_return_if_fail (priv->session != NULL);
+  tpsip_media_session_change_state (priv->session,
+                                    TPSIP_MEDIA_SESSION_STATE_ENDED);
+}
+
+static void
 tpsip_media_channel_peer_error (TpsipMediaChannel *self,
-                              TpHandle peer,
-                              guint status,
-                              const char* message)
+                                TpHandle peer,
+                                guint status,
+                                const char* message)
 {
   TpIntSet *set;
   guint reason = TP_CHANNEL_GROUP_CHANGE_REASON_ERROR;
@@ -904,8 +913,7 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
       NULL, set, NULL, NULL, peer, reason);
   tp_intset_destroy (set);
 
-  sip_media_session_change_state (priv->session,
-                                  SIP_MEDIA_SESSION_STATE_ENDED);
+  tpsip_media_channel_end_session_locally (self);
 }
 
 guint
@@ -1118,10 +1126,7 @@ priv_nua_i_terminated_cb (TpsipMediaChannel   *self,
                           tagi_t               tags[],
                           gpointer             foo)
 {
-  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  g_return_val_if_fail (priv->session != NULL, FALSE);
-  tpsip_media_session_change_state (priv->session,
-                                    TPSIP_MEDIA_SESSION_STATE_ENDED);
+  tpsip_media_channel_end_session_locally (self);
   return TRUE;
 }
 
