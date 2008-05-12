@@ -936,6 +936,8 @@ gboolean tpsip_media_session_request_streams (TpsipMediaSession *session,
     priv_add_stream_list_entry (ret, stream, session);
   }
 
+  priv_local_media_changed (session);
+
   return TRUE;
 }
 
