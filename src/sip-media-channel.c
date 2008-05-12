@@ -903,6 +903,8 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
   tp_group_mixin_change_members ((GObject *)self, message,
       NULL, set, NULL, NULL, peer, reason);
   tp_intset_destroy (set);
+
+  sip_media_channel_close (self);
 }
 
 guint
