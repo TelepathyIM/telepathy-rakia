@@ -44,7 +44,6 @@ def test(q, bus, conn, sip):
     url = twisted.protocols.sip.parseURL('sip:testacc@127.0.0.1')
     msg = twisted.protocols.sip.Request('MESSAGE', url)
     send_message(sip, prevhdr, 'Hi')
-    return True
 
     event = q.expect('dbus-signal', signal='NewChannel')
     assert (event.args[1] == tp_name_prefix + '.Channel.Type.Text' and
