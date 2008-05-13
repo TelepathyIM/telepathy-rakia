@@ -603,11 +603,10 @@ tpsip_media_session_change_state (TpsipMediaSession *session,
       break;
     case TPSIP_MEDIA_SESSION_STATE_ENDED:
       priv_close_all_streams (session);
-      DEBUG("freeing the NUA handle %p", priv->nua_op);
+      DEBUG("destroying the NUA handle %p", priv->nua_op);
       if (priv->nua_op != NULL)
         {
-          nua_handle_bind (priv->nua_op, TPSIP_NH_EXPIRED);
-          nua_handle_unref (priv->nua_op);
+          nua_handle_destroy (priv->nua_op);
           priv->nua_op = NULL;
         }
       break;
