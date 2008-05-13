@@ -746,6 +746,8 @@ void tpsip_media_session_terminate (TpsipMediaSession *session)
 
   if (priv->nua_op != NULL)
     {
+      /* XXX: should the stack do pretty much the same
+       * (except freeing the saved event) upon nua_handle_destroy()? */
       switch (priv->state)
         {
         case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
