@@ -51,10 +51,6 @@
  * REGISTER is special because it may tie resources on the server side */
 #define TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER 50
 
-/* The value of TPSIP_NH_EXPIRED. This can be anything that is neither NULL
- * nor a media channel */
-NUA_HMAGIC_T * const _tpsip_nh_expired = (NUA_HMAGIC_T *)"";
-
 static sip_to_t *priv_sip_to_url_make (TpsipConnection *conn,
                                        su_home_t *home,
                                        TpHandle contact)
