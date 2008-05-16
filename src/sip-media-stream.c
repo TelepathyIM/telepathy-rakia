@@ -1656,8 +1656,9 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   guint tr_proto;
   /* guint tr_type; */
   /* gdouble tr_pref; */
+  guint rtcp_port = 0;
+  gchar *rtcp_address = NULL;
   const gchar *dirline;
-  const gchar *iproto;
   int i;
 
   /* Note: impl limits ...
@@ -1681,34 +1682,49 @@ priv_update_local_sdp(TpsipMediaStream *stream)
       GValueArray *candidate;
       const gchar *candidate_id;
       const GPtrArray *ca_tports;
+      guint j;
 
       candidate = g_ptr_array_index (candidates, i);
       candidate_id =
                 g_value_get_string (g_value_array_get_nth (candidate, 0));
       ca_tports = g_value_get_boxed (g_value_array_get_nth (candidate, 1));
 
-      g_return_if_fail (ca_tports->len >= 1);
+      if (ca_tports->len == 0)
+        {
+          g_warning ("candidate '%s' lists no transports, skipping", candidate_id);
+          continue;
+        }
 
-      g_value_set_static_boxed (&transport, g_ptr_array_index (ca_tports, 0));
-
-      dbus_g_type_struct_get (&transport,
-                              0, &tr_component,
-                              G_MAXUINT);
-
-      if (tr_component != 1)
-        continue;
-
-      dbus_g_type_struct_get (&transport,
-                              1, &tr_addr,
-                              2, &tr_port,
-                              3, &tr_proto,
-                              4, &tr_subtype,
-                              5, &tr_profile,
-                              /* 6, &tr_pref, */
-                              /* 7, &tr_type, */
-                              /* 8, &tr_user, */
-                              /* 9, &tr_pass, */
-                              G_MAXUINT);
+      for (j = 0; j < ca_tports->len; j++)
+        {
+          g_value_set_static_boxed (&transport,
+                                    g_ptr_array_index (ca_tports, j));
+          dbus_g_type_struct_get (&transport,
+                                  0, &tr_component,
+                                  G_MAXUINT);
+          switch (tr_component)
+            {
+            case 1:     /* RTP */
+              dbus_g_type_struct_get (&transport,
+                                      1, &tr_addr,
+                                      2, &tr_port,
+                                      3, &tr_proto,
+                                      4, &tr_subtype,
+                                      5, &tr_profile,
+                                      /* 6, &tr_pref, */
+                                      /* 7, &tr_type, */
+                                      /* 8, &tr_user, */
+                                      /* 9, &tr_pass, */
+                                      G_MAXUINT);
+              break;
+            case 2:     /* RTCP */
+              dbus_g_type_struct_get (&transport,
+                                      1, &rtcp_address,
+                                      2, &rtcp_port,
+                                      G_MAXUINT);
+              break;
+            }
+        }
 
       if (priv->native_candidate_id != NULL)
         {
@@ -1735,8 +1751,9 @@ priv_update_local_sdp(TpsipMediaStream *stream)
                           tr_subtype,
                           tr_profile);
 
-  iproto = (strchr (tr_addr, ':') == NULL)? "IP4" : "IP6";
-  cline = g_strdup_printf ("c=IN %s %s\r\n", iproto, tr_addr);
+  cline = g_strdup_printf ("c=IN %s %s\r\n",
+                           (strchr (tr_addr, ':') == NULL)? "IP4" : "IP6",
+                           tr_addr);
 
   switch (priv_get_requested_direction (priv))
     {
@@ -1805,12 +1822,29 @@ priv_update_local_sdp(TpsipMediaStream *stream)
     g_hash_table_destroy (co_params);
   }
 
+  if (rtcp_address != NULL)
+    {
+      /* Add RTCP attribute as per RFC 3605 */
+      if (strcmp (rtcp_address, tr_addr) != 0)
+        {
+          g_string_append_printf (alines,
+                                  "a=rtcp:%u IN %s %s\r\n",
+                                  rtcp_port,
+                                  (strchr (rtcp_address, ':') == NULL)
+                                        ? "IP4" : "IP6",
+                                  rtcp_address);
+        }
+      else if (rtcp_port != tr_port + 1)
+        {
+          g_string_append_printf (alines,
+                                  "a=rtcp:%u\r\n",
+                                  rtcp_port);
+        }
+    }
+
   g_free(priv->stream_sdp);
   priv->stream_sdp = g_strconcat(mline->str, "\r\n",
                                  cline,
-#if 0   /* Some Cisco GWs do not like these */
-                                 "b=RS:0\r\nb=RR:0\r\n",
-#endif
                                  alines->str,
                                  NULL);
 
@@ -1819,6 +1853,7 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   g_free (tr_subtype);
   /* g_free (tr_user); */
   /* g_free (tr_pass); */
+  g_free (rtcp_address);
 
   g_string_free (mline, TRUE);
   g_free (cline);
