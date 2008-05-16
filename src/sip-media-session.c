@@ -74,6 +74,7 @@ enum
   PROP_PEER,
   PROP_HOLD_STATE,
   PROP_HOLD_STATE_REASON,
+  PROP_RTCP_ENABLED,
   PROP_LOCAL_IP_ADDRESS,
   LAST_PROPERTY
 };
@@ -119,6 +120,7 @@ struct _TpsipMediaSessionPrivate
   nua_handle_t *nua_op;                   /* see gobj. prop. 'nua-handle' */
   TpHandle peer;                          /* see gobj. prop. 'peer' */
   gchar *local_ip_address;                /* see gobj. prop. 'local-ip-address' */
+  gboolean rtcp_enabled;                  /* see gobj. prop. 'rtcp-enabled' */
   TpsipMediaSessionState state;           /* session state */
   TpLocalHoldState hold_state;         /* local hold state aggregated from stream directions */
   TpLocalHoldStateReason hold_reason;  /* last used hold state change reason */
@@ -174,6 +176,7 @@ static void tpsip_media_session_init (TpsipMediaSession *obj)
   priv->state = TPSIP_MEDIA_SESSION_STATE_CREATED;
   priv->hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
   priv->hold_reason = TP_LOCAL_HOLD_STATE_REASON_NONE;
+  priv->rtcp_enabled = TRUE;
 
   /* allocate any data required by the object here */
   priv->streams = g_ptr_array_new ();
@@ -226,6 +229,9 @@ static void tpsip_media_session_get_property (GObject    *object,
       break;
     case PROP_LOCAL_IP_ADDRESS:
       g_value_set_string (value, priv->local_ip_address);
+      break;
+    case PROP_RTCP_ENABLED:
+      g_value_set_boolean (value, priv->rtcp_enabled);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -361,6 +367,14 @@ tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
                                     G_PARAM_STATIC_NAME |
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_LOCAL_IP_ADDRESS, param_spec);
+
+  param_spec = g_param_spec_boolean ("rtcp-enabled", "RTCP enabled",
+                                     "Is RTCP enabled session-wide",
+                                     TRUE,
+                                     G_PARAM_READABLE |
+                                     G_PARAM_STATIC_NAME |
+                                     G_PARAM_STATIC_BLURB);
+  g_object_class_install_property (object_class, PROP_RTCP_ENABLED, param_spec);
 
   signals[SIG_STATE_CHANGED] =
     g_signal_new ("state-changed",
@@ -1488,6 +1502,12 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
   else
     direction_up_mask = 0;
 
+  /* Update the session-wide RTCP enable flag
+   * before updating stream media */
+
+  priv->rtcp_enabled = !tpsip_sdp_rtcp_bandwidth_throttled (
+                                priv->remote_sdp->sdp_bandwidths);
+
   media = priv->remote_sdp->sdp_media;
 
   /* note: for each session, we maintain an ordered list of
@@ -2076,4 +2096,28 @@ session_handler_iface_init (gpointer g_iface, gpointer iface_data)
   IMPLEMENT(error);
   IMPLEMENT(ready);
 #undef IMPLEMENT
+}
+
+/* Checks if RTCP is not disabled with bandwidth modifiers
+ * as described in RFC 3556 */
+gboolean
+tpsip_sdp_rtcp_bandwidth_throttled (const sdp_bandwidth_t *b)
+{
+  const sdp_bandwidth_t *b_RS = NULL;
+  const sdp_bandwidth_t *b_RR = NULL;
+
+  while (b != NULL)
+    {
+      if (b->b_modifier_name != NULL)
+        {
+          if (strcmp (b->b_modifier_name, "RS") == 0)
+            b_RS = b;
+          else if (strcmp (b->b_modifier_name, "RR") == 0)
+            b_RR = b;
+        }
+      b = b->b_next;
+    }
+
+  return (b_RS != NULL && b_RS->b_value == 0
+       && b_RR != NULL && b_RR->b_value == 0);
 }

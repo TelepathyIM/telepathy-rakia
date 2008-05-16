@@ -112,6 +112,8 @@ gboolean tpsip_media_session_stop_telephony_event  (TpsipMediaSession *self,
 gint tpsip_media_session_rate_native_transport (TpsipMediaSession *session,
                                               const GValue *transport);
 
+gboolean tpsip_sdp_rtcp_bandwidth_throttled (const sdp_bandwidth_t *b);
+
 #ifdef ENABLE_DEBUG
 
 #define SESSION_DEBUG(s, ...)    tpsip_media_session_debug (s, __VA_ARGS__)

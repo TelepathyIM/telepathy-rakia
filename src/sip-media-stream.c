@@ -1479,6 +1479,9 @@ static void push_remote_candidates (TpsipMediaStream *stream)
 
   port = (guint) media->m_port;
 
+  transports_type = TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT_LIST;
+  transports = dbus_g_type_specialized_construct (transports_type);
+
   transport_type = TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT;
   g_value_init (&transport, transport_type);
   g_value_take_boxed (&transport,
@@ -1496,29 +1499,60 @@ static void push_remote_candidates (TpsipMediaStream *stream)
                           /* 9, "", */
                           G_MAXUINT);
 
-  g_value_init (&transport_rtcp, transport_type);
-  g_value_take_boxed (&transport_rtcp,
-                      dbus_g_type_specialized_construct (transport_type));
-  dbus_g_type_struct_set (&transport_rtcp,
-                          0, 2,         /* component number */
-                          1, sdp_conn->c_address,
-                          2, port + 1,
-                          3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
-                          4, "RTCP",
-                          5, "AVP",
-                          /* 6, 0.0f, */
-                          7, TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
-                          /* 8, "", */
-                          /* 9, "", */
-                          G_MAXUINT);
-
-
-  DEBUG("remote address=<%s>, port=<%u>", sdp_conn->c_address, port);
-
-  transports_type = TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT_LIST;
-  transports = dbus_g_type_specialized_construct (transports_type);
+  DEBUG("remote RTP address=<%s>, port=<%u>", sdp_conn->c_address, port);
   g_ptr_array_add (transports, g_value_get_boxed (&transport));
-  g_ptr_array_add (transports, g_value_get_boxed (&transport_rtcp));
+
+  if (!tpsip_sdp_rtcp_bandwidth_throttled (media->m_bandwidths))
+    {
+      gboolean session_rtcp_enabled = TRUE;
+      g_object_get (priv->session,
+                    "rtcp-enabled", &session_rtcp_enabled,
+                    NULL);
+      if (session_rtcp_enabled)
+        {
+          const sdp_attribute_t *rtcp_attr;
+          const char *rtcp_address;
+          guint rtcp_port;
+
+          /* Get the port and optional address for RTCP accordingly to RFC 3605 */
+          rtcp_address = sdp_conn->c_address;
+          rtcp_attr = sdp_attribute_find (media->m_attributes, "rtcp");
+          if (rtcp_attr == NULL || rtcp_attr->a_value == NULL)
+            {
+              rtcp_port = port + 1;
+            }
+          else
+            {
+              const char *rest;
+              rtcp_port = (guint) g_ascii_strtoull (rtcp_attr->a_value,
+                                                    (gchar **) &rest,
+                                                    10);
+              if (rtcp_port != 0
+                  && (strncmp (rest, " IN IP4 ", 8) == 0
+                      || strncmp (rest, " IN IP6 ", 8) == 0))
+                rtcp_address = rest + 8;
+            }
+
+          g_value_init (&transport_rtcp, transport_type);
+          g_value_take_boxed (&transport_rtcp,
+                              dbus_g_type_specialized_construct (transport_type));
+          dbus_g_type_struct_set (&transport_rtcp,
+                                  0, 2,         /* component number */
+                                  1, rtcp_address,
+                                  2, rtcp_port,
+                                  3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
+                                  4, "RTCP",
+                                  5, "AVP",
+                                  /* 6, 0.0f, */
+                                  7, TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
+                                  /* 8, "", */
+                                  /* 9, "", */
+                                  G_MAXUINT);
+
+          DEBUG("remote RTCP address=<%s>, port=<%u>", rtcp_address, rtcp_port);
+          g_ptr_array_add (transports, g_value_get_boxed (&transport_rtcp));
+        }
+    }
 
   g_free (priv->remote_candidate_id);
   candidate_id = g_strdup_printf ("L%u", ++priv->remote_candidate_counter);
