@@ -1632,6 +1632,65 @@ priv_marshal_param (gpointer key,
     g_string_append_printf (params, "%s=%s", name, value);
 }
 
+static void
+priv_append_rtpmaps (const GPtrArray *codecs, GString *mline, GString *alines)
+{
+  GValue codec = { 0, };
+  gchar *co_name;
+  guint co_id;
+  /* guint co_type; */
+  guint co_clockrate;
+  guint co_channels;
+  GHashTable *co_params;
+  guint i;
+
+  g_value_init (&codec, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CODEC);
+
+  for (i = 0; i < codecs->len; i++)
+    {
+      g_value_set_static_boxed (&codec, g_ptr_array_index (codecs, i));
+
+      dbus_g_type_struct_get (&codec,
+                              0, &co_id,
+                              1, &co_name,
+                              /* 2, &co_type, */
+                              3, &co_clockrate,
+                              4, &co_channels,
+                              5, &co_params,
+                              G_MAXUINT);
+
+      /* g_return_if_fail (co_type == priv->media_type); */
+
+      /* Add rtpmap entry to the a= lines */
+      g_string_append_printf (alines,
+                              "a=rtpmap:%u %s/%u",
+                              co_id,
+                              co_name,
+                              co_clockrate);
+      if (co_channels > 1)
+        g_string_append_printf (alines, "/%u", co_channels);
+      g_string_append (alines, "\r\n");
+
+      /* Marshal parameters into the fmtp attribute */
+      if (g_hash_table_size (co_params) != 0)
+        {
+          GString *fmtp_value;
+          g_string_append_printf (alines, "a=fmtp:%u ", co_id);
+          fmtp_value = g_string_new (NULL);
+          g_hash_table_foreach (co_params, priv_marshal_param, fmtp_value);
+          g_string_append (alines, fmtp_value->str);
+          g_string_free (fmtp_value, TRUE);
+          g_string_append (alines, "\r\n");
+        }
+
+      /* Add PT id to the m= line */
+      g_string_append_printf (mline, " %u", co_id);
+
+      g_free (co_name);
+      g_hash_table_destroy (co_params);
+    }
+}
+
 /**
 * Refreshes the local SDP based on Farsight stream, and current
 * object, state.
@@ -1644,8 +1703,7 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   GString *alines;
   gchar *cline;
   GValue transport = { 0 };
-  GValue codec = { 0, };
-  const GPtrArray *codecs, *candidates;
+  const GPtrArray *candidates;
   gchar *tr_addr = NULL;
   /* gchar *tr_user = NULL; */
   /* gchar *tr_pass = NULL; */
@@ -1669,10 +1727,8 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   candidates = g_value_get_boxed (&priv->native_candidates);
-  codecs = g_value_get_boxed (&priv->native_codecs);
 
   g_value_init (&transport, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT);
-  g_value_init (&codec, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CODEC);
 
   /* Find the preferred candidate, if defined,
    * else the last acceptable candidate */
@@ -1795,52 +1851,8 @@ priv_update_local_sdp(TpsipMediaStream *stream)
         }
     }
 
-  for (i = 0; i < codecs->len; i++) {
-    guint co_id, co_type, co_clockrate, co_channels;
-    gchar *co_name;
-    GHashTable *co_params;
-
-    g_value_set_static_boxed (&codec, g_ptr_array_index (codecs, i));
-
-    dbus_g_type_struct_get (&codec,
-			    0, &co_id,
-			    1, &co_name,
-			    2, &co_type, 
-			    3, &co_clockrate,
-			    4, &co_channels,
-                            5, &co_params,
-			    G_MAXUINT);
-
-    g_return_if_fail (co_type == priv->media_type);
-
-    /* Add rtpmap entry to media a-lines */
-    g_string_append_printf (alines,
-                            "a=rtpmap:%u %s/%u",
-                            co_id,
-                            co_name,
-                            co_clockrate);
-    if (co_channels > 1)
-      g_string_append_printf (alines, "/%u", co_channels);
-    g_string_append (alines, "\r\n");
-
-    /* Marshal parameters into the fmtp attribute */
-    if (g_hash_table_size (co_params) != 0)
-      {
-        GString *fmtp_value;
-        g_string_append_printf (alines, "a=fmtp:%u ", co_id);
-        fmtp_value = g_string_new (NULL);
-        g_hash_table_foreach (co_params, priv_marshal_param, fmtp_value);
-        g_string_append (alines, fmtp_value->str);
-        g_string_free (fmtp_value, TRUE);
-        g_string_append (alines, "\r\n");
-      }
-
-    /* Add PT id to mline */
-    g_string_append_printf (mline, " %u", co_id);
-
-    g_free (co_name);
-    g_hash_table_destroy (co_params);
-  }
+  priv_append_rtpmaps (g_value_get_boxed (&priv->native_codecs),
+                       mline, alines);
 
   g_free(priv->stream_sdp);
   priv->stream_sdp = g_strconcat(mline->str, "\r\n",
