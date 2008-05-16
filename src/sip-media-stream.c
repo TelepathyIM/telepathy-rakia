@@ -1775,6 +1775,26 @@ priv_update_local_sdp(TpsipMediaStream *stream)
 
   alines = g_string_new (dirline);
 
+  if (rtcp_address != NULL)
+    {
+      /* Add RTCP attribute as per RFC 3605 */
+      if (strcmp (rtcp_address, tr_addr) != 0)
+        {
+          g_string_append_printf (alines,
+                                  "a=rtcp:%u IN %s %s\r\n",
+                                  rtcp_port,
+                                  (strchr (rtcp_address, ':') == NULL)
+                                        ? "IP4" : "IP6",
+                                  rtcp_address);
+        }
+      else if (rtcp_port != tr_port + 1)
+        {
+          g_string_append_printf (alines,
+                                  "a=rtcp:%u\r\n",
+                                  rtcp_port);
+        }
+    }
+
   for (i = 0; i < codecs->len; i++) {
     guint co_id, co_type, co_clockrate, co_channels;
     gchar *co_name;
@@ -1821,26 +1841,6 @@ priv_update_local_sdp(TpsipMediaStream *stream)
     g_free (co_name);
     g_hash_table_destroy (co_params);
   }
-
-  if (rtcp_address != NULL)
-    {
-      /* Add RTCP attribute as per RFC 3605 */
-      if (strcmp (rtcp_address, tr_addr) != 0)
-        {
-          g_string_append_printf (alines,
-                                  "a=rtcp:%u IN %s %s\r\n",
-                                  rtcp_port,
-                                  (strchr (rtcp_address, ':') == NULL)
-                                        ? "IP4" : "IP6",
-                                  rtcp_address);
-        }
-      else if (rtcp_port != tr_port + 1)
-        {
-          g_string_append_printf (alines,
-                                  "a=rtcp:%u\r\n",
-                                  rtcp_port);
-        }
-    }
 
   g_free(priv->stream_sdp);
   priv->stream_sdp = g_strconcat(mline->str, "\r\n",
