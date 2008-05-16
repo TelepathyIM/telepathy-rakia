@@ -738,8 +738,8 @@ priv_user_decode (su_home_t *home, const gchar *string)
       {
         if ((a[0] == '%') && g_ascii_isxdigit(a[1]) && g_ascii_isxdigit(a[2]))
           {
-            gchar tmp[3] = { a[1], a[2], 0 };
-            gchar x = (gchar) (strtoul (tmp, NULL, 16));
+            gchar x = (gchar) (g_ascii_xdigit_value(a[1]) * 16
+                               + g_ascii_xdigit_value(a[2]));
             if (priv_is_user_unreserved (x))
               {
                 *b++ = x;
