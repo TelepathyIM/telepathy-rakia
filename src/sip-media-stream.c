@@ -1719,11 +1719,6 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   const gchar *dirline;
   int i;
 
-  /* Note: impl limits ...
-   * - no multi-stream support
-   * - no IPv6 support (missing from the Farsight API?)
-   */
-
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   candidates = g_value_get_boxed (&priv->native_candidates);
