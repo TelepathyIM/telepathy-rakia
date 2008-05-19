@@ -803,6 +803,7 @@ tpsip_media_session_set_remote_media (TpsipMediaSession *session,
                                     const sdp_session_t* sdp)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  gboolean authoritative;
 
   DEBUG ("enter");
 
@@ -833,13 +834,9 @@ tpsip_media_session_set_remote_media (TpsipMediaSession *session,
       priv->remote_stream_count = count;
     }
 
-  /* Handle session non-updates */
+  /* Shortcut session non-updates */
   if (!sdp_session_cmp (priv->remote_sdp, sdp))
-    {
-      /* Should do the proper response etc. */
-      priv_request_response_step (session);
-      return TRUE;
-    }
+    goto epilog;
 
   /* Delete a backup session structure, if any */
   if (priv->backup_remote_sdp != NULL)
@@ -864,10 +861,16 @@ tpsip_media_session_set_remote_media (TpsipMediaSession *session,
   priv->remote_sdp = sdp_session_dup (priv->home, sdp);
   g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
 
-  return priv_update_remote_media (
-                session,
-                (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
-                 || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED));
+  authoritative = (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
+                || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
+  if (!priv_update_remote_media (session, authoritative))
+    return FALSE;
+
+epilog:
+  /* Make sure to always transition states and send out the response,
+   * even if no stream-engine roundtrips were initiated */
+  priv_request_response_step (session);
+  return TRUE;
 }
 
 void
