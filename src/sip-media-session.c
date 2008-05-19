@@ -1517,7 +1517,7 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
    *       streams (SDP m-lines) which are matched 1:1 to
    *       the streams of the remote SDP */
 
-  for (i = 0; media; media = media->m_next, i++)
+  for (i = 0; media != NULL; media = media->m_next, i++)
     {
       TpsipMediaStream *stream = NULL;
       guint media_type;
