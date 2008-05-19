@@ -836,7 +836,7 @@ tpsip_media_session_set_remote_media (TpsipMediaSession *session,
 
   /* Shortcut session non-updates */
   if (!sdp_session_cmp (priv->remote_sdp, sdp))
-    goto epilog;
+    goto finally;
 
   /* Delete a backup session structure, if any */
   if (priv->backup_remote_sdp != NULL)
@@ -866,7 +866,7 @@ tpsip_media_session_set_remote_media (TpsipMediaSession *session,
   if (!priv_update_remote_media (session, authoritative))
     return FALSE;
 
-epilog:
+finally:
   /* Make sure to always transition states and send out the response,
    * even if no stream-engine roundtrips were initiated */
   priv_request_response_step (session);
