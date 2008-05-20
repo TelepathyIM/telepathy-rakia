@@ -62,8 +62,9 @@ guint tpsip_media_stream_get_id (TpsipMediaStream *self);
 guint tpsip_media_stream_get_media_type (TpsipMediaStream *self);
 const char *tpsip_media_stream_local_sdp (TpsipMediaStream *self);
 gboolean tpsip_media_stream_set_remote_media (TpsipMediaStream *self,
-                                            const sdp_media_t *media,
-                                            gboolean authoritative);
+                                              const sdp_media_t *media,
+                                              guint direction_up_mask,
+                                              guint pending_send_mask);
 void tpsip_media_stream_set_playing (TpsipMediaStream *self, gboolean playing);
 void tpsip_media_stream_set_sending (TpsipMediaStream *self, gboolean sending);
 void tpsip_media_stream_set_direction (TpsipMediaStream *stream,

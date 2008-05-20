@@ -951,8 +951,9 @@ priv_get_requested_direction (TpsipMediaStreamPrivate *priv)
  */
 gboolean
 tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
-                                   const sdp_media_t *new_media,
-                                   gboolean authoritative)
+                                     const sdp_media_t *new_media,
+                                     guint direction_up_mask,
+                                     guint pending_send_mask)
 {
   TpsipMediaStreamPrivate *priv;
   sdp_connection_t *sdp_conn;
@@ -1062,8 +1063,8 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
 
   /* Set the final direction and update pending send flags */
   tpsip_media_stream_set_direction (stream,
-                                  new_direction,
-                                  TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
+                                    new_direction,
+                                    pending_send_mask);
 
   return TRUE;
 }

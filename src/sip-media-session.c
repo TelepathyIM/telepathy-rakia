@@ -1492,9 +1492,37 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   const sdp_media_t *media;
   gboolean has_supported_media = FALSE;
+  guint direction_up_mask;
+  guint pending_send_mask;
   guint i;
 
   g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
+
+  /* Update the session-wide RTCP enable flag
+   * before updating stream media */
+  priv->rtcp_enabled = !tpsip_sdp_rtcp_bandwidth_throttled (
+                                priv->remote_sdp->sdp_bandwidths);
+
+  /*
+   * Do not allow:
+   * 1) an answer to bump up directions beyond what's been offered;
+   * 2) an offer to remove the local hold.
+   */
+  if (authoritative)
+    direction_up_mask
+        = tpsip_media_session_is_local_hold_ongoing (session)
+                ? TP_MEDIA_STREAM_DIRECTION_SEND
+                : TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
+  else
+    direction_up_mask = 0;
+
+  /* A remote media requesting to enable sending would need local approval.
+   * Also, if there have been any local media updates pending a re-INVITE,
+   * keep or bump the pending remote send flag on the streams: it will
+   * be resolved in the next re-INVITE transaction */
+  pending_send_mask = TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
+  if (priv->pending_offer)
+    pending_send_mask |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
 
   media = priv->remote_sdp->sdp_media;
 
@@ -1532,15 +1560,13 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
           /* XXX: close this stream and create a new one in its place? */
           g_warning ("The peer has changed the media type, don't know what to do");
         }
-      else
+      else if (tpsip_media_stream_set_remote_media (stream,
+                                                    media,
+                                                    direction_up_mask,
+                                                    pending_send_mask))
         {
-          if (tpsip_media_stream_set_remote_media (stream,
-                                                 media,
-                                                 authoritative))
-            {
-              has_supported_media = TRUE;
-              continue;
-            }
+          has_supported_media = TRUE;
+          continue;
         }
 
       /* There have been problems with the stream update, kill the stream */
