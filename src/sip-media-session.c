@@ -585,6 +585,11 @@ priv_apply_streams_pending_send (TpsipMediaSession *session,
   TpsipMediaStream *stream;
   guint i;
 
+  /* If there has been a local change pending a re-INVITE,
+   * leave pending remote send for the next transaction */
+  if (priv->pending_offer)
+    pending_send_mask &= ~(guint)TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
+
   /* Apply the local pending send flags where applicable */
   for (i = 0; i < priv->streams->len; i++)
     {
@@ -1487,29 +1492,9 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   const sdp_media_t *media;
   gboolean has_supported_media = FALSE;
-  guint direction_up_mask;
   guint i;
 
   g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
-
-  /*
-   * Do not allow:
-   * 1) an answer to bump up directions beyond what's been offered;
-   * 2) an offer to remove the local hold.
-   */
-  if (authoritative)
-    direction_up_mask
-        = tpsip_media_session_is_local_hold_ongoing (session)
-                ? TP_MEDIA_STREAM_DIRECTION_SEND
-                : TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
-  else
-    direction_up_mask = 0;
-
-  /* Update the session-wide RTCP enable flag
-   * before updating stream media */
-
-  priv->rtcp_enabled = !tpsip_sdp_rtcp_bandwidth_throttled (
-                                priv->remote_sdp->sdp_bandwidths);
 
   media = priv->remote_sdp->sdp_media;
 
@@ -1551,7 +1536,7 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
         {
           if (tpsip_media_stream_set_remote_media (stream,
                                                  media,
-                                                 direction_up_mask))
+                                                 authoritative))
             {
               has_supported_media = TRUE;
               continue;

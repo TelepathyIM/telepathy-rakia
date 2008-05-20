@@ -951,8 +951,8 @@ priv_get_requested_direction (TpsipMediaStreamPrivate *priv)
  */
 gboolean
 tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
-                                     const sdp_media_t *new_media,
-                                     guint direction_up_mask)
+                                   const sdp_media_t *new_media,
+                                   gboolean authoritative)
 {
   TpsipMediaStreamPrivate *priv;
   sdp_connection_t *sdp_conn;
@@ -1060,10 +1060,10 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
    *       (and playing status?) once remote info set */
   push_active_candidate_pair (stream);
 
-  /* Set the final direction and clear remote pending send flag */
+  /* Set the final direction and update pending send flags */
   tpsip_media_stream_set_direction (stream,
-                                    new_direction,
-                                    TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
+                                  new_direction,
+                                  TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
 
   return TRUE;
 }
