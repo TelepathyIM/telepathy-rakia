@@ -1474,6 +1474,8 @@ priv_update_remote_hold (TpsipMediaSession *session)
   if (!has_streams)
     return;
 
+  DEBUG("the session is remotely %s", remote_held? "held" : "unheld");
+
   if (remote_held)
     tpsip_media_channel_change_call_state (priv->channel,
                                            priv->peer,
