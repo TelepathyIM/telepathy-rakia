@@ -859,15 +859,6 @@ priv_nua_i_invite_cb (TpsipMediaChannel *self,
 }
 
 static void
-tpsip_media_channel_end_session_locally (TpsipMediaChannel *self)
-{
-  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  g_return_if_fail (priv->session != NULL);
-  tpsip_media_session_change_state (priv->session,
-                                    TPSIP_MEDIA_SESSION_STATE_ENDED);
-}
-
-static void
 tpsip_media_channel_peer_error (TpsipMediaChannel *self,
                                 TpHandle peer,
                                 guint status,
@@ -912,8 +903,6 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
   tp_group_mixin_change_members ((GObject *)self, message,
       NULL, set, NULL, NULL, peer, reason);
   tp_intset_destroy (set);
-
-  tpsip_media_channel_end_session_locally (self);
 }
 
 guint
@@ -977,9 +966,6 @@ priv_nua_r_invite_cb (TpsipMediaChannel *self,
       tpsip_media_channel_change_call_state (self, peer, 0,
                 TP_CHANNEL_CALL_STATE_RINGING |
                 TP_CHANNEL_CALL_STATE_QUEUED);
-
-      if (status >= 300)
-        tpsip_media_channel_peer_error (self, peer, status, message);
     }
   else if (status == 180)
     {
@@ -1110,23 +1096,21 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       break;
 
     case nua_callstate_terminated:
-      /* handled by the nua_i_terminated handler */
+      if (status >= 300)
+        {
+          tpsip_media_channel_peer_error (
+                self,
+                tpsip_media_session_get_peer (priv->session),
+                status, message);
+        }
+      tpsip_media_session_change_state (priv->session,
+                                        TPSIP_MEDIA_SESSION_STATE_ENDED);
       break;
 
     default:
       break;
   }
 
-  return TRUE;
-}
-
-static gboolean
-priv_nua_i_terminated_cb (TpsipMediaChannel   *self,
-                          const TpsipNuaEvent *ev,
-                          tagi_t               tags[],
-                          gpointer             foo)
-{
-  tpsip_media_channel_end_session_locally (self);
   return TRUE;
 }
 
@@ -1242,10 +1226,6 @@ priv_connect_nua_handlers (TpsipMediaChannel *self, nua_handle_t *nh)
   g_signal_connect (self,
                     "nua-event::nua_i_state",
                     G_CALLBACK (priv_nua_i_state_cb),
-                    NULL);
-  g_signal_connect (self,
-                    "nua-event::nua_i_terminated",
-                    G_CALLBACK (priv_nua_i_terminated_cb),
                     NULL);
 
 }
