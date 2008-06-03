@@ -105,6 +105,7 @@ static const char* session_states[] =
     "active",
     "reinvite-sent",
     "reinvite-received",
+    "reinvite-pending",
     "ended"
 };
 
@@ -129,14 +130,14 @@ struct _TpsipMediaSessionPrivate
   guint remote_stream_count;              /* number of streams last seen in a remote offer */
   guint catcher_id;
   guint timer_id;
-  su_home_t *home;                        /* Sofia memory home for remote SDP session structure */
-  su_home_t *backup_home;                 /* Sofia memory home for previous generation remote SDP session*/
-  sdp_session_t *remote_sdp;              /* last received remote session */
-  sdp_session_t *backup_remote_sdp;       /* previous remote session */
+  su_home_t *home;                      /** Sofia memory home for remote SDP session structure */
+  su_home_t *backup_home;               /** Sofia memory home for previous generation remote SDP session*/
+  sdp_session_t *remote_sdp;            /** last received remote session */
+  sdp_session_t *backup_remote_sdp;     /** previous remote session */
   GPtrArray *streams;
-  gboolean accepted;                      /*< session has been locally accepted for use */
-  gboolean se_ready;                      /*< connection established with stream-engine */
-  gboolean pending_offer;                 /*< local media have been changed, but a re-INVITE is pending */
+  gboolean accepted;                    /**< session has been locally accepted for use */
+  gboolean se_ready;                    /**< connection established with stream-engine */
+  gboolean pending_offer;               /**< local media have been changed, but a re-INVITE is pending */
   gboolean dispose_has_run;
 };
 
@@ -405,8 +406,8 @@ tpsip_media_session_dispose (GObject *object)
   if (priv->timer_id)
     g_source_remove (priv->timer_id);
 
-  if (G_OBJECT_CLASS (tpsip_media_session_parent_class)->dispose)
-    G_OBJECT_CLASS (tpsip_media_session_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (sip_media_session_parent_class)->dispose)
+    G_OBJECT_CLASS (sip_media_session_parent_class)->dispose (object);
 
   DEBUG("exit");
 }
@@ -656,6 +657,8 @@ tpsip_media_session_change_state (TpsipMediaSession *session,
       priv_apply_streams_pending_send (session,
                                        TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
       break;
+    case SIP_MEDIA_SESSION_STATE_REINVITE_PENDING:
+      break;
 
     /* Don't add default because we want to be warned by the compiler
      * about unhandled states */
@@ -769,9 +772,9 @@ void tpsip_media_session_terminate (TpsipMediaSession *session)
        * (except freeing the saved event) upon nua_handle_destroy()? */
       switch (priv->state)
         {
-        case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
-        case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-        case TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT:
+        case SIP_MEDIA_SESSION_STATE_ACTIVE:
+        case SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+        case SIP_MEDIA_SESSION_STATE_REINVITE_SENT:
           DEBUG("sending BYE");
           nua_bye (priv->nua_op, TAG_END());
           break;
@@ -1086,6 +1089,8 @@ tpsip_media_session_receive_invite (TpsipMediaSession *self)
   g_return_if_fail (priv->state == TPSIP_MEDIA_SESSION_STATE_CREATED);  
   g_return_if_fail (priv->nua_op != NULL);
 
+  priv->remote_initiated = TRUE;
+
   nua_respond (priv->nua_op, SIP_180_RINGING, TAG_END());
 
   tpsip_media_session_change_state (self, TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED);
@@ -1096,8 +1101,8 @@ tpsip_media_session_receive_reinvite (TpsipMediaSession *self)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
 
-  g_return_if_fail (priv->state == TPSIP_MEDIA_SESSION_STATE_ACTIVE
-                    || priv->state == TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED);
+  g_return_if_fail (priv->state == SIP_MEDIA_SESSION_STATE_ACTIVE
+                    || priv->state == SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED);
 
   priv_save_event (self);
 
@@ -1141,16 +1146,10 @@ tpsip_media_session_reject (TpsipMediaSession *self,
     nua_respond (priv->nua_op, status, message, TAG_END());
 }
 
-gboolean tpsip_media_session_is_accepted (TpsipMediaSession *self)
-{
-  TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
-  return priv->accepted;
-}
-
-static TpsipMediaStream *
-tpsip_media_session_get_stream (TpsipMediaSession *self,
-                                guint stream_id,
-                                GError **error)
+static SIPMediaStream *
+sip_media_session_get_stream (SIPMediaSession *self,
+                              guint stream_id,
+                              GError **error)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   TpsipMediaStream *stream;
@@ -1435,7 +1434,7 @@ priv_local_media_changed (TpsipMediaSession *session)
       /* Cannot send another offer right now */
       priv->pending_offer = TRUE;
       break;
-    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
+    case SIP_MEDIA_SESSION_STATE_ACTIVE:
       if (priv->local_non_ready == 0)
         priv_session_invite (session, TRUE);
       else
@@ -1839,7 +1838,7 @@ priv_request_response_step (TpsipMediaSession *session)
       if (!priv_is_codec_intersect_pending (session))
         priv_session_respond (session);
       break;
-    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
+    case SIP_MEDIA_SESSION_STATE_ACTIVE:
       if (priv->pending_offer)
         priv_session_invite (session, TRUE);
       break;
