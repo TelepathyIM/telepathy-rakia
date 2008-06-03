@@ -1092,7 +1092,8 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       break;
 
     case nua_callstate_ready:
-      tpsip_media_session_accept (priv->session);
+      if (status >= 200 && status < 300)
+        tpsip_media_session_accept (priv->session);
       break;
 
     case nua_callstate_terminated:
