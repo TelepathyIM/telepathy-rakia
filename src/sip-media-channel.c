@@ -893,10 +893,6 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
     case 407:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_PERMISSION_DENIED;
       break;
-    case 491:
-      /* Not a fatal error, will restart after a timeout */
-      sip_media_session_resolve_glare (priv->session);
-      return;
     }
 
   if (message == NULL || !g_utf8_validate (message, -1, NULL))
@@ -1063,6 +1059,7 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
   int offer_recv = 0;
   int answer_recv = 0;
   int ss_state = nua_callstate_init;
+  gint status = ev->status;
 
   g_return_val_if_fail (priv->session != NULL, FALSE);
 
@@ -1096,8 +1093,16 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       break;
 
     case nua_callstate_ready:
-      if (status >= 200 && status < 300)
+      if (status < 300)
         tpsip_media_session_accept (priv->session);
+      else if (status == 491)
+        tpsip_media_session_resolve_glare (priv->session);
+      else
+        {
+          /* Was someithing wrong with our re-INVITE? We can't cope anyway. */
+          g_message ("can't handle non-fatal response %d %s", status, ev->text);
+          tpsip_media_session_terminate (priv->session);
+        }
       break;
 
     case nua_callstate_terminated:
@@ -1106,7 +1111,7 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
           tpsip_media_channel_peer_error (
                 self,
                 tpsip_media_session_get_peer (priv->session),
-                status, message);
+                status, ev->text);
         }
       tpsip_media_session_change_state (priv->session,
                                         TPSIP_MEDIA_SESSION_STATE_ENDED);

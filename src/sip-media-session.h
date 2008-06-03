@@ -28,15 +28,16 @@
 G_BEGIN_DECLS
 
 typedef enum {
-    SIP_MEDIA_SESSION_STATE_CREATED = 0,
-    SIP_MEDIA_SESSION_STATE_INVITE_SENT,
-    SIP_MEDIA_SESSION_STATE_INVITE_RECEIVED,
-    SIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED,
-    SIP_MEDIA_SESSION_STATE_ACTIVE,
-    SIP_MEDIA_SESSION_STATE_REINVITE_SENT,
-    SIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
-    SIP_MEDIA_SESSION_STATE_ENDED
-} SIPMediaSessionState;
+    TPSIP_MEDIA_SESSION_STATE_CREATED = 0,
+    TPSIP_MEDIA_SESSION_STATE_INVITE_SENT,
+    TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED,
+    TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED,
+    TPSIP_MEDIA_SESSION_STATE_ACTIVE,
+    TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT,
+    TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
+    TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING,
+    TPSIP_MEDIA_SESSION_STATE_ENDED
+} TpsipMediaSessionState;
 
 typedef struct _TpsipMediaSession TpsipMediaSession;
 typedef struct _TpsipMediaSessionClass TpsipMediaSessionClass;
@@ -96,6 +97,7 @@ void tpsip_media_session_reject (TpsipMediaSession *self,
                                  gint status,
                                  const char *message);
 gboolean tpsip_media_session_is_accepted (TpsipMediaSession *self);
+void tpsip_media_session_resolve_glare (TpsipMediaSession *self);
 
 TpLocalHoldState tpsip_media_session_get_hold_state (TpsipMediaSession *session);
 void tpsip_media_session_request_hold (TpsipMediaSession *session,
