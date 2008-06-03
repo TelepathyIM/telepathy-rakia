@@ -893,6 +893,10 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
     case 407:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_PERMISSION_DENIED;
       break;
+    case 491:
+      /* Not a fatal error, will restart after a timeout */
+      sip_media_session_resolve_glare (priv->session);
+      return;
     }
 
   if (message == NULL || !g_utf8_validate (message, -1, NULL))
