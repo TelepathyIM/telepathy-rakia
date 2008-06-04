@@ -939,49 +939,6 @@ tpsip_media_channel_change_call_state (TpsipMediaChannel *self,
 }
 
 static gboolean
-priv_nua_r_invite_cb (TpsipMediaChannel *self,
-                      const TpsipNuaEvent  *ev,
-                      tagi_t             tags[],
-                      gpointer           foo)
-{
-  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  gint status = ev->status;
-  const gchar *message = ev->text;
-  TpHandle peer;
-
-  DEBUG("peer responded with %03d %s", status, message);
-
-  g_return_val_if_fail (priv->session != NULL, FALSE);
-
-  /* Ignore responses to a re-INVITE */
-  if (tpsip_media_session_get_state (priv->session)
-        != TPSIP_MEDIA_SESSION_STATE_INVITE_SENT)
-    return TRUE;
-
-  peer = tpsip_media_session_get_peer (priv->session);
-
-  if (status >= 200)
-    {
-      /* The final response, clear the Ringing and Queued call state flags */
-      tpsip_media_channel_change_call_state (self, peer, 0,
-                TP_CHANNEL_CALL_STATE_RINGING |
-                TP_CHANNEL_CALL_STATE_QUEUED);
-    }
-  else if (status == 180)
-    {
-      tpsip_media_channel_change_call_state (self, peer,
-                TP_CHANNEL_CALL_STATE_RINGING, 0);
-    }
-  else if (status == 182)
-    {
-      tpsip_media_channel_change_call_state (self, peer,
-                TP_CHANNEL_CALL_STATE_QUEUED, 0);
-    }
-
-  return TRUE;
-}
-
-static gboolean
 priv_nua_i_cancel_cb (TpsipMediaChannel *self,
                       const TpsipNuaEvent  *ev,
                       tagi_t             tags[],
@@ -1060,6 +1017,7 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
   int answer_recv = 0;
   int ss_state = nua_callstate_init;
   gint status = ev->status;
+  TpHandle peer;
 
   g_return_val_if_fail (priv->session != NULL, FALSE);
 
@@ -1080,12 +1038,19 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
         }
     }
 
+  peer = tpsip_media_session_get_peer (priv->session);
+
   DEBUG("call with handle %p is %s", ev->nua_handle, nua_callstate_name (ss_state));
 
   switch ((enum nua_callstate)ss_state)
     {
-    case nua_callstate_received:
-    case nua_callstate_early:
+    case nua_callstate_proceeding:
+      if (status == 180)
+        tpsip_media_channel_change_call_state (self, peer,
+                TP_CHANNEL_CALL_STATE_RINGING, 0);
+      else if (status == 182)
+        tpsip_media_channel_change_call_state (self, peer,
+                TP_CHANNEL_CALL_STATE_QUEUED, 0);
       break;
     
     case nua_callstate_completing:
@@ -1093,13 +1058,19 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       break;
 
     case nua_callstate_ready:
+
+      /* Clear Ringing and Queued call states when the call is established */
+      tpsip_media_channel_change_call_state (self, peer, 0,
+                TP_CHANNEL_CALL_STATE_RINGING |
+                TP_CHANNEL_CALL_STATE_QUEUED);
+
       if (status < 300)
         tpsip_media_session_accept (priv->session);
       else if (status == 491)
         tpsip_media_session_resolve_glare (priv->session);
       else
         {
-          /* Was someithing wrong with our re-INVITE? We can't cope anyway. */
+          /* Was something wrong with our re-INVITE? We can't cope anyway. */
           g_message ("can't handle non-fatal response %d %s", status, ev->text);
           tpsip_media_session_terminate (priv->session);
         }
@@ -1109,9 +1080,7 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       if (status >= 300)
         {
           tpsip_media_channel_peer_error (
-                self,
-                tpsip_media_session_get_peer (priv->session),
-                status, ev->text);
+                self, peer, status, ev->text);
         }
       tpsip_media_session_change_state (priv->session,
                                         TPSIP_MEDIA_SESSION_STATE_ENDED);
@@ -1221,10 +1190,6 @@ priv_connect_nua_handlers (TpsipMediaChannel *self, nua_handle_t *nh)
    * response callbacks */
   tpsip_connection_connect_auth_handler (priv->conn, TPSIP_EVENT_TARGET (self));
 
-  g_signal_connect (self,
-                    "nua-event::nua_r_invite",
-                    G_CALLBACK (priv_nua_r_invite_cb),
-                    NULL);
   g_signal_connect (self,
                     "nua-event::nua_i_invite",
                     G_CALLBACK (priv_nua_i_invite_cb),
