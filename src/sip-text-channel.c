@@ -208,13 +208,10 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
   object_class->finalize = tpsip_text_channel_finalize;
 
   param_spec = g_param_spec_object("connection", "TpsipConnection object",
-				   "SIP connection object that owns this "
-				   "SIP media channel object.",
-				   TPSIP_TYPE_CONNECTION,
-				   G_PARAM_CONSTRUCT_ONLY |
-				   G_PARAM_READWRITE |
-				   G_PARAM_STATIC_NICK |
-				   G_PARAM_STATIC_BLURB);
+      "SIP connection object that owns this SIP media channel object.",
+      TPSIP_TYPE_CONNECTION,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE |
+      G_PARAM_STATIC_NICK | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
   g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 
   g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
