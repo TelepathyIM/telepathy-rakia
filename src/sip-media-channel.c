@@ -263,6 +263,7 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
                              NULL);
   tp_group_mixin_class_set_remove_with_reason_func(object_class,
                              tpsip_media_channel_remove_with_reason);
+  tp_group_mixin_init_dbus_properties (object_class);
 
   g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
       "handle-type");
