@@ -22,13 +22,12 @@
 #define __TPSIP_MEDIA_CHANNEL_H__
 
 #include <glib-object.h>
-
-#include <telepathy-glib/handle.h>
+#include <sofia-sip/sdp.h>
 #include <telepathy-glib/group-mixin.h>
+#include <telepathy-glib/handle.h>
 #include <telepathy-glib/properties-mixin.h>
 
 #include <tpsip/sofia-decls.h>
-#include <sofia-sip/sdp.h>
 
 
 G_BEGIN_DECLS
