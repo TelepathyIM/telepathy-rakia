@@ -23,6 +23,7 @@
 
 #include <glib-object.h>
 #include <sofia-sip/sdp.h>
+#include <telepathy-glib/dbus-properties-mixin.h>
 #include <telepathy-glib/group-mixin.h>
 #include <telepathy-glib/handle.h>
 #include <telepathy-glib/properties-mixin.h>
@@ -39,6 +40,7 @@ struct _TpsipMediaChannelClass {
     GObjectClass parent_class;
     TpGroupMixinClass group_class;
     TpPropertiesMixinClass properties_class;
+    TpDBusPropertiesMixinClass dbus_props_class;
 };
 
 struct _TpsipMediaChannel {

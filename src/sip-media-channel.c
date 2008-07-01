@@ -57,6 +57,8 @@ static void hold_iface_init (gpointer, gpointer);
 G_DEFINE_TYPE_WITH_CODE (TpsipMediaChannel, tpsip_media_channel,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, event_target_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_DBUS_PROPERTIES,
+      tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP,
       priv_group_mixin_iface_init);
@@ -221,6 +223,21 @@ static gboolean tpsip_media_channel_remove_with_reason (
 static void
 tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
 {
+  static TpDBusPropertiesMixinPropImpl channel_props[] = {
+      { "TargetHandleType", "handle-type", NULL },
+      { "TargetHandle", "handle", NULL },
+      { "ChannelType", "channel-type", NULL },
+      { "Interfaces", "interfaces", NULL },
+      { NULL }
+  };
+  static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+      { TP_IFACE_CHANNEL,
+        tp_dbus_properties_mixin_getter_gobject_properties,
+        NULL,
+        channel_props,
+      },
+      { NULL }
+  };
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GParamSpec *param_spec;
 
@@ -235,6 +252,10 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
 
   object_class->dispose = tpsip_media_channel_dispose;
   object_class->finalize = tpsip_media_channel_finalize;
+
+  klass->dbus_props_class.interfaces = prop_interfaces;
+  tp_dbus_properties_mixin_class_init (object_class,
+      G_STRUCT_OFFSET (TpsipMediaChannelClass, dbus_props_class));
 
   tp_group_mixin_class_init (object_class,
                              G_STRUCT_OFFSET (TpsipMediaChannelClass, group_class),
