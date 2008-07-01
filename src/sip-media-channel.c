@@ -74,6 +74,16 @@ G_DEFINE_TYPE_WITH_CODE (TpsipMediaChannel, tpsip_media_channel,
       tp_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
 
+static const gchar *tpsip_media_channel_interfaces[] = {
+    TP_IFACE_CHANNEL_INTERFACE_GROUP,
+    TP_IFACE_CHANNEL_INTERFACE_MEDIA_SIGNALLING,
+    TP_IFACE_CHANNEL_INTERFACE_DTMF,
+    TP_IFACE_CHANNEL_INTERFACE_CALL_STATE,
+    TP_IFACE_CHANNEL_INTERFACE_HOLD,
+    TP_IFACE_PROPERTIES_INTERFACE,
+    NULL
+};
+
 /* properties */
 enum
 {
@@ -83,6 +93,7 @@ enum
   PROP_CHANNEL_TYPE,
   PROP_HANDLE_TYPE,
   PROP_HANDLE,
+  PROP_INTERFACES,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
   PROP_STUN_SERVER,
@@ -277,6 +288,12 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       G_PARAM_READWRITE |
       G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_STUN_PORT, param_spec);
+
+  param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
+      "Addition Channel.Interface.* interfaces", G_TYPE_STRV,
+      G_PARAM_READABLE |
+      G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_STATIC_NAME);
+  g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
 }
 
 static void
@@ -306,6 +323,9 @@ tpsip_media_channel_get_property (GObject    *object,
       break;
     case PROP_HANDLE_TYPE:
       g_value_set_uint (value, TP_HANDLE_TYPE_NONE);
+      break;
+    case PROP_INTERFACES:
+      g_value_set_static_boxed (value, tpsip_media_channel_interfaces);
       break;
     default:
       /* the NAT_TRAVERSAL property lives in the mixin */
@@ -512,17 +532,8 @@ static void
 tpsip_media_channel_get_interfaces (TpSvcChannel *iface,
                                   DBusGMethodInvocation *context)
 {
-  const gchar *interfaces[] = {
-    TP_IFACE_CHANNEL_INTERFACE_GROUP,
-    TP_IFACE_CHANNEL_INTERFACE_MEDIA_SIGNALLING,
-    TP_IFACE_CHANNEL_INTERFACE_DTMF,
-    TP_IFACE_CHANNEL_INTERFACE_CALL_STATE,
-    TP_IFACE_CHANNEL_INTERFACE_HOLD,
-    TP_IFACE_PROPERTIES_INTERFACE,
-    NULL
-  };
-
-  tp_svc_channel_return_from_get_interfaces (context, interfaces);
+  tp_svc_channel_return_from_get_interfaces (context,
+      tpsip_media_channel_interfaces);
 }
 
 /***********************************************************************
