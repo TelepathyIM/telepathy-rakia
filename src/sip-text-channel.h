@@ -22,7 +22,7 @@
 #define __TPSIP_TEXT_CHANNEL_H__
 
 #include <glib-object.h>
-
+#include <telepathy-glib/dbus-properties-mixin.h>
 #include <telepathy-glib/handle.h>
 
 #include <tpsip/sofia-decls.h>
@@ -36,6 +36,8 @@ typedef struct _TpsipTextChannelClass TpsipTextChannelClass;
 
 struct _TpsipTextChannelClass {
     GObjectClass parent_class;
+
+    TpDBusPropertiesMixinClass dbus_props_class;
 };
 
 struct _TpsipTextChannel {
