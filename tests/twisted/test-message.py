@@ -25,6 +25,17 @@ def test(q, bus, conn, sip):
     obj = bus.get_object(conn._named_service, chan)
     iface = dbus.Interface(obj, TEXT_TYPE)
 
+    text_props = obj.GetAll(tp_name_prefix + '.Channel',
+            dbus_interface='org.freedesktop.DBus.Properties')
+    assert 'TargetHandle' in text_props, text_props
+    assert text_props['TargetHandle'] == handle, \
+            (text_props, handle)
+    assert 'TargetHandleType' in text_props, text_props
+    assert text_props['TargetHandleType'] == 1, text_props
+    assert 'Interfaces' in text_props, text_props
+    assert text_props['Interfaces'] == [], text_props
+    assert text_props['ChannelType'] == TEXT_TYPE, text_props
+
     iface.Send(0, 'Hello')
 
     event = q.expect('sip-message', uri='sip:user@somewhere.com', body='Hello')
