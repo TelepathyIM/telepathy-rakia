@@ -245,52 +245,37 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       media_channel_property_signatures, NUM_TP_PROPS, NULL);
 
   param_spec = g_param_spec_object ("connection", "TpsipConnection object",
-                                    "SIP connection object that owns this "
-                                    "SIP media channel object.",
-                                    TPSIP_TYPE_CONNECTION,
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NICK |
-                                    G_PARAM_STATIC_BLURB);
+      "SIP connection object that owns this SIP media channel object.",
+      TPSIP_TYPE_CONNECTION,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE |
+      G_PARAM_STATIC_NICK | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 
   param_spec = g_param_spec_object ("factory", "TpsipMediaFactory object",
-                                    "Channel factory object that owns this "
-                                    "SIP media channel object.",
-                                    TPSIP_TYPE_MEDIA_FACTORY,
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NICK |
-                                    G_PARAM_STATIC_BLURB);
+      "Channel factory object that owns this SIP media channel object.",
+      TPSIP_TYPE_MEDIA_FACTORY,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE |
+      G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_FACTORY, param_spec);
 
   param_spec = g_param_spec_string ("nat-traversal", "NAT traversal mechanism",
-                                    "A string representing the type of NAT "
-                                    "traversal that should be performed for "
-                                    "streams on this channel.",
-                                    "none",
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
+      "A string representing the type of NAT traversal that should be "
+      "performed for streams on this channel.",
+      "none",
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE |
+      G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_NAT_TRAVERSAL, param_spec);
 
-  param_spec = g_param_spec_string ("stun-server",
-                                    "STUN server",
-                                    "IP or address of STUN server.",
-                                    NULL,
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("stun-server", "STUN server",
+      "IP or address of STUN server.", NULL,
+      G_PARAM_READWRITE |
+      G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_STUN_SERVER, param_spec);
 
-  param_spec = g_param_spec_uint ("stun-port",
-                                  "STUN port",
-                                  "UDP port of STUN server.",
-                                  0, G_MAXUINT16, 0,
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_uint ("stun-port", "STUN port",
+      "UDP port of STUN server.", 0, G_MAXUINT16, 0,
+      G_PARAM_READWRITE |
+      G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_STUN_PORT, param_spec);
 }
 
