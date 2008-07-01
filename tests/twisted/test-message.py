@@ -13,17 +13,17 @@ def test(q, bus, conn, sip):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
+    TEXT_TYPE = tp_name_prefix + '.Channel.Type.Text'
+
     contact = 'sip:user@somewhere.com'
     handle = conn.RequestHandles(1, [contact])[0]
-    chan = conn.RequestChannel(tp_name_prefix + '.Channel.Type.Text',
-        1, handle, True)
+    chan = conn.RequestChannel(TEXT_TYPE, 1, handle, True)
 
     event = q.expect('dbus-signal', signal='NewChannel')
-    assert event.args[1] == tp_name_prefix + '.Channel.Type.Text'
+    assert event.args[1] == TEXT_TYPE, event.args[1]
 
     obj = bus.get_object(conn._named_service, chan)
-    iface = dbus.Interface(obj,
-        u'org.freedesktop.Telepathy.Channel.Type.Text')
+    iface = dbus.Interface(obj, TEXT_TYPE)
 
     iface.Send(0, 'Hello')
 
@@ -46,8 +46,7 @@ def test(q, bus, conn, sip):
     send_message(sip, prevhdr, 'Hi')
 
     event = q.expect('dbus-signal', signal='NewChannel')
-    assert (event.args[1] == tp_name_prefix + '.Channel.Type.Text' and
-        event.args[2] == 1)
+    assert (event.args[1] == TEXT_TYPE and event.args[2] == 1)
 
     handle = event.args[3]
     name = conn.InspectHandles(1, [handle])[0]
