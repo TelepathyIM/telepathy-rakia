@@ -23,11 +23,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <dbus/dbus-glib.h>
+#include "sip-text-channel.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
+#include <dbus/dbus-glib.h>
+#include <sofia-sip/sip.h>
+#include <sofia-sip/sip_header.h>
 #include <telepathy-glib/channel-iface.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/errors.h>
@@ -37,16 +41,10 @@
 
 #include <tpsip/event-target.h>
 
-#include "sip-text-channel.h"
-
-#include "sip-connection.h"
-#include "sip-connection-helpers.h"
-
-#include <sofia-sip/sip.h>
-#include <sofia-sip/sip_header.h>
-
 #define DEBUG_FLAG TPSIP_DEBUG_IM
 #include "debug.h"
+#include "sip-connection.h"
+#include "sip-connection-helpers.h"
 
 static gboolean
 tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
