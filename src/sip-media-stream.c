@@ -73,6 +73,8 @@ enum
 
 static guint signals[SIG_LAST_SIGNAL] = {0};
 
+static GRegex *fmtp_attr_regex = NULL;
+
 /* properties */
 enum
 {
@@ -414,6 +416,21 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
                   NULL, NULL,
                   g_cclosure_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
+
+/* Regexps for the name and the value parts of the parameter syntax */
+#define FMTP_TOKEN_ATTR "([-A-Za-z0-9_.]+)"
+#define FMTP_TOKEN_VALUE "([^;\"\\s]+|\"([^\"\\\\]|\\\\.)*\")"
+/* Indexes of the respective match groups in the whole regexp below */
+#define FMTP_MATCH_ATTR 1
+#define FMTP_MATCH_VALUE 2
+
+  fmtp_attr_regex = g_regex_new (FMTP_TOKEN_ATTR
+                                   "\\s*=\\s*"
+                                   FMTP_TOKEN_VALUE,
+                                 G_REGEX_RAW,
+                                 0 /* G_REGEX_MATCH_ANCHORED */,
+                                 NULL);
+  g_assert (fmtp_attr_regex != NULL);
 }
 
 void
@@ -1253,61 +1270,108 @@ priv_generate_sdp (TpsipMediaStream *self)
   g_signal_emit (self, signals[SIG_READY], 0);
 }
 
-static void
-priv_parse_fmtp (su_home_t *home, const char *fmtp, GHashTable *param_hash)
+static gchar *
+priv_fmtp_fetch_value (const GMatchInfo *match)
 {
-  const msg_param_t *param_list = NULL;
-  char *s;
-  const char *avpair;
-  const char *pv;
-  char *attr;
-  int i;
+  const gchar *str;
+  gchar *value;
+  gchar *pv;
+  gint vstart = 0;
+  gint vend = 0;
+  gint i;
 
-  if (!fmtp)
-    return;
+  str = g_match_info_get_string (match);
+  g_match_info_fetch_pos (match, FMTP_MATCH_VALUE, &vstart, &vend);
 
-  s = su_strdup (home, fmtp);
-  if (msg_avlist_d (home, &s, &param_list) < 0)
+  if (vstart < vend - 1 && str[vstart] == '"' && str[vend - 1] == '"')
     {
-      DEBUG("format-specific parameters can't be parsed as an attribute list: %s", fmtp);
-      goto pass_as_is;
-    }
-  if (*s)
-    {
-      DEBUG("unexpected parser exit (whitespace?) while parsing format-specific parameters: %s", fmtp);
-      goto pass_as_is;
-    }
+      /* Unescape the quoted pair contents */
 
-  g_assert (param_list != NULL);
-
-  if (param_list[0] != NULL
-      && param_list[1] == NULL
-      && !strchr (param_list[0], '='))
-    {
-      DEBUG("passing freeform parameter string verbatim: %s", fmtp);
-      goto pass_as_is;
-    }
-
-  for (i = 0; (avpair = param_list[i]) != NULL; i++)
-    {
-      pv = strchr (avpair, '=');
-      if (pv)
+      /* The buffer should be enough for the non-collapsed contents
+       * minus the quotes */
+      value = g_malloc ((vend - 1 - vstart) * sizeof (gchar));
+      pv = value;
+      for (i = vstart + 1; i < vend - 1; i++)
         {
-          attr = su_strndup (home, avpair, pv - avpair);
-          DEBUG("parsed attribute-value pair %s=%s", attr, pv + 1);
-          g_hash_table_insert (param_hash, attr, (gpointer) (pv + 1));
+          if (str[i] == '\\')
+            ++i;
+          *pv++ = str[i];
         }
-      else
+      *pv = '\0';
+    }
+  else
+    {
+      /* Pass as is */
+      value = g_strndup (str + vstart, vend - vstart);
+    }
+
+  return value;
+}
+
+static int
+priv_fmtp_match_length (const GMatchInfo *match)
+{
+  gint attr_start = 0;
+  gint attr_end = 0;
+  g_match_info_fetch_pos (match, 0, &attr_start, &attr_end);
+  g_assert (attr_start == 0);
+  g_assert (attr_end > 0);
+  return attr_end;
+}
+
+static void
+priv_fmtp_parse (const char *fmtp, GHashTable *param_hash)
+{
+  GMatchInfo *match;
+  gchar *name;
+  gchar *value;
+  const char *p = fmtp;
+
+  for (;;)
+    {
+      while (g_ascii_isspace (*p))
+        ++p;
+
+      if (*p == '\0')
+        break;
+
+      g_regex_match (fmtp_attr_regex, p, G_REGEX_MATCH_ANCHORED, &match);
+      if (!g_match_info_matches (match))
+        goto pass_as_is;
+
+      name = g_match_info_fetch (match, FMTP_MATCH_ATTR);
+
+      value = priv_fmtp_fetch_value (match);
+
+      p += priv_fmtp_match_length (match);
+
+      g_match_info_free (match);
+
+      DEBUG("parsed parameter %s=%s", name, value);
+
+      g_hash_table_insert (param_hash, name, value);
+
+      while (g_ascii_isspace (*p))
+        ++p;
+
+      switch (*p)
         {
-          DEBUG("parsed freeform parameter %s", avpair);
-          g_hash_table_insert (param_hash, (gpointer) avpair, NULL);
+        case '\0':
+          break;
+        case ';':
+          ++p;
+          break;
+        default:
+          goto pass_as_is;
         }
     }
 
   return;
 
 pass_as_is:
-  g_hash_table_insert (param_hash, "", (gpointer) fmtp);
+  DEBUG("failed to parse format-specific parameters as an attribute-value list: %s", fmtp);
+  g_hash_table_remove_all (param_hash);
+  g_hash_table_insert (param_hash, g_strdup (""), g_strdup (fmtp));
 }
 
 /**
@@ -1319,11 +1383,11 @@ static void push_remote_codecs (TpsipMediaStream *stream)
 {
   TpsipMediaStreamPrivate *priv;
   GPtrArray *codecs;
+  GHashTable *opt_params;
   GType codecs_type;
   GType codec_type;
   const sdp_media_t *sdpmedia;
   const sdp_rtpmap_t *rtpmap;
-  su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
 
   DEBUG ("enter");
 
@@ -1347,21 +1411,21 @@ static void push_remote_codecs (TpsipMediaStream *stream)
   codecs_type = TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST;
 
   codecs = dbus_g_type_specialized_construct (codecs_type);
+  opt_params = g_hash_table_new_full (g_str_hash,
+                                      g_str_equal,
+                                      g_free,
+                                      g_free);
 
   rtpmap = sdpmedia->m_rtpmaps;
   while (rtpmap)
     {
       GValue codec = { 0, };
-      GHashTable *opt_params;
 
       g_value_init (&codec, codec_type);
       g_value_take_boxed (&codec,
                           dbus_g_type_specialized_construct (codec_type));
 
-      /* Note: all strings in opt_params hash are either allocated at temphome
-       * or referenced as is from the rtpmap structure */
-      opt_params = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, NULL);
-      priv_parse_fmtp (temphome, rtpmap->rm_fmtp, opt_params);
+      priv_fmtp_parse (rtpmap->rm_fmtp, opt_params);
 
       /* RFC2327: see "m=" line definition 
        *  - note, 'encoding_params' is assumed to be channel
@@ -1382,14 +1446,14 @@ static void push_remote_codecs (TpsipMediaStream *stream)
                               5, opt_params,
                               G_MAXUINT);
 
-      g_ptr_array_add (codecs, g_value_get_boxed (&codec));
+      g_hash_table_remove_all (opt_params);
 
-      g_hash_table_destroy (opt_params);
+      g_ptr_array_add (codecs, g_value_get_boxed (&codec));
 
       rtpmap = rtpmap->rm_next;
     }
-  
-  su_home_deinit (temphome);
+
+  g_hash_table_destroy (opt_params);
 
   SESSION_DEBUG(priv->session, "passing %d remote codecs to stream engine",
                 codecs->len);
