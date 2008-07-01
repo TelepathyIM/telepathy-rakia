@@ -1,6 +1,6 @@
 /*
  * sip-text-channel.h - Header for TpsipTextChannel
- * Copyright (C) 2005 Collabora Ltd.
+ * Copyright (C) 2005-2008 Collabora Ltd.
  * Copyright (C) 2005-2008 Nokia Corporation
  *
  * This work is free software; you can redistribute it and/or
