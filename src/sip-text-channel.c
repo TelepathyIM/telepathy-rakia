@@ -62,6 +62,11 @@ G_DEFINE_TYPE_WITH_CODE (TpsipTextChannel, tpsip_text_channel, G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
 
+static const char *tpsip_text_channel_interfaces[] = {
+    NULL
+};
+
+
 /* properties */
 enum
 {
@@ -70,6 +75,7 @@ enum
   PROP_CHANNEL_TYPE,
   PROP_HANDLE_TYPE,
   PROP_HANDLE,
+  PROP_INTERFACES,
   /* PROP_CREATOR, */
   LAST_PROPERTY
 };
@@ -212,6 +218,12 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
       G_PARAM_STATIC_NICK | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
   g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 
+  param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
+      "Addition Channel.Interface.* interfaces", G_TYPE_STRV,
+      G_PARAM_READABLE |
+      G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_STATIC_NAME);
+  g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
+
   g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
       "handle-type");
   g_object_class_override_property (object_class, PROP_HANDLE, "handle");
@@ -249,6 +261,10 @@ tpsip_text_channel_get_property(GObject *object,
 
   case PROP_HANDLE:
     g_value_set_uint(value, priv->handle);
+    break;
+
+  case PROP_INTERFACES:
+    g_value_set_static_boxed (value, tpsip_text_channel_interfaces);
     break;
 
   default:
@@ -503,10 +519,9 @@ static void
 tpsip_text_channel_get_interfaces(TpSvcChannel *iface,
                                 DBusGMethodInvocation *context)
 {
-  const char *interfaces[] = { NULL };
-
   DEBUG("enter");
-  tp_svc_channel_return_from_get_interfaces (context, interfaces);
+  tp_svc_channel_return_from_get_interfaces (context,
+      tpsip_text_channel_interfaces);
 }
 
 
