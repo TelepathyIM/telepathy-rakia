@@ -1464,10 +1464,8 @@ static void push_remote_codecs (TpsipMediaStream *stream)
   SESSION_DEBUG(priv->session, "passing %d remote codecs to stream engine",
                 codecs->len);
 
-  if (codecs->len > 0) {
-    tp_svc_media_stream_handler_emit_set_remote_codecs (
+  tp_svc_media_stream_handler_emit_set_remote_codecs (
         (TpSvcMediaStreamHandler *)stream, codecs);
-  }
 
   g_boxed_free (codecs_type, codecs);
 }
