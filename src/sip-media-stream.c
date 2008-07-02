@@ -1327,6 +1327,9 @@ priv_fmtp_parse (const char *fmtp, GHashTable *param_hash)
   gchar *value;
   const char *p = fmtp;
 
+  if (fmtp == NULL)
+    return;
+
   for (;;)
     {
       while (g_ascii_isspace (*p))
