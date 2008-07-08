@@ -431,177 +431,117 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
 #define INST_PROP(x) \
   g_object_class_install_property (object_class,  x, param_spec)
 
-  param_spec = g_param_spec_pointer("sofia-root",
-                                    "Sofia root",
-                                    "Event root from Sofia-SIP stack",
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_pointer ("sofia-root", "Sofia root",
+      "Event root from Sofia-SIP stack",
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_SOFIA_ROOT);
 
-  param_spec = g_param_spec_string("address",
-                                   "TpsipConnection construction property",
-                                   "Public SIP address",
-                                   NULL,
-                                   G_PARAM_CONSTRUCT_ONLY |
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("address", "SIP address",
+      "SIP AoR URI",
+      NULL,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_ADDRESS);
 
-  param_spec = g_param_spec_string("auth-user",
-                                   "Auth username",
-                                   "Username to use when registering (if different "
-                                   "than userinfo part of public SIP address)",
-                                   NULL,
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("auth-user", "Auth username",
+      "Username to use when registering "
+      "(if different than userinfo part of public SIP address)",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_AUTH_USER);
 
-  param_spec = g_param_spec_string("password",
-                                   "SIP account password",
-                                   "Password for SIP registration",
-                                   NULL,
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("password", "SIP account password",
+      "Password for SIP registration",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_PASSWORD);
 
-  param_spec = g_param_spec_string("transport",
-                                   "Transport protocol",
-                                   "Preferred transport protocol [optional]",
-                                   NULL,
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("transport", "Transport protocol",
+      "Preferred transport protocol (auto, udp, tcp)",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_TRANSPORT);
 
-  param_spec = g_param_spec_string("proxy",
-                                   "Outbound proxy",
-                                   "SIP URI for outbound proxy (e.g. 'sip:sipproxy.myprovider.com') [optional]",
-                                   NULL,
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("proxy", "Outbound proxy",
+      "SIP URI for outbound proxy",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_PROXY);
 
-  param_spec = g_param_spec_string("registrar",
-                                   "Registrar",
-                                   "SIP URI for registrar (e.g. 'sip:sip.myprovider.com') [optional]",
-                                   NULL,
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("registrar", "Registrar",
+      "SIP URI for registrar",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_REGISTRAR);
 
-  param_spec = g_param_spec_boolean("loose-routing",
-                                    "Loose routing",
-                                    "Enable loose routing as per RFC 3261",
-                                    FALSE, /*default value*/
-                                    G_PARAM_CONSTRUCT |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_boolean ("loose-routing", "Loose routing",
+      "Enable loose routing as per RFC 3261",
+      FALSE, /*default value*/
+      G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_LOOSE_ROUTING);
 
-  param_spec = g_param_spec_enum ("keepalive-mechanism",
-                                  "Keepalive mechanism",
-                                  "SIP registration keepalive mechanism",
-                                  tpsip_connection_keepalive_mechanism_get_type (),
-                                  TPSIP_CONNECTION_KEEPALIVE_AUTO, /*default value*/
-                                  G_PARAM_CONSTRUCT |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_enum ("keepalive-mechanism", "Keepalive mechanism",
+      "Keepalive mechanism for SIP registration",
+      tpsip_connection_keepalive_mechanism_get_type (),
+      TPSIP_CONNECTION_KEEPALIVE_AUTO, /*default value*/
+      G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_KEEPALIVE_MECHANISM);
 
-  param_spec = g_param_spec_int("keepalive-interval", 
-				"Keepalive interval",
-				"Interval between keepalives in seconds (0 = internal default, -1 = let the stack decide)",
-				-1, G_MAXINT32, -1,
-                                G_PARAM_CONSTRUCT |
-                                G_PARAM_READWRITE |
-                                G_PARAM_STATIC_NAME |
-                                G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_int ("keepalive-interval", "Keepalive interval",
+      "Interval between keepalives in seconds "
+      "(0 = internal default, -1 = let the stack decide)",
+      -1, G_MAXINT32, -1,
+      G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_KEEPALIVE_INTERVAL);
 
-  param_spec = g_param_spec_boolean("discover-binding",
-                                    "Discover public contact",
-                                    "Enable discovery of public IP address beyond NAT",
-                                    TRUE, /*default value*/
-                                    G_PARAM_CONSTRUCT |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_boolean ("discover-binding",
+      "Discover public contact",
+      "Enable discovery of public IP address beyond NAT",
+      TRUE, /*default value*/
+      G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_DISCOVER_BINDING);
 
-  param_spec = g_param_spec_boolean("discover-stun", "Discover STUN server",
-                                    "Enable discovery of STUN server host name "
-                                    "using DNS SRV lookup",
-                                    TRUE, /*default value*/
-                                    G_PARAM_CONSTRUCT |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_boolean ("discover-stun", "Discover STUN server",
+      "Enable discovery of STUN server host name using DNS SRV lookup",
+      TRUE, /*default value*/
+      G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_DISCOVER_STUN);
 
-  param_spec = g_param_spec_string("stun-server",
-                                   "STUN server address",
-                                   "STUN server address (FQDN or IP address, "
-                                   "e.g. 'stun.myprovider.com') [optional]",
-                                   NULL,
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("stun-server", "STUN server address",
+      "STUN server address (FQDN or IP address)",
+      NULL,
+      G_PARAM_READWRITE |  G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_STUN_SERVER);
 
-  param_spec = g_param_spec_uint ("stun-port",
-                                  "STUN port",
-                                  "STUN port.",
-                                  0, G_MAXUINT16,
-                                  TPSIP_DEFAULT_STUN_PORT, /*default value*/
-                                  G_PARAM_CONSTRUCT |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_uint ("stun-port", "STUN port",
+      "STUN server port",
+      0, G_MAXUINT16,
+      TPSIP_DEFAULT_STUN_PORT, /*default value*/
+      G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_STUN_PORT);
 
-  param_spec = g_param_spec_string("local-ip-address",
-                                   "Local IP address",
-                                   "Local IP address to use [optional]",
-                                   NULL,
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("local-ip-address", "Local IP address",
+      "Local IP address to use",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_LOCAL_IP_ADDRESS);
 
-  param_spec = g_param_spec_uint ("local-port",
-                                  "Local port",
-                                  "Local port for SIP [optional]",
-                                  0, G_MAXUINT16, 0,
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_uint ("local-port", "Local port",
+      "Local port for SIP",
+      0, G_MAXUINT16,
+      0,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_LOCAL_PORT);
 
-  param_spec = g_param_spec_string("extra-auth-user",
-                                   "Extra auth username",
-                                   "Username to use for extra authentication challenges",
-                                   NULL,
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("extra-auth-user", "Extra auth username",
+      "Username to use for extra authentication challenges",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_EXTRA_AUTH_USER);
 
-  param_spec = g_param_spec_string("extra-auth-password",
-                                   "Extra auth password",
-                                   "Password to use for extra authentication challenges",
-                                   NULL,
-                                   G_PARAM_READWRITE |
-                                   G_PARAM_STATIC_NAME |
-                                   G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_string ("extra-auth-password", "Extra auth password",
+      "Password to use for extra authentication challenges",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_EXTRA_AUTH_PASSWORD);
 
 #undef INST_PROP

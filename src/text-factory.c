@@ -134,13 +134,9 @@ tpsip_text_factory_class_init (TpsipTextFactoryClass *klass)
   object_class->dispose = tpsip_text_factory_dispose;
 
   param_spec = g_param_spec_object ("connection", "TpsipConnection object",
-                                    "SIP connection that owns this text "
-                                    "channel factory",
-                                    TPSIP_TYPE_CONNECTION,
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NICK |
-                                    G_PARAM_STATIC_BLURB);
+      "SIP connection that owns this text channel factory",
+      TPSIP_TYPE_CONNECTION,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 }
 

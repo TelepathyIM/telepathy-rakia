@@ -298,85 +298,56 @@ tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
   object_class->finalize = tpsip_media_session_finalize;
 
   param_spec = g_param_spec_object ("media-channel", "TpsipMediaChannel object",
-                                    "SIP media channel object that owns this "
-                                    "media session object (not reference counted).",
-                                    TPSIP_TYPE_MEDIA_CHANNEL,
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NICK |
-                                    G_PARAM_STATIC_BLURB);
+      "SIP media channel object that owns this media session object"
+      " (not reference counted).",
+      TPSIP_TYPE_MEDIA_CHANNEL,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_MEDIA_CHANNEL, param_spec);
 
   param_spec = g_param_spec_string ("object-path", "D-Bus object path",
-                                    "The D-Bus object path used for this "
-                                    "object on the bus.",
-                                    NULL,
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
+      "The D-Bus object path used for this object on the bus.",
+      NULL,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_OBJECT_PATH, param_spec);
 
-  param_spec = g_param_spec_pointer("nua-handle", "Sofia-SIP NUA operator handle",
-                                    "NUA stack operation handle associated "
-                                    "with this media session.",
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
+  param_spec = g_param_spec_pointer ("nua-handle", "NUA handle",
+      "NUA stack operation handle associated with this media session.",
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_NUA_OP, param_spec);
 
   param_spec = g_param_spec_uint ("peer", "Session peer",
-                                  "The TpHandle representing the contact "
-                                  "with whom this session communicates.",
-                                  0, G_MAXUINT32, 0,
-                                  G_PARAM_CONSTRUCT_ONLY |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+      "The TpHandle representing the contact with whom this session communicates.",
+      0, G_MAXUINT32,
+      0,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_PEER, param_spec);
 
   param_spec = g_param_spec_uint ("hold-state", "Local hold state",
-                                  "The current Local_Hold_State value"
-                                  " as reported by the Hold interface"
-                                  " for the channel",
-                                  TP_LOCAL_HOLD_STATE_UNHELD,
-                                  TP_LOCAL_HOLD_STATE_PENDING_UNHOLD,
-                                  TP_LOCAL_HOLD_STATE_UNHELD,
-                                  G_PARAM_READABLE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+      "The current Local_Hold_State value as reported by the Hold interface",
+      TP_LOCAL_HOLD_STATE_UNHELD, TP_LOCAL_HOLD_STATE_PENDING_UNHOLD,
+      TP_LOCAL_HOLD_STATE_UNHELD,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_HOLD_STATE, param_spec);
 
   param_spec = g_param_spec_uint ("hold-state-reason",
-                                  "Local hold state change reason",
-                                  "The last Local_Hold_State_Reason value"
-                                  " as reported by the Hold interface"
-                                  " for the channel",
-                                  TP_LOCAL_HOLD_STATE_REASON_NONE,
-                                  TP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE,
-                                  TP_LOCAL_HOLD_STATE_REASON_NONE,
-                                  G_PARAM_READABLE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+      "Local hold state change reason",
+      "The last Local_Hold_State_Reason value as reported by the Hold interface",
+      TP_LOCAL_HOLD_STATE_REASON_NONE,
+      TP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE,
+      TP_LOCAL_HOLD_STATE_REASON_NONE,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_HOLD_STATE_REASON, param_spec);
 
   param_spec = g_param_spec_string ("local-ip-address", "Local IP address",
-                                    "The local IP address preferred for "
-                                    "media streams",
-                                    NULL,
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
+      "The local IP address preferred for media streams",
+      NULL,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_LOCAL_IP_ADDRESS, param_spec);
 
   param_spec = g_param_spec_boolean ("rtcp-enabled", "RTCP enabled",
-                                     "Is RTCP enabled session-wide",
-                                     TRUE,
-                                     G_PARAM_READABLE |
-                                     G_PARAM_STATIC_NAME |
-                                     G_PARAM_STATIC_BLURB);
+      "Is RTCP enabled session-wide",
+      TRUE,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_RTCP_ENABLED, param_spec);
 
   signals[SIG_STATE_CHANGED] =

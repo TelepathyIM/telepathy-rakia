@@ -300,98 +300,62 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
   object_class->finalize = tpsip_media_stream_finalize;
 
   param_spec = g_param_spec_object ("media-session", "GabbleMediaSession object",
-                                    "SIP media session object that owns this "
-                                    "media stream object.",
-                                    TPSIP_TYPE_MEDIA_SESSION,
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NICK |
-                                    G_PARAM_STATIC_BLURB);
+      "SIP media session object that owns this media stream object.",
+      TPSIP_TYPE_MEDIA_SESSION,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_MEDIA_SESSION, param_spec);
 
   param_spec = g_param_spec_string ("object-path", "D-Bus object path",
-                                    "The D-Bus object path used for this "
-                                    "object on the bus.",
-                                    NULL,
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
+      "The D-Bus object path used for this object on the bus.",
+      NULL,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_OBJECT_PATH, param_spec);
 
   param_spec = g_param_spec_uint ("id", "Stream ID",
-                                  "A stream number for the stream used in the "
-                                  "D-Bus API.",
-                                  0, G_MAXUINT, 0,
-                                  G_PARAM_CONSTRUCT_ONLY |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+      "A stream number for the stream used in the D-Bus API.",
+      0, G_MAXUINT,
+      0,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_ID, param_spec);
 
   param_spec = g_param_spec_uint ("media-type", "Stream media type",
-                                  "A constant indicating which media type the "
-                                  "stream carries.",
-                                  TP_MEDIA_STREAM_TYPE_AUDIO,
-                                  TP_MEDIA_STREAM_TYPE_VIDEO,
-                                  TP_MEDIA_STREAM_TYPE_AUDIO,
-                                  G_PARAM_CONSTRUCT_ONLY |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+      "A constant indicating which media type the stream carries.",
+      TP_MEDIA_STREAM_TYPE_AUDIO, TP_MEDIA_STREAM_TYPE_VIDEO,
+      TP_MEDIA_STREAM_TYPE_AUDIO,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_MEDIA_TYPE, param_spec);
 
   param_spec = g_param_spec_uint ("state", "Connection state",
-                                  "Connection state of the media stream",
-                                  TP_MEDIA_STREAM_STATE_DISCONNECTED,
-                                  TP_MEDIA_STREAM_STATE_CONNECTED,
-                                  TP_MEDIA_STREAM_STATE_DISCONNECTED,
-                                  G_PARAM_CONSTRUCT |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class,
-                                   PROP_STATE,
-                                   param_spec);
+      "Connection state of the media stream",
+      TP_MEDIA_STREAM_STATE_DISCONNECTED, TP_MEDIA_STREAM_STATE_CONNECTED,
+      TP_MEDIA_STREAM_STATE_DISCONNECTED,
+      G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_STATE, param_spec);
 
   /* We don't change the following two as individual properties
    * after construction, use tpsip_media_stream_set_direction() */
 
   param_spec = g_param_spec_uint ("direction", "Stream direction",
-                                  "A value indicating the current "
-                                        "direction of the stream",
-                                  TP_MEDIA_STREAM_DIRECTION_NONE,
-                                  TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
-                                  TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
-                                  G_PARAM_CONSTRUCT_ONLY |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+      "A value indicating the current direction of the stream",
+      TP_MEDIA_STREAM_DIRECTION_NONE, TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
+      TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_DIRECTION, param_spec);
 
   param_spec = g_param_spec_uint ("pending-send-flags", "Pending send flags",
-                                  "Flags indicating the current "
-                                        "pending send state of the stream",
-                                  0,
-                                  TP_MEDIA_STREAM_PENDING_LOCAL_SEND
-                                        | TP_MEDIA_STREAM_PENDING_REMOTE_SEND,
-                                  0,
-                                  G_PARAM_CONSTRUCT_ONLY |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
+      "Flags indicating the current pending send state of the stream",
+      0,
+      TP_MEDIA_STREAM_PENDING_LOCAL_SEND | TP_MEDIA_STREAM_PENDING_REMOTE_SEND,
+      0,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class,
                                    PROP_PENDING_SEND_FLAGS,
                                    param_spec);
 
   param_spec = g_param_spec_boolean ("hold-state", "Hold state",
-                                     "Hold state of the media stream "
-                                        "as reported by the stream engine",
-                                     FALSE,
-                                     G_PARAM_CONSTRUCT |
-                                     G_PARAM_READWRITE |
-                                     G_PARAM_STATIC_NAME |
-                                     G_PARAM_STATIC_BLURB);
+      "Hold state of the media stream as reported by the stream engine",
+      FALSE,
+      G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class,
                                    PROP_HOLD_STATE,
                                    param_spec);
