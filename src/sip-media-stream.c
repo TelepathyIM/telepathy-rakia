@@ -971,6 +971,12 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
       return FALSE;
     }
 
+  if (new_media->m_rtpmaps == NULL)
+    {
+      g_warning ("Stream %u: no remote codecs", priv->id);
+      return FALSE;
+    }
+
   /* Note: always update the pointer to the current media structure
    * because of memory management done in the session object */
   old_media = priv->remote_media;
