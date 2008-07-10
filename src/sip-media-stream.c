@@ -1313,9 +1313,12 @@ priv_fmtp_match_length (const GMatchInfo *match)
 {
   gint attr_start = 0;
   gint attr_end = 0;
+
   g_match_info_fetch_pos (match, 0, &attr_start, &attr_end);
+
   g_assert (attr_start == 0);
   g_assert (attr_end > 0);
+
   return attr_end;
 }
 
