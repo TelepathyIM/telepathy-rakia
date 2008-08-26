@@ -25,5 +25,8 @@ SUBDIRS = \
 	tests
 
 dist-hook:
-	chmod ug+w ${distdir}/ChangeLog
-	if test -d _darcs; then darcs changes >${distdir}/ChangeLog; fi
+	chmod u+w ${distdir}/ChangeLog
+	if test -d ${top_srcdir}/.git; then \
+		git --work-tree=${top_srcdir} log --stat > ${distdir}/ChangeLog || \
+		git --work-tree=${top_srcdir} log > ${distdir}/ChangeLog; \
+	fi
