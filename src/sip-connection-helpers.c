@@ -814,8 +814,8 @@ priv_strip_whitespace (su_home_t *home, const gchar *string)
 
 gchar *
 tpsip_conn_normalize_uri (TpsipConnection *conn,
-                        const gchar *sipuri,
-                        GError **error)
+                          const gchar *sipuri,
+                          GError **error)
 {
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   su_home_t home[1] = { SU_HOME_INIT (home) };
@@ -837,7 +837,7 @@ tpsip_conn_normalize_uri (TpsipConnection *conn,
 
       if (priv_is_tel_num (sipuri))
         {
-          url = url_format (home, "sip:%s@%s;user=phone",
+          url = url_format (home, "sip:%s@%s",
               priv_strip_whitespace (home, sipuri),
               priv->account_url->url_host);
         }
