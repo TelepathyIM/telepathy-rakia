@@ -267,10 +267,10 @@ channel_closed (TpsipMediaChannel *chan, gpointer user_data)
  */
 TpsipMediaChannel *
 tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
-                               gpointer request,
-                               TpHandleType handle_type,
-                               TpHandle handle,
-                               GError **error)
+                                 gpointer request,
+                                 TpHandleType handle_type,
+                                 TpHandle handle,
+                                 GError **error)
 {
   TpsipMediaFactoryPrivate *priv;
   TpsipMediaChannel *chan;
@@ -295,7 +295,6 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
 
   chan = g_object_new (TPSIP_TYPE_MEDIA_CHANNEL,
                        "connection", priv->conn,
-                       "factory", fac,
                        "object-path", object_path,
                        "nat-traversal", nat_traversal,
                        NULL);

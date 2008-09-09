@@ -40,7 +40,6 @@
 
 #define DEBUG_FLAG TPSIP_DEBUG_MEDIA
 #include "debug.h"
-#include "media-factory.h"
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
 #include "sip-media-session.h"
@@ -90,7 +89,6 @@ static const gchar *tpsip_media_channel_interfaces[] = {
 enum
 {
   PROP_CONNECTION = 1,
-  PROP_FACTORY,
   PROP_OBJECT_PATH,
   PROP_CHANNEL_TYPE,
   PROP_HANDLE_TYPE,
@@ -127,7 +125,6 @@ struct _TpsipMediaChannelPrivate
   gboolean dispose_has_run;
   gboolean closed;
   TpsipConnection *conn;
-  TpsipMediaFactory *factory;
   TpsipMediaSession *session;
   gchar *object_path;
   GHashTable *call_states;
@@ -284,13 +281,6 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       G_PARAM_STATIC_NICK | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 
-  param_spec = g_param_spec_object ("factory", "TpsipMediaFactory object",
-      "Channel factory object that owns this SIP media channel object.",
-      TPSIP_TYPE_MEDIA_FACTORY,
-      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE |
-      G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_FACTORY, param_spec);
-
   param_spec = g_param_spec_string ("nat-traversal", "NAT traversal mechanism",
       "A string representing the type of NAT traversal that should be "
       "performed for streams on this channel.",
@@ -330,9 +320,6 @@ tpsip_media_channel_get_property (GObject    *object,
   switch (property_id) {
     case PROP_CONNECTION:
       g_value_set_object (value, priv->conn);
-      break;
-    case PROP_FACTORY:
-      g_value_set_object (value, priv->factory);
       break;
     case PROP_OBJECT_PATH:
       g_value_set_string (value, priv->object_path);
@@ -393,9 +380,6 @@ tpsip_media_channel_set_property (GObject     *object,
     case PROP_CONNECTION:
       priv->conn = TPSIP_CONNECTION (g_value_dup_object (value));
       break;
-    case PROP_FACTORY:
-      priv->factory = TPSIP_MEDIA_FACTORY (g_value_dup_object (value));
-      break;
     case PROP_OBJECT_PATH:
       g_free (priv->object_path);
       priv->object_path = g_value_dup_string (value);
@@ -439,9 +423,6 @@ tpsip_media_channel_dispose (GObject *object)
 
   if (!priv->closed)
     tpsip_media_channel_close (self);
-
-  if (priv->factory)
-    g_object_unref (priv->factory);
 
   if (priv->conn)
     g_object_unref (priv->conn);
