@@ -93,6 +93,7 @@ enum
   PROP_CHANNEL_TYPE,
   PROP_HANDLE_TYPE,
   PROP_HANDLE,
+  PROP_TARGET_ID,
   PROP_INTERFACES,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
@@ -150,23 +151,20 @@ tpsip_media_channel_init (TpsipMediaChannel *self)
       G_STRUCT_OFFSET (TpsipMediaChannel, properties));
 }
 
-static GObject *
-tpsip_media_channel_constructor (GType type, guint n_props,
-			         GObjectConstructParam *props)
+static void
+tpsip_media_channel_constructed (GObject *obj)
 {
-  GObject *obj;
-  TpsipMediaChannelPrivate *priv;
+  TpsipMediaChannel *chan = TPSIP_MEDIA_CHANNEL (obj);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
+  TpBaseConnection *conn = (TpBaseConnection *)(priv->conn);
+  GObjectClass *parent_object_class =
+      G_OBJECT_CLASS (tpsip_media_channel_parent_class);
   DBusGConnection *bus;
-  TpBaseConnection *conn;
   TpHandleRepoIface *contact_repo;
 
-  DEBUG("enter");
-  
-  obj = G_OBJECT_CLASS (tpsip_media_channel_parent_class)->
-           constructor (type, n_props, props);
+  if (parent_object_class->constructed != NULL)
+    parent_object_class->constructed (obj);
 
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (TPSIP_MEDIA_CHANNEL (obj));
-  conn = (TpBaseConnection *)(priv->conn);
   contact_repo = tp_base_connection_get_handles (conn,
       TP_HANDLE_TYPE_CONTACT);
   
@@ -176,15 +174,15 @@ tpsip_media_channel_constructor (GType type, guint n_props,
   DEBUG("registering object to dbus path=%s", priv->object_path);
   dbus_g_connection_register_g_object (bus, priv->object_path, obj);
 
+  /* initialize group mixin */
   tp_group_mixin_init (obj,
                        G_STRUCT_OFFSET (TpsipMediaChannel, group),
                        contact_repo,
                        conn->self_handle);
 
-  /* allow member adding */
-  tp_group_mixin_change_flags (obj, TP_CHANNEL_GROUP_FLAG_CAN_ADD, 0);
-
-  return obj;
+  /* Allow member adding; also, we implement the 0.17.6 properties */
+  tp_group_mixin_change_flags (obj,
+      TP_CHANNEL_GROUP_FLAG_CAN_ADD | TP_CHANNEL_GROUP_FLAG_PROPERTIES, 0);
 }
 
 static void tpsip_media_channel_dispose (GObject *object);
@@ -220,18 +218,19 @@ static gboolean tpsip_media_channel_remove_with_reason (
 static void
 tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
 {
-  static TpDBusPropertiesMixinPropImpl channel_props[] = {
+  static const TpDBusPropertiesMixinPropImpl channel_props[] = {
       { "TargetHandleType", "handle-type", NULL },
       { "TargetHandle", "handle", NULL },
+      { "TargetID", "target-id", NULL },
       { "ChannelType", "channel-type", NULL },
       { "Interfaces", "interfaces", NULL },
       { NULL }
   };
-  static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+  static const TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
       { TP_IFACE_CHANNEL,
         tp_dbus_properties_mixin_getter_gobject_properties,
         NULL,
-        channel_props,
+        (TpDBusPropertiesMixinPropImpl *) channel_props,
       },
       { NULL }
   };
@@ -242,15 +241,61 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
 
   g_type_class_add_private (klass, sizeof (TpsipMediaChannelPrivate));
 
-  object_class->constructor = tpsip_media_channel_constructor;
+  object_class->constructed = tpsip_media_channel_constructed;
+  object_class->dispose = tpsip_media_channel_dispose;
+  object_class->finalize = tpsip_media_channel_finalize;
 
   object_class->get_property = tpsip_media_channel_get_property;
   object_class->set_property = tpsip_media_channel_set_property;
 
-  object_class->dispose = tpsip_media_channel_dispose;
-  object_class->finalize = tpsip_media_channel_finalize;
+  g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
+      "handle-type");
+  g_object_class_override_property (object_class, PROP_HANDLE, "handle");
+  g_object_class_override_property (object_class, PROP_OBJECT_PATH,
+      "object-path");
+  g_object_class_override_property (object_class, PROP_CHANNEL_TYPE,
+      "channel-type");
 
-  klass->dbus_props_class.interfaces = prop_interfaces;
+  param_spec = g_param_spec_object ("connection", "TpsipConnection object",
+      "SIP connection object that owns this SIP media channel object.",
+      TPSIP_TYPE_CONNECTION,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
+
+  param_spec = g_param_spec_string ("nat-traversal", "NAT traversal mechanism",
+      "A string representing the type of NAT traversal that should be "
+      "performed for streams on this channel.",
+      "none",
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_NAT_TRAVERSAL, param_spec);
+
+  param_spec = g_param_spec_string ("stun-server", "STUN server",
+      "IP or address of STUN server.", NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_STUN_SERVER, param_spec);
+
+  param_spec = g_param_spec_uint ("stun-port", "STUN port",
+      "UDP port of STUN server.", 0, G_MAXUINT16, 0,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_STUN_PORT, param_spec);
+
+  param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
+      "Addition Channel.Interface.* interfaces", G_TYPE_STRV,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
+
+  param_spec = g_param_spec_string ("target-id", "Target SIP URI",
+      "Currently empty, because this channel always has handle 0.",
+      NULL,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_TARGET_ID, param_spec);
+
+  tp_properties_mixin_class_init (object_class,
+      G_STRUCT_OFFSET (TpsipMediaChannelClass, properties_class),
+      media_channel_property_signatures, NUM_TP_PROPS, NULL);
+
+  klass->dbus_props_class.interfaces =
+      (TpDBusPropertiesMixinIfaceImpl *) prop_interfaces;
   tp_dbus_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipMediaChannelClass, dbus_props_class));
 
@@ -262,57 +307,13 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
                              tpsip_media_channel_remove_with_reason);
   tp_group_mixin_init_dbus_properties (object_class);
 
-  g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
-      "handle-type");
-  g_object_class_override_property (object_class, PROP_HANDLE, "handle");
-  g_object_class_override_property (object_class, PROP_OBJECT_PATH,
-      "object-path");
-  g_object_class_override_property (object_class, PROP_CHANNEL_TYPE,
-      "channel-type");
-
-  tp_properties_mixin_class_init (object_class,
-      G_STRUCT_OFFSET (TpsipMediaChannelClass, properties_class),
-      media_channel_property_signatures, NUM_TP_PROPS, NULL);
-
-  param_spec = g_param_spec_object ("connection", "TpsipConnection object",
-      "SIP connection object that owns this SIP media channel object.",
-      TPSIP_TYPE_CONNECTION,
-      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE |
-      G_PARAM_STATIC_NICK | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
-
-  param_spec = g_param_spec_string ("nat-traversal", "NAT traversal mechanism",
-      "A string representing the type of NAT traversal that should be "
-      "performed for streams on this channel.",
-      "none",
-      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE |
-      G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_NAT_TRAVERSAL, param_spec);
-
-  param_spec = g_param_spec_string ("stun-server", "STUN server",
-      "IP or address of STUN server.", NULL,
-      G_PARAM_READWRITE |
-      G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_STUN_SERVER, param_spec);
-
-  param_spec = g_param_spec_uint ("stun-port", "STUN port",
-      "UDP port of STUN server.", 0, G_MAXUINT16, 0,
-      G_PARAM_READWRITE |
-      G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_STUN_PORT, param_spec);
-
-  param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
-      "Addition Channel.Interface.* interfaces", G_TYPE_STRV,
-      G_PARAM_READABLE |
-      G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_STATIC_NAME);
-  g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
 }
 
 static void
 tpsip_media_channel_get_property (GObject    *object,
-                                guint       property_id,
-                                GValue     *value,
-                                GParamSpec *pspec)
+                                  guint       property_id,
+                                  GValue     *value,
+                                  GParamSpec *pspec)
 {
   TpsipMediaChannel *chan = TPSIP_MEDIA_CHANNEL (object);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
@@ -325,7 +326,7 @@ tpsip_media_channel_get_property (GObject    *object,
       g_value_set_string (value, priv->object_path);
       break;
     case PROP_CHANNEL_TYPE:
-      g_value_set_string (value, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA);
+      g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA);
       break;
     case PROP_HANDLE:
       g_value_set_uint (value, 0);
@@ -333,22 +334,27 @@ tpsip_media_channel_get_property (GObject    *object,
     case PROP_HANDLE_TYPE:
       g_value_set_uint (value, TP_HANDLE_TYPE_NONE);
       break;
+    case PROP_TARGET_ID:
+      g_value_set_static_string (value, "");
+      break;
     case PROP_INTERFACES:
       g_value_set_static_boxed (value, tpsip_media_channel_interfaces);
       break;
     default:
-      /* the NAT_TRAVERSAL property lives in the mixin */
+      /* Some properties live in the mixin */
       {
-        const gchar *param_name = g_param_spec_get_name (pspec);
+        const gchar *param_name;
         guint tp_property_id;
+        GValue *tp_property_value;
 
-        if (tp_properties_mixin_has_property (object, param_name,
-              &tp_property_id))
+        param_name = g_param_spec_get_name (pspec);
+        if (G_LIKELY (tp_properties_mixin_has_property (object, param_name,
+                        &tp_property_id)))
           {
-            GValue *tp_property_value =
+            tp_property_value =
               chan->properties.properties[tp_property_id].value;
 
-            if (tp_property_value)
+            if (G_LIKELY (tp_property_value != NULL))
               {
                 g_value_copy (tp_property_value, value);
                 return;
@@ -385,13 +391,13 @@ tpsip_media_channel_set_property (GObject     *object,
       priv->object_path = g_value_dup_string (value);
       break;
     default:
-      /* the NAT_TRAVERSAL property lives in the mixin */
+      /* some properties live in the mixin */
       {
         const gchar *param_name = g_param_spec_get_name (pspec);
         guint tp_property_id;
 
-        if (tp_properties_mixin_has_property (object, param_name,
-              &tp_property_id))
+        if (G_LIKELY (tp_properties_mixin_has_property (object, param_name,
+                        &tp_property_id)))
           {
             tp_properties_mixin_change_value (object, tp_property_id,
                 value, NULL);
