@@ -78,6 +78,7 @@ enum
   PROP_CHANNEL_TYPE,
   PROP_HANDLE_TYPE,
   PROP_HANDLE,
+  PROP_TARGET_ID,
   PROP_INTERFACES,
   /* PROP_CREATOR, */
   LAST_PROPERTY
@@ -199,18 +200,19 @@ static void tpsip_text_channel_finalize(GObject *object);
 static void
 tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
 {
-  static TpDBusPropertiesMixinPropImpl channel_props[] = {
+  static const TpDBusPropertiesMixinPropImpl channel_props[] = {
       { "TargetHandleType", "handle-type", NULL },
       { "TargetHandle", "handle", NULL },
+      { "TargetID", "target-id", NULL },
       { "ChannelType", "channel-type", NULL },
       { "Interfaces", "interfaces", NULL },
       { NULL }
   };
-  static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+  static const TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
       { TP_IFACE_CHANNEL,
         tp_dbus_properties_mixin_getter_gobject_properties,
         NULL,
-        channel_props,
+        (TpDBusPropertiesMixinPropImpl *) channel_props,
       },
       { NULL }
   };
@@ -229,19 +231,6 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
   object_class->dispose = tpsip_text_channel_dispose;
   object_class->finalize = tpsip_text_channel_finalize;
 
-  param_spec = g_param_spec_object("connection", "TpsipConnection object",
-      "SIP connection object that owns this SIP media channel object.",
-      TPSIP_TYPE_CONNECTION,
-      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE |
-      G_PARAM_STATIC_NICK | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
-  g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
-
-  param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
-      "Addition Channel.Interface.* interfaces", G_TYPE_STRV,
-      G_PARAM_READABLE |
-      G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_STATIC_NAME);
-  g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
-
   g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
       "handle-type");
   g_object_class_override_property (object_class, PROP_HANDLE, "handle");
@@ -250,7 +239,25 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
   g_object_class_override_property (object_class, PROP_CHANNEL_TYPE,
       "channel-type");
 
-  klass->dbus_props_class.interfaces = prop_interfaces;
+  param_spec = g_param_spec_object("connection", "TpsipConnection object",
+      "SIP connection object that owns this SIP media channel object.",
+      TPSIP_TYPE_CONNECTION,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
+
+  param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
+      "Addition Channel.Interface.* interfaces", G_TYPE_STRV,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
+
+  param_spec = g_param_spec_string ("target-id", "Peer's SIP URI",
+      "The URI string obtained by inspecting the peer handle",
+      NULL,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_TARGET_ID, param_spec);
+
+  klass->dbus_props_class.interfaces =
+      (TpDBusPropertiesMixinIfaceImpl *) prop_interfaces;
   tp_dbus_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipTextChannelClass, dbus_props_class));
 }
@@ -277,21 +284,30 @@ tpsip_text_channel_get_property(GObject *object,
       g_value_set_string(value, TP_IFACE_CHANNEL_TYPE_TEXT);
       break;
 
-  case PROP_HANDLE_TYPE:
+    case PROP_HANDLE_TYPE:
       g_value_set_uint(value, TP_HANDLE_TYPE_CONTACT);
-    break;
+      break;
 
-  case PROP_HANDLE:
-    g_value_set_uint(value, priv->handle);
-    break;
+    case PROP_HANDLE:
+      g_value_set_uint(value, priv->handle);
+      break;
 
-  case PROP_INTERFACES:
-    g_value_set_static_boxed (value, tpsip_text_channel_interfaces);
-    break;
+    case PROP_TARGET_ID:
+      {
+        TpHandleRepoIface *repo = tp_base_connection_get_handles (
+            (TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
 
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-    break;
+        g_value_set_string (value, tp_handle_inspect (repo, priv->handle));
+      }
+      break;
+
+    case PROP_INTERFACES:
+      g_value_set_static_boxed (value, tpsip_text_channel_interfaces);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+      break;
   }
 }
 
