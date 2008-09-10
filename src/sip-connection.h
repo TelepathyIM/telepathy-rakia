@@ -24,6 +24,8 @@
 #include <glib-object.h>
 
 #include <telepathy-glib/base-connection.h>
+#include <telepathy-glib/contacts-mixin.h>
+#include <telepathy-glib/dbus-properties-mixin.h>
 
 #include <tpsip/event-target.h>
 
@@ -47,10 +49,13 @@ typedef struct _TpsipConnectionPrivate TpsipConnectionPrivate;
 
 struct _TpsipConnectionClass {
     TpBaseConnectionClass parent_class;
+    TpDBusPropertiesMixinClass properties_class;
+    TpContactsMixinClass contacts_class;
 };
 
 struct _TpsipConnection {
     TpBaseConnection parent;
+    TpContactsMixin contacts;
 };
 
 /* TYPE MACROS */

@@ -57,6 +57,10 @@ static void conn_iface_init (gpointer, gpointer);
 G_DEFINE_TYPE_WITH_CODE(TpsipConnection, tpsip_connection,
     TP_TYPE_BASE_CONNECTION,
     G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, event_target_iface_init);
+    G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_DBUS_PROPERTIES,
+        tp_dbus_properties_mixin_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS,
+        tp_contacts_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION, conn_iface_init))
 
 #define ERROR_IF_NOT_CONNECTED_ASYNC(BASE, CONTEXT) \
@@ -184,14 +188,20 @@ tpsip_connection_create_channel_factories (TpBaseConnection *base)
 }
 
 static void
-tpsip_connection_init (TpsipConnection *obj)
+tpsip_connection_init (TpsipConnection *self)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (obj);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+
   priv->sofia_home = su_home_new(sizeof (su_home_t));
   priv->auth_table = g_hash_table_new_full (g_direct_hash,
                                             g_direct_equal,
                                             NULL /* (GDestroyNotify) nua_handle_unref */,
                                             g_free);
+
+  tp_contacts_mixin_init ((GObject *) self,
+      G_STRUCT_OFFSET (TpsipConnection, contacts));
+
+  tp_base_connection_register_with_contacts_mixin ((TpBaseConnection *) self);
 }
 
 static void
@@ -406,6 +416,10 @@ static gboolean tpsip_connection_start_connecting (TpBaseConnection *base,
 static void
 tpsip_connection_class_init (TpsipConnectionClass *klass)
 {
+  static const gchar *interfaces_always_present[] = {
+      TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
+      NULL };
+
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   TpBaseConnectionClass *base_class =
     (TpBaseConnectionClass *)klass;
@@ -419,6 +433,7 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
   base_class->disconnected = tpsip_connection_disconnected;
   base_class->start_connecting = tpsip_connection_start_connecting;
   base_class->shut_down = tpsip_connection_shut_down;
+  base_class->interfaces_always_present = interfaces_always_present;
 
   g_type_class_add_private (klass, sizeof (TpsipConnectionPrivate));
 
@@ -545,6 +560,12 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
   INST_PROP(PROP_EXTRA_AUTH_PASSWORD);
 
 #undef INST_PROP
+
+  tp_dbus_properties_mixin_class_init (object_class,
+      G_STRUCT_OFFSET (TpsipConnectionClass, properties_class));
+
+  tp_contacts_mixin_class_init (object_class,
+      G_STRUCT_OFFSET (TpsipConnectionClass, contacts_class));
 }
 
 static gboolean
@@ -1001,6 +1022,8 @@ tpsip_connection_finalize (GObject *obj)
   g_free (priv->extra_auth_password);
 
   g_free (priv->registrar_realm);
+
+  tp_contacts_mixin_finalize (obj);
 
   G_OBJECT_CLASS (tpsip_connection_parent_class)->finalize (obj);
 }
