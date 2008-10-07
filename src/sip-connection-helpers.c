@@ -653,247 +653,154 @@ tpsip_conn_discover_stun_server (TpsipConnection *conn)
 }
 
 static gboolean
-priv_is_user_unreserved (gchar x)
+priv_is_host (const gchar* str)
 {
-    switch (x)
-      {
-        case '-':
-        case '_':
-        case '.':
-        case '!':
-        case '~':
-        case '*':
-        case '\'':
-        case '(':
-        case ')':
-        case '&':
-        case '=':
-        case '+':
-        case '$':
-        case ',':
-        case ':':
-        case '?':
-        case ';':
-        case '/':
-          return TRUE;
-        default:
-          return g_ascii_isalnum (x);
-      }
+  static GRegex *host_regex = NULL;
+
+#define DOMAIN "[[:alnum:]]([-[:alnum:]]*[[:alnum:]])?"
+#define TLD "[[:alpha:]]([-[:alnum:]]*[[:alnum:]])?"
+
+  if (host_regex == NULL)
+    {
+      GError *error = NULL;
+
+      host_regex = g_regex_new ("^("
+            "("DOMAIN"\\.)*"TLD"\\.?|"                  /* host name */
+            "[[:digit:]]{1,3}(\\.[[:digit:]]{1,3}){3}|" /* IPv4 address */
+            "\\[[[:xdigit:]:.]\\]"                      /* IPv6 address, sloppily */
+          ")$",
+          G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, &error);
+
+      if (error != NULL)
+        g_error ("failed to compile the host regex: %s", error->message);
+    }
+
+#undef DOMAIN
+#undef TLD
+
+  return g_regex_match (host_regex, str, 0, NULL);
 }
 
 static gboolean
-priv_is_host (gchar x)
+priv_is_tel_num (const gchar *str)
 {
-    switch (x)
-      {
-        case '.':
-        case '-':
-          return TRUE;
-        default:
-          return g_ascii_isalnum (x);
-      }
-}
+  static GRegex *tel_num_regex = NULL;
 
-static gchar *
-priv_user_encode (su_home_t *home, const gchar *string)
-{
-  const gchar *a;
-  gchar *b;
-  gchar *res = su_zalloc (home, strlen (string) * 3 + 1);
-
-  g_return_val_if_fail (res != NULL, NULL);
-
-  a = string;
-  b = res;
-  while (*a)
+  if (tel_num_regex == NULL)
     {
-      if (priv_is_user_unreserved (*a))
-        {
-          *b++ = *a++;
-        }
-      else
-        {
-          snprintf (b, 4, "%%%02x", (guint) *a);
-          ++a;
-          b += 3;
-        }
+      GError *error = NULL;
+
+      tel_num_regex = g_regex_new (
+          "^\\s*[\\+(]?\\s*[[:digit:]][-.[:digit:]()\\s]*$",
+          G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, &error);
+
+      if (error != NULL)
+        g_error ("failed to compile the telephone number regex: %s", error->message);
     }
 
-  return res;
+  return g_regex_match (tel_num_regex, str, 0, NULL);
 }
 
-/* unescape characters that don't need escaping */
+/* Strip the non-essential characters from a string regarded as
+ * a telephone number */
 static gchar *
-priv_user_decode (su_home_t *home, const gchar *string)
+priv_strip_tel_num (const gchar *fuzzy)
 {
-    const gchar *a;
-    gchar *b;
-    gchar *res = su_zalloc (home, strlen (string) + 1);
+  static GRegex *cruft_regex = NULL;
 
-    g_return_val_if_fail (res != NULL, NULL);
-
-    a = string;
-    b = res;
-    while (*a)
-      {
-        if ((a[0] == '%') && g_ascii_isxdigit(a[1]) && g_ascii_isxdigit(a[2]))
-          {
-            gchar x = (gchar) (g_ascii_xdigit_value(a[1]) * 16
-                               + g_ascii_xdigit_value(a[2]));
-            if (priv_is_user_unreserved (x))
-              {
-                *b++ = x;
-                a += 3;
-                continue;
-              }
-          }
-        *b++ = *a++;
-      }
-
-    return res;
-}
-
-static gboolean
-priv_is_tel_num (const gchar *string)
-{
-  const gchar *pc;
-  gboolean has_digits = FALSE;
-
-  g_return_val_if_fail (string != NULL, FALSE);
-
-  /* skip the initial whitespace */
-  pc = string + strspn (string, " \t");
-
-  /* the leading '+' is acceptable */
-  if (*pc == '+')
-    ++pc;
-
-  /* only digits, delimiters and inline whitespace */
-  while (*pc)
+  if (cruft_regex == NULL)
     {
-      if (g_ascii_isdigit (*pc))
-        has_digits = TRUE;
-      else
-        switch (*pc)
-          {
-          case ' ':
-          case '\t':
-          case '-':
-          case '.':
-          case '(':
-          case ')':
-            break;
-          default:
-            return FALSE;
-          }
-      ++pc;
+      GError *error = NULL;
+
+      cruft_regex = g_regex_new ("[^+[:digit:]]+",
+          G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, &error);
+
+      if (error != NULL)
+        g_error ("failed to compile the non-essential telephone number cruft regex: %s", error->message);
     }
 
-  return has_digits;
+  return g_regex_replace_literal (cruft_regex, fuzzy, -1, 0, "", 0, NULL);
 }
 
-static gchar *
-priv_strip_whitespace (su_home_t *home, const gchar *string)
-{
-  const gchar *a;
-  gchar *b;
-  gchar *res = su_zalloc (home, strlen (string) + 1);
-
-  g_return_val_if_fail (res != NULL, NULL);
-
-  b = res;
-  for (a = string; *a; a++)
-    {
-      if (!g_ascii_isspace (*a))
-        *b++ = *a;
-    }
-  *b = '\0';
-
-  return res;
-}
+#define TPSIP_RESERVED_CHARS_ALLOWED_IN_USERNAME "!*'()&=+$,;?/"
 
 gchar *
-tpsip_conn_normalize_uri (TpsipConnection *conn,
+tpsip_handle_normalize (TpHandleRepoIface *repo,
                         const gchar *sipuri,
+                        gpointer context,
                         GError **error)
 {
+  TpsipConnection *conn = TPSIP_CONNECTION (context);
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
-  su_home_t home[1] = { SU_HOME_INIT (home) };
-  url_t *url = NULL;;
+  const url_t *base_url = priv->account_url;
+  su_home_t home[1] = { SU_HOME_INIT(home) };
+  url_t *url;
   gchar *retval = NULL;
-  char *c, *str;
+  char *c;
 
   url = url_make (home, sipuri);
 
-  /* we got username or phone number, local to our domain */
-  if ((url == NULL) ||
-      ((url->url_scheme == NULL) && (url->url_user == NULL)))
+  if (url == NULL ||
+      (url->url_scheme == NULL && url->url_user == NULL))
     {
-      if ((priv->account_url == NULL) || (priv->account_url->url_host == NULL))
+      /* we got username or phone number, local to our domain */
+      gchar *user;
+
+      if (base_url == NULL || base_url->url_host == NULL)
         {
-          g_debug ("local uri specified and we don't know local domain yet");
+          g_warning ("bare name given, but no account URL is set");
           goto error;
         }
 
       if (priv_is_tel_num (sipuri))
         {
+          user = priv_strip_tel_num (sipuri);
           url = url_format (home, "sip:%s@%s;user=phone",
-              priv_strip_whitespace (home, sipuri),
-              priv->account_url->url_host);
+              user, base_url->url_host);
         }
       else
         {
+          user = g_uri_escape_string (sipuri,
+              TPSIP_RESERVED_CHARS_ALLOWED_IN_USERNAME, FALSE);
           url = url_format (home, "sip:%s@%s",
-              priv_user_encode (home, sipuri),
-              priv->account_url->url_host);
+              user, base_url->url_host);
         }
+
+      g_free (user);
+
       if (!url) goto error;
     }
-  else
-    {
-      if ((url != NULL) && (url->url_user != NULL))
-        {
-          url->url_user = (char *) priv_user_decode (home, url->url_user);
-        }
-    }
 
-  if (url_sanitize (url)) goto error;
+  if (url_sanitize (url) != 0) goto error;
 
-  /* scheme and host should've been set by now */
-  if (!url->url_scheme || (url->url_scheme[0] == 0) ||
-      !url->url_host || (url->url_host[0] == 0))
-      goto error;
+  /* scheme should've been set by now */
+  if (url->url_scheme == NULL || (url->url_scheme[0] == 0))
+    goto error;
 
-  for (c = (char *) url->url_host; *c; c++)
-    {
-      /* check for illegal characters */
-      if (!priv_is_host (*c))
-          goto error;
-
-      /* convert host to lowercase */
-      *c = g_ascii_tolower (*c);
-    }
-  /* check that the hostname isn't empty */
-  if (c == url->url_host) goto error;
-
-  /* check that if we have '@', the username isn't empty */
+  /* Check that if we have '@', the username isn't empty.
+   * Note that we rely on Sofia-SIP to canonize the user name */
   if (url->url_user)
     {
       if (url->url_user[0] == 0) goto error;
     }
 
-  str = url_as_string (home, url);
-  if (NULL == str) goto error;
+  /* host should be set and valid */
+  if (url->url_host == NULL || !priv_is_host (url->url_host))
+      goto error;
 
-  retval = g_strdup (str);
+  /* convert host to lowercase */
+  for (c = (char *) url->url_host; *c; c++)
+    {
+      *c = g_ascii_tolower (*c);
+    }
+
+  retval = g_strdup (url_as_string (home, url));
 
 error:
-  if (NULL == retval)
+  if (retval == NULL)
       g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
           "invalid SIP URI");
 
-  /* success */
   su_home_deinit (home);
   return retval;
 }
-
