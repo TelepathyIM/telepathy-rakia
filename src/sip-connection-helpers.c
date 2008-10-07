@@ -59,8 +59,29 @@ priv_sip_to_url_make (TpsipConnection *conn,
   const url_t *url;
 
   url = tpsip_conn_get_contact_url (conn, contact);
-  return sip_to_create (home, url);
+  return sip_to_create (home, (const url_string_t *) url);
 }
+
+static sip_from_t *
+priv_sip_from_url_make (TpsipConnection *conn,
+                        su_home_t *home)
+{
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  sip_from_t *from;
+  gchar *alias = NULL;
+
+  from = sip_from_create (home, (const url_string_t *) priv->account_url);
+
+  if (from == NULL)
+    return NULL;
+
+  g_object_get (conn, "alias", &alias, NULL);
+  if (alias != NULL)
+    from->a_display = su_strdup (home, alias);
+
+  return from;
+}
+
 
 nua_handle_t *
 tpsip_conn_create_register_handle (TpsipConnection *conn,
@@ -86,25 +107,25 @@ tpsip_conn_create_register_handle (TpsipConnection *conn,
 
 nua_handle_t *
 tpsip_conn_create_request_handle (TpsipConnection *conn,
-                                TpHandle contact)
+                                  TpHandle contact)
 {
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   nua_handle_t *result = NULL;
   su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
+  sip_from_t *from;
   sip_to_t *to;
 
   g_assert (priv->sofia_home != NULL);
   g_assert (priv->sofia_nua != NULL);
 
   to = priv_sip_to_url_make (conn, temphome, contact);
+  from = priv_sip_from_url_make (conn, temphome);
 
-  /* TODO: Pass also SIPTAG_FROM updated from base->self_handle, to update the
-   * display name possibly set by the client */
-
-  if (to)
+  if (to != NULL && from != NULL)
     result = nua_handle (priv->sofia_nua, NULL,
                          NUTAG_URL(to->a_url),
                          SIPTAG_TO(to),
+                         SIPTAG_FROM(from),
                          TAG_END());
 
   su_home_deinit (temphome);
