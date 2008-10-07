@@ -51,30 +51,15 @@
  * REGISTER is special because it may tie resources on the server side */
 #define TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER 50
 
-static sip_to_t *priv_sip_to_url_make (TpsipConnection *conn,
-                                       su_home_t *home,
-                                       TpHandle contact)
+static sip_to_t *
+priv_sip_to_url_make (TpsipConnection *conn,
+                      su_home_t *home,
+                      TpHandle contact)
 {
-  TpHandleRepoIface *contact_repo;
-  sip_to_t *to;
-  const char *address;
+  const url_t *url;
 
-  contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)conn, TP_HANDLE_TYPE_CONTACT);
-
-  address = tp_handle_inspect (contact_repo, contact);
-  if (address == NULL)
-    return NULL;
-
-  /* TODO: set display name bound to the handle using qdata? */
-
-  to = sip_to_create (home, URL_STRING_MAKE(address));
-
-  if (to &&
-      url_sanitize(to->a_url) == 0) 
-    return to;
-
-  return NULL;
+  url = tpsip_conn_get_contact_url (conn, contact);
+  return sip_to_create (home, url);
 }
 
 nua_handle_t *
