@@ -73,7 +73,7 @@ dnl GTK docs
 GTK_DOC_CHECK
 
 dnl Check for Glib 
-PKG_CHECK_MODULES(GLIB, gobject-2.0 >= 2.14, have_glib=yes, have_glib=no)
+PKG_CHECK_MODULES(GLIB, gobject-2.0 >= 2.16, have_glib=yes, have_glib=no)
 
 if test x$have_glib = xno ; then
     AC_MSG_ERROR([GLib development libraries not found])
