@@ -33,7 +33,7 @@ struct _TpsipConnectionPrivate
   su_home_t *sofia_home;
   nua_handle_t *register_op;
   sres_resolver_t *sofia_resolver;
-  url_t *account_url;
+  const url_t *account_url;
   url_t *proxy_url;
   url_t *registrar_url;
 
