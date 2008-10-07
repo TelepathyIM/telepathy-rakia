@@ -48,6 +48,7 @@ struct _TpsipConnectionPrivate
   gchar *address;
   gchar *auth_user;
   gchar *password;
+  gchar *alias;
   gchar *transport;
   TpsipConnectionKeepaliveMechanism keepalive_mechanism;
   gint keepalive_interval;

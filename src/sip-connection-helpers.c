@@ -804,3 +804,50 @@ error:
   su_home_deinit (home);
   return retval;
 }
+
+static GQuark
+tpsip_handle_url_quark ()
+{
+  static GQuark quark = 0;
+
+  if (G_UNLIKELY (quark == 0))
+    quark = g_quark_from_static_string ("tpsip-handle-url");
+
+  return quark;
+}
+
+const url_t*
+tpsip_conn_get_contact_url (TpsipConnection *self,
+                            TpHandle handle)
+{
+  TpBaseConnection *base = (TpBaseConnection *) self;
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  TpHandleRepoIface *contact_handles;
+  GQuark url_quark;
+  url_t *url;
+  GError *error;
+
+  contact_handles = tp_base_connection_get_handles (base,
+      TP_HANDLE_TYPE_CONTACT);
+
+  if (!tp_handle_is_valid (contact_handles, handle, &error))
+    {
+      DEBUG("invalid handle %u: %s", handle, error->message);
+      g_error_free (error);
+      return NULL;
+    }
+
+  url_quark = tpsip_handle_url_quark ();
+
+  url = tp_handle_get_qdata (contact_handles, handle, url_quark);
+
+  if (url == NULL)
+    {
+      url = url_make (priv->sofia_home,
+          tp_handle_inspect (contact_handles, handle));
+
+      tp_handle_set_qdata (contact_handles, handle, url_quark, url, NULL);
+    }
+
+  return url;
+}

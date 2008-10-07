@@ -40,6 +40,8 @@
 #include "media-factory.h"
 #include "text-factory.h"
 
+#include "conn-aliasing.h"
+
 #include "sip-connection-enumtypes.h"
 #include "sip-connection-helpers.h"
 #include "sip-connection-private.h"
@@ -61,6 +63,8 @@ G_DEFINE_TYPE_WITH_CODE(TpsipConnection, tpsip_connection,
         tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS,
         tp_contacts_mixin_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING,
+        tpsip_conn_aliasing_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION, conn_iface_init))
 
 #define ERROR_IF_NOT_CONNECTED_ASYNC(BASE, CONTEXT) \
@@ -80,6 +84,7 @@ enum
   PROP_ADDRESS = 1,      /**< public SIP address (SIP URI) */
   PROP_AUTH_USER,        /**< account username (if different from public address userinfo part) */
   PROP_PASSWORD,         /**< account password (for registration) */
+  PROP_ALIAS,               /* Display name for self */
 
   PROP_TRANSPORT,        /**< outbound transport */
   PROP_PROXY,            /**< outbound SIP proxy (SIP URI) */
@@ -151,17 +156,14 @@ priv_handle_parse_from (const sip_t *sip,
   return handle;
 }
 
-static gchar *normalize_sipuri (TpHandleRepoIface *repo, const gchar *sipuri,
-    gpointer context, GError **error);
-
 static void
 tpsip_create_handle_repos (TpBaseConnection *conn,
-                         TpHandleRepoIface *repos[NUM_TP_HANDLE_TYPES])
+                           TpHandleRepoIface *repos[NUM_TP_HANDLE_TYPES])
 {
   repos[TP_HANDLE_TYPE_CONTACT] =
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,
           "handle-type", TP_HANDLE_TYPE_CONTACT,
-          "normalize-function", normalize_sipuri,
+          "normalize-function", tpsip_handle_normalize,
           "default-normalize-context", conn,
           NULL);
 }
@@ -202,13 +204,15 @@ tpsip_connection_init (TpsipConnection *self)
       G_STRUCT_OFFSET (TpsipConnection, contacts));
 
   tp_base_connection_register_with_contacts_mixin ((TpBaseConnection *) self);
+
+  tpsip_conn_aliasing_init (self);
 }
 
 static void
 tpsip_connection_set_property (GObject      *object,
-                             guint         property_id,
-                             const GValue *value,
-                             GParamSpec   *pspec)
+                               guint         property_id,
+                               const GValue *value,
+                               GParamSpec   *pspec)
 {
   TpsipConnection *self = (TpsipConnection*) object;
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
@@ -227,6 +231,11 @@ tpsip_connection_set_property (GObject      *object,
   case PROP_PASSWORD: {
     g_free(priv->password);
     priv->password = g_value_dup_string (value);
+    break;
+  }
+  case PROP_ALIAS: {
+    g_free(priv->alias);
+    priv->alias = g_value_dup_string (value);
     break;
   }
   case PROP_TRANSPORT: {
@@ -332,12 +341,16 @@ tpsip_connection_get_property (GObject      *object,
     g_value_set_string (value, priv->auth_user);
     break;
   }
-  case PROP_TRANSPORT: {
-    g_value_set_string (value, priv->transport);
-    break;
-  }
   case PROP_PASSWORD: {
     g_value_set_string (value, priv->password);
+    break;
+  }
+  case PROP_ALIAS: {
+    g_value_set_string (value, priv->alias);
+    break;
+  }
+  case PROP_TRANSPORT: {
+    g_value_set_string (value, priv->transport);
     break;
   }
   case PROP_PROXY: {
@@ -418,6 +431,7 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
 {
   static const gchar *interfaces_always_present[] = {
       TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
+      TP_IFACE_CONNECTION_INTERFACE_ALIASING,
       NULL };
 
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -469,6 +483,12 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
       NULL,
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_PASSWORD);
+
+  param_spec = g_param_spec_string ("alias", "Alias",
+      "User's display name",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  INST_PROP(PROP_ALIAS);
 
   param_spec = g_param_spec_string ("transport", "Transport protocol",
       "Preferred transport protocol (auto, udp, tcp)",
@@ -1015,6 +1035,7 @@ tpsip_connection_finalize (GObject *obj)
   g_free (priv->address);
   g_free (priv->auth_user);
   g_free (priv->password);
+  g_free (priv->alias);
   g_free (priv->transport);
   g_free (priv->stun_host);
   g_free (priv->local_ip_address);
@@ -1165,17 +1186,6 @@ tpsip_connection_disconnected (TpBaseConnection *base)
       nua_handle_unref (priv->register_op);
       priv->register_op = NULL;
     }
-}
-
-static gchar *
-normalize_sipuri (TpHandleRepoIface *repo,
-                  const gchar *sipuri,
-                  gpointer context,
-                  GError **error)
-{
-    TpsipConnection *conn = TPSIP_CONNECTION (context);
-
-    return tpsip_conn_normalize_uri (conn, sipuri, error);
 }
 
 static void
