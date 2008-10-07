@@ -134,7 +134,6 @@ priv_url_from_string_value (su_home_t *home, const GValue *value)
 
 static TpHandle
 priv_handle_parse_from (const sip_t *sip,
-                        su_home_t *home,
                         TpHandleRepoIface *contact_repo)
 {
   TpHandle handle = 0;
@@ -144,13 +143,16 @@ priv_handle_parse_from (const sip_t *sip,
 
   if (sip->sip_from)
     {
-      url_str = url_as_string (home, sip->sip_from->a_url);
+      su_home_t tmphome[1];
+      su_home_init (tmphome);
+
+      url_str = url_as_string (tmphome, sip->sip_from->a_url);
 
       handle = tp_handle_ensure (contact_repo, url_str, NULL, NULL);
 
-      su_free (home, url_str);
-
       /* TODO: set qdata for the display name */
+
+      su_home_deinit (tmphome);
     }
 
   return handle;
@@ -164,7 +166,6 @@ tpsip_create_handle_repos (TpBaseConnection *conn,
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,
           "handle-type", TP_HANDLE_TYPE_CONTACT,
           "normalize-function", tpsip_handle_normalize,
-          "default-normalize-context", conn,
           NULL);
 }
 
@@ -793,7 +794,7 @@ tpsip_connection_nua_i_invite_cb (TpsipConnection   *self,
   contact_repo = tp_base_connection_get_handles ((TpBaseConnection *)self,
                                                  TP_HANDLE_TYPE_CONTACT);
 
-  handle = priv_handle_parse_from (ev->sip, priv->sofia_home, contact_repo);
+  handle = priv_handle_parse_from (ev->sip, contact_repo);
   if (!handle)
     {
       g_message ("incoming INVITE with invalid sender information");
@@ -920,7 +921,7 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
 
-  handle = priv_handle_parse_from (sip, priv->sofia_home, contact_repo);
+  handle = priv_handle_parse_from (sip, contact_repo);
 
   if (handle)
     {
@@ -1051,7 +1052,7 @@ tpsip_connection_finalize (GObject *obj)
 
 static gboolean
 tpsip_connection_start_connecting (TpBaseConnection *base,
-                                 GError **error)
+                                   GError **error)
 {
   TpsipConnection *self = TPSIP_CONNECTION (base);
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
@@ -1065,10 +1066,6 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
   g_assert (priv->sofia_root != NULL);
   g_return_val_if_fail (priv->address != NULL, FALSE);
 
-  /* FIXME: we should defer setting the self handle until we've found out from
-   * the stack what handle we actually got, at which point we set it; and
-   * not tell Telepathy that connection has succeeded until we've done so
-   */
   contact_repo = tp_base_connection_get_handles (base, TP_HANDLE_TYPE_CONTACT);
   base->self_handle = tp_handle_ensure (contact_repo, priv->address,
       NULL, error);

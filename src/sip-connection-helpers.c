@@ -736,9 +736,7 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
                         gpointer context,
                         GError **error)
 {
-  TpsipConnection *conn = TPSIP_CONNECTION (context);
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
-  const url_t *base_url = priv->account_url;
+  const url_t *base_url = context;
   su_home_t home[1] = { SU_HOME_INIT(home) };
   url_t *url;
   gchar *retval = NULL;
