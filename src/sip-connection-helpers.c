@@ -728,6 +728,36 @@ priv_strip_tel_num (const gchar *fuzzy)
   return g_regex_replace_literal (cruft_regex, fuzzy, -1, 0, "", 0, NULL);
 }
 
+static const char *
+priv_lowercase_url_part (su_home_t *home, const char *src)
+{
+  size_t n = 0;
+  size_t i;
+  gboolean needs_lowercasing = FALSE;
+  char *res;
+
+  while (src[n])
+    {
+      if (g_ascii_isupper (src[n]))
+        {
+          needs_lowercasing = TRUE;
+          n += strlen (src + n);
+          break;
+        }
+      ++n;
+    }
+
+  if (!needs_lowercasing)
+    return src;
+
+  res = su_alloc (home, n + 1);
+  for (i = 0; i < n; i++)
+    res[i] = g_ascii_tolower (src[i]);
+  res[i] = '\0';
+
+  return (const char *) res;
+}
+
 #define TPSIP_RESERVED_CHARS_ALLOWED_IN_USERNAME "!*'()&=+$,;?/"
 
 gchar *
@@ -782,6 +812,11 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
   /* scheme should've been set by now */
   if (url->url_scheme == NULL || (url->url_scheme[0] == 0))
     goto error;
+
+  /* convert the scheme to lowercase */
+  /* Note: we can't do it in place because url->url_scheme may point to
+   * a static string */
+  url->url_scheme = priv_lowercase_url_part (home, url->url_scheme);
 
   /* Check that if we have '@', the username isn't empty.
    * Note that we rely on Sofia-SIP to canonize the user name */
