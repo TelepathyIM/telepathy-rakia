@@ -663,8 +663,8 @@ priv_is_host (const gchar* str)
 {
   static GRegex *host_regex = NULL;
 
-#define DOMAIN "[[:alnum:]]([-[:alnum:]]*[[:alnum:]])?"
-#define TLD "[[:alpha:]]([-[:alnum:]]*[[:alnum:]])?"
+#define DOMAIN "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+#define TLD "[a-z]([-a-z0-9]*[a-z0-9])?"
 
   if (host_regex == NULL)
     {
@@ -672,10 +672,10 @@ priv_is_host (const gchar* str)
 
       host_regex = g_regex_new ("^("
             "("DOMAIN"\\.)*"TLD"\\.?|"                  /* host name */
-            "[[:digit:]]{1,3}(\\.[[:digit:]]{1,3}){3}|" /* IPv4 address */
-            "\\[[[:xdigit:]:.]\\]"                      /* IPv6 address, sloppily */
+            "[0-9]{1,3}(\\.[0-9]{1,3}){3}|" /* IPv4 address */
+            "\\[[0-9a-f:.]\\]"                      /* IPv6 address, sloppily */
           ")$",
-          G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, &error);
+          G_REGEX_CASELESS | G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, &error);
 
       if (error != NULL)
         g_error ("failed to compile the host regex: %s", error->message);
@@ -697,7 +697,7 @@ priv_is_tel_num (const gchar *str)
       GError *error = NULL;
 
       tel_num_regex = g_regex_new (
-          "^\\s*[\\+(]?\\s*[[:digit:]][-.[:digit:]()\\s]*$",
+          "^\\s*[\\+(]?\\s*[0-9][-.0-9()\\s]*$",
           G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, &error);
 
       if (error != NULL)
@@ -718,7 +718,7 @@ priv_strip_tel_num (const gchar *fuzzy)
     {
       GError *error = NULL;
 
-      cruft_regex = g_regex_new ("[^+[:digit:]]+",
+      cruft_regex = g_regex_new ("[^+0-9]+",
           G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, &error);
 
       if (error != NULL)
