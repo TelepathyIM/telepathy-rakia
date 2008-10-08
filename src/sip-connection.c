@@ -143,8 +143,7 @@ priv_handle_parse_from (const sip_t *sip,
 
   if (sip->sip_from)
     {
-      su_home_t tmphome[1];
-      su_home_init (tmphome);
+      su_home_t tmphome[1] = { SU_HOME_INIT(tmphome) };
 
       url_str = url_as_string (tmphome, sip->sip_from->a_url);
 
