@@ -9,9 +9,11 @@ def expect_connecting(event, data):
 
 @match('dbus-signal', signal='StatusChanged', args=[0, 1])
 def expect_connected(event, data):
-    tests = [
+    tests = [ ('sip:test@localhost', 'sip:test@localhost'),
         ('test', 'sip:test@127.0.0.1'),
-        ('+123 / 45-67-89', 'sip:+123%20/%2045-67-89@127.0.0.1'),
+        ('123456789', 'sip:123456789@127.0.0.1;user=phone'),
+        ('+123 45-67-89', 'sip:+123456789@127.0.0.1;user=phone'),
+        ('(123)\t45.67.89', 'sip:123456789@127.0.0.1;user=phone'),
         ('gt:someone@gmail.com', 'gt:someone@gmail.com'),
         ('sip:user:pass@HoSt;something=something', 'sip:user:pass@host;something=something'),
         ('weird\t\n\1\2user', 'sip:weird%09%0A%01%02user@127.0.0.1'),
