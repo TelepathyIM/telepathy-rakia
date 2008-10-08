@@ -671,9 +671,9 @@ priv_is_host (const gchar* str)
       GError *error = NULL;
 
       host_regex = g_regex_new ("^("
-            "("DOMAIN"\\.)*"TLD"\\.?|"                  /* host name */
+            "("DOMAIN"\\.)*"TLD"\\.?|"      /* host name */
             "[0-9]{1,3}(\\.[0-9]{1,3}){3}|" /* IPv4 address */
-            "\\[[0-9a-f:.]\\]"                      /* IPv6 address, sloppily */
+            "\\[[0-9a-f:.]\\]"              /* IPv6 address, sloppily */
           ")$",
           G_REGEX_CASELESS | G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, &error);
 
