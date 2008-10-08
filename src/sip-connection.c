@@ -166,6 +166,7 @@ tpsip_create_handle_repos (TpBaseConnection *conn,
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,
           "handle-type", TP_HANDLE_TYPE_CONTACT,
           "normalize-function", tpsip_handle_normalize,
+          "default-normalize-context", conn,
           NULL);
 }
 
