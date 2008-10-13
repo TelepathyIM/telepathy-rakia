@@ -733,25 +733,23 @@ priv_lowercase_url_part (su_home_t *home, const char *src)
 {
   size_t n = 0;
   size_t i;
-  gboolean needs_lowercasing = FALSE;
   char *res;
 
-  while (src[n])
+  for (i = 0; src[i]; i++)
     {
-      if (g_ascii_isupper (src[n]))
+      if (g_ascii_isupper (src[i]))
         {
-          needs_lowercasing = TRUE;
-          n += strlen (src + n);
+          n = i + strlen (src + i);
           break;
         }
-      ++n;
     }
 
-  if (!needs_lowercasing)
+  if (!src[i])
     return src;
 
   res = su_alloc (home, n + 1);
-  for (i = 0; i < n; i++)
+  strncpy (res, src, i);
+  for (; i < n; i++)
     res[i] = g_ascii_tolower (src[i]);
   res[i] = '\0';
 
