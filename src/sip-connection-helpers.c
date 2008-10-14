@@ -748,7 +748,7 @@ priv_lowercase_url_part (su_home_t *home, const char *src)
     return src;
 
   res = su_alloc (home, n + 1);
-  strncpy (res, src, i);
+  memcpy (res, src, i);
   for (; i < n; i++)
     res[i] = g_ascii_tolower (src[i]);
   res[i] = '\0';
