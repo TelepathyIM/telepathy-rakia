@@ -94,6 +94,9 @@ enum
   PROP_HANDLE_TYPE,
   PROP_HANDLE,
   PROP_TARGET_ID,
+  PROP_CREATOR,
+  PROP_CREATOR_ID,
+  PROP_REQUESTED,
   PROP_INTERFACES,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
@@ -123,12 +126,14 @@ typedef struct _TpsipMediaChannelPrivate TpsipMediaChannelPrivate;
 
 struct _TpsipMediaChannelPrivate
 {
-  gboolean dispose_has_run;
-  gboolean closed;
   TpsipConnection *conn;
   TpsipMediaSession *session;
   gchar *object_path;
+  TpHandle creator;
   GHashTable *call_states;
+
+  gboolean closed;
+  gboolean dispose_has_run;
 };
 
 #define TPSIP_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_CHANNEL, TpsipMediaChannelPrivate))
@@ -161,6 +166,7 @@ tpsip_media_channel_constructed (GObject *obj)
       G_OBJECT_CLASS (tpsip_media_channel_parent_class);
   DBusGConnection *bus;
   TpHandleRepoIface *contact_repo;
+  TpIntSet *set;
 
   if (parent_object_class->constructed != NULL)
     parent_object_class->constructed (obj);
@@ -179,6 +185,18 @@ tpsip_media_channel_constructed (GObject *obj)
                        G_STRUCT_OFFSET (TpsipMediaChannel, group),
                        contact_repo,
                        conn->self_handle);
+
+  /* automatically add creator to channel, but also ref them again (because
+   * priv->creator is the InitiatorHandle) */
+  g_assert (priv->creator != 0);
+  tp_handle_ref (contact_repo, priv->creator);
+
+  set = tp_intset_new ();
+  tp_intset_add (set, priv->creator);
+
+  tp_group_mixin_change_members (obj, "", set, NULL, NULL, NULL, 0, 0);
+
+  tp_intset_destroy (set);
 
   /* Allow member adding; also, we implement the 0.17.6 properties */
   tp_group_mixin_change_flags (obj,
@@ -219,11 +237,14 @@ static void
 tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
 {
   static const TpDBusPropertiesMixinPropImpl channel_props[] = {
+      { "ChannelType", "channel-type", NULL },
+      { "Interfaces", "interfaces", NULL },
       { "TargetHandleType", "handle-type", NULL },
       { "TargetHandle", "handle", NULL },
       { "TargetID", "target-id", NULL },
-      { "ChannelType", "channel-type", NULL },
-      { "Interfaces", "interfaces", NULL },
+      { "InitiatorHandle", "creator", NULL },
+      { "InitiatorID", "creator-id", NULL },
+      { "Requested", "requested", NULL },
       { NULL }
   };
   static const TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
@@ -290,6 +311,24 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_TARGET_ID, param_spec);
 
+  param_spec = g_param_spec_uint ("creator", "Channel creator",
+      "The TpHandle representing the contact who created the channel.",
+      0, G_MAXUINT32, 0,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_CREATOR, param_spec);
+
+  param_spec = g_param_spec_string ("creator-id", "Creator URI",
+      "The URI obtained by inspecting the creator handle.",
+      NULL,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_CREATOR_ID, param_spec);
+
+  param_spec = g_param_spec_boolean ("requested", "Requested?",
+      "True if this channel was requested by the local user",
+      FALSE,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
+
   tp_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipMediaChannelClass, properties_class),
       media_channel_property_signatures, NUM_TP_PROPS, NULL);
@@ -317,6 +356,7 @@ tpsip_media_channel_get_property (GObject    *object,
 {
   TpsipMediaChannel *chan = TPSIP_MEDIA_CHANNEL (object);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
+  TpBaseConnection *base_conn = TP_BASE_CONNECTION (priv->conn);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -336,6 +376,20 @@ tpsip_media_channel_get_property (GObject    *object,
       break;
     case PROP_TARGET_ID:
       g_value_set_static_string (value, "");
+      break;
+    case PROP_CREATOR:
+      g_value_set_uint (value, priv->creator);
+      break;
+    case PROP_CREATOR_ID:
+        {
+          TpHandleRepoIface *repo = tp_base_connection_get_handles (
+              base_conn, TP_HANDLE_TYPE_CONTACT);
+
+          g_value_set_string (value, tp_handle_inspect (repo, priv->creator));
+        }
+      break;
+    case PROP_REQUESTED:
+      g_value_set_boolean (value, (priv->creator == base_conn->self_handle));
       break;
     case PROP_INTERFACES:
       g_value_set_static_boxed (value, tpsip_media_channel_interfaces);
@@ -390,6 +444,9 @@ tpsip_media_channel_set_property (GObject     *object,
       g_free (priv->object_path);
       priv->object_path = g_value_dup_string (value);
       break;
+    case PROP_CREATOR:
+      priv->creator = g_value_get_uint (value);
+      break;
     default:
       /* some properties live in the mixin */
       {
@@ -417,6 +474,7 @@ tpsip_media_channel_dispose (GObject *object)
 {
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (object);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpHandleRepoIface *contact_handles;
 
   if (priv->dispose_has_run)
     return;
@@ -430,8 +488,13 @@ tpsip_media_channel_dispose (GObject *object)
   if (!priv->closed)
     tpsip_media_channel_close (self);
 
-  if (priv->conn)
-    g_object_unref (priv->conn);
+  contact_handles = tp_base_connection_get_handles (
+      TP_BASE_CONNECTION (priv->conn), TP_HANDLE_TYPE_CONTACT);
+
+  tp_handle_unref (contact_handles, priv->creator);
+  priv->creator = 0;
+
+  g_object_unref (priv->conn);
 
   if (G_OBJECT_CLASS (tpsip_media_channel_parent_class)->dispose)
     G_OBJECT_CLASS (tpsip_media_channel_parent_class)->dispose (object);
@@ -787,60 +850,50 @@ tpsip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 
 /**
  * Handle an incoming INVITE, normally called just after the channel
- * has been created.
+ * has been created with initiator handle of the sender.
  */
 void
 tpsip_media_channel_receive_invite (TpsipMediaChannel *self, 
-                                  nua_handle_t *nh,
-                                  TpHandle handle)
+                                    nua_handle_t *nh)
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpBaseConnection *conn = TP_BASE_CONNECTION (priv->conn);
-  GObject *obj = G_OBJECT (self);
   TpHandleRepoIface *contact_repo;
-  TpIntSet *member_set, *pending_set;
- 
+  TpIntSet *pending_set;
+
+  g_assert (priv->creator != conn->self_handle);
+
   contact_repo = tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT);
 
   if (priv->session == NULL)
     {
       /* note: start the local stream-engine; once the local 
        *       media are ready, reply with nua_respond() */
-      priv_create_session (self, nh, handle);
+      priv_create_session (self, nh, priv->creator);
       g_assert (priv->session != NULL);
       tpsip_media_session_receive_invite (priv->session);
     }
   else
+    /* FIXME: This shall really be an assertion */
     g_warning ("session already exists");
 
-  /* XXX: should be attached more data than just the handle? 
-   * - yes, we need to be able to access all the <op,handle> pairs */
-
-  DEBUG("adding handle %d (%s)", 
-        handle,
-        tp_handle_inspect (contact_repo, handle));
-
-  /* add the peer to channel members and self_handle to local pending */
-
-  member_set = tp_intset_new ();
-  tp_intset_add (member_set, handle);
+  /* add self_handle to local pending */
 
   pending_set = tp_intset_new ();
   tp_intset_add (pending_set, conn->self_handle);
 
-  tp_group_mixin_change_members (obj, "INVITE received",
-                                 member_set,    /* add */
+  tp_group_mixin_change_members ((GObject *) self, "INVITE received",
+                                 NULL,          /* add */
                                  NULL,          /* remove */
                                  pending_set,   /* local pending */
                                  NULL,          /* remote pending */
-                                 handle,        /* actor */
+                                 priv->creator, /* actor */
                                  TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
-  tp_intset_destroy (member_set);
   tp_intset_destroy (pending_set);
 
   /* No adding more members to the incoming call, removing is OK */
-  tp_group_mixin_change_flags (obj,
+  tp_group_mixin_change_flags ((GObject *) self,
                                TP_CHANNEL_GROUP_FLAG_CAN_REMOVE,
                                TP_CHANNEL_GROUP_FLAG_CAN_ADD);
 }
@@ -1102,10 +1155,10 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
                                            guint state,
 					   TpsipMediaChannel *channel)
 {
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (channel);
   TpHandle peer;
   TpIntSet *set = NULL;
-  TpIntSet *rset;
 
   DEBUG("enter");
 
@@ -1115,21 +1168,19 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
     {
     case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
       set = tp_intset_new ();
-      rset = tp_intset_new ();
 
-      /* add the peer to remote pending, make sure the self handle is
-       * in the member list */
-      tp_intset_add (set, mixin->self_handle);
-      tp_intset_add (rset, peer);
+      g_assert (priv->creator == mixin->self_handle);
+
+      /* add the peer to remote pending */
+      tp_intset_add (set, peer);
       tp_group_mixin_change_members ((GObject *)channel,
                                      "INVITE sent",
-                                     set,     /* add */
+                                     NULL,    /* add */
                                      NULL,    /* remove */
                                      NULL,    /* local pending */
-                                     rset,    /* remote pending */
+                                     set,     /* remote pending */
                                      mixin->self_handle,        /* actor */
                                      TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
-      tp_intset_destroy (rset);
 
       /* update flags: allow adding, removal and rescinding */
       tp_group_mixin_change_flags ((GObject *)channel,
@@ -1140,23 +1191,26 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
 
       break;
     case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
-      set = tp_intset_new ();
+      if (priv->creator == mixin->self_handle)
+        {
+          /* add the peer to the member list */
+          set = tp_intset_new ();
 
-      /* add the peer to the member list */
-      tp_intset_add (set, peer);
-      tp_group_mixin_change_members ((GObject *)channel,
-                                     "Call active",
-                                     set,     /* add */
-                                     NULL,    /* remove */
-                                     NULL,
-                                     NULL,
-                                     0, 0);
+          tp_intset_add (set, peer);
+          tp_group_mixin_change_members ((GObject *)channel,
+                                         "Call active",
+                                         set,     /* add */
+                                         NULL,    /* remove */
+                                         NULL,
+                                         NULL,
+                                         0, 0);
 
-      /* update flags: allow removal, deny adding and rescinding */
-      tp_group_mixin_change_flags ((GObject *)channel,
-                                   TP_CHANNEL_GROUP_FLAG_CAN_REMOVE,
-                                   TP_CHANNEL_GROUP_FLAG_CAN_ADD
-                                        | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
+          /* update flags: allow removal, deny adding and rescinding */
+          tp_group_mixin_change_flags ((GObject *)channel,
+              TP_CHANNEL_GROUP_FLAG_CAN_REMOVE,
+              TP_CHANNEL_GROUP_FLAG_CAN_ADD
+              | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
+        }
       break;
     case TPSIP_MEDIA_SESSION_STATE_ENDED:
       set = tp_intset_new ();
@@ -1327,9 +1381,9 @@ priv_outbound_call (TpsipMediaChannel *channel,
 
 static gboolean
 tpsip_media_channel_add_member (GObject *iface,
-                              TpHandle handle,
-                              const gchar *message,
-                              GError **error)
+                                TpHandle handle,
+                                const gchar *message,
+                                GError **error)
 {
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
@@ -1337,26 +1391,23 @@ tpsip_media_channel_add_member (GObject *iface,
 
   DEBUG("mixin->self_handle=%d, handle=%d", mixin->self_handle, handle);
 
-  /* case a: outgoing call (we are the initiator, a new handle added) */
-  if (mixin->self_handle != handle)
+  if (priv->creator == mixin->self_handle)
     {
-      TpIntSet *lset, *rset;
+      /* case a: outgoing call (we are the initiator, a new handle added) */
+      TpIntSet *set;
 
       priv_outbound_call (self, handle);
 
       /* make remote pending */
-      rset = tp_intset_new ();
-      lset = tp_intset_new ();
-      tp_intset_add (lset, mixin->self_handle);
-      tp_intset_add (rset, handle);
+      set = tp_intset_new ();
+      tp_intset_add (set, handle);
       tp_group_mixin_change_members (iface, "Sending INVITE",
-                                     lset,      /* add */
+                                     NULL,      /* add */
                                      NULL,      /* remove */
                                      NULL,      /* local pending */
-                                     rset,      /* remote pending */
-                                     0, 0);
-      tp_intset_destroy (lset);
-      tp_intset_destroy (rset);
+                                     set,       /* remote pending */
+                                     mixin->self_handle, 0);
+      tp_intset_destroy (set);
 
       /* and update flags accordingly */
       tp_group_mixin_change_flags (iface,
@@ -1366,9 +1417,11 @@ tpsip_media_channel_add_member (GObject *iface,
 
       return TRUE;
     }
-  /* case b: an incoming invite */
-  if (tp_handle_set_is_member (mixin->local_pending, handle))
+  if (priv->session &&
+      handle == mixin->self_handle &&
+      tp_handle_set_is_member (mixin->local_pending, handle))
     {
+      /* case b: an incoming invite */
       TpIntSet *set;
 
       DEBUG("accepting an incoming invite");
@@ -1390,11 +1443,10 @@ tpsip_media_channel_add_member (GObject *iface,
       return TRUE;
     }
 
-  /* This can only legitimately happen if the user is trying to call themselves */
   g_message ("unsupported member change requested for a media channel");
 
-  g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
-               "Can't call yourself");
+  g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+      "handle %u cannot be added in the current state", handle);
   return FALSE;
 }
 
@@ -1422,17 +1474,28 @@ tpsip_status_from_tp_reason (TpChannelGroupChangeReason reason)
 
 static gboolean
 tpsip_media_channel_remove_with_reason (GObject *obj,
-                                      TpHandle handle,
-                                      const gchar *message,
-                                      guint reason,
-                                      GError **error)
+                                        TpHandle handle,
+                                        const gchar *message,
+                                        guint reason,
+                                        GError **error)
 {
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (obj);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
 
+  if (priv->creator != mixin->self_handle &&
+      handle != mixin->self_handle)
+    {
+      g_set_error (error, TP_ERRORS, TP_ERROR_PERMISSION_DENIED,
+          "handle %u cannot be removed because you are not the creator of the"
+          " channel", handle);
+
+      return FALSE;
+    }
+
   /* We handle only one case: removal of the self handle from local pending
    * due to the user rejecting the call */
+  /* FIXME: handle also rescinding and removal of self from members */
   if (priv->session &&
       handle == mixin->self_handle &&
       tp_handle_set_is_member (mixin->local_pending, handle))

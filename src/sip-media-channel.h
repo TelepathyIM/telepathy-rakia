@@ -72,9 +72,8 @@ void tpsip_media_channel_close (TpsipMediaChannel *self);
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
-void tpsip_media_channel_receive_invite   (TpsipMediaChannel *self,
-                                           nua_handle_t *nh,
-                                           TpHandle handle);
+void tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
+                                         nua_handle_t *nh);
 
 guint
 tpsip_media_channel_change_call_state (TpsipMediaChannel *self,

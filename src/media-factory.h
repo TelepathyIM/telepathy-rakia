@@ -54,15 +54,12 @@ GType tpsip_media_factory_get_type(void);
 #define TPSIP_MEDIA_FACTORY_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_MEDIA_FACTORY, TpsipMediaFactoryClass))
 
-/***********************************************************************
- * Functions for managing media session IDs (sids) 
- ***********************************************************************/
-
 TpsipMediaChannel *tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
-                                                gpointer request,
-                                                TpHandleType handle_type,
-                                                TpHandle handle,
-                                                GError **error);
+                                                    gpointer request,
+                                                    TpHandleType handle_type,
+                                                    TpHandle handle,
+                                                    TpHandle creator,
+                                                    GError **error);
 
 G_END_DECLS
 

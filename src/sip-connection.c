@@ -808,12 +808,13 @@ tpsip_connection_nua_i_invite_cb (TpsipConnection   *self,
   channel = tpsip_media_factory_new_channel (
                 TPSIP_MEDIA_FACTORY (priv->media_factory),
                 NULL,
-                TP_HANDLE_TYPE_NONE,
-                0,
+                TP_HANDLE_TYPE_CONTACT,
+                handle,
+                handle,
                 &error);
   if (channel)
     {
-      tpsip_media_channel_receive_invite (channel, ev->nua_handle, handle);
+      tpsip_media_channel_receive_invite (channel, ev->nua_handle);
     }
   else
     {
