@@ -93,9 +93,9 @@ gboolean tpsip_media_session_request_stream_direction (TpsipMediaSession *sessio
 void tpsip_media_session_receive_invite (TpsipMediaSession *self);
 void tpsip_media_session_receive_reinvite (TpsipMediaSession *self);
 void tpsip_media_session_accept (TpsipMediaSession *self);
-void tpsip_media_session_reject (TpsipMediaSession *self,
-                                 gint status,
-                                 const char *message);
+void tpsip_media_session_respond (TpsipMediaSession *self,
+                                  gint status,
+                                  const char *message);
 gboolean tpsip_media_session_is_accepted (TpsipMediaSession *self);
 void tpsip_media_session_resolve_glare (TpsipMediaSession *self);
 

@@ -1118,16 +1118,16 @@ tpsip_media_session_accept (TpsipMediaSession *self)
 }
 
 void
-tpsip_media_session_reject (TpsipMediaSession *self,
-                          gint status,
-                          const char *message)
+tpsip_media_session_respond (TpsipMediaSession *self,
+                             gint status,
+                             const char *message)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
 
+  SESSION_DEBUG(self, "responding: %03d %s", status, message? message : "");
+
   if (message != NULL && !message[0])
     message = NULL;
-
-  SESSION_DEBUG(self, "responding: %03d %s", status, message == NULL? "" : message);
 
   if (priv->nua_op)
     nua_respond (priv->nua_op, status, message, TAG_END());

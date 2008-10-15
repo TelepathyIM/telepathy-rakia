@@ -1506,7 +1506,7 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
       status = tpsip_status_from_tp_reason (reason);
 
       /* XXX: raise NotAvailable if it's the wrong state? */
-      tpsip_media_session_reject (priv->session, status, message);
+      tpsip_media_session_respond (priv->session, status, message);
 
       set = tp_intset_new ();
       tp_intset_add (set, handle);
