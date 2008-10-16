@@ -221,10 +221,6 @@ static void priv_destroy_session(TpsipMediaChannel *channel);
 static void priv_outbound_call (TpsipMediaChannel *channel,
                                 TpHandle peer);
 
-static gboolean tpsip_media_channel_add_member (GObject *iface,
-                                              TpHandle handle,
-                                              const gchar *message,
-                                              GError **error);
 static gboolean tpsip_media_channel_remove_with_reason (
                                                  GObject *iface,
                                                  TpHandle handle,
@@ -339,7 +335,7 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
 
   tp_group_mixin_class_init (object_class,
                              G_STRUCT_OFFSET (TpsipMediaChannelClass, group_class),
-                             tpsip_media_channel_add_member,
+                             _tpsip_media_channel_add_member,
                              NULL);
   tp_group_mixin_class_set_remove_with_reason_func(object_class,
                              tpsip_media_channel_remove_with_reason);
@@ -1392,11 +1388,11 @@ priv_outbound_call (TpsipMediaChannel *channel,
   g_assert (priv->session != NULL);
 }
 
-static gboolean
-tpsip_media_channel_add_member (GObject *iface,
-                                TpHandle handle,
-                                const gchar *message,
-                                GError **error)
+gboolean
+_tpsip_media_channel_add_member (GObject *iface,
+                                 TpHandle handle,
+                                 const gchar *message,
+                                 GError **error)
 {
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
