@@ -258,7 +258,7 @@ tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
                        "connection", priv->conn,
                        "object-path", object_path,
                        "handle", handle,
-                       "initiator", initiator,
+                       "initiator-id", initiator,
                        NULL);
 
   g_free (object_path);

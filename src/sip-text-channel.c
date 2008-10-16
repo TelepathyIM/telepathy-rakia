@@ -208,11 +208,14 @@ static void
 tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
 {
   static const TpDBusPropertiesMixinPropImpl channel_props[] = {
+      { "ChannelType", "channel-type", NULL },
+      { "Interfaces", "interfaces", NULL },
       { "TargetHandleType", "handle-type", NULL },
       { "TargetHandle", "handle", NULL },
       { "TargetID", "target-id", NULL },
-      { "ChannelType", "channel-type", NULL },
-      { "Interfaces", "interfaces", NULL },
+      { "InitiatorHandle", "initiator-handle", NULL },
+      { "InitiatorID", "initiator-id", NULL },
+      { "Requested", "requested", NULL },
       { NULL }
   };
   static const TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
