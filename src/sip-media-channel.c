@@ -981,6 +981,9 @@ priv_nua_i_cancel_cb (TpsipMediaChannel *self,
 
   g_return_val_if_fail (priv->session != NULL, FALSE);
 
+  /* FIXME: implement cancellation of an incoming re-INVITE, if ever
+   * found in real usage and not caused by a request timeout */
+
   if (ev->sip != NULL)
     for (reason = ev->sip->sip_reason;
          reason != NULL;
