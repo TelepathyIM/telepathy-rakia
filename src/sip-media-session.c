@@ -47,6 +47,11 @@
 #define DEBUG_FLAG TPSIP_DEBUG_MEDIA
 #include "debug.h"
 
+/* The timeout for outstanding re-INVITE transactions in seconds.
+ * Chosen to match the allowed cancellation timeout for proxies
+ * described in RFC 3261 Section 13.3.1.1 */
+#define TPSIP_REINVITE_TIMEOUT 180
+
 static void session_handler_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(TpsipMediaSession,
@@ -55,8 +60,6 @@ G_DEFINE_TYPE_WITH_CODE(TpsipMediaSession,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_MEDIA_SESSION_HANDLER,
       session_handler_iface_init)
     )
-
-#define DEFAULT_SESSION_TIMEOUT 50000
 
 /* signal enum */
 enum
@@ -129,7 +132,6 @@ struct _TpsipMediaSessionPrivate
   gint local_non_ready;                   /* number of streams with local information update pending */
   guint remote_stream_count;              /* number of streams last seen in a remote offer */
   guint catcher_id;
-  guint timer_id;
   guint glare_timer_id;
   su_home_t *home;                        /* Sofia memory home for remote SDP session structure */
   su_home_t *backup_home;                 /* Sofia memory home for previous generation remote SDP session*/
@@ -160,7 +162,6 @@ tpsip_media_session_get_stream (TpsipMediaSession *self,
                               GError **error);
 
 static gboolean priv_catch_remote_nonupdate (gpointer data);
-static gboolean priv_timeout_session (gpointer data);
 static TpsipMediaStream* priv_create_media_stream (TpsipMediaSession *session,
                                                  guint media_type,
                                                  guint pending_send_flags);
@@ -375,9 +376,6 @@ tpsip_media_session_dispose (GObject *object)
 
   if (priv->catcher_id)
     g_source_remove (priv->catcher_id);
-
-  if (priv->timer_id)
-    g_source_remove (priv->timer_id);
 
   if (priv->glare_timer_id)
     g_source_remove (priv->glare_timer_id);
@@ -612,21 +610,10 @@ tpsip_media_session_change_state (TpsipMediaSession *session,
       /* Fall through to the next case */
     case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
     case TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT:
-      if (priv->timer_id)
-        {
-          g_source_remove (priv->timer_id);
-        }
-      priv->timer_id =
-        g_timeout_add (DEFAULT_SESSION_TIMEOUT, priv_timeout_session, session);
       break;
     case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
       break;
     case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
-      if (priv->timer_id)
-        {
-	  g_source_remove (priv->timer_id);
-	  priv->timer_id = 0;
-        }
       /* Apply any pending remote send after outgoing INVITEs.
        * We don't want automatic removal of pending local send after
        * responding to incoming re-INVITEs, however */
@@ -687,45 +674,6 @@ priv_catch_remote_nonupdate (gpointer data)
 
   /* Should do the right thing if there were no remote media updates */
   priv_request_response_step (session);
-
-  return FALSE;
-}
-
-static gboolean priv_timeout_session (gpointer data)
-{
-  TpsipMediaSession *session = data;
-  TpsipMediaSessionPrivate *priv;
-  TpChannelGroupChangeReason reason;
-  gboolean change = FALSE;
-  TpHandle actor;
-
-  DEBUG("session timed out");
-
-  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session); 
-
-  if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_SENT)
-    {
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER;
-      actor = 0;
-      change = TRUE;
-    }
-  else if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED)
-    {
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_NONE;
-      actor = priv->peer;
-      change = TRUE;
-    }
-
-  if (change)
-    {
-      TpIntSet *set = tp_intset_new ();
-      tp_intset_add (set, priv->peer);
-      tp_group_mixin_change_members (G_OBJECT (priv->channel), "Timed out",
-                                     NULL, set, NULL, NULL, actor, reason);
-      tp_intset_destroy (set);
-    }
-
-  tpsip_media_session_terminate (session);
 
   return FALSE;
 }
@@ -1770,6 +1718,8 @@ priv_session_invite (TpsipMediaSession *session, gboolean reinvite)
                   SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
                   SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
                   NUTAG_AUTOANSWER(0),
+                  TAG_IF(reinvite,
+                         NUTAG_INVITE_TIMER (TPSIP_REINVITE_TIMEOUT)),
                   TAG_END());
       priv->pending_offer = FALSE;
 
