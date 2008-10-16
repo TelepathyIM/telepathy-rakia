@@ -79,8 +79,10 @@ enum
   PROP_HANDLE_TYPE,
   PROP_HANDLE,
   PROP_TARGET_ID,
+  PROP_INITIATOR_HANDLE,
+  PROP_INITIATOR_ID,
+  PROP_REQUESTED,
   PROP_INTERFACES,
-  /* PROP_CREATOR, */
   LAST_PROPERTY
 };
 
@@ -110,6 +112,7 @@ struct _TpsipTextChannelPrivate
   TpsipConnection *conn;
   gchar *object_path;
   TpHandle handle;
+  TpHandle initiator;
 
   guint recv_id;
   guint sent_id;
@@ -155,22 +158,28 @@ tpsip_text_channel_init (TpsipTextChannel *obj)
   priv->messages_to_be_acknowledged = g_queue_new ();
 }
 
-static
-GObject *tpsip_text_channel_constructor(GType type,
-				      guint n_props,
-				      GObjectConstructParam *props)
+static void
+tpsip_text_channel_constructed (GObject *obj)
 {
-  GObject *obj;
   TpsipTextChannelPrivate *priv;
+  TpBaseConnection *base_conn;
+  TpHandleRepoIface *contact_handles;
   DBusGConnection *bus;
+  GObjectClass *parent_object_class =
+      G_OBJECT_CLASS (tpsip_text_channel_parent_class);
 
-  DEBUG("enter");
+  if (parent_object_class->constructed != NULL)
+    parent_object_class->constructed (obj);
 
-  obj =
-    G_OBJECT_CLASS(tpsip_text_channel_parent_class)->constructor(type,
-							       n_props,
-							       props);
   priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(TPSIP_TEXT_CHANNEL(obj));
+  base_conn = (TpBaseConnection *) priv->conn;
+  contact_handles = tp_base_connection_get_handles (base_conn,
+      TP_HANDLE_TYPE_CONTACT);
+
+  tp_handle_ref (contact_handles, priv->handle);
+
+  g_assert (priv->initiator != 0);
+  tp_handle_ref (contact_handles, priv->initiator);
 
   tpsip_connection_connect_auth_handler (priv->conn, TPSIP_EVENT_TARGET (obj));
 
@@ -181,8 +190,6 @@ GObject *tpsip_text_channel_constructor(GType type,
 
   bus = tp_get_bus();
   dbus_g_connection_register_g_object(bus, priv->object_path, obj);
-
-  return obj;
 }
 
 
@@ -226,7 +233,7 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
   object_class->get_property = tpsip_text_channel_get_property;
   object_class->set_property = tpsip_text_channel_set_property;
 
-  object_class->constructor = tpsip_text_channel_constructor;
+  object_class->constructed = tpsip_text_channel_constructed;
 
   object_class->dispose = tpsip_text_channel_dispose;
   object_class->finalize = tpsip_text_channel_finalize;
@@ -256,6 +263,26 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_TARGET_ID, param_spec);
 
+  param_spec = g_param_spec_uint ("initiator-handle", "Initiator's handle",
+      "The contact who initiated the channel",
+      0, G_MAXUINT32, 0,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_INITIATOR_HANDLE,
+      param_spec);
+
+  param_spec = g_param_spec_string ("initiator-id", "Initiator's URI",
+      "The string obtained by inspecting the initiator-handle",
+      NULL,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_INITIATOR_ID,
+      param_spec);
+
+  param_spec = g_param_spec_boolean ("requested", "Requested?",
+      "True if this channel was requested by the local user",
+      FALSE,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
+
   klass->dbus_props_class.interfaces =
       (TpDBusPropertiesMixinIfaceImpl *) prop_interfaces;
   tp_dbus_properties_mixin_class_init (object_class,
@@ -264,14 +291,16 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
 
 static void
 tpsip_text_channel_get_property(GObject *object,
-				   guint property_id,
-				   GValue *value,
-				   GParamSpec *pspec)
+				guint property_id,
+				GValue *value,
+				GParamSpec *pspec)
 {
   TpsipTextChannel *chan = TPSIP_TEXT_CHANNEL(object);
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(chan);
+  TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
 
-  switch (property_id) {
+  switch (property_id)
+    {
     case PROP_CONNECTION:
       g_value_set_object(value, priv->conn);
       break;
@@ -295,10 +324,29 @@ tpsip_text_channel_get_property(GObject *object,
     case PROP_TARGET_ID:
       {
         TpHandleRepoIface *repo = tp_base_connection_get_handles (
-            (TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
+            base_conn, TP_HANDLE_TYPE_CONTACT);
 
         g_value_set_string (value, tp_handle_inspect (repo, priv->handle));
       }
+      break;
+
+    case PROP_INITIATOR_HANDLE:
+      g_value_set_uint (value, priv->initiator);
+      break;
+
+    case PROP_INITIATOR_ID:
+      {
+        TpHandleRepoIface *repo = tp_base_connection_get_handles (
+            base_conn, TP_HANDLE_TYPE_CONTACT);
+
+        g_assert (priv->initiator != 0);
+        g_value_set_string (value,
+            tp_handle_inspect (repo, priv->initiator));
+      }
+      break;
+
+    case PROP_REQUESTED:
+      g_value_set_boolean (value, (priv->initiator == base_conn->self_handle));
       break;
 
     case PROP_INTERFACES:
@@ -307,43 +355,49 @@ tpsip_text_channel_get_property(GObject *object,
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-      break;
-  }
+    }
 }
 
 static void
 tpsip_text_channel_set_property(GObject *object,
-			      guint property_id,
-			      const GValue *value,
-			      GParamSpec *pspec)
+			        guint property_id,
+			        const GValue *value,
+			        GParamSpec *pspec)
 {
   TpsipTextChannel *chan = TPSIP_TEXT_CHANNEL (object);
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (chan);
 
-  switch (property_id) {
-  case PROP_CONNECTION:
-    priv->conn = g_value_get_object (value);
-    break;
-    
-  case PROP_OBJECT_PATH:
-    g_assert (priv->object_path == NULL);
-    priv->object_path = g_value_dup_string (value);
-    break;
+  switch (property_id)
+    {
+    case PROP_CONNECTION:
+      priv->conn = g_value_get_object (value);
+      break;
 
-  case PROP_CHANNEL_TYPE:
-  case PROP_HANDLE_TYPE:
-    /* this property is writable in the interface, but not actually
-     * meaningfully changable on this channel, so we do nothing */
-    break;
+    case PROP_OBJECT_PATH:
+      g_assert (priv->object_path == NULL);
+      priv->object_path = g_value_dup_string (value);
+      break;
 
-  case PROP_HANDLE:
-    priv->handle = g_value_get_uint(value);
-    break;
-    
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
+    case PROP_CHANNEL_TYPE:
+    case PROP_HANDLE_TYPE:
+      /* this property is writable in the interface, but not actually
+       * meaningfully changable on this channel, so we do nothing */
+      break;
+
+    case PROP_HANDLE:
+      /* we don't ref it here because we don't necessarily have access to the
+       * contact repo yet - instead we ref it in the constructed */
+      priv->handle = g_value_get_uint(value);
+      break;
+
+    case PROP_INITIATOR_HANDLE:
+      /* similarly we can't ref this yet */
+      priv->initiator = g_value_get_uint (value);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    }
 }
 
 static void
@@ -351,6 +405,7 @@ tpsip_text_channel_dispose(GObject *object)
 {
   TpsipTextChannel *self = TPSIP_TEXT_CHANNEL (object);
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  TpHandleRepoIface *contact_handles;
 
   if (priv->dispose_has_run)
     return;
@@ -360,7 +415,13 @@ tpsip_text_channel_dispose(GObject *object)
   if (!priv->closed)
     tpsip_text_channel_close (self);
 
-  /* release any references held by the object here */
+  contact_handles = tp_base_connection_get_handles (
+      (TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
+
+  tp_handle_unref (contact_handles, priv->handle);
+
+  if (priv->initiator != 0)
+    tp_handle_unref (contact_handles, priv->initiator);
 
   if (G_OBJECT_CLASS (tpsip_text_channel_parent_class)->dispose)
     G_OBJECT_CLASS (tpsip_text_channel_parent_class)->dispose (object);
