@@ -131,7 +131,6 @@ struct _TpsipMediaSessionPrivate
   nua_saved_event_t saved_event[1];       /* Saved incoming request event */
   gint local_non_ready;                   /* number of streams with local information update pending */
   guint remote_stream_count;              /* number of streams last seen in a remote offer */
-  guint catcher_id;
   guint glare_timer_id;
   su_home_t *home;                        /* Sofia memory home for remote SDP session structure */
   su_home_t *backup_home;                 /* Sofia memory home for previous generation remote SDP session*/
@@ -161,7 +160,6 @@ tpsip_media_session_get_stream (TpsipMediaSession *self,
                               guint stream_id,
                               GError **error);
 
-static gboolean priv_catch_remote_nonupdate (gpointer data);
 static TpsipMediaStream* priv_create_media_stream (TpsipMediaSession *session,
                                                  guint media_type,
                                                  guint pending_send_flags);
@@ -373,9 +371,6 @@ tpsip_media_session_dispose (GObject *object)
   DEBUG("enter");
 
   priv->dispose_has_run = TRUE;
-
-  if (priv->catcher_id)
-    g_source_remove (priv->catcher_id);
 
   if (priv->glare_timer_id)
     g_source_remove (priv->glare_timer_id);
@@ -594,6 +589,19 @@ tpsip_media_session_change_state (TpsipMediaSession *session,
   switch (new_state)
     {
     case TPSIP_MEDIA_SESSION_STATE_CREATED:
+    case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
+    case TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT:
+    case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+    case TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING:
+      break;
+    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
+      /* Apply any pending remote send after outgoing INVITEs.
+       * We don't want automatic removal of pending local send after
+       * responding to incoming re-INVITEs, however */
+      priv_apply_streams_pending_send (session,
+                                       TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
       break;
     case TPSIP_MEDIA_SESSION_STATE_ENDED:
       priv_close_all_streams (session);
@@ -604,27 +612,9 @@ tpsip_media_session_change_state (TpsipMediaSession *session,
           priv->nua_op = NULL;
         }
       break;
-    case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-      priv->catcher_id = g_idle_add (priv_catch_remote_nonupdate, session);
-      /* Fall through to the next case */
-    case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT:
-      break;
-    case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-      break;
-    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
-      /* Apply any pending remote send after outgoing INVITEs.
-       * We don't want automatic removal of pending local send after
-       * responding to incoming re-INVITEs, however */
-      priv_apply_streams_pending_send (session,
-                                       TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
-      break;
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING:
-      break;
 
-    /* Don't add default because we want to be warned by the compiler
-     * about unhandled states */
+      /* Don't add default because we want to be warned by the compiler
+       * about unhandled states */
     }
 
   g_signal_emit (session, signals[SIG_STATE_CHANGED], 0, old_state, new_state);
@@ -657,26 +647,6 @@ tpsip_media_session_debug (TpsipMediaSession *session,
       buf);
 }
 #endif /* ENABLE_DEBUG */
-
-static gboolean
-priv_catch_remote_nonupdate (gpointer data)
-{
-  TpsipMediaSession *session = data;
-
-  DEBUG("called");
-
-  /* Accordingly to the last experimental data, non-modifying INVITEs
-   * cause the stack to emit nua_i_state nonetheless */
-  g_assert_not_reached();
-
-  /* TODO: figure out what happens in the 3pcc scenario when we get
-   * an INVITE but no session offer */
-
-  /* Should do the right thing if there were no remote media updates */
-  priv_request_response_step (session);
-
-  return FALSE;
-}
 
 void tpsip_media_session_terminate (TpsipMediaSession *session)
 {
@@ -739,13 +709,6 @@ tpsip_media_session_set_remote_media (TpsipMediaSession *session,
   gboolean authoritative;
 
   DEBUG ("enter");
-
-  /* Remove the non-update catcher because we've got an update */
-  if (priv->catcher_id)
-    {
-      g_source_remove (priv->catcher_id);
-      priv->catcher_id = 0;
-    }
 
   if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_SENT
       || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT)
