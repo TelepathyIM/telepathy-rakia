@@ -531,8 +531,8 @@ tpsip_media_channel_finalize (GObject *object)
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-tpsip_media_channel_close_async (TpSvcChannel *iface,
-                               DBusGMethodInvocation *context)
+tpsip_media_channel_dbus_close (TpSvcChannel *iface,
+                                DBusGMethodInvocation *context)
 {
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
 
@@ -1644,12 +1644,13 @@ channel_iface_init(gpointer g_iface, gpointer iface_data)
 {
   TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
 
-#define IMPLEMENT(x, suffix) tp_svc_channel_implement_##x (\
-    klass, tpsip_media_channel_##x##suffix)
-  IMPLEMENT(close,_async);
-  IMPLEMENT(get_channel_type,);
-  IMPLEMENT(get_handle,);
-  IMPLEMENT(get_interfaces,);
+  tp_svc_channel_implement_close (
+      klass, tpsip_media_channel_dbus_close);
+#define IMPLEMENT(x) tp_svc_channel_implement_##x (\
+      klass, tpsip_media_channel_##x)
+  IMPLEMENT(get_channel_type);
+  IMPLEMENT(get_handle);
+  IMPLEMENT(get_interfaces);
 #undef IMPLEMENT
 }
 
