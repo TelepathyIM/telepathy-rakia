@@ -30,8 +30,6 @@
 #include <time.h>
 
 #include <dbus/dbus-glib.h>
-#include <sofia-sip/sip.h>
-#include <sofia-sip/sip_header.h>
 #include <telepathy-glib/channel-iface.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/errors.h>
@@ -42,10 +40,13 @@
 
 #include <tpsip/event-target.h>
 
-#define DEBUG_FLAG TPSIP_DEBUG_IM
-#include "debug.h"
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
+
+#include <sofia-sip/sip_status.h>
+
+#define DEBUG_FLAG TPSIP_DEBUG_IM
+#include "debug.h"
 
 static gboolean
 tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
@@ -94,15 +95,13 @@ typedef struct _TpsipTextPendingMessage TpsipTextPendingMessage;
 struct _TpsipTextPendingMessage
 {
   guint id;
-  nua_handle_t *nh;
-  
-  
   time_t timestamp;
   TpHandle sender;
-  
   TpChannelTextMessageType type;
-  
   gchar *text;
+
+  nua_handle_t *nh;
+  nua_saved_event_t *saved_event;
 };
 
 typedef struct _TpsipTextChannelPrivate TpsipTextChannelPrivate;
@@ -140,7 +139,11 @@ static void tpsip_text_pending_free (TpsipTextPendingMessage *msg,
 
   g_free (msg->text);
 
-  nua_handle_unref (msg->nh);
+  if (msg->saved_event)
+    nua_destroy_event (msg->saved_event);
+
+  if (msg->nh)
+    nua_handle_unref (msg->nh);
 
   g_slice_free (TpsipTextPendingMessage, msg);
 }
@@ -442,6 +445,9 @@ tpsip_text_channel_finalize(GObject *object)
 
   if (!g_queue_is_empty (priv->pending_messages))
     {
+      /* XXX: could have responded to the requests with e.g. 480,
+       * but generating network traffic upon abnormal channel termination
+       * does not sound like a good idea */
       g_warning ("zapping %u pending incoming messages",
                  g_queue_get_length (priv->pending_messages));
       g_queue_foreach (priv->pending_messages,
@@ -534,6 +540,11 @@ tpsip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
       DEBUG("acknowledging message id %u", msg->id);
 
       g_queue_remove (priv->pending_messages, msg);
+
+      nua_respond (msg->nh,
+                   SIP_200_OK,
+                   NUTAG_WITH_SAVED(msg->saved_event),
+                   TAG_END());
 
       tpsip_text_pending_free (msg, contact_repo);
     }
@@ -866,32 +877,35 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
 }
 
 void tpsip_text_channel_receive(TpsipTextChannel *chan,
+                                nua_handle_t *nh,
+                                nua_saved_event_t *event,
 			        TpHandle sender,
 			        const char *message)
 {
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (chan);
   TpsipTextPendingMessage *msg;
-  TpsipTextChannelPrivate *priv;
   TpHandleRepoIface *contact_repo;
 
   DEBUG("enter");
-
-  g_assert(chan != NULL);
-  g_assert(TPSIP_IS_TEXT_CHANNEL(chan));
-  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (chan);
-  contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
 
   msg = _tpsip_text_pending_new();
 
   msg->id = priv->recv_id++;
   msg->timestamp = time(NULL);
+  msg->nh = nh;
+  msg->saved_event = event;
   msg->sender = sender;
   msg->type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL;
   msg->text = g_strdup(message);
 
   g_queue_push_tail(priv->pending_messages, msg);
 
-  tp_handle_ref (contact_repo, msg->sender);
+  nua_handle_ref (nh);
+
+  contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
+
+  tp_handle_ref (contact_repo, sender);
 
   DEBUG("received message: %s", message);
 

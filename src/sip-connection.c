@@ -926,6 +926,8 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
 
   if (handle)
     {
+      nua_saved_event_t event[1];
+
       DEBUG("Got incoming message from <%s>", 
             tp_handle_inspect (contact_repo, handle));
 
@@ -935,14 +937,18 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
         channel = tpsip_text_factory_new_channel (priv->text_factory,
             handle, handle, NULL);
 
-      tpsip_text_channel_receive (channel, handle, text);
+      nua_save_event (ev->nua, event);
+
+      /* Return a provisional response to quench retransmissions.
+       * The acknowledgement will be signalled later with 200 OK */
+      nua_respond (ev->nua_handle,
+                   SIP_182_QUEUED,
+                   NUTAG_WITH_SAVED(event),
+                   TAG_END());
+
+      tpsip_text_channel_receive (channel, ev->nua_handle, event, handle, text);
 
       tp_handle_unref (contact_repo, handle);
-
-      nua_respond (ev->nua_handle,
-                   SIP_200_OK,
-                   NUTAG_WITH_THIS(ev->nua),
-                   TAG_END());
     }
   else
     {
