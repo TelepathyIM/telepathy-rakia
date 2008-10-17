@@ -18,10 +18,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "text-factory.h"
+
+#include <string.h>
+
 #include <telepathy-glib/svc-connection.h>
 #include <telepathy-glib/interfaces.h>
-#include <string.h>
-#include "text-factory.h"
+
+#include "sip-connection.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_IM
 #include "debug.h"
@@ -275,7 +279,7 @@ tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
 
 TpsipTextChannel *
 tpsip_text_factory_lookup_channel (TpChannelFactoryIface *iface,
-                                 guint handle)
+                                   TpHandle handle)
 {
   TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
   TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);

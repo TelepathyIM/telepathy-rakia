@@ -23,7 +23,6 @@
 
 #include <telepathy-glib/channel-factory-iface.h>
 
-#include "sip-connection-sofia.h"
 #include "sip-text-channel.h"
 
 G_BEGIN_DECLS
@@ -56,7 +55,7 @@ GType tpsip_text_factory_get_type(void);
   (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_TEXT_FACTORY, TpsipTextFactoryClass))
 
 TpsipTextChannel *tpsip_text_factory_lookup_channel (TpChannelFactoryIface *iface,
-    guint handle);
+    TpHandle handle);
 
 TpsipTextChannel *tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
     TpHandle handle, TpHandle initiator, gpointer request);
