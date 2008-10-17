@@ -132,19 +132,17 @@ struct _TpsipTextChannelPrivate
 
 #define TPSIP_TEXT_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_TEXT_CHANNEL, TpsipTextChannelPrivate))
 
-static void _tpsip_text_pending_free(TpsipTextPendingMessage *msg)
+static void tpsip_text_pending_free (TpsipTextPendingMessage *msg,
+                                     TpHandleRepoIface *contact_handles)
 {
-  if (msg->text)
-    g_free (msg->text);
+  if (msg->sender)
+    tp_handle_unref (contact_handles, msg->sender);
+
+  g_free (msg->text);
 
   nua_handle_unref (msg->nh);
 
   g_slice_free (TpsipTextPendingMessage, msg);
-}
-
-static void _tpsip_text_pending_free_walk(gpointer data, gpointer user_data)
-{
-  _tpsip_text_pending_free ((TpsipTextPendingMessage *) data);
 }
 
 static void
@@ -435,15 +433,19 @@ tpsip_text_channel_finalize(GObject *object)
 {
   TpsipTextChannel *self = TPSIP_TEXT_CHANNEL (object);
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  TpHandleRepoIface *contact_handles;
 
   DEBUG("enter");
+
+  contact_handles = tp_base_connection_get_handles (
+      (TpBaseConnection *)priv->conn, TP_HANDLE_TYPE_CONTACT);
 
   if (!g_queue_is_empty (priv->pending_messages))
     {
       g_warning ("zapping %u pending incoming messages",
                  g_queue_get_length (priv->pending_messages));
       g_queue_foreach (priv->pending_messages,
-                       _tpsip_text_pending_free_walk, NULL);
+          (GFunc) tpsip_text_pending_free, contact_handles);
     }
   g_queue_free (priv->pending_messages);
 
@@ -452,7 +454,7 @@ tpsip_text_channel_finalize(GObject *object)
       g_message ("zapping %u pending outgoing message requests",
                  g_queue_get_length (priv->messages_to_be_acknowledged));
       g_queue_foreach (priv->messages_to_be_acknowledged,
-                       _tpsip_text_pending_free_walk, NULL);
+          (GFunc) tpsip_text_pending_free, contact_handles);
     }
   g_queue_free (priv->messages_to_be_acknowledged);
 
@@ -533,8 +535,7 @@ tpsip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 
       g_queue_remove (priv->pending_messages, msg);
 
-      tp_handle_unref (contact_repo, msg->sender);
-      _tpsip_text_pending_free (msg);
+      tpsip_text_pending_free (msg, contact_repo);
     }
 
   g_free(nodes);
@@ -785,6 +786,7 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
 {
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
   TpsipTextPendingMessage *msg;
+  TpHandleRepoIface *contact_repo;
   TpChannelTextSendError send_error;
   GList *node;
 
@@ -854,14 +856,18 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
   }
 
   g_queue_remove(priv->messages_to_be_acknowledged, msg);
-  _tpsip_text_pending_free(msg);
+
+  contact_repo = tp_base_connection_get_handles (
+      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
+
+  tpsip_text_pending_free(msg, contact_repo);
 
   return TRUE;
 }
 
 void tpsip_text_channel_receive(TpsipTextChannel *chan,
-			      TpHandle sender,
-			      const char *message)
+			        TpHandle sender,
+			        const char *message)
 {
   TpsipTextPendingMessage *msg;
   TpsipTextChannelPrivate *priv;
