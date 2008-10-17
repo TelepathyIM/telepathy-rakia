@@ -27,8 +27,6 @@
 
 #include <tpsip/sofia-decls.h>
 
-typedef struct _TpsipHandleStorage TpsipHandleStorage;
-
 G_BEGIN_DECLS
 
 typedef struct _TpsipTextChannel TpsipTextChannel;
@@ -67,7 +65,8 @@ void tpsip_text_channel_receive (TpsipTextChannel  *obj,
                                  nua_handle_t      *nh,
                                  nua_saved_event_t *event,
                                  TpHandle           sender,
-                                 const char        *message);
+                                 const char        *text,
+                                 gsize              len);
 
 G_END_DECLS
 

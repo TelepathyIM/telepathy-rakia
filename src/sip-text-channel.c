@@ -124,8 +124,6 @@ struct _TpsipTextChannelPrivate
 };
 
 
-#define _tpsip_text_pending_new() \
-	(g_slice_new(TpsipTextPendingMessage))
 #define _tpsip_text_pending_new0() \
 	(g_slice_new0(TpsipTextPendingMessage))
 
@@ -776,7 +774,7 @@ tpsip_text_channel_send(TpSvcChannelTypeText *iface,
 	      SIPTAG_PAYLOAD_STR(text),
 	      TAG_END());
 
-  msg = _tpsip_text_pending_new();
+  msg = _tpsip_text_pending_new0 ();
   msg->nh = msg_nh;
   msg->text = g_strdup(text);
   msg->type = type;
@@ -879,16 +877,15 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
 void tpsip_text_channel_receive(TpsipTextChannel *chan,
                                 nua_handle_t *nh,
                                 nua_saved_event_t *event,
-			        TpHandle sender,
-			        const char *message)
+                                TpHandle sender,
+                                const char *text,
+                                gsize len)
 {
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (chan);
   TpsipTextPendingMessage *msg;
   TpHandleRepoIface *contact_repo;
 
-  DEBUG("enter");
-
-  msg = _tpsip_text_pending_new();
+  msg = _tpsip_text_pending_new0 ();
 
   msg->id = priv->recv_id++;
   msg->timestamp = time(NULL);
@@ -896,7 +893,7 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
   msg->saved_event = event;
   msg->sender = sender;
   msg->type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL;
-  msg->text = g_strdup(message);
+  msg->text = g_strndup (text, len);
 
   g_queue_push_tail(priv->pending_messages, msg);
 
@@ -907,7 +904,7 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
 
   tp_handle_ref (contact_repo, sender);
 
-  DEBUG("received message: %s", message);
+  DEBUG("received message: %s", text);
 
   tp_svc_channel_type_text_emit_received ((TpSvcChannelTypeText *)chan,
       msg->id, msg->timestamp, msg->sender, msg->type,

@@ -835,7 +835,9 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
   TpHandleRepoIface *contact_repo;
   TpHandle handle;
   const sip_t *sip = ev->sip;
-  char *text = NULL;
+  const char *text = "";
+  gsize len = 0;
+  gboolean own_text = FALSE;
 
   /* Block anything else except text/plain messages (like isComposings) */
   if (sip->sip_content_type
@@ -853,38 +855,48 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
   if (sip->sip_payload && sip->sip_payload->pl_len > 0)
     {
       const char *charset = NULL;
-      if (sip->sip_content_type && sip->sip_content_type->c_params != 0)
+      if (sip->sip_content_type)
         {
-          charset = msg_params_find (sip->sip_content_type->c_params, "charset=");
+          charset = msg_header_find_param (sip->sip_content_type->c_common,
+              "charset");
         }
 
       /* Default charset is UTF-8, we only need to convert if it's a different one */
       if (charset && g_ascii_strcasecmp (charset, "UTF-8"))
         {
           GError *error;
-          gsize in_len, out_len;
+          gsize in_len;
           text = g_convert (sip->sip_payload->pl_data, sip->sip_payload->pl_len,
-              "UTF-8", charset, &in_len, &out_len, &error);
+              "UTF-8", charset, &in_len, &len, &error);
 
           if (text == NULL)
             {
               gint status;
-              gchar *message;
+              const char *message = NULL;
 
-              status = (error->code == G_CONVERT_ERROR_ILLEGAL_SEQUENCE)
-                       ? 400 : 500;
-              message = g_strdup_printf ("Character set conversion failed"
-                                                " for the message body: %s",
-                                         error->message);
+              g_message ("character set conversion failed for the message body: %s", error->message);
+              g_error_free (error);
+
+              if (error->code == G_CONVERT_ERROR_ILLEGAL_SEQUENCE)
+                {
+                  status = 400;
+                  message = "Invalid character sequence in the message body";
+                }
+              else
+                {
+                  status = 500;
+                  message = "Character set conversion failed for the message body";
+                }
               nua_respond (ev->nua_handle,
                            status, message,
                            NUTAG_WITH_THIS(ev->nua),
                            TAG_END());
 
-              g_free (message);
-              g_error_free (error);
               goto end;
             }
+
+          own_text = TRUE;
+
           if (in_len != sip->sip_payload->pl_len)
             {
               nua_respond (ev->nua_handle,
@@ -902,17 +914,14 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
                                 NULL))
             {
               nua_respond (ev->nua_handle,
-                           400, "Invalid characters in the message body",
+                           400, "Invalid character sequence in the message body",
                            NUTAG_WITH_THIS(ev->nua),
                            TAG_END());
               goto end;
             }
-          text = g_strndup (sip->sip_payload->pl_data, sip->sip_payload->pl_len);
+          text = sip->sip_payload->pl_data;
+          len = (gsize) sip->sip_payload->pl_len;
         }
-    }
-  else
-    {
-      text = g_strdup ("");
     }
 
   contact_repo = tp_base_connection_get_handles (
@@ -942,7 +951,8 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
                    NUTAG_WITH_SAVED(event),
                    TAG_END());
 
-      tpsip_text_channel_receive (channel, ev->nua_handle, event, handle, text);
+      tpsip_text_channel_receive (channel,
+          ev->nua_handle, event, handle, text, len);
 
       tp_handle_unref (contact_repo, handle);
     }
@@ -955,7 +965,8 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
     }
 
 end:
-  g_free (text);
+  if (own_text)
+    g_free ((gpointer) text);
 
   return TRUE;
 }
