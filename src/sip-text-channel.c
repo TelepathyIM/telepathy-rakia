@@ -117,7 +117,7 @@ struct _TpsipTextChannelPrivate
   guint recv_id;
   guint sent_id;
   GQueue  *pending_messages;
-  GQueue  *messages_to_be_acknowledged;
+  GQueue  *sending_messages;
 
   gboolean closed;
 
@@ -153,7 +153,7 @@ tpsip_text_channel_init (TpsipTextChannel *obj)
   DEBUG("enter");
 
   priv->pending_messages = g_queue_new ();
-  priv->messages_to_be_acknowledged = g_queue_new ();
+  priv->sending_messages = g_queue_new ();
 }
 
 static void
@@ -449,14 +449,14 @@ tpsip_text_channel_finalize(GObject *object)
     }
   g_queue_free (priv->pending_messages);
 
-  if (!g_queue_is_empty (priv->messages_to_be_acknowledged))
+  if (!g_queue_is_empty (priv->sending_messages))
     {
       g_message ("zapping %u pending outgoing message requests",
-                 g_queue_get_length (priv->messages_to_be_acknowledged));
-      g_queue_foreach (priv->messages_to_be_acknowledged,
+                 g_queue_get_length (priv->sending_messages));
+      g_queue_foreach (priv->sending_messages,
           (GFunc) tpsip_text_pending_free, contact_handles);
     }
-  g_queue_free (priv->messages_to_be_acknowledged);
+  g_queue_free (priv->sending_messages);
 
   g_free (priv->object_path);
 
@@ -771,7 +771,7 @@ tpsip_text_channel_send(TpSvcChannelTypeText *iface,
   msg->type = type;
   msg->timestamp = time(NULL);
 
-  g_queue_push_tail (priv->messages_to_be_acknowledged, msg);
+  g_queue_push_tail (priv->sending_messages, msg);
 
   DEBUG("message queued for delivery with timestamp %u", (guint)msg->timestamp);
 
@@ -792,7 +792,7 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
 
   DEBUG("enter");
 
-  node = g_queue_find_custom (priv->messages_to_be_acknowledged,
+  node = g_queue_find_custom (priv->sending_messages,
                               ev->nua_handle,
 			      tpsip_acknowledged_messages_compare);
 
@@ -855,7 +855,7 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
 	send_error, msg->timestamp, msg->type, msg->text);  
   }
 
-  g_queue_remove(priv->messages_to_be_acknowledged, msg);
+  g_queue_remove(priv->sending_messages, msg);
 
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
