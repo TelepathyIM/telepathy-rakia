@@ -196,10 +196,6 @@ tpsip_connection_init (TpsipConnection *self)
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   priv->sofia_home = su_home_new(sizeof (su_home_t));
-  priv->auth_table = g_hash_table_new_full (g_direct_hash,
-                                            g_direct_equal,
-                                            NULL /* (GDestroyNotify) nua_handle_unref */,
-                                            g_free);
 
   tp_contacts_mixin_init ((GObject *) self,
       G_STRUCT_OFFSET (TpsipConnection, contacts));
@@ -1004,9 +1000,6 @@ tpsip_connection_dispose (GObject *object)
   /* these are borrowed refs, the real ones are owned by the superclass */
   priv->media_factory = NULL;
   priv->text_factory = NULL;
-
-  /* may theoretically involve NUA handle unrefs */
-  g_hash_table_destroy (priv->auth_table);
 
   /* the base class is responsible for unreffing the self handle when we
    * disconnect */

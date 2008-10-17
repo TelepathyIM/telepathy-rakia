@@ -39,8 +39,6 @@ struct _TpsipConnectionPrivate
 
   gchar *registrar_realm;
 
-  GHashTable *auth_table;
-
   /* channels */
   TpChannelFactoryIface *text_factory;
   TpChannelFactoryIface *media_factory;
