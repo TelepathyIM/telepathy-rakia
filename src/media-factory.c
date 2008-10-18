@@ -18,11 +18,17 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "media-factory.h"
+
+#include <string.h>
+
 #include <telepathy-glib/svc-connection.h>
 #include <telepathy-glib/interfaces.h>
-#include <string.h>
-#include "media-factory.h"
+
 #include "sip-connection.h"
+#include "sip-connection-helpers.h"
+
+#include <sofia-sip/sip_status.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
@@ -198,21 +204,6 @@ tpsip_media_factory_close_all (TpChannelFactoryIface *iface)
     }
 }
 
-static void
-tpsip_media_factory_connecting (TpChannelFactoryIface *iface)
-{
-}
-
-static void
-tpsip_media_factory_connected (TpChannelFactoryIface *iface)
-{
-}
-
-static void
-tpsip_media_factory_disconnected (TpChannelFactoryIface *iface)
-{
-}
-
 struct _ForeachData
 {
   TpChannelFunc foreach;
@@ -265,7 +256,7 @@ channel_closed (TpsipMediaChannel *chan, gpointer user_data)
  *
  * Creates a new empty TpsipMediaChannel.
  */
-TpsipMediaChannel *
+static TpsipMediaChannel *
 tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
                                  gpointer request,
                                  TpHandleType handle_type,
@@ -397,6 +388,78 @@ tpsip_media_factory_request (TpChannelFactoryIface *iface,
   return status;
 }
 
+static gboolean
+tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
+                       const TpsipNuaEvent *ev,
+                       tagi_t               tags[],
+                       TpsipMediaFactory   *fac)
+{
+  TpsipMediaChannel *channel;
+  TpHandleRepoIface *contact_repo;
+  TpHandle handle;
+  GError *error = NULL;
+
+  /* figure out a handle for the identity */
+
+  contact_repo = tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT);
+
+  handle = tpsip_handle_parse_from (contact_repo, ev->sip);
+  if (!handle)
+    {
+      g_message ("incoming INVITE with invalid sender information");
+      nua_respond (ev->nua_handle, 400, "Invalid From address", TAG_END());
+      return TRUE;
+    }
+
+  DEBUG("Got incoming invite from <%s>",
+        tp_handle_inspect (contact_repo, handle));
+
+  channel = tpsip_media_factory_new_channel (
+                fac,
+                NULL,
+                TP_HANDLE_TYPE_CONTACT,
+                handle,
+                handle,
+                &error);
+  if (channel)
+    {
+      tpsip_media_channel_receive_invite (channel, ev->nua_handle);
+    }
+  else
+    {
+      g_warning ("creation of SIP media channel failed: %s", error->message);
+      g_error_free (error);
+      nua_respond (ev->nua_handle, SIP_500_INTERNAL_SERVER_ERROR, TAG_END());
+    }
+
+  tp_handle_unref (contact_repo, handle);
+
+  return TRUE;
+}
+
+static void
+tpsip_media_factory_connected (TpChannelFactoryIface *iface)
+{
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (iface);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+
+  g_signal_connect (priv->conn,
+       "nua-event::nua_i_invite",
+       G_CALLBACK (tpsip_nua_i_invite_cb),
+       fac);
+}
+
+static void
+tpsip_media_factory_disconnected (TpChannelFactoryIface *iface)
+{
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (iface);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+
+  g_signal_handlers_disconnect_by_func (priv->conn,
+       G_CALLBACK (tpsip_nua_i_invite_cb),
+       fac);
+}
+
 static void
 factory_iface_init (gpointer g_iface, gpointer iface_data)
 {
@@ -406,7 +469,6 @@ factory_iface_init (gpointer g_iface, gpointer iface_data)
   IMPLEMENT(close_all);
   IMPLEMENT(foreach);
   IMPLEMENT(request);
-  IMPLEMENT(connecting);
   IMPLEMENT(connected);
   IMPLEMENT(disconnected);
 #undef IMPLEMENT

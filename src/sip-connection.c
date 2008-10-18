@@ -48,7 +48,6 @@
 #include "sip-connection-sofia.h"
 
 #include <sofia-sip/msg_header.h>
-#include <sofia-sip/sip_status.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
@@ -130,31 +129,6 @@ priv_url_from_string_value (su_home_t *home, const GValue *value)
   g_assert (home != NULL);
   url_str = g_value_get_string (value);
   return (url_str)? url_make (home, url_str) : NULL;
-}
-
-static TpHandle
-priv_handle_parse_from (const sip_t *sip,
-                        TpHandleRepoIface *contact_repo)
-{
-  TpHandle handle = 0;
-  gchar *url_str;
-
-  g_return_val_if_fail (sip != NULL, 0);
-
-  if (sip->sip_from)
-    {
-      su_home_t tmphome[1] = { SU_HOME_INIT(tmphome) };
-
-      url_str = url_as_string (tmphome, sip->sip_from->a_url);
-
-      handle = tp_handle_ensure (contact_repo, url_str, NULL, NULL);
-
-      /* TODO: set qdata for the display name */
-
-      su_home_deinit (tmphome);
-    }
-
-  return handle;
 }
 
 static void
@@ -773,204 +747,6 @@ tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
   return TRUE;
 }
 
-static gboolean
-tpsip_connection_nua_i_invite_cb (TpsipConnection   *self,
-                                  const TpsipNuaEvent  *ev,
-                                  tagi_t             tags[],
-                                  gpointer           foo)
-{
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
-  TpsipMediaChannel *channel;
-  TpHandleRepoIface *contact_repo;
-  TpHandle handle;
-  GError *error = NULL;
-
-  /* figure out a handle for the identity */
-
-  contact_repo = tp_base_connection_get_handles ((TpBaseConnection *)self,
-                                                 TP_HANDLE_TYPE_CONTACT);
-
-  handle = priv_handle_parse_from (ev->sip, contact_repo);
-  if (!handle)
-    {
-      g_message ("incoming INVITE with invalid sender information");
-      nua_respond (ev->nua_handle, 400, "Invalid From address", TAG_END());
-      return TRUE;
-    }
-
-  DEBUG("Got incoming invite from <%s>", 
-        tp_handle_inspect (contact_repo, handle));
-
-  channel = tpsip_media_factory_new_channel (
-                TPSIP_MEDIA_FACTORY (priv->media_factory),
-                NULL,
-                TP_HANDLE_TYPE_CONTACT,
-                handle,
-                handle,
-                &error);
-  if (channel)
-    {
-      tpsip_media_channel_receive_invite (channel, ev->nua_handle);
-    }
-  else
-    {
-      g_warning ("creation of SIP media channel failed: %s", error->message);
-      g_error_free (error);
-      nua_respond (ev->nua_handle, SIP_500_INTERNAL_SERVER_ERROR, TAG_END());
-    }
-
-  tp_handle_unref (contact_repo, handle);
-
-  return TRUE;
-}
-
-static gboolean
-tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
-                                   const TpsipNuaEvent  *ev,
-                                   tagi_t             tags[],
-                                   gpointer           foo)
-{
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
-  TpsipTextChannel *channel;
-  TpHandleRepoIface *contact_repo;
-  TpHandle handle;
-  const sip_t *sip = ev->sip;
-  const char *text = "";
-  gsize len = 0;
-  gboolean own_text = FALSE;
-
-  /* Block anything else except text/plain messages (like isComposings) */
-  if (sip->sip_content_type
-      && (g_ascii_strcasecmp ("text/plain", sip->sip_content_type->c_type)))
-    {
-      nua_respond (ev->nua_handle,
-                   SIP_415_UNSUPPORTED_MEDIA,
-                   SIPTAG_ACCEPT_STR("text/plain"),
-                   NUTAG_WITH_THIS(ev->nua),
-                   TAG_END());
-      goto end;
-    }
-
-  /* If there is some text, assure it's in UTF-8 encoding */
-  if (sip->sip_payload && sip->sip_payload->pl_len > 0)
-    {
-      const char *charset = NULL;
-      if (sip->sip_content_type)
-        {
-          charset = msg_header_find_param (sip->sip_content_type->c_common,
-              "charset");
-        }
-
-      /* Default charset is UTF-8, we only need to convert if it's a different one */
-      if (charset && g_ascii_strcasecmp (charset, "UTF-8"))
-        {
-          GError *error;
-          gsize in_len;
-          text = g_convert (sip->sip_payload->pl_data, sip->sip_payload->pl_len,
-              "UTF-8", charset, &in_len, &len, &error);
-
-          if (text == NULL)
-            {
-              gint status;
-              const char *message = NULL;
-
-              g_message ("character set conversion failed for the message body: %s", error->message);
-              g_error_free (error);
-
-              if (error->code == G_CONVERT_ERROR_ILLEGAL_SEQUENCE)
-                {
-                  status = 400;
-                  message = "Invalid character sequence in the message body";
-                }
-              else
-                {
-                  status = 500;
-                  message = "Character set conversion failed for the message body";
-                }
-              nua_respond (ev->nua_handle,
-                           status, message,
-                           NUTAG_WITH_THIS(ev->nua),
-                           TAG_END());
-
-              goto end;
-            }
-
-          own_text = TRUE;
-
-          if (in_len != sip->sip_payload->pl_len)
-            {
-              nua_respond (ev->nua_handle,
-                           400, "Incomplete character sequence at the "
-                                "end of the message body",
-                           NUTAG_WITH_THIS(ev->nua),
-                           TAG_END());
-              goto end;
-            }
-        }
-      else
-        {
-          if (!g_utf8_validate (sip->sip_payload->pl_data,
-                                sip->sip_payload->pl_len,
-                                NULL))
-            {
-              nua_respond (ev->nua_handle,
-                           400, "Invalid character sequence in the message body",
-                           NUTAG_WITH_THIS(ev->nua),
-                           TAG_END());
-              goto end;
-            }
-          text = sip->sip_payload->pl_data;
-          len = (gsize) sip->sip_payload->pl_len;
-        }
-    }
-
-  contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
-
-  handle = priv_handle_parse_from (sip, contact_repo);
-
-  if (handle)
-    {
-      nua_saved_event_t event[1];
-
-      DEBUG("Got incoming message from <%s>", 
-            tp_handle_inspect (contact_repo, handle));
-
-      channel = tpsip_text_factory_lookup_channel (priv->text_factory, handle);
-
-      if (!channel)
-        channel = tpsip_text_factory_new_channel (priv->text_factory,
-            handle, handle, NULL);
-
-      nua_save_event (ev->nua, event);
-
-      /* Return a provisional response to quench retransmissions.
-       * The acknowledgement will be signalled later with 200 OK */
-      nua_respond (ev->nua_handle,
-                   SIP_182_QUEUED,
-                   NUTAG_WITH_SAVED(event),
-                   TAG_END());
-
-      tpsip_text_channel_receive (channel,
-          ev->nua_handle, event, handle, text, len);
-
-      tp_handle_unref (contact_repo, handle);
-    }
-  else
-    {
-      nua_respond (ev->nua_handle,
-                   400, "Invalid From address",
-                   NUTAG_WITH_THIS(ev->nua),
-                   TAG_END());
-    }
-
-end:
-  if (own_text)
-    g_free ((gpointer) text);
-
-  return TRUE;
-}
-
 static void
 tpsip_connection_shut_down (TpBaseConnection *base)
 {
@@ -1138,14 +914,6 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
    * at registration time */
   nua_get_params (priv->sofia_nua, TAG_ANY(), TAG_NULL());
 
-  g_signal_connect (self,
-                    "nua-event::nua_i_invite",
-                    G_CALLBACK (tpsip_connection_nua_i_invite_cb),
-                    NULL);
-  g_signal_connect (self,
-                    "nua-event::nua_i_message",
-                    G_CALLBACK (tpsip_connection_nua_i_message_cb),
-                    NULL);
   g_signal_connect (self,
                     "nua-event::nua_r_register",
                     G_CALLBACK (tpsip_connection_nua_r_register_cb),

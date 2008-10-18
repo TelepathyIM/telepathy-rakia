@@ -26,6 +26,11 @@
 #include <telepathy-glib/interfaces.h>
 
 #include "sip-connection.h"
+#include "sip-connection-helpers.h"
+
+#include <sofia-sip/msg_header.h>
+#include <sofia-sip/sip_tag.h>
+#include <sofia-sip/sip_status.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_IM
 #include "debug.h"
@@ -169,21 +174,6 @@ tpsip_text_factory_close_all (TpChannelFactoryIface *iface)
   g_hash_table_foreach_remove (channels, tpsip_text_factory_close_one, NULL);
 }
 
-static void
-tpsip_text_factory_connecting (TpChannelFactoryIface *iface)
-{
-}
-
-static void
-tpsip_text_factory_connected (TpChannelFactoryIface *iface)
-{
-}
-
-static void
-tpsip_text_factory_disconnected (TpChannelFactoryIface *iface)
-{
-}
-
 struct _ForeachData
 {
   TpChannelFunc foreach;
@@ -236,19 +226,16 @@ channel_closed (TpsipTextChannel *chan, gpointer user_data)
  *
  * Creates a new empty TpsipTextChannel.
  */
-TpsipTextChannel *
-tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
+static TpsipTextChannel *
+tpsip_text_factory_new_channel (TpsipTextFactory *fac,
                                 TpHandle handle,
                                 TpHandle initiator,
                                 gpointer request)
 {
-  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
   TpsipTextFactoryPrivate *priv;
   TpsipTextChannel *chan;
   gchar *object_path;
   TpBaseConnection *conn;
-
-  g_assert (TPSIP_IS_TEXT_FACTORY (fac));
 
   priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
   conn = (TpBaseConnection *)(priv->conn);
@@ -277,11 +264,10 @@ tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
   return chan;
 }
 
-TpsipTextChannel *
-tpsip_text_factory_lookup_channel (TpChannelFactoryIface *iface,
+static inline TpsipTextChannel *
+tpsip_text_factory_lookup_channel (TpsipTextFactory *fac,
                                    TpHandle handle)
 {
-  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
   TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
 
   return (TpsipTextChannel *)g_hash_table_lookup (priv->channels,
@@ -318,13 +304,180 @@ tpsip_text_factory_request (TpChannelFactoryIface *iface,
     {
       TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn; 
 
-      chan = (TpChannelIface *)tpsip_text_factory_new_channel (iface,
+      chan = (TpChannelIface *)tpsip_text_factory_new_channel (fac,
           handle, base_conn->self_handle, request);
 
       status = TP_CHANNEL_FACTORY_REQUEST_STATUS_CREATED;
     }
   *ret = chan;
   return status;
+}
+
+static gboolean
+tpsip_nua_i_message_cb (TpBaseConnection    *conn,
+                        const TpsipNuaEvent *ev,
+                        tagi_t               tags[],
+                        TpsipTextFactory    *fac)
+{
+  TpsipTextChannel *channel;
+  TpHandleRepoIface *contact_repo;
+  TpHandle handle;
+  const sip_t *sip = ev->sip;
+  const char *text = "";
+  gsize len = 0;
+  gboolean own_text = FALSE;
+  nua_saved_event_t event[1];
+
+  /* Block anything else except text/plain messages (like isComposings) */
+  if (sip->sip_content_type
+      && (g_ascii_strcasecmp ("text/plain", sip->sip_content_type->c_type)))
+    {
+      nua_respond (ev->nua_handle,
+                   SIP_415_UNSUPPORTED_MEDIA,
+                   SIPTAG_ACCEPT_STR("text/plain"),
+                   NUTAG_WITH_THIS(ev->nua),
+                   TAG_END());
+      goto end;
+    }
+
+  /* If there is some text, assure it's in UTF-8 encoding */
+  if (sip->sip_payload && sip->sip_payload->pl_len > 0)
+    {
+      const char *charset = NULL;
+      if (sip->sip_content_type)
+        {
+          charset = msg_header_find_param (
+              (msg_common_t *) sip->sip_content_type, "charset");
+        }
+
+      /* Default charset is UTF-8, we only need to convert if it's a different one */
+      if (charset && g_ascii_strcasecmp (charset, "UTF-8"))
+        {
+          GError *error;
+          gsize in_len;
+          text = g_convert (sip->sip_payload->pl_data, sip->sip_payload->pl_len,
+              "UTF-8", charset, &in_len, &len, &error);
+
+          if (text == NULL)
+            {
+              gint status;
+              const char *message = NULL;
+
+              g_message ("character set conversion failed for the message body: %s", error->message);
+              g_error_free (error);
+
+              if (error->code == G_CONVERT_ERROR_ILLEGAL_SEQUENCE)
+                {
+                  status = 400;
+                  message = "Invalid character sequence in the message body";
+                }
+              else
+                {
+                  status = 500;
+                  message = "Character set conversion failed for the message body";
+                }
+              nua_respond (ev->nua_handle,
+                           status, message,
+                           NUTAG_WITH_THIS(ev->nua),
+                           TAG_END());
+
+              goto end;
+            }
+
+          own_text = TRUE;
+
+          if (in_len != sip->sip_payload->pl_len)
+            {
+              nua_respond (ev->nua_handle,
+                           400, "Incomplete character sequence at the "
+                                "end of the message body",
+                           NUTAG_WITH_THIS(ev->nua),
+                           TAG_END());
+              goto end;
+            }
+        }
+      else
+        {
+          if (!g_utf8_validate (sip->sip_payload->pl_data,
+                                sip->sip_payload->pl_len,
+                                NULL))
+            {
+              nua_respond (ev->nua_handle,
+                           400, "Invalid character sequence in the message body",
+                           NUTAG_WITH_THIS(ev->nua),
+                           TAG_END());
+              goto end;
+            }
+          text = sip->sip_payload->pl_data;
+          len = (gsize) sip->sip_payload->pl_len;
+        }
+    }
+
+  contact_repo = tp_base_connection_get_handles (
+      conn, TP_HANDLE_TYPE_CONTACT);
+
+  handle = tpsip_handle_parse_from (contact_repo, sip);
+
+  if (!handle)
+    {
+      nua_respond (ev->nua_handle,
+                   400, "Invalid From address",
+                   NUTAG_WITH_THIS(ev->nua),
+                   TAG_END());
+      goto end;
+    }
+
+  DEBUG("Got incoming message from <%s>",
+        tp_handle_inspect (contact_repo, handle));
+
+  channel = tpsip_text_factory_lookup_channel (fac, handle);
+
+  if (!channel)
+      channel = tpsip_text_factory_new_channel (fac,
+          handle, handle, NULL);
+
+  nua_save_event (ev->nua, event);
+
+  /* Return a provisional response to quench retransmissions.
+   * The acknowledgement will be signalled later with 200 OK */
+  nua_respond (ev->nua_handle,
+               SIP_182_QUEUED,
+               NUTAG_WITH_SAVED(event),
+               TAG_END());
+
+  tpsip_text_channel_receive (channel,
+      ev->nua_handle, event, handle, text, len);
+
+  tp_handle_unref (contact_repo, handle);
+
+end:
+  if (own_text)
+    g_free ((gpointer) text);
+
+  return TRUE;
+}
+
+static void
+tpsip_text_factory_connected (TpChannelFactoryIface *iface)
+{
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
+
+  g_signal_connect (priv->conn,
+       "nua-event::nua_i_message",
+       G_CALLBACK (tpsip_nua_i_message_cb),
+       fac);
+}
+
+static void
+tpsip_text_factory_disconnected (TpChannelFactoryIface *iface)
+{
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
+
+  g_signal_handlers_disconnect_by_func (priv->conn,
+       G_CALLBACK (tpsip_nua_i_message_cb),
+       fac);
 }
 
 static void
@@ -336,7 +489,6 @@ factory_iface_init (gpointer g_iface, gpointer iface_data)
   IMPLEMENT(close_all);
   IMPLEMENT(foreach);
   IMPLEMENT(request);
-  IMPLEMENT(connecting);
   IMPLEMENT(connected);
   IMPLEMENT(disconnected);
 #undef IMPLEMENT

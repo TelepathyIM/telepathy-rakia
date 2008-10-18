@@ -54,12 +54,6 @@ GType tpsip_text_factory_get_type(void);
 #define TPSIP_TEXT_FACTORY_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_TEXT_FACTORY, TpsipTextFactoryClass))
 
-TpsipTextChannel *tpsip_text_factory_lookup_channel (TpChannelFactoryIface *iface,
-    TpHandle handle);
-
-TpsipTextChannel *tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
-    TpHandle handle, TpHandle initiator, gpointer request);
-
 G_END_DECLS
 
 #endif
