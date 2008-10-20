@@ -281,6 +281,9 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
 
   g_assert (initiator != 0);
 
+  priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  conn = (TpBaseConnection *)priv->conn;
+
   switch (handle_type)
     {
     case TP_HANDLE_TYPE_CONTACT:
@@ -303,9 +306,6 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
           "SIP media channels can not be created with this handle type");
       goto err;
     }
-
-  priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-  conn = (TpBaseConnection *)priv->conn;
 
   object_path = g_strdup_printf ("%s/MediaChannel%u", conn->object_path,
       priv->channel_index++);
