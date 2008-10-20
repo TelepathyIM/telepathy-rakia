@@ -93,8 +93,8 @@ enum
   PROP_HANDLE_TYPE,
   PROP_HANDLE,
   PROP_TARGET_ID,
-  PROP_CREATOR,
-  PROP_CREATOR_ID,
+  PROP_INITIATOR,
+  PROP_INITIATOR_ID,
   PROP_REQUESTED,
   PROP_INTERFACES,
   /* Telepathy properties (see below too) */
@@ -128,7 +128,8 @@ struct _TpsipMediaChannelPrivate
   TpsipConnection *conn;
   TpsipMediaSession *session;
   gchar *object_path;
-  TpHandle creator;
+  TpHandle handle;
+  TpHandle initiator;
   GHashTable *call_states;
 
   gboolean closed;
@@ -172,7 +173,10 @@ tpsip_media_channel_constructed (GObject *obj)
 
   contact_repo = tp_base_connection_get_handles (conn,
       TP_HANDLE_TYPE_CONTACT);
-  
+
+  if (priv->handle != 0)
+    tp_handle_ref (contact_repo, priv->handle);
+
   /* register object on the bus */
   bus = tp_get_bus ();
 
@@ -185,13 +189,13 @@ tpsip_media_channel_constructed (GObject *obj)
                        contact_repo,
                        conn->self_handle);
 
-  /* automatically add creator to channel, but also ref them again (because
-   * priv->creator is the InitiatorHandle) */
-  g_assert (priv->creator != 0);
-  tp_handle_ref (contact_repo, priv->creator);
+  /* automatically add initiator to channel, but also ref them again (because
+   * priv->initiator is the InitiatorHandle) */
+  g_assert (priv->initiator != 0);
+  tp_handle_ref (contact_repo, priv->initiator);
 
   set = tp_intset_new ();
-  tp_intset_add (set, priv->creator);
+  tp_intset_add (set, priv->initiator);
 
   tp_group_mixin_change_members (obj, "", set, NULL, NULL, NULL, 0, 0);
 
@@ -237,8 +241,8 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       { "TargetHandleType", "handle-type", NULL },
       { "TargetHandle", "handle", NULL },
       { "TargetID", "target-id", NULL },
-      { "InitiatorHandle", "creator", NULL },
-      { "InitiatorID", "creator-id", NULL },
+      { "InitiatorHandle", "initiator", NULL },
+      { "InitiatorID", "initiator-id", NULL },
       { "Requested", "requested", NULL },
       { NULL }
   };
@@ -306,17 +310,17 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_TARGET_ID, param_spec);
 
-  param_spec = g_param_spec_uint ("creator", "Channel creator",
+  param_spec = g_param_spec_uint ("initiator", "Channel initiator",
       "The TpHandle representing the contact who created the channel.",
       0, G_MAXUINT32, 0,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_CREATOR, param_spec);
+  g_object_class_install_property (object_class, PROP_INITIATOR, param_spec);
 
-  param_spec = g_param_spec_string ("creator-id", "Creator URI",
-      "The URI obtained by inspecting the creator handle.",
+  param_spec = g_param_spec_string ("initiator-id", "Creator URI",
+      "The URI obtained by inspecting the initiator handle.",
       NULL,
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_CREATOR_ID, param_spec);
+  g_object_class_install_property (object_class, PROP_INITIATOR_ID, param_spec);
 
   param_spec = g_param_spec_boolean ("requested", "Requested?",
       "True if this channel was requested by the local user",
@@ -364,27 +368,28 @@ tpsip_media_channel_get_property (GObject    *object,
       g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA);
       break;
     case PROP_HANDLE:
-      g_value_set_uint (value, 0);
+      g_value_set_uint (value, priv->handle);
       break;
     case PROP_HANDLE_TYPE:
-      g_value_set_uint (value, TP_HANDLE_TYPE_NONE);
+      g_value_set_uint (value, priv->handle?
+          TP_HANDLE_TYPE_CONTACT : TP_HANDLE_TYPE_NONE);
       break;
     case PROP_TARGET_ID:
       g_value_set_static_string (value, "");
       break;
-    case PROP_CREATOR:
-      g_value_set_uint (value, priv->creator);
+    case PROP_INITIATOR:
+      g_value_set_uint (value, priv->initiator);
       break;
-    case PROP_CREATOR_ID:
+    case PROP_INITIATOR_ID:
         {
           TpHandleRepoIface *repo = tp_base_connection_get_handles (
               base_conn, TP_HANDLE_TYPE_CONTACT);
 
-          g_value_set_string (value, tp_handle_inspect (repo, priv->creator));
+          g_value_set_string (value, tp_handle_inspect (repo, priv->initiator));
         }
       break;
     case PROP_REQUESTED:
-      g_value_set_boolean (value, (priv->creator == base_conn->self_handle));
+      g_value_set_boolean (value, (priv->initiator == base_conn->self_handle));
       break;
     case PROP_INTERFACES:
       g_value_set_static_boxed (value, tpsip_media_channel_interfaces);
@@ -427,7 +432,6 @@ tpsip_media_channel_set_property (GObject     *object,
 
   switch (property_id) {
     case PROP_HANDLE_TYPE:
-    case PROP_HANDLE:
     case PROP_CHANNEL_TYPE:
       /* this property is writable in the interface, but not actually
        * meaningfully changable on this channel, so we do nothing */
@@ -439,8 +443,14 @@ tpsip_media_channel_set_property (GObject     *object,
       g_free (priv->object_path);
       priv->object_path = g_value_dup_string (value);
       break;
-    case PROP_CREATOR:
-      priv->creator = g_value_get_uint (value);
+    case PROP_HANDLE:
+      /* we don't ref it here because we don't necessarily have access to the
+       * contact repo yet - instead we ref it in constructed. */
+      priv->handle = g_value_get_uint (value);
+      break;
+    case PROP_INITIATOR:
+      /* similarly we can't ref this yet */
+      priv->initiator = g_value_get_uint (value);
       break;
     default:
       /* some properties live in the mixin */
@@ -486,8 +496,8 @@ tpsip_media_channel_dispose (GObject *object)
   contact_handles = tp_base_connection_get_handles (
       TP_BASE_CONNECTION (priv->conn), TP_HANDLE_TYPE_CONTACT);
 
-  tp_handle_unref (contact_handles, priv->creator);
-  priv->creator = 0;
+  tp_handle_unref (contact_handles, priv->initiator);
+  priv->initiator = 0;
 
   g_object_unref (priv->conn);
 
@@ -854,12 +864,12 @@ tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpBaseConnection *conn = TP_BASE_CONNECTION (priv->conn);
 
-  g_assert (priv->creator != conn->self_handle);
+  g_assert (priv->initiator != conn->self_handle);
   g_assert (priv->session == NULL);
 
   /* Start the local stream-engine; once the local 
    * media are ready, reply with nua_respond() */
-  priv_create_session (self, nh, priv->creator);
+  priv_create_session (self, nh, priv->initiator);
 
   g_assert (priv->session != NULL);
   tpsip_media_session_receive_invite (priv->session);
@@ -1140,7 +1150,7 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
     case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
       set = tp_intset_new ();
 
-      g_assert (priv->creator == self_handle);
+      g_assert (priv->initiator == self_handle);
 
       /* add the peer to remote pending */
       tp_intset_add (set, peer);
@@ -1170,7 +1180,7 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
                                      NULL,          /* remove */
                                      set,           /* local pending */
                                      NULL,          /* remote pending */
-                                     priv->creator, /* actor */
+                                     priv->initiator, /* actor */
                                      TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
       /* No adding more members to the incoming call, removing is OK */
@@ -1181,7 +1191,7 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
       break;
 
     case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
-      if (priv->creator == self_handle)
+      if (priv->initiator == self_handle)
         {
           if (!tp_handle_set_is_member (mixin->remote_pending, peer))
             break; /* no-op */
@@ -1400,7 +1410,7 @@ _tpsip_media_channel_add_member (GObject *iface,
 
   DEBUG("mixin->self_handle=%d, handle=%d", mixin->self_handle, handle);
 
-  if (priv->creator == mixin->self_handle)
+  if (priv->initiator == mixin->self_handle)
     {
       /* case a: outgoing call (we are the initiator, a new handle added) */
       priv_outbound_call (self, handle);
@@ -1464,11 +1474,11 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
 
-  if (priv->creator != mixin->self_handle &&
+  if (priv->initiator != mixin->self_handle &&
       handle != mixin->self_handle)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_PERMISSION_DENIED,
-          "handle %u cannot be removed because you are not the creator of the"
+          "handle %u cannot be removed because you are not the initiator of the"
           " channel", handle);
 
       return FALSE;

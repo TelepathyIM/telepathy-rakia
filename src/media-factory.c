@@ -270,17 +270,39 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
                                  gpointer request,
                                  TpHandleType handle_type,
                                  TpHandle handle,
-                                 TpHandle creator,
+                                 TpHandle initiator,
                                  GError **error)
 {
   TpsipMediaFactoryPrivate *priv;
-  TpsipMediaChannel *chan;
+  TpsipMediaChannel *chan = NULL;
   TpBaseConnection *conn;
   gchar *object_path;
   const gchar *nat_traversal = "none";
 
-  g_assert (TPSIP_IS_MEDIA_FACTORY (fac));
-  g_assert (creator != 0);
+  g_assert (initiator != 0);
+
+  switch (handle_type)
+    {
+    case TP_HANDLE_TYPE_CONTACT:
+      if (!tp_handle_is_valid (
+              tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT),
+              handle, error))
+        goto err;
+      break;
+    case TP_HANDLE_TYPE_NONE:
+      if (handle != 0)
+        {
+          g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+              "TargetHandle must be zero or omitted if TargetHandleType is "
+              "NONE");
+          goto err;
+        }
+      break;
+    default:
+      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "SIP media channels can not be created with this handle type");
+      goto err;
+    }
 
   priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
   conn = (TpBaseConnection *)priv->conn;
@@ -298,7 +320,8 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
   chan = g_object_new (TPSIP_TYPE_MEDIA_CHANNEL,
                        "connection", priv->conn,
                        "object-path", object_path,
-                       "creator", creator,
+                       "handle", handle,
+                       "initiator", initiator,
                        "nat-traversal", nat_traversal,
                        NULL);
 
@@ -311,9 +334,9 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
         g_object_set ((GObject *) chan, "stun-port", priv->stun_port, NULL);
     }
 
-  if (handle_type == TP_HANDLE_TYPE_CONTACT && handle != creator)
+  if (handle_type == TP_HANDLE_TYPE_CONTACT && handle != initiator)
     {
-      g_assert (creator == conn->self_handle);
+      g_assert (initiator == conn->self_handle);
 
       if (!_tpsip_media_channel_add_member ((GObject *) chan,
                handle, "", error))
@@ -330,7 +353,8 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
   return chan;
 
 err:
-  g_object_unref (chan);
+  if (chan != NULL)
+    g_object_unref (chan);
   return NULL;
 }
 
@@ -375,8 +399,11 @@ tpsip_media_factory_request (TpChannelFactoryIface *iface,
       switch (error->code)
         {
         case TP_ERROR_INVALID_HANDLE:
-        /* case TP_ERROR_INVALID_ARGUMENT: */
+        case TP_ERROR_INVALID_ARGUMENT:
           status = TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
+          break;
+        case TP_ERROR_NOT_AVAILABLE:
+          status = TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
           break;
         default:
           status = TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
