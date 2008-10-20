@@ -434,7 +434,7 @@ tpsip_media_session_error (TpSvcMediaSessionHandler *iface,
 {
   TpsipMediaSession *obj = TPSIP_MEDIA_SESSION (iface);
 
-  SESSION_DEBUG(obj, "Media.SessionHandler::Error called (%s) terminating session", message);
+  SESSION_DEBUG (obj, "Media.SessionHandler::Error called (%s), terminating session", message);
 
   tpsip_media_session_terminate (obj);
 
@@ -582,9 +582,9 @@ tpsip_media_session_change_state (TpsipMediaSession *session,
   old_state = priv->state;
   priv->state = new_state;
 
-  SESSION_DEBUG(session, "state change: %s -> %s",
-                session_states[old_state],
-                session_states[new_state]);
+  SESSION_DEBUG (session, "state change: %s -> %s",
+      session_states[old_state],
+      session_states[new_state]);
 
   switch (new_state)
     {
@@ -626,13 +626,14 @@ tpsip_media_session_change_state (TpsipMediaSession *session,
 #ifdef ENABLE_DEBUG
 void
 tpsip_media_session_debug (TpsipMediaSession *session,
-			 const gchar *format, ...)
+                           const gchar *format, ...)
 {
-  va_list list;
-  gchar buf[512];
   TpsipMediaSessionPrivate *priv;
+  va_list list;
+  gchar buf[240];
 
-  g_assert (TPSIP_IS_MEDIA_SESSION (session));
+  if (!tpsip_debug_flag_is_set (DEBUG_FLAG))
+    return;
 
   priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
@@ -913,7 +914,8 @@ tpsip_media_session_request_stream_direction (TpsipMediaSession *self,
       return FALSE;
     }
 
-  SESSION_DEBUG (self, "direction %u requested for stream %u", direction, stream_id);
+  SESSION_DEBUG (self, "direction %u requested for stream %u",
+      direction, stream_id);
 
   if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
       || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED)
@@ -1015,7 +1017,7 @@ tpsip_media_session_accept (TpsipMediaSession *self)
   if (priv->accepted)
     return;
 
-  SESSION_DEBUG(self, "accepting the session");
+  SESSION_DEBUG (self, "accepting the session");
 
   priv->accepted = TRUE;
 
@@ -1035,7 +1037,7 @@ tpsip_media_session_respond (TpsipMediaSession *self,
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
 
-  SESSION_DEBUG(self, "responding: %03d %s", status, message? message : "");
+  SESSION_DEBUG (self, "responding: %03d %s", status, message ? message : "");
 
   if (message != NULL && !message[0])
     message = NULL;
@@ -1056,7 +1058,7 @@ priv_glare_retry (gpointer session)
   TpsipMediaSession *self = session;
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
 
-  SESSION_DEBUG(self, "glare resolution interval is over");
+  SESSION_DEBUG (self, "glare resolution interval is over");
 
   if (priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING)
     priv_session_invite (self, TRUE);
@@ -1074,7 +1076,7 @@ tpsip_media_session_resolve_glare (TpsipMediaSession *self)
 
   if (priv->state != TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT)
     {
-      SESSION_DEBUG(self, "glare resolution triggered in unexpected state");
+      SESSION_DEBUG (self, "glare resolution triggered in unexpected state");
       return;
     }
 
@@ -1100,7 +1102,7 @@ tpsip_media_session_resolve_glare (TpsipMediaSession *self)
 
   priv->glare_timer_id = g_timeout_add (interval, priv_glare_retry, self);
 
-  SESSION_DEBUG(self, "glare resolution interval %u msec", interval);
+  SESSION_DEBUG (self, "glare resolution interval %u msec", interval);
 
   tpsip_media_session_change_state (
         self, TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING);
@@ -1653,8 +1655,6 @@ priv_session_local_sdp (TpsipMediaSession *session,
         }
     }
 
-  SESSION_DEBUG(session, "generated SDP: {\n%s}", user_sdp->str);
-
   return has_supported_media;
 }
 
@@ -1807,7 +1807,7 @@ priv_request_response_step (TpsipMediaSession *session)
         priv_session_invite (session, TRUE);
       break;
     default:
-      SESSION_DEBUG(session, "no action taken in the current state");
+      SESSION_DEBUG (session, "no action taken in the current state");
     }
 }
 
