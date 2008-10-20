@@ -59,7 +59,7 @@ TpsipTextChannel *tpsip_text_factory_lookup_channel (TpChannelFactoryIface *ifac
     guint handle);
 
 TpsipTextChannel *tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
-    TpHandle handle, gpointer request);
+    TpHandle handle, TpHandle initiator, gpointer request);
 
 G_END_DECLS
 

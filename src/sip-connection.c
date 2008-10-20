@@ -932,11 +932,8 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
       channel = tpsip_text_factory_lookup_channel (priv->text_factory, handle);
 
       if (!channel)
-        {
-          channel = tpsip_text_factory_new_channel (priv->text_factory, handle,
-              NULL);
-          g_assert (channel != NULL);
-        }
+        channel = tpsip_text_factory_new_channel (priv->text_factory,
+            handle, handle, NULL);
 
       tpsip_text_channel_receive (channel, handle, text);
 
