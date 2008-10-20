@@ -270,7 +270,7 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
                                  gpointer request,
                                  TpHandleType handle_type,
                                  TpHandle handle,
-                                 TpHandle creator,
+                                 TpHandle initiator,
                                  GError **error)
 {
   TpsipMediaFactoryPrivate *priv;
@@ -280,7 +280,7 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
   const gchar *nat_traversal = "none";
 
   g_assert (TPSIP_IS_MEDIA_FACTORY (fac));
-  g_assert (creator != 0);
+  g_assert (initiator != 0);
 
   priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
   conn = (TpBaseConnection *)priv->conn;
@@ -298,7 +298,7 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
   chan = g_object_new (TPSIP_TYPE_MEDIA_CHANNEL,
                        "connection", priv->conn,
                        "object-path", object_path,
-                       "creator", creator,
+                       "initiator", initiator,
                        "nat-traversal", nat_traversal,
                        NULL);
 
@@ -311,12 +311,12 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
         g_object_set ((GObject *) chan, "stun-port", priv->stun_port, NULL);
     }
 
-  if (handle_type == TP_HANDLE_TYPE_CONTACT && handle != creator)
+  if (handle_type == TP_HANDLE_TYPE_CONTACT && handle != initiator)
     {
       GArray *contacts;
       gboolean added;
 
-      g_assert (creator == conn->self_handle);
+      g_assert (initiator == conn->self_handle);
 
       contacts = g_array_sized_new (FALSE, FALSE, sizeof (TpHandle), 1);
       g_array_append_val (contacts, handle);
