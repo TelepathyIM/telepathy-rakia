@@ -129,6 +129,7 @@ struct _TpsipMediaChannelPrivate
   TpsipConnection *conn;
   TpsipMediaSession *session;
   gchar *object_path;
+  TpHandle handle;
   TpHandle initiator;
   GHashTable *call_states;
 
@@ -173,7 +174,10 @@ tpsip_media_channel_constructed (GObject *obj)
 
   contact_repo = tp_base_connection_get_handles (conn,
       TP_HANDLE_TYPE_CONTACT);
-  
+
+  if (priv->handle != 0)
+    tp_handle_ref (contact_repo, priv->handle);
+
   /* register object on the bus */
   bus = tp_get_bus ();
 
@@ -369,10 +373,11 @@ tpsip_media_channel_get_property (GObject    *object,
       g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA);
       break;
     case PROP_HANDLE:
-      g_value_set_uint (value, 0);
+      g_value_set_uint (value, priv->handle);
       break;
     case PROP_HANDLE_TYPE:
-      g_value_set_uint (value, TP_HANDLE_TYPE_NONE);
+      g_value_set_uint (value, priv->handle?
+          TP_HANDLE_TYPE_CONTACT : TP_HANDLE_TYPE_NONE);
       break;
     case PROP_TARGET_ID:
       g_value_set_static_string (value, "");
@@ -432,7 +437,6 @@ tpsip_media_channel_set_property (GObject     *object,
 
   switch (property_id) {
     case PROP_HANDLE_TYPE:
-    case PROP_HANDLE:
     case PROP_CHANNEL_TYPE:
       /* this property is writable in the interface, but not actually
        * meaningfully changable on this channel, so we do nothing */
@@ -444,7 +448,13 @@ tpsip_media_channel_set_property (GObject     *object,
       g_free (priv->object_path);
       priv->object_path = g_value_dup_string (value);
       break;
+    case PROP_HANDLE:
+      /* we don't ref it here because we don't necessarily have access to the
+       * contact repo yet - instead we ref it in constructed. */
+      priv->handle = g_value_get_uint (value);
+      break;
     case PROP_INITIATOR:
+      /* similarly we can't ref this yet */
       priv->initiator = g_value_get_uint (value);
       break;
     default:
