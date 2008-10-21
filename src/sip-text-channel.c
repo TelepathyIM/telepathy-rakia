@@ -427,7 +427,10 @@ tpsip_text_channel_dispose(GObject *object)
   priv->dispose_has_run = TRUE;
 
   if (!priv->closed)
-    tpsip_text_channel_close (self);
+    {
+      priv->closed = TRUE;
+      tp_svc_channel_emit_closed (self);
+    }
 
   contact_handles = tp_base_connection_get_handles (
       (TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
@@ -566,32 +569,51 @@ tpsip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 
 
 /**
- * tpsip_text_channel_close_async
+ * tpsip_text_channel_close
  *
  * Implements DBus method Close
  * on interface org.freedesktop.Telepathy.Channel
  */
 static void
-tpsip_text_channel_dbus_close (TpSvcChannel *iface,
-                               DBusGMethodInvocation *context)
+tpsip_text_channel_close (TpSvcChannel *iface,
+                          DBusGMethodInvocation *context)
 {
-  tpsip_text_channel_close (TPSIP_TEXT_CHANNEL(iface));
-  tp_svc_channel_return_from_close (context);
-}
+  TpsipTextChannel *self = TPSIP_TEXT_CHANNEL (iface);
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(self);
 
-void
-tpsip_text_channel_close (TpsipTextChannel *self)
-{
-  TpsipTextChannelPrivate *priv;
-
-  DEBUG("enter");
-
-  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(self);
-  if (!priv->closed)
+  if (priv->closed)
     {
-      priv->closed = TRUE;
+      DEBUG ("already closed, doing nothing");
+    }
+  else
+    {
+      if (g_queue_is_empty (priv->pending_messages))
+        {
+          DEBUG ("actually closing, no pending messages");
+          priv->closed = TRUE;
+        }
+      else
+        {
+          DEBUG ("not really closing, there are pending messages left");
+
+          if (priv->initiator != priv->handle)
+            {
+              TpHandleRepoIface *contact_repo = tp_base_connection_get_handles
+                  ((TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
+
+              g_assert (priv->initiator != 0);
+              g_assert (priv->handle != 0);
+
+              tp_handle_unref (contact_repo, priv->initiator);
+              priv->initiator = priv->handle;
+              tp_handle_ref (contact_repo, priv->initiator);
+            }
+
+          /* XXX: clear the queue of messages awaiting sent confirmation? */
+        }
       tp_svc_channel_emit_closed (self);
     }
+  tp_svc_channel_return_from_close (context);
 }
 
 /**
@@ -933,10 +955,9 @@ channel_iface_init(gpointer g_iface, gpointer iface_data)
 {
   TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
 
-  tp_svc_channel_implement_close (
-      klass, tpsip_text_channel_dbus_close);
 #define IMPLEMENT(x) tp_svc_channel_implement_##x (\
       klass, tpsip_text_channel_##x)
+  IMPLEMENT(close);
   IMPLEMENT(get_channel_type);
   IMPLEMENT(get_handle);
   IMPLEMENT(get_interfaces);

@@ -149,15 +149,6 @@ tpsip_text_factory_class_init (TpsipTextFactoryClass *klass)
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 }
 
-static gboolean
-tpsip_text_factory_close_one (gpointer key,
-                            gpointer data,
-                            gpointer user_data)
-{
-  tpsip_text_channel_close (TPSIP_TEXT_CHANNEL(data));
-  return TRUE;
-}
-
 static void
 tpsip_text_factory_close_all (TpChannelFactoryIface *iface)
 {
@@ -171,7 +162,7 @@ tpsip_text_factory_close_all (TpChannelFactoryIface *iface)
   channels = priv->channels;
   priv->channels = NULL;
 
-  g_hash_table_foreach_remove (channels, tpsip_text_factory_close_one, NULL);
+  g_hash_table_destroy (channels);
 }
 
 struct _ForeachData
@@ -213,12 +204,28 @@ channel_closed (TpsipTextChannel *chan, gpointer user_data)
   TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (user_data);
   TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
   TpHandle contact_handle;
+  gboolean really_destroyed = TRUE;
 
-  g_object_get (chan, "handle", &contact_handle, NULL);
-  DEBUG("removing text channel with handle %u", contact_handle);
+  if (priv->channels == NULL)
+    return;
 
-  if (priv->channels)
-    g_hash_table_remove (priv->channels, GINT_TO_POINTER (contact_handle));
+  g_object_get (chan,
+      "handle", &contact_handle,
+      "channel-destroyed", &really_destroyed,
+      NULL);
+
+  if (really_destroyed)
+    {
+      DEBUG ("removing text channel with handle %u", contact_handle);
+      g_hash_table_remove (priv->channels, GINT_TO_POINTER (contact_handle));
+    }
+  else
+    {
+      DEBUG ("reopening channel with handle %u due to pending messages",
+             contact_handle);
+      tp_channel_factory_iface_emit_new_channel (
+          (TpChannelFactoryIface *) fac, (TpChannelIface *)chan, NULL);
+    }
 }
 
 /**
