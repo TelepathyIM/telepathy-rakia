@@ -327,18 +327,10 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
 
   if (handle_type == TP_HANDLE_TYPE_CONTACT && handle != initiator)
     {
-      GArray *contacts;
-      gboolean added;
-
       g_assert (initiator == conn->self_handle);
 
-      contacts = g_array_sized_new (FALSE, FALSE, sizeof (TpHandle), 1);
-      g_array_append_val (contacts, handle);
-      added = tp_group_mixin_add_members (G_OBJECT (chan),
-                                          contacts,
-                                          "", error); 
-      g_array_free (contacts, TRUE);
-      if (!added)
+      if (!_tpsip_media_channel_add_member ((GObject *) chan,
+               handle, "", error))
         goto err;
     }
 
