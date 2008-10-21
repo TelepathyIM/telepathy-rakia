@@ -84,6 +84,7 @@ enum
   PROP_INITIATOR_ID,
   PROP_REQUESTED,
   PROP_INTERFACES,
+  PROP_CHANNEL_DESTROYED,
   LAST_PROPERTY
 };
 
@@ -285,6 +286,13 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
 
+  param_spec = g_param_spec_boolean ("channel-destroyed", "Destroyed?",
+      "If true, the channel has *really* closed, rather than just "
+      "appearing to do so",
+      FALSE,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_CHANNEL_DESTROYED, param_spec);
+
   klass->dbus_props_class.interfaces =
       (TpDBusPropertiesMixinIfaceImpl *) prop_interfaces;
   tp_dbus_properties_mixin_class_init (object_class,
@@ -349,6 +357,10 @@ tpsip_text_channel_get_property(GObject *object,
 
     case PROP_REQUESTED:
       g_value_set_boolean (value, (priv->initiator == base_conn->self_handle));
+      break;
+
+    case PROP_CHANNEL_DESTROYED:
+      g_value_set_boolean (value, priv->closed);
       break;
 
     case PROP_INTERFACES:
