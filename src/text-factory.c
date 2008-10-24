@@ -370,7 +370,6 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
               const char *message = NULL;
 
               g_message ("character set conversion failed for the message body: %s", error->message);
-              g_error_free (error);
 
               if (error->code == G_CONVERT_ERROR_ILLEGAL_SEQUENCE)
                 {
@@ -387,6 +386,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
                            NUTAG_WITH_THIS(ev->nua),
                            TAG_END());
 
+              g_error_free (error);
               goto end;
             }
 
