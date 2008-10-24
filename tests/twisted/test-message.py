@@ -61,7 +61,7 @@ def test(q, bus, conn, sip):
         body='Hello Again')
     sip.deliverResponse(sip.responseFromRequest(200, event.sip_message))
 
-    prevhdr = event.sip_message.headers
+    prevhdr = event.headers
 
     q.expect('dbus-signal', signal='Sent')
 
@@ -102,7 +102,9 @@ def test(q, bus, conn, sip):
 
     event = q.expect('dbus-signal', signal='Received')
     assert event.args[5] == 'Hi'
+
     iface.AcknowledgePendingMessages([event.args[0]])
+    event = q.expect('sip-response', code=200)
 
     # TODO: close the old channel
 
@@ -113,6 +115,9 @@ def test(q, bus, conn, sip):
     send_message(sip, prevhdr, u'straight ASCII'.encode('us-ascii'), encoding='us-ascii')
     event = q.expect('dbus-signal', signal='Received')
     assert event.args[5] == 'straight ASCII'
+
+    iface.AcknowledgePendingMessages([event.args[0]])
+    event = q.expect('sip-response', code=200)
 
     send_message(sip, prevhdr, u'Hyv\xe4!'.encode('iso-8859-1'), encoding='iso-8859-1')
     event = q.expect('dbus-signal', signal='Received')
