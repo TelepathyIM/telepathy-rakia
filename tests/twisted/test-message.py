@@ -7,13 +7,18 @@ import twisted.protocols.sip
 
 import dbus
 
-# Test outgoing message handling
+# Test message channels
+
+FROM_URL = 'sip:other.user@somewhere.else.com'
 
 def test(q, bus, conn, sip):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
     TEXT_TYPE = tp_name_prefix + '.Channel.Type.Text'
+
+    self_handle = conn.GetSelfHandle()
+    self_uri = conn.InspectHandles(1, [self_handle])[0]
 
     contact = 'sip:user@somewhere.com'
     handle = conn.RequestHandles(1, [contact])[0]
@@ -22,19 +27,25 @@ def test(q, bus, conn, sip):
     event = q.expect('dbus-signal', signal='NewChannel')
     assert event.args[1] == TEXT_TYPE, event.args[1]
 
-    obj = bus.get_object(conn._named_service, chan)
-    iface = dbus.Interface(obj, TEXT_TYPE)
+    requested_obj = bus.get_object(conn._named_service, chan)
+    iface = dbus.Interface(requested_obj, TEXT_TYPE)
 
-    text_props = obj.GetAll(tp_name_prefix + '.Channel',
+    text_props = requested_obj.GetAll(tp_name_prefix + '.Channel',
             dbus_interface='org.freedesktop.DBus.Properties')
+    assert text_props['ChannelType'] == TEXT_TYPE, text_props
+    assert 'Interfaces' in text_props, text_props
+    assert text_props['Interfaces'] == [], text_props
     assert 'TargetHandle' in text_props, text_props
     assert text_props['TargetHandle'] == handle, \
             (text_props, handle)
     assert 'TargetHandleType' in text_props, text_props
     assert text_props['TargetHandleType'] == 1, text_props
-    assert 'Interfaces' in text_props, text_props
-    assert text_props['Interfaces'] == [], text_props
-    assert text_props['ChannelType'] == TEXT_TYPE, text_props
+    assert text_props['TargetID'] == contact, text_props
+    assert text_props['InitiatorHandle'] == self_handle, \
+            (text_props, self_handle)
+    assert text_props['InitiatorID'] == self_uri, \
+            (text_props, self_uri)
+    assert text_props['Requested'], text_props
 
     iface.Send(0, 'Hello')
 
@@ -53,7 +64,7 @@ def test(q, bus, conn, sip):
 
     q.expect('dbus-signal', signal='Sent')
 
-    url = twisted.protocols.sip.parseURL('sip:testacc@127.0.0.1')
+    url = twisted.protocols.sip.parseURL(self_uri)
     msg = twisted.protocols.sip.Request('MESSAGE', url)
     send_message(sip, prevhdr, 'Hi')
 
@@ -61,13 +72,32 @@ def test(q, bus, conn, sip):
     assert (event.args[1] == TEXT_TYPE and event.args[2] == 1)
 
     # start using the new channel object
-    new_obj = bus.get_object(conn._named_service, event.args[0])
-    iface = dbus.Interface(new_obj, TEXT_TYPE)
+    incoming_obj = bus.get_object(conn._named_service, event.args[0])
+    iface = dbus.Interface(incoming_obj, TEXT_TYPE)
 
     handle = event.args[3]
+
+    text_props = incoming_obj.GetAll(tp_name_prefix + '.Channel',
+            dbus_interface='org.freedesktop.DBus.Properties')
+    assert text_props['ChannelType'] == TEXT_TYPE, text_props
+    assert 'Interfaces' in text_props, text_props
+    assert text_props['Interfaces'] == [], text_props
+    assert 'TargetHandle' in text_props, text_props
+    assert text_props['TargetHandle'] == handle, \
+            (text_props, handle)
+    assert 'TargetHandleType' in text_props, text_props
+    assert text_props['TargetHandleType'] == 1, text_props
+    assert text_props['TargetID'] == FROM_URL, text_props
+    assert text_props['InitiatorHandle'] == handle, \
+            (text_props, self_handle)
+    assert text_props['InitiatorID'] == FROM_URL, \
+            (text_props, self_uri)
+    assert 'Requested' in text_props, text_props
+    assert not text_props['Requested'], text_props
+
     name = conn.InspectHandles(1, [handle])[0]
 
-    assert name == 'sip:other.user@somewhere.else.com'
+    assert name == FROM_URL
 
     event = q.expect('dbus-signal', signal='Received')
     assert event.args[5] == 'Hi'
@@ -79,11 +109,11 @@ def test(q, bus, conn, sip):
     # Due to limited set of encodings available in some environments,
     # try with US ASCII and ISO 8859-1.
 
-    send_message(sip, prevhdr, u'straight ASCII'.encode('us-ascii'), 'us-ascii')
+    send_message(sip, prevhdr, u'straight ASCII'.encode('us-ascii'), encoding='us-ascii')
     event = q.expect('dbus-signal', signal='Received')
     assert event.args[5] == 'straight ASCII'
 
-    send_message(sip, prevhdr, u'Hyv\xe4!'.encode('iso-8859-1'), 'iso-8859-1')
+    send_message(sip, prevhdr, u'Hyv\xe4!'.encode('iso-8859-1'), encoding='iso-8859-1')
     event = q.expect('dbus-signal', signal='Received')
     assert event.args[5] == u'Hyv\xe4!'
 
@@ -91,13 +121,13 @@ def test(q, bus, conn, sip):
     q.expect('dbus-signal', signal='StatusChanged', args=[2,1])
 
 cseq_num = 1
-def send_message(sip, prevhdr, body, encoding=None):
+def send_message(sip, prevhdr, body, encoding=None, sender=FROM_URL):
     global cseq_num
     cseq_num += 1
     url = twisted.protocols.sip.parseURL('sip:testacc@127.0.0.1')
     msg = twisted.protocols.sip.Request('MESSAGE', url)
     msg.body = body
-    msg.addHeader('from', '<sip:other.user@somewhere.else.com>;tag=XYZ')
+    msg.addHeader('from', '<%s>;tag=XYZ' % sender)
     msg.addHeader('to', '<sip:testacc@127.0.0.1>')
     msg.addHeader('cseq', '%d MESSAGE' % cseq_num)
     msg.addHeader('allow', 'INVITE ACK BYE MESSAGE')
