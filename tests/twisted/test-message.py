@@ -156,8 +156,15 @@ def test(q, bus, conn, sip):
 
     iface = dbus.Interface(requested_obj, TEXT_TYPE)
 
+    pending_res = iface.ListPendingMessages(False)
+    assert pending_msgs == pending_res, (pending_msgs, unwrap(pending_res))
+
     pending_res = iface.ListPendingMessages(True)
     assert pending_msgs == pending_res, (pending_msgs, unwrap(pending_res))
+
+    # TODO: match the CSeq
+    q.expect('sip-response', code=200)
+    q.expect('sip-response', code=200)
 
     # There should be no pending messages any more
     pending_res = iface.ListPendingMessages(False)

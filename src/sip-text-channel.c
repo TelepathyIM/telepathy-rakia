@@ -147,6 +147,15 @@ static void tpsip_text_pending_free (TpsipTextPendingMessage *msg,
   g_slice_free (TpsipTextPendingMessage, msg);
 }
 
+static inline void
+tpsip_text_pending_respond (TpsipTextPendingMessage *msg)
+{
+  nua_respond (msg->nh,
+               SIP_200_OK,
+               NUTAG_WITH_SAVED(msg->saved_event),
+               TAG_END());
+}
+
 static void
 tpsip_text_channel_init (TpsipTextChannel *obj)
 {
@@ -551,10 +560,7 @@ tpsip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 
       g_queue_remove (priv->pending_messages, msg);
 
-      nua_respond (msg->nh,
-                   SIP_200_OK,
-                   NUTAG_WITH_SAVED(msg->saved_event),
-                   TAG_END());
+      tpsip_text_pending_respond (msg);
 
       tpsip_text_pending_free (msg, contact_repo);
     }
@@ -734,9 +740,15 @@ tpsip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
 
   if (clear)
     {
+      TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
+          (TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
       while ((cur = g_queue_pop_head_link (priv->pending_messages)) != NULL)
-        tpsip_pending_message_list_add (messages,
-                                        (TpsipTextPendingMessage *) cur->data);
+        {
+          TpsipTextPendingMessage * msg = (TpsipTextPendingMessage *) cur->data;
+          tpsip_pending_message_list_add (messages, msg);
+          tpsip_text_pending_respond (msg);
+          tpsip_text_pending_free (msg, contact_repo);
+        }
     }
   else
     {
