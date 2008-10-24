@@ -52,12 +52,17 @@ def test(q, bus, conn, sip):
     prevhdr = event.sip_message.headers
 
     q.expect('dbus-signal', signal='Sent')
+
     url = twisted.protocols.sip.parseURL('sip:testacc@127.0.0.1')
     msg = twisted.protocols.sip.Request('MESSAGE', url)
     send_message(sip, prevhdr, 'Hi')
 
     event = q.expect('dbus-signal', signal='NewChannel')
     assert (event.args[1] == TEXT_TYPE and event.args[2] == 1)
+
+    # start using the new channel object
+    new_obj = bus.get_object(conn._named_service, event.args[0])
+    iface = dbus.Interface(new_obj, TEXT_TYPE)
 
     handle = event.args[3]
     name = conn.InspectHandles(1, [handle])[0]
@@ -66,6 +71,9 @@ def test(q, bus, conn, sip):
 
     event = q.expect('dbus-signal', signal='Received')
     assert event.args[5] == 'Hi'
+    iface.AcknowledgePendingMessages([event.args[0]])
+
+    # TODO: close the old channel
 
     # Test conversion from an 8-bit encoding.
     # Due to limited set of encodings available in some environments,
@@ -99,11 +107,13 @@ def send_message(sip, prevhdr, body, encoding=None):
         msg.addHeader('content-type', 'text/plain; charset=%s' % encoding)
     msg.addHeader('content-length', '%d' % len(msg.body))
     msg.addHeader('call-id', prevhdr['call-id'][0])
-    msg.addHeader('via', 'SIP/2.0/UDP 127.0.0.1;branch=ABCXYZ')
+    via = sip.getVia()
+    via.branch = 'z9hG4bKXYZ'
+    msg.addHeader('via', via.toString())
 
     destVia = twisted.protocols.sip.parseViaHeader(prevhdr['via'][0])
     host = destVia.received or destVia.host
-    port = destVia.rport or destVia.port or self.PORT
+    port = destVia.rport or destVia.port
     destAddr = twisted.protocols.sip.URL(host=host, port=port)
     sip.sendMessage(destAddr, msg)
     return True
