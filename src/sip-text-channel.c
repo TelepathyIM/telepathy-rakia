@@ -102,7 +102,7 @@ struct _TpsipTextPendingMessage
   gchar *text;
 
   nua_handle_t *nh;
-  nua_saved_event_t *saved_event;
+  nua_saved_event_t saved_event[1];
 };
 
 typedef struct _TpsipTextChannelPrivate TpsipTextChannelPrivate;
@@ -138,7 +138,7 @@ static void tpsip_text_pending_free (TpsipTextPendingMessage *msg,
 
   g_free (msg->text);
 
-  if (msg->saved_event)
+  if (msg->saved_event[0])
     nua_destroy_event (msg->saved_event);
 
   if (msg->nh)
@@ -485,7 +485,7 @@ tpsip_text_channel_finalize(GObject *object)
 static gint tpsip_pending_message_compare(gconstpointer msg, gconstpointer id)
 {
   TpsipTextPendingMessage *message = (TpsipTextPendingMessage *)(msg);
-  return (message->id != GPOINTER_TO_INT(id));
+  return (message->id != GPOINTER_TO_UINT(id));
 }
 
 static gint tpsip_acknowledged_messages_compare(gconstpointer msg,
@@ -504,19 +504,16 @@ static gint tpsip_acknowledged_messages_compare(gconstpointer msg,
  */
 static void
 tpsip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
-					      const GArray *ids,
-					      DBusGMethodInvocation *context)
+					        const GArray *ids,
+					        DBusGMethodInvocation *context)
 {
-  TpsipTextChannel *obj = TPSIP_TEXT_CHANNEL (iface);
-  TpsipTextChannelPrivate *priv;
+  TpsipTextChannel *chan = TPSIP_TEXT_CHANNEL (iface);
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(chan);
   TpHandleRepoIface *contact_repo;
   GList **nodes;
   TpsipTextPendingMessage *msg;
   guint i;
 
-  DEBUG("enter");
-  
-  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(obj);
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
 
@@ -527,7 +524,7 @@ tpsip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
       guint id = g_array_index(ids, guint, i);
 
       nodes[i] = g_queue_find_custom (priv->pending_messages,
-                                      GINT_TO_POINTER (id),
+                                      GUINT_TO_POINTER (id),
                                       tpsip_pending_message_compare);
 
       if (nodes[i] == NULL)
@@ -909,8 +906,8 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
 }
 
 void tpsip_text_channel_receive(TpsipTextChannel *chan,
+                                nua_t *nua,
                                 nua_handle_t *nh,
-                                nua_saved_event_t *event,
                                 TpHandle sender,
                                 const char *text,
                                 gsize len)
@@ -924,10 +921,11 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
   msg->id = priv->recv_id++;
   msg->timestamp = time(NULL);
   msg->nh = nh;
-  msg->saved_event = event;
   msg->sender = sender;
   msg->type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL;
   msg->text = g_strndup (text, len);
+
+  nua_save_event (nua, msg->saved_event);
 
   g_queue_push_tail(priv->pending_messages, msg);
 
@@ -938,7 +936,8 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
 
   tp_handle_ref (contact_repo, sender);
 
-  DEBUG("received message: %s", text);
+  DEBUG("received message id %u, now %u pending",
+        msg->id, g_queue_get_length (priv->pending_messages));
 
   tp_svc_channel_type_text_emit_received ((TpSvcChannelTypeText *)chan,
       msg->id, msg->timestamp, msg->sender, msg->type,

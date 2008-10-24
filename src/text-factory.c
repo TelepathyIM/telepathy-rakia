@@ -333,7 +333,6 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
   const char *text = "";
   gsize len = 0;
   gboolean own_text = FALSE;
-  nua_saved_event_t event[1];
 
   /* Block anything else except text/plain messages (like isComposings) */
   if (sip->sip_content_type
@@ -443,17 +442,15 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
       channel = tpsip_text_factory_new_channel (fac,
           handle, handle, NULL);
 
-  nua_save_event (ev->nua, event);
-
   /* Return a provisional response to quench retransmissions.
    * The acknowledgement will be signalled later with 200 OK */
   nua_respond (ev->nua_handle,
                SIP_182_QUEUED,
-               NUTAG_WITH_SAVED(event),
+               NUTAG_WITH_THIS(ev->nua),
                TAG_END());
 
   tpsip_text_channel_receive (channel,
-      ev->nua_handle, event, handle, text, len);
+      ev->nua, ev->nua_handle, handle, text, len);
 
   tp_handle_unref (contact_repo, handle);
 
