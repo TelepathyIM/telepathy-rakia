@@ -33,6 +33,10 @@ class SipProxy(sip.RegisterProxy):
                 uri=str(message.uri), headers=message.headers, body=message.body,
                 sip_message=message))
 
+    def handle_response(self, message, addr):
+        self.event_func(servicetest.Event('sip-response',
+            code=message.code, headers=message.headers, body=message.body,
+            sip_message=message))
 
 def prepare_test(event_func, register_cb, params=None):
     actual_params = {
