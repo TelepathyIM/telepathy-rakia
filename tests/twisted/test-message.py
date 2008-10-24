@@ -6,6 +6,7 @@ from sofiatest import go, exec_test
 import twisted.protocols.sip
 
 import dbus
+import uuid
 
 # Test message channels
 
@@ -64,18 +65,19 @@ def test(q, bus, conn, sip):
 
     q.expect('dbus-signal', signal='Sent')
 
+    conn.ReleaseHandles(1, [handle])
+
     url = twisted.protocols.sip.parseURL(self_uri)
     msg = twisted.protocols.sip.Request('MESSAGE', url)
     send_message(sip, prevhdr, 'Hi')
 
     event = q.expect('dbus-signal', signal='NewChannel')
     assert (event.args[1] == TEXT_TYPE and event.args[2] == 1)
+    handle = event.args[3]
 
     # start using the new channel object
     incoming_obj = bus.get_object(conn._named_service, event.args[0])
     iface = dbus.Interface(incoming_obj, TEXT_TYPE)
-
-    handle = event.args[3]
 
     text_props = incoming_obj.GetAll(tp_name_prefix + '.Channel',
             dbus_interface='org.freedesktop.DBus.Properties')
@@ -96,7 +98,6 @@ def test(q, bus, conn, sip):
     assert not text_props['Requested'], text_props
 
     name = conn.InspectHandles(1, [handle])[0]
-
     assert name == FROM_URL
 
     event = q.expect('dbus-signal', signal='Received')
@@ -136,7 +137,7 @@ def send_message(sip, prevhdr, body, encoding=None, sender=FROM_URL):
     else:
         msg.addHeader('content-type', 'text/plain; charset=%s' % encoding)
     msg.addHeader('content-length', '%d' % len(msg.body))
-    msg.addHeader('call-id', prevhdr['call-id'][0])
+    msg.addHeader('call-id', uuid.uuid4().hex)
     via = sip.getVia()
     via.branch = 'z9hG4bKXYZ'
     msg.addHeader('via', via.toString())
