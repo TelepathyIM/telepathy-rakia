@@ -65,16 +65,19 @@ GType tpsip_media_channel_get_type(void);
 #define TPSIP_MEDIA_CHANNEL_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_MEDIA_CHANNEL, TpsipMediaChannelClass))
 
-
-void tpsip_media_channel_close (TpsipMediaChannel *self);
-
 /***********************************************************************
  * Additional declarations (not based on generated templates)
  ***********************************************************************/
 
-void tpsip_media_channel_receive_invite   (TpsipMediaChannel *self,
-                                           nua_handle_t *nh,
-                                           TpHandle handle);
+void tpsip_media_channel_close (TpsipMediaChannel *self);
+
+gboolean _tpsip_media_channel_add_member (GObject *iface,
+                                          TpHandle handle,
+                                          const gchar *message,
+                                          GError **error);
+
+void tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
+                                         nua_handle_t *nh);
 
 guint
 tpsip_media_channel_change_call_state (TpsipMediaChannel *self,

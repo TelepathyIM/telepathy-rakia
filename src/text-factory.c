@@ -234,8 +234,9 @@ channel_closed (TpsipTextChannel *chan, gpointer user_data)
  */
 TpsipTextChannel *
 tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
-                              TpHandle handle,
-                              gpointer request)
+                                TpHandle handle,
+                                TpHandle initiator,
+                                gpointer request)
 {
   TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
   TpsipTextFactoryPrivate *priv;
@@ -257,6 +258,7 @@ tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
                        "connection", priv->conn,
                        "object-path", object_path,
                        "handle", handle,
+                       "initiator-handle", initiator,
                        NULL);
 
   g_free (object_path);
@@ -284,12 +286,12 @@ tpsip_text_factory_lookup_channel (TpChannelFactoryIface *iface,
 
 static TpChannelFactoryRequestStatus
 tpsip_text_factory_request (TpChannelFactoryIface *iface,
-                          const gchar *chan_type,
-                          TpHandleType handle_type,
-                          guint handle,
-                          gpointer request,
-                          TpChannelIface **ret,
-                          GError **error)
+                            const gchar *chan_type,
+                            TpHandleType handle_type,
+                            guint handle,
+                            gpointer request,
+                            TpChannelIface **ret,
+                            GError **error)
 {
   TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
   TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
@@ -310,8 +312,11 @@ tpsip_text_factory_request (TpChannelFactoryIface *iface,
   chan = g_hash_table_lookup (priv->channels, GINT_TO_POINTER (handle));
   if (!chan)
     {
-      chan = (TpChannelIface *)tpsip_text_factory_new_channel (iface, handle,
-          request);
+      TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn; 
+
+      chan = (TpChannelIface *)tpsip_text_factory_new_channel (iface,
+          handle, base_conn->self_handle, request);
+
       status = TP_CHANNEL_FACTORY_REQUEST_STATUS_CREATED;
     }
   *ret = chan;

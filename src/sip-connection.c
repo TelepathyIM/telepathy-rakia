@@ -40,6 +40,8 @@
 #include "media-factory.h"
 #include "text-factory.h"
 
+#include "conn-aliasing.h"
+
 #include "sip-connection-enumtypes.h"
 #include "sip-connection-helpers.h"
 #include "sip-connection-private.h"
@@ -57,6 +59,12 @@ static void conn_iface_init (gpointer, gpointer);
 G_DEFINE_TYPE_WITH_CODE(TpsipConnection, tpsip_connection,
     TP_TYPE_BASE_CONNECTION,
     G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, event_target_iface_init);
+    G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_DBUS_PROPERTIES,
+        tp_dbus_properties_mixin_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS,
+        tp_contacts_mixin_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING,
+        tpsip_conn_aliasing_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION, conn_iface_init))
 
 #define ERROR_IF_NOT_CONNECTED_ASYNC(BASE, CONTEXT) \
@@ -76,6 +84,7 @@ enum
   PROP_ADDRESS = 1,      /**< public SIP address (SIP URI) */
   PROP_AUTH_USER,        /**< account username (if different from public address userinfo part) */
   PROP_PASSWORD,         /**< account password (for registration) */
+  PROP_ALIAS,               /* Display name for self */
 
   PROP_TRANSPORT,        /**< outbound transport */
   PROP_PROXY,            /**< outbound SIP proxy (SIP URI) */
@@ -125,7 +134,6 @@ priv_url_from_string_value (su_home_t *home, const GValue *value)
 
 static TpHandle
 priv_handle_parse_from (const sip_t *sip,
-                        su_home_t *home,
                         TpHandleRepoIface *contact_repo)
 {
   TpHandle handle = 0;
@@ -135,29 +143,28 @@ priv_handle_parse_from (const sip_t *sip,
 
   if (sip->sip_from)
     {
-      url_str = url_as_string (home, sip->sip_from->a_url);
+      su_home_t tmphome[1] = { SU_HOME_INIT(tmphome) };
+
+      url_str = url_as_string (tmphome, sip->sip_from->a_url);
 
       handle = tp_handle_ensure (contact_repo, url_str, NULL, NULL);
 
-      su_free (home, url_str);
-
       /* TODO: set qdata for the display name */
+
+      su_home_deinit (tmphome);
     }
 
   return handle;
 }
 
-static gchar *normalize_sipuri (TpHandleRepoIface *repo, const gchar *sipuri,
-    gpointer context, GError **error);
-
 static void
 tpsip_create_handle_repos (TpBaseConnection *conn,
-                         TpHandleRepoIface *repos[NUM_TP_HANDLE_TYPES])
+                           TpHandleRepoIface *repos[NUM_TP_HANDLE_TYPES])
 {
   repos[TP_HANDLE_TYPE_CONTACT] =
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,
           "handle-type", TP_HANDLE_TYPE_CONTACT,
-          "normalize-function", normalize_sipuri,
+          "normalize-function", tpsip_handle_normalize,
           "default-normalize-context", conn,
           NULL);
 }
@@ -184,21 +191,29 @@ tpsip_connection_create_channel_factories (TpBaseConnection *base)
 }
 
 static void
-tpsip_connection_init (TpsipConnection *obj)
+tpsip_connection_init (TpsipConnection *self)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (obj);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+
   priv->sofia_home = su_home_new(sizeof (su_home_t));
   priv->auth_table = g_hash_table_new_full (g_direct_hash,
                                             g_direct_equal,
                                             NULL /* (GDestroyNotify) nua_handle_unref */,
                                             g_free);
+
+  tp_contacts_mixin_init ((GObject *) self,
+      G_STRUCT_OFFSET (TpsipConnection, contacts));
+
+  tp_base_connection_register_with_contacts_mixin ((TpBaseConnection *) self);
+
+  tpsip_conn_aliasing_init (self);
 }
 
 static void
 tpsip_connection_set_property (GObject      *object,
-                             guint         property_id,
-                             const GValue *value,
-                             GParamSpec   *pspec)
+                               guint         property_id,
+                               const GValue *value,
+                               GParamSpec   *pspec)
 {
   TpsipConnection *self = (TpsipConnection*) object;
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
@@ -217,6 +232,11 @@ tpsip_connection_set_property (GObject      *object,
   case PROP_PASSWORD: {
     g_free(priv->password);
     priv->password = g_value_dup_string (value);
+    break;
+  }
+  case PROP_ALIAS: {
+    g_free(priv->alias);
+    priv->alias = g_value_dup_string (value);
     break;
   }
   case PROP_TRANSPORT: {
@@ -322,12 +342,16 @@ tpsip_connection_get_property (GObject      *object,
     g_value_set_string (value, priv->auth_user);
     break;
   }
-  case PROP_TRANSPORT: {
-    g_value_set_string (value, priv->transport);
-    break;
-  }
   case PROP_PASSWORD: {
     g_value_set_string (value, priv->password);
+    break;
+  }
+  case PROP_ALIAS: {
+    g_value_set_string (value, priv->alias);
+    break;
+  }
+  case PROP_TRANSPORT: {
+    g_value_set_string (value, priv->transport);
     break;
   }
   case PROP_PROXY: {
@@ -406,6 +430,11 @@ static gboolean tpsip_connection_start_connecting (TpBaseConnection *base,
 static void
 tpsip_connection_class_init (TpsipConnectionClass *klass)
 {
+  static const gchar *interfaces_always_present[] = {
+      TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
+      TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+      NULL };
+
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   TpBaseConnectionClass *base_class =
     (TpBaseConnectionClass *)klass;
@@ -419,6 +448,7 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
   base_class->disconnected = tpsip_connection_disconnected;
   base_class->start_connecting = tpsip_connection_start_connecting;
   base_class->shut_down = tpsip_connection_shut_down;
+  base_class->interfaces_always_present = interfaces_always_present;
 
   g_type_class_add_private (klass, sizeof (TpsipConnectionPrivate));
 
@@ -454,6 +484,12 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
       NULL,
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_PASSWORD);
+
+  param_spec = g_param_spec_string ("alias", "Alias",
+      "User's display name",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  INST_PROP(PROP_ALIAS);
 
   param_spec = g_param_spec_string ("transport", "Transport protocol",
       "Preferred transport protocol (auto, udp, tcp)",
@@ -545,6 +581,12 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
   INST_PROP(PROP_EXTRA_AUTH_PASSWORD);
 
 #undef INST_PROP
+
+  tp_dbus_properties_mixin_class_init (object_class,
+      G_STRUCT_OFFSET (TpsipConnectionClass, properties_class));
+
+  tp_contacts_mixin_class_init (object_class,
+      G_STRUCT_OFFSET (TpsipConnectionClass, contacts_class));
 }
 
 static gboolean
@@ -752,7 +794,7 @@ tpsip_connection_nua_i_invite_cb (TpsipConnection   *self,
   contact_repo = tp_base_connection_get_handles ((TpBaseConnection *)self,
                                                  TP_HANDLE_TYPE_CONTACT);
 
-  handle = priv_handle_parse_from (ev->sip, priv->sofia_home, contact_repo);
+  handle = priv_handle_parse_from (ev->sip, contact_repo);
   if (!handle)
     {
       g_message ("incoming INVITE with invalid sender information");
@@ -766,12 +808,13 @@ tpsip_connection_nua_i_invite_cb (TpsipConnection   *self,
   channel = tpsip_media_factory_new_channel (
                 TPSIP_MEDIA_FACTORY (priv->media_factory),
                 NULL,
-                TP_HANDLE_TYPE_NONE,
-                0,
+                TP_HANDLE_TYPE_CONTACT,
+                handle,
+                handle,
                 &error);
   if (channel)
     {
-      tpsip_media_channel_receive_invite (channel, ev->nua_handle, handle);
+      tpsip_media_channel_receive_invite (channel, ev->nua_handle);
     }
   else
     {
@@ -879,7 +922,7 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
 
-  handle = priv_handle_parse_from (sip, priv->sofia_home, contact_repo);
+  handle = priv_handle_parse_from (sip, contact_repo);
 
   if (handle)
     {
@@ -889,11 +932,8 @@ tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
       channel = tpsip_text_factory_lookup_channel (priv->text_factory, handle);
 
       if (!channel)
-        {
-          channel = tpsip_text_factory_new_channel (priv->text_factory, handle,
-              NULL);
-          g_assert (channel != NULL);
-        }
+        channel = tpsip_text_factory_new_channel (priv->text_factory,
+            handle, handle, NULL);
 
       tpsip_text_channel_receive (channel, handle, text);
 
@@ -994,6 +1034,7 @@ tpsip_connection_finalize (GObject *obj)
   g_free (priv->address);
   g_free (priv->auth_user);
   g_free (priv->password);
+  g_free (priv->alias);
   g_free (priv->transport);
   g_free (priv->stun_host);
   g_free (priv->local_ip_address);
@@ -1002,12 +1043,14 @@ tpsip_connection_finalize (GObject *obj)
 
   g_free (priv->registrar_realm);
 
+  tp_contacts_mixin_finalize (obj);
+
   G_OBJECT_CLASS (tpsip_connection_parent_class)->finalize (obj);
 }
 
 static gboolean
 tpsip_connection_start_connecting (TpBaseConnection *base,
-                                 GError **error)
+                                   GError **error)
 {
   TpsipConnection *self = TPSIP_CONNECTION (base);
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
@@ -1021,10 +1064,6 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
   g_assert (priv->sofia_root != NULL);
   g_return_val_if_fail (priv->address != NULL, FALSE);
 
-  /* FIXME: we should defer setting the self handle until we've found out from
-   * the stack what handle we actually got, at which point we set it; and
-   * not tell Telepathy that connection has succeeded until we've done so
-   */
   contact_repo = tp_base_connection_get_handles (base, TP_HANDLE_TYPE_CONTACT);
   base->self_handle = tp_handle_ensure (contact_repo, priv->address,
       NULL, error);
@@ -1037,7 +1076,7 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
 
   DEBUG("self_handle = %d, sip_address = %s", base->self_handle, sip_address);
 
-  priv->account_url = url_make (priv->sofia_home, sip_address);
+  priv->account_url = tpsip_conn_get_contact_url (self, base->self_handle);
   if (priv->account_url == NULL)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
@@ -1142,17 +1181,6 @@ tpsip_connection_disconnected (TpBaseConnection *base)
       nua_handle_unref (priv->register_op);
       priv->register_op = NULL;
     }
-}
-
-static gchar *
-normalize_sipuri (TpHandleRepoIface *repo,
-                  const gchar *sipuri,
-                  gpointer context,
-                  GError **error)
-{
-    TpsipConnection *conn = TPSIP_CONNECTION (context);
-
-    return tpsip_conn_normalize_uri (conn, sipuri, error);
 }
 
 static void

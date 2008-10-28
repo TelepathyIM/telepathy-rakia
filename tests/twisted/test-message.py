@@ -90,7 +90,7 @@ def send_message(sip, prevhdr, body, encoding=None):
     msg = twisted.protocols.sip.Request('MESSAGE', url)
     msg.body = body
     msg.addHeader('from', '<sip:other.user@somewhere.else.com>;tag=XYZ')
-    msg.addHeader('to', '<sip:user@127.0.0.1>')
+    msg.addHeader('to', '<sip:testacc@127.0.0.1>')
     msg.addHeader('cseq', '%d MESSAGE' % cseq_num)
     msg.addHeader('allow', 'INVITE ACK BYE MESSAGE')
     if encoding is None:

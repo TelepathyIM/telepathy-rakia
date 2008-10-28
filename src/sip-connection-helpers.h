@@ -58,12 +58,16 @@ void tpsip_conn_save_event (TpsipConnection *conn,
                             nua_saved_event_t ret_saved [1]);
 
 /***********************************************************************
- * SIP URI helpers *
+ * SIP URI helpers
  ***********************************************************************/
 
-gchar * tpsip_conn_normalize_uri (TpsipConnection *conn,
-                                  const gchar *sipuri,
-                                  GError **error);
+gchar * tpsip_handle_normalize (TpHandleRepoIface *repo,
+                                const gchar *sipuri,
+                                gpointer context,
+                                GError **error);
+
+const url_t* tpsip_conn_get_contact_url (TpsipConnection *conn,
+                                         TpHandle handle);
 
 G_END_DECLS
 

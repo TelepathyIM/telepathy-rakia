@@ -63,7 +63,7 @@ void tpsip_debug_set_flags (TpsipDebugFlags new_flags)
 
 gboolean tpsip_debug_flag_is_set (TpsipDebugFlags flag)
 {
-  return flag & tpsip_debug_flags;
+  return (flag & tpsip_debug_flags) ? TRUE : FALSE;
 }
 
 void tpsip_debug (TpsipDebugFlags flag,

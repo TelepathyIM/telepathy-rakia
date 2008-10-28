@@ -73,7 +73,7 @@ dnl GTK docs
 GTK_DOC_CHECK
 
 dnl Check for Glib 
-PKG_CHECK_MODULES(GLIB, gobject-2.0 >= 2.14, have_glib=yes, have_glib=no)
+PKG_CHECK_MODULES(GLIB, gobject-2.0 >= 2.16, have_glib=yes, have_glib=no)
 
 if test x$have_glib = xno ; then
     AC_MSG_ERROR([GLib development libraries not found])
@@ -97,7 +97,7 @@ AC_SUBST(SOFIA_SIP_UA_CFLAGS)
 AC_SUBST(SOFIA_SIP_UA_VERSION)
 
 dnl Check for telepathy-glib
-PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.7.10])
+PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.7.17])
 AC_SUBST(TELEPATHY_GLIB_CFLAGS)
 AC_SUBST(TELEPATHY_GLIB_LIBS)
 

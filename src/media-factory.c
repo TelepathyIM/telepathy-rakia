@@ -267,21 +267,45 @@ channel_closed (TpsipMediaChannel *chan, gpointer user_data)
  */
 TpsipMediaChannel *
 tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
-                               gpointer request,
-                               TpHandleType handle_type,
-                               TpHandle handle,
-                               GError **error)
+                                 gpointer request,
+                                 TpHandleType handle_type,
+                                 TpHandle handle,
+                                 TpHandle initiator,
+                                 GError **error)
 {
   TpsipMediaFactoryPrivate *priv;
-  TpsipMediaChannel *chan;
+  TpsipMediaChannel *chan = NULL;
   TpBaseConnection *conn;
   gchar *object_path;
   const gchar *nat_traversal = "none";
 
-  g_assert (TPSIP_IS_MEDIA_FACTORY (fac));
+  g_assert (initiator != 0);
 
   priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
   conn = (TpBaseConnection *)priv->conn;
+
+  switch (handle_type)
+    {
+    case TP_HANDLE_TYPE_CONTACT:
+      if (!tp_handle_is_valid (
+              tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT),
+              handle, error))
+        goto err;
+      break;
+    case TP_HANDLE_TYPE_NONE:
+      if (handle != 0)
+        {
+          g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+              "TargetHandle must be zero or omitted if TargetHandleType is "
+              "NONE");
+          goto err;
+        }
+      break;
+    default:
+      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "SIP media channels can not be created with this handle type");
+      goto err;
+    }
 
   object_path = g_strdup_printf ("%s/MediaChannel%u", conn->object_path,
       priv->channel_index++);
@@ -295,8 +319,9 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
 
   chan = g_object_new (TPSIP_TYPE_MEDIA_CHANNEL,
                        "connection", priv->conn,
-                       "factory", fac,
                        "object-path", object_path,
+                       "handle", handle,
+                       "initiator", initiator,
                        "nat-traversal", nat_traversal,
                        NULL);
 
@@ -309,17 +334,12 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
         g_object_set ((GObject *) chan, "stun-port", priv->stun_port, NULL);
     }
 
-  if (handle_type == TP_HANDLE_TYPE_CONTACT)
+  if (handle_type == TP_HANDLE_TYPE_CONTACT && handle != initiator)
     {
-      GArray *contacts;
-      gboolean added;
-      contacts = g_array_sized_new (FALSE, FALSE, sizeof (TpHandle), 1);
-      g_array_append_val (contacts, handle);
-      added = tp_group_mixin_add_members (G_OBJECT (chan),
-                                          contacts,
-                                          "", error); 
-      g_array_free (contacts, TRUE);
-      if (!added)
+      g_assert (initiator == conn->self_handle);
+
+      if (!_tpsip_media_channel_add_member ((GObject *) chan,
+               handle, "", error))
         goto err;
     }
 
@@ -333,22 +353,25 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
   return chan;
 
 err:
-  g_object_unref (chan);
+  if (chan != NULL)
+    g_object_unref (chan);
   return NULL;
 }
 
 static TpChannelFactoryRequestStatus
 tpsip_media_factory_request (TpChannelFactoryIface *iface,
-                          const gchar *chan_type,
-                          TpHandleType handle_type,
-                          TpHandle handle,
-                          gpointer request,
-                          TpChannelIface **ret,
-                          GError **error_ret)
+                             const gchar *chan_type,
+                             TpHandleType handle_type,
+                             TpHandle handle,
+                             gpointer request,
+                             TpChannelIface **ret,
+                             GError **error_ret)
 {
   TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (iface);
+  TpsipMediaFactoryPrivate *priv;
   TpChannelIface *chan;
   TpChannelFactoryRequestStatus status = TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
+  TpBaseConnection *base_conn;
   GError *error = NULL;
 
   if (strcmp (chan_type, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA))
@@ -356,11 +379,15 @@ tpsip_media_factory_request (TpChannelFactoryIface *iface,
       return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
     }
 
+  priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  base_conn = (TpBaseConnection *)priv->conn;
+
   chan = (TpChannelIface *) tpsip_media_factory_new_channel (fac,
-                                                           request,
-                                                           handle_type,
-                                                           handle,
-                                                           &error);
+                                                             request,
+                                                             handle_type,
+                                                             handle,
+                                                             base_conn->self_handle,
+                                                             &error);
   if (chan != NULL)
     {
       *ret = chan;
@@ -372,8 +399,11 @@ tpsip_media_factory_request (TpChannelFactoryIface *iface,
       switch (error->code)
         {
         case TP_ERROR_INVALID_HANDLE:
-        /* case TP_ERROR_INVALID_ARGUMENT: */
+        case TP_ERROR_INVALID_ARGUMENT:
           status = TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
+          break;
+        case TP_ERROR_NOT_AVAILABLE:
+          status = TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
           break;
         default:
           status = TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;

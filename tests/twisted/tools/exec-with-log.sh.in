@@ -2,7 +2,8 @@
 
 cd "@abs_top_builddir@/tests/twisted/tools"
 
-export SOFIASIP_DEBUG=all
+export TPSIP_DEBUG=all
+export TPORT_LOG=1
 ulimit -c unlimited
 exec > sofiasip-testing.log 2>&1
 

@@ -6,9 +6,10 @@ tpsip-extensions/_gen
 tpsip-extensions/extensions.html
 data/org.freedesktop.Telepathy.ConnectionManager.sofiasip.service
 docs/telepathy-sofiasip.8
-tests/exec-with-log.sh
-tests/org.freedesktop.Telepathy.ConnectionManager.sofiasip.service
-tests/run-with-tmp-session-bus.conf
+tests/twisted/tools/exec-with-log.sh
+tests/twisted/tools/org.freedesktop.Telepathy.ConnectionManager.sofiasip.service
+tests/twisted/tools/sofiasip-testing.log
+tests/twisted/tools/tmp-session-bus.conf
 
 # Built source files
 signals-marshal.[ch]
@@ -18,6 +19,7 @@ src/*-enumtypes.[ch]
 /telepathy-sofiasip-*.tar.gz*
 
 # Output files and build directories
+.deps
 .libs
 *.o
 *.lo

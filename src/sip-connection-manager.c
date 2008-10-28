@@ -50,6 +50,7 @@ typedef struct {
     gchar *account;
     gchar *auth_user;
     gchar *password;
+    gchar *alias;
     gchar *registrar;
     gchar *proxy_host;
     guint port;
@@ -81,6 +82,7 @@ free_params (void *p)
   g_free (params->account);
   g_free (params->auth_user);
   g_free (params->password);
+  g_free (params->alias);
   g_free (params->registrar);
   g_free (params->proxy_host);
   g_free (params->transport);
@@ -97,6 +99,7 @@ enum {
     TPSIP_CONN_PARAM_ACCOUNT = 0,
     TPSIP_CONN_PARAM_AUTH_USER,
     TPSIP_CONN_PARAM_PASSWORD,
+    TPSIP_CONN_PARAM_ALIAS,
     TPSIP_CONN_PARAM_REGISTRAR,
     TPSIP_CONN_PARAM_PROXY_HOST,
     TPSIP_CONN_PARAM_PORT,
@@ -129,6 +132,11 @@ static const TpCMParamSpec tpsip_params[] = {
       TP_CONN_MGR_PARAM_FLAG_REQUIRED | TP_CONN_MGR_PARAM_FLAG_REGISTER,
       but in the code this is not the case */
       NULL, G_STRUCT_OFFSET (TpsipConnParams, password) },
+    /* Display name for self */
+    { "alias", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL,
+      G_STRUCT_OFFSET(TpsipConnParams, alias),
+      /* setting a 0-length alias makes no sense */
+      tp_cm_param_filter_string_nonempty, NULL },
     /* Registrar */
     { "registrar", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, registrar) },
@@ -445,6 +453,9 @@ tpsip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   SET_PROPERTY_IF_PARAM_SET ("password", TPSIP_CONN_PARAM_PASSWORD,
       params->password);
+
+  SET_PROPERTY_IF_PARAM_SET ("alias", TPSIP_CONN_PARAM_ALIAS,
+      params->alias);
 
   SET_PROPERTY_IF_PARAM_SET ("registrar", TPSIP_CONN_PARAM_REGISTRAR,
       params->registrar);
