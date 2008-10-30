@@ -513,8 +513,8 @@ static gint tpsip_acknowledged_messages_compare(gconstpointer msg,
  */
 static void
 tpsip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
-					        const GArray *ids,
-					        DBusGMethodInvocation *context)
+                                                const GArray *ids,
+                                                DBusGMethodInvocation *context)
 {
   TpsipTextChannel *chan = TPSIP_TEXT_CHANNEL (iface);
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(chan);
