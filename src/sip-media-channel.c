@@ -235,7 +235,7 @@ static gboolean tpsip_media_channel_remove_with_reason (
 static void
 tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
 {
-  static const TpDBusPropertiesMixinPropImpl channel_props[] = {
+  static TpDBusPropertiesMixinPropImpl channel_props[] = {
       { "ChannelType", "channel-type", NULL },
       { "Interfaces", "interfaces", NULL },
       { "TargetHandleType", "handle-type", NULL },
@@ -246,14 +246,15 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       { "Requested", "requested", NULL },
       { NULL }
   };
-  static const TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+  static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
       { TP_IFACE_CHANNEL,
         tp_dbus_properties_mixin_getter_gobject_properties,
         NULL,
-        (TpDBusPropertiesMixinPropImpl *) channel_props,
+        channel_props,
       },
       { NULL }
   };
+
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GParamSpec *param_spec;
 
@@ -333,7 +334,7 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       media_channel_property_signatures, NUM_TP_PROPS, NULL);
 
   klass->dbus_props_class.interfaces =
-      (TpDBusPropertiesMixinIfaceImpl *) prop_interfaces;
+      prop_interfaces;
   tp_dbus_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipMediaChannelClass, dbus_props_class));
 

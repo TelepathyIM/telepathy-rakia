@@ -216,7 +216,7 @@ static void tpsip_text_channel_finalize(GObject *object);
 static void
 tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
 {
-  static const TpDBusPropertiesMixinPropImpl channel_props[] = {
+  static TpDBusPropertiesMixinPropImpl channel_props[] = {
       { "ChannelType", "channel-type", NULL },
       { "Interfaces", "interfaces", NULL },
       { "TargetHandleType", "handle-type", NULL },
@@ -227,14 +227,15 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
       { "Requested", "requested", NULL },
       { NULL }
   };
-  static const TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+  static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
       { TP_IFACE_CHANNEL,
         tp_dbus_properties_mixin_getter_gobject_properties,
         NULL,
-        (TpDBusPropertiesMixinPropImpl *) channel_props,
+        channel_props,
       },
       { NULL }
   };
+
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GParamSpec *param_spec;
 
@@ -303,7 +304,7 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
   g_object_class_install_property (object_class, PROP_CHANNEL_DESTROYED, param_spec);
 
   klass->dbus_props_class.interfaces =
-      (TpDBusPropertiesMixinIfaceImpl *) prop_interfaces;
+      prop_interfaces;
   tp_dbus_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipTextChannelClass, dbus_props_class));
 }
