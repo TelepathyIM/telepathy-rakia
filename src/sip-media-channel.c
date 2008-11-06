@@ -31,9 +31,8 @@
 #include <telepathy-glib/channel-iface.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/errors.h>
-#include <telepathy-glib/gtypes.h>
+#include <telepathy-glib/exportable-channel.h>
 #include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/intset.h>
 #include <telepathy-glib/svc-channel.h>
 
 #include <tpsip/event-target.h>
@@ -72,6 +71,7 @@ G_DEFINE_TYPE_WITH_CODE (TpsipMediaChannel, tpsip_media_channel,
       hold_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_STREAMED_MEDIA,
       streamed_media_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_EXPORTABLE_CHANNEL, NULL);
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
 
 static const gchar *tpsip_media_channel_interfaces[] = {
@@ -95,8 +95,11 @@ enum
   PROP_TARGET_ID,
   PROP_INITIATOR,
   PROP_INITIATOR_ID,
+  PROP_PEER,
   PROP_REQUESTED,
   PROP_INTERFACES,
+  PROP_CHANNEL_DESTROYED,
+  PROP_CHANNEL_PROPERTIES,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
   PROP_STUN_SERVER,
@@ -113,7 +116,7 @@ enum
   NUM_TP_PROPS
 };
 
-const TpPropertySignature media_channel_property_signatures[NUM_TP_PROPS] =
+static const TpPropertySignature media_channel_property_signatures[NUM_TP_PROPS] =
 {
     { "nat-traversal",          G_TYPE_STRING },
     { "stun-server",            G_TYPE_STRING },
@@ -277,6 +280,11 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
   g_object_class_override_property (object_class, PROP_CHANNEL_TYPE,
       "channel-type");
 
+  g_object_class_override_property (object_class, PROP_CHANNEL_DESTROYED,
+      "channel-destroyed");
+  g_object_class_override_property (object_class, PROP_CHANNEL_PROPERTIES,
+      "channel-properties");
+
   param_spec = g_param_spec_object ("connection", "TpsipConnection object",
       "SIP connection object that owns this SIP media channel object.",
       TPSIP_TYPE_CONNECTION,
@@ -376,8 +384,30 @@ tpsip_media_channel_get_property (GObject    *object,
           TP_HANDLE_TYPE_CONTACT : TP_HANDLE_TYPE_NONE);
       break;
     case PROP_TARGET_ID:
-      g_value_set_static_string (value, "");
+      if (priv->handle != 0)
+        {
+          TpHandleRepoIface *repo = tp_base_connection_get_handles (
+              base_conn, TP_HANDLE_TYPE_CONTACT);
+
+          g_value_set_string (value, tp_handle_inspect (repo, priv->initiator));
+        }
+      else
+        g_value_set_static_string (value, "");
       break;
+    case PROP_PEER:
+      {
+        TpHandle peer = 0;
+
+        if (priv->handle != 0)
+          peer = priv->handle;
+        else if (priv->session != NULL)
+          g_object_get (priv->session,
+              "peer", &peer,
+              NULL);
+
+        g_value_set_uint (value, peer);
+        break;
+      }
     case PROP_INITIATOR:
       g_value_set_uint (value, priv->initiator);
       break;
@@ -394,6 +424,21 @@ tpsip_media_channel_get_property (GObject    *object,
       break;
     case PROP_INTERFACES:
       g_value_set_static_boxed (value, tpsip_media_channel_interfaces);
+      break;
+    case PROP_CHANNEL_DESTROYED:
+      g_value_set_boolean (value, priv->closed);
+      break;
+    case PROP_CHANNEL_PROPERTIES:
+      g_value_take_boxed (value,
+          tp_dbus_properties_mixin_make_properties_hash (object,
+              TP_IFACE_CHANNEL, "ChannelType",
+              TP_IFACE_CHANNEL, "TargetHandleType",
+              TP_IFACE_CHANNEL, "TargetHandle",
+              TP_IFACE_CHANNEL, "TargetID",
+              TP_IFACE_CHANNEL, "InitiatorHandle",
+              TP_IFACE_CHANNEL, "InitiatorID",
+              TP_IFACE_CHANNEL, "Requested",
+              NULL));
       break;
     default:
       /* Some properties live in the mixin */
@@ -445,6 +490,8 @@ tpsip_media_channel_set_property (GObject     *object,
       priv->object_path = g_value_dup_string (value);
       break;
     case PROP_HANDLE:
+      /* XXX: this property is defined as writable,
+       * but don't set it after construction, mmkay? */
       /* we don't ref it here because we don't necessarily have access to the
        * contact repo yet - instead we ref it in constructed. */
       priv->handle = g_value_get_uint (value);
