@@ -64,6 +64,7 @@ G_DEFINE_TYPE_WITH_CODE (TpsipTextChannel, tpsip_text_channel, G_TYPE_OBJECT,
       tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_EXPORTABLE_CHANNEL, NULL);
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
 
 static const char *tpsip_text_channel_interfaces[] = {
@@ -85,6 +86,7 @@ enum
   PROP_REQUESTED,
   PROP_INTERFACES,
   PROP_CHANNEL_DESTROYED,
+  PROP_CHANNEL_PROPERTIES,
   LAST_PROPERTY
 };
 
@@ -259,6 +261,11 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
   g_object_class_override_property (object_class, PROP_CHANNEL_TYPE,
       "channel-type");
 
+  g_object_class_override_property (object_class, PROP_CHANNEL_DESTROYED,
+      "channel-destroyed");
+  g_object_class_override_property (object_class, PROP_CHANNEL_PROPERTIES,
+      "channel-properties");
+
   param_spec = g_param_spec_object("connection", "TpsipConnection object",
       "SIP connection object that owns this SIP media channel object.",
       TPSIP_TYPE_CONNECTION,
@@ -295,13 +302,6 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
       FALSE,
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
-
-  param_spec = g_param_spec_boolean ("channel-destroyed", "Destroyed?",
-      "If true, the channel has *really* closed, rather than just "
-      "appearing to do so",
-      FALSE,
-      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_CHANNEL_DESTROYED, param_spec);
 
   klass->dbus_props_class.interfaces =
       prop_interfaces;
@@ -371,6 +371,19 @@ tpsip_text_channel_get_property(GObject *object,
 
     case PROP_CHANNEL_DESTROYED:
       g_value_set_boolean (value, priv->closed);
+      break;
+
+    case PROP_CHANNEL_PROPERTIES:
+      g_value_take_boxed (value,
+          tp_dbus_properties_mixin_make_properties_hash (object,
+              TP_IFACE_CHANNEL, "ChannelType",
+              TP_IFACE_CHANNEL, "TargetHandleType",
+              TP_IFACE_CHANNEL, "TargetHandle",
+              TP_IFACE_CHANNEL, "TargetID",
+              TP_IFACE_CHANNEL, "InitiatorHandle",
+              TP_IFACE_CHANNEL, "InitiatorID",
+              TP_IFACE_CHANNEL, "Requested",
+              NULL));
       break;
 
     case PROP_INTERFACES:
