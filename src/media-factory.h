@@ -21,9 +21,7 @@
 #ifndef __TPSIP_MEDIA_FACTORY_H__
 #define __TPSIP_MEDIA_FACTORY_H__
 
-#include <telepathy-glib/channel-factory-iface.h>
-
-#include "sip-media-channel.h"
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 
