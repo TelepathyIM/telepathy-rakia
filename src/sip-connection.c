@@ -33,6 +33,7 @@
 #include <telepathy-glib/handle-repo-dynamic.h>
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
+#include <telepathy-glib/svc-generic.h>
 
 #include <tpsip/event-target.h>
 
@@ -144,24 +145,21 @@ tpsip_create_handle_repos (TpBaseConnection *conn,
 }
 
 static GPtrArray *
-tpsip_connection_create_channel_factories (TpBaseConnection *base)
+tpsip_connection_create_channel_managers (TpBaseConnection *conn)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (base);
-  TpsipConnectionPrivate *priv;
-  GPtrArray *factories = g_ptr_array_sized_new (2);
+  TpsipConnection *self = TPSIP_CONNECTION (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  GPtrArray *channel_managers = g_ptr_array_sized_new (2);
 
-  g_assert (TPSIP_IS_CONNECTION (self));
-  priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  g_ptr_array_add (channel_managers,
+      g_object_new (TPSIP_TYPE_TEXT_FACTORY,
+        "connection", self, NULL));
 
-  priv->text_factory = (TpChannelFactoryIface *)g_object_new (
-      TPSIP_TYPE_TEXT_FACTORY, "connection", self, NULL);
-  g_ptr_array_add (factories, priv->text_factory);
+  priv->media_factory = g_object_new (TPSIP_TYPE_MEDIA_FACTORY,
+        "connection", self, NULL);
+  g_ptr_array_add (channel_managers, priv->media_factory);
 
-  priv->media_factory = (TpChannelFactoryIface *)g_object_new (
-      TPSIP_TYPE_MEDIA_FACTORY, "connection", self, NULL);
-  g_ptr_array_add (factories, priv->media_factory);
-
-  return factories;
+  return channel_managers;
 }
 
 static void
@@ -413,8 +411,9 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
   /* Implement pure-virtual methods */
   base_class->create_handle_repos = tpsip_create_handle_repos;
   base_class->get_unique_connection_name = tpsip_connection_unique_name;
-  base_class->create_channel_factories =
-    tpsip_connection_create_channel_factories;
+  base_class->create_channel_managers =
+      tpsip_connection_create_channel_managers;
+  base_class->create_channel_factories = NULL;
   base_class->disconnected = tpsip_connection_disconnected;
   base_class->start_connecting = tpsip_connection_start_connecting;
   base_class->shut_down = tpsip_connection_shut_down;
@@ -783,10 +782,6 @@ tpsip_connection_dispose (GObject *object)
   /* release any references held by the object here */
 
   DEBUG("disposing of TpsipConnection %p", self);
-
-  /* these are borrowed refs, the real ones are owned by the superclass */
-  priv->media_factory = NULL;
-  priv->text_factory = NULL;
 
   /* the base class is responsible for unreffing the self handle when we
    * disconnect */
