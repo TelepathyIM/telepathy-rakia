@@ -102,7 +102,7 @@ main (void)
                                tpsip_protocols, &error);
   if (!s)
     {
-      fprintf(stderr, error->message);
+      fprintf(stderr, "%s\n", error->message);
       g_error_free(error);
       return 1;
     }
