@@ -33,7 +33,7 @@ EXTRA_DIST = signals-marshal.list
 CLEANFILES = $(BUILT_SOURCES)
 
 signals-marshal.c: ${srcdir}/signals-marshal.list
-	glib-genmarshal --body --prefix=_tpsip_marshal $< >$@
+	glib-genmarshal --body --prefix=_tpsip_marshal $< >$@ || rm -f $@
 
 signals-marshal.h: ${srcdir}/signals-marshal.list
-	glib-genmarshal --header --prefix=_tpsip_marshal $< >$@
+	glib-genmarshal --header --prefix=_tpsip_marshal $< >$@ || rm -f $@
