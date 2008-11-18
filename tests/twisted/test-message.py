@@ -158,6 +158,9 @@ def test(q, bus, conn, sip):
         initiator_uri=contact,
         requested=False)
 
+    # Expect Channel_Text_Message_Flag_Resqued to be set
+    pending_msgs = [message_with_resqued(msg) for msg in pending_msgs]
+
     iface = dbus.Interface(requested_obj, TEXT_TYPE)
 
     pending_res = iface.ListPendingMessages(False)
@@ -221,6 +224,11 @@ def send_message(sip, destVia, body, encoding=None, sender=FROM_URL):
     destAddr = twisted.protocols.sip.URL(host=host, port=port)
     sip.sendMessage(destAddr, msg)
     return True
+
+def message_with_resqued(msg):
+    l = list(msg)
+    l[4] = 8
+    return tuple(l)
 
 if __name__ == '__main__':
     exec_test(test)

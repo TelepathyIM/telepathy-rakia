@@ -103,6 +103,7 @@ struct _TpsipTextPendingMessage
   time_t timestamp;
   TpHandle sender;
   TpChannelTextMessageType type;
+  guint flags;
   gchar *text;
 
   nua_handle_t *nh;
@@ -612,7 +613,17 @@ tpsip_text_channel_close (TpSvcChannel *iface,
         }
       else
         {
+          GList *cur;
+
           DEBUG ("not really closing, there are pending messages left");
+
+          for (cur = g_queue_peek_head_link (priv->pending_messages);
+               cur != NULL;
+               cur = cur->next)
+            {
+              TpsipTextPendingMessage *msg = cur->data;
+              msg->flags |= TP_CHANNEL_TEXT_MESSAGE_FLAG_RESCUED;
+            }
 
           if (priv->initiator != priv->handle)
             {
@@ -626,8 +637,6 @@ tpsip_text_channel_close (TpSvcChannel *iface,
               priv->initiator = priv->handle;
               tp_handle_ref (contact_repo, priv->initiator);
             }
-
-          /* XXX: clear the queue of messages awaiting sent confirmation? */
         }
       tp_svc_channel_emit_closed (self);
     }
@@ -748,7 +757,7 @@ tpsip_pending_message_list_add (GPtrArray *list, TpsipTextPendingMessage *msg)
                           1, msg->timestamp,
                           2, msg->sender,
                           3, msg->type,
-                          4, 0 /* msg->flags */,
+                          4, msg->flags,
                           5, msg->text,
                           G_MAXUINT);
 
