@@ -50,6 +50,5 @@ Makefile
 /INSTALL
 
 # Eclipse project files
-/.project
-/.cdtproject
+/.*project
 /.settings
