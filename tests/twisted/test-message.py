@@ -12,6 +12,7 @@ import uuid
 
 CHANNEL = tp_name_prefix + '.Channel'
 TEXT_TYPE = tp_name_prefix + '.Channel.Type.Text'
+DESTROYABLE_IFACE = tp_name_prefix + '.Channel.Interface.Destroyable'
 
 FROM_URL = 'sip:other.user@somewhere.else.com'
 
@@ -121,10 +122,13 @@ def test(q, bus, conn, sip):
     event = q.expect('dbus-signal', signal='Received')
     assert event.args[5] == u'Hyv\xe4!'
 
-    # Note: leaving the message unacknowledged to hit the message zapping path
-    # when the connection is disconnected
-
     conn.ReleaseHandles(1, [handle])
+
+    iface = dbus.Interface(incoming_obj, DESTROYABLE_IFACE)
+    iface.Destroy()
+    del iface
+    event = q.expect('dbus-signal', signal='Closed')
+    del incoming_obj
 
     # Sending the message to appear on the requested channel
     pending_msgs = []
@@ -177,7 +181,18 @@ def test(q, bus, conn, sip):
     event = q.expect('dbus-signal', signal='Closed')
     del requested_obj
 
+    # Hit the message zapping path when the connection is disconnected
+    send_message(sip, ua_via, 'Will you leave this unacknowledged?')
+    test_new_channel (q, bus, conn,
+        target_uri=FROM_URL,
+        initiator_uri=FROM_URL,
+        requested=False)
+
     conn.Disconnect()
+
+    # Check the last channel with an unacknowledged message 
+    event = q.expect('dbus-signal', signal='Closed')
+
     q.expect('dbus-signal', signal='StatusChanged', args=[2,1])
 
 cseq_num = 1
