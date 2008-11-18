@@ -54,16 +54,18 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
                                      tagi_t            tags[],
                                      gpointer          foo);
 
-static void event_target_iface_init (gpointer, gpointer);
 static void channel_iface_init (gpointer, gpointer);
 static void text_iface_init (gpointer, gpointer);
+static void destroyable_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (TpsipTextChannel, tpsip_text_channel, G_TYPE_OBJECT,
-    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, event_target_iface_init);
+    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, NULL);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_DBUS_PROPERTIES,
       tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE,
+      destroyable_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_EXPORTABLE_CHANNEL, NULL);
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
 
@@ -468,36 +470,35 @@ tpsip_text_channel_dispose(GObject *object)
 }
 
 static void
+zap_pending_messages (GQueue *pending_messages,
+                      TpHandleRepoIface *contact_handles)
+{
+  g_queue_foreach (pending_messages,
+      (GFunc) tpsip_text_pending_free, contact_handles);
+  g_queue_clear (pending_messages);
+}
+
+static void
 tpsip_text_channel_finalize(GObject *object)
 {
   TpsipTextChannel *self = TPSIP_TEXT_CHANNEL (object);
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *contact_handles;
 
-  DEBUG("enter");
-
   contact_handles = tp_base_connection_get_handles (
       (TpBaseConnection *)priv->conn, TP_HANDLE_TYPE_CONTACT);
 
-  if (!g_queue_is_empty (priv->pending_messages))
-    {
-      /* XXX: could have responded to the requests with e.g. 480,
-       * but generating network traffic upon abnormal channel termination
-       * does not sound like a good idea */
-      g_warning ("zapping %u pending incoming messages",
-                 g_queue_get_length (priv->pending_messages));
-      g_queue_foreach (priv->pending_messages,
-          (GFunc) tpsip_text_pending_free, contact_handles);
-    }
+  /* XXX: could have responded to the requests with e.g. 480,
+   * but generating network traffic upon abnormal channel termination
+   * does not sound like a good idea */
+  DEBUG ("%u pending incoming messages",
+      g_queue_get_length (priv->pending_messages));
+  zap_pending_messages (priv->pending_messages, contact_handles);
   g_queue_free (priv->pending_messages);
 
-  if (!g_queue_is_empty (priv->sending_messages))
-    {
-      g_message ("zapping %u pending outgoing message requests",
-                 g_queue_get_length (priv->sending_messages));
-      g_queue_foreach (priv->sending_messages,
-          (GFunc) tpsip_text_pending_free, contact_handles);
-    }
+  DEBUG ("%u pending outgoing message requests",
+      g_queue_get_length (priv->sending_messages));
+  zap_pending_messages (priv->sending_messages, contact_handles);
   g_queue_free (priv->sending_messages);
 
   g_free (priv->object_path);
@@ -631,6 +632,31 @@ tpsip_text_channel_close (TpSvcChannel *iface,
       tp_svc_channel_emit_closed (self);
     }
   tp_svc_channel_return_from_close (context);
+}
+
+/**
+ * tpsip_text_channel_destroy
+ *
+ * Implements D-Bus method Destroy
+ * on interface org.freedesktop.Telepathy.Channel.Interface.Destroyable
+ */
+static void
+tpsip_text_channel_destroy (TpSvcChannelInterfaceDestroyable *iface,
+                            DBusGMethodInvocation *context)
+{
+  TpsipTextChannel *self = TPSIP_TEXT_CHANNEL (iface);
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  TpHandleRepoIface *contact_handles;
+
+  contact_handles = tp_base_connection_get_handles (
+      (TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
+
+  /* Make sure there are no pending messages for Close to get excited about */
+  zap_pending_messages (priv->pending_messages, contact_handles);
+
+  /* Close() and Destroy() have the same signature, so we can safely
+   * chain to the other function now */
+  tpsip_text_channel_close ((TpSvcChannel *) self, context);
 }
 
 /**
@@ -918,7 +944,7 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
       }
 
     tp_svc_channel_type_text_emit_send_error (self,
-	send_error, msg->timestamp, msg->type, msg->text);  
+	send_error, msg->timestamp, msg->type, msg->text);
   }
 
   g_queue_remove(priv->sending_messages, msg);
@@ -971,8 +997,15 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
 }
 
 static void
-event_target_iface_init (gpointer g_iface, gpointer iface_data)
+destroyable_iface_init (gpointer g_iface,
+                        gpointer iface_data)
 {
+  TpSvcChannelInterfaceDestroyableClass *klass = g_iface;
+
+#define IMPLEMENT(x) tp_svc_channel_interface_destroyable_implement_##x (\
+    klass, tpsip_text_channel_##x)
+  IMPLEMENT(destroy);
+#undef IMPLEMENT
 }
 
 static void
