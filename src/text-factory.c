@@ -1,4 +1,4 @@
-/* 
+/*
  * text-factory.c - Text channel factory for SIP connection manager
  * Copyright (C) 2007-2008 Collabora Ltd.
  * Copyright (C) 2007-2008 Nokia Corporation
@@ -618,8 +618,11 @@ connection_status_changed_cb (TpsipConnection *conn,
     case TP_CONNECTION_STATUS_DISCONNECTED:
       tpsip_text_factory_close_all (self);
 
-      g_signal_handler_disconnect (conn, priv->message_received_id);
-      priv->message_received_id = 0;
+      if (priv->message_received_id != 0)
+        {
+          g_signal_handler_disconnect (conn, priv->message_received_id);
+          priv->message_received_id = 0;
+        }
 
       break;
     default:

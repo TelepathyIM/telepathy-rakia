@@ -357,8 +357,11 @@ connection_status_changed_cb (TpsipConnection *conn,
 
       tpsip_media_factory_close_all (self);
 
-      g_signal_handler_disconnect (conn, priv->invite_received_id);
-      priv->invite_received_id = 0;
+      if (priv->invite_received_id != 0)
+        {
+          g_signal_handler_disconnect (conn, priv->invite_received_id);
+          priv->invite_received_id = 0;
+        }
 
       break;
     default:
