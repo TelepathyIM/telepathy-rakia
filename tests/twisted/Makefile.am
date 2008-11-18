@@ -2,7 +2,8 @@ TWISTED_TESTS = \
 	test-register.py \
 	test-register-fail.py \
 	test-handle-normalisation.py \
-	test-message.py
+	test-message.py \
+	text/initiate-requestotron.py
 
 TESTS =
 
