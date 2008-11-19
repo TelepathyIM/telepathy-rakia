@@ -218,7 +218,7 @@ tpsip_connection_set_property (GObject      *object,
   }
   case PROP_REGISTRAR: {
     priv->registrar_url = priv_url_from_string_value (priv->sofia_home, value);
-    if (priv->sofia_nua) 
+    if (priv->sofia_nua)
       nua_set_params(priv->sofia_nua,
                      NUTAG_REGISTRAR(priv->registrar_url),
                      TAG_END());
@@ -652,10 +652,10 @@ priv_handle_auth (TpsipConnection* self,
   g_assert (realm != NULL);
   if (user && method) {
     if (realm[0] == '"')
-      auth = g_strdup_printf ("%s:%s:%s:%s", 
+      auth = g_strdup_printf ("%s:%s:%s:%s",
                               method, realm, user, password);
     else
-      auth = g_strdup_printf ("%s:\"%s\":%s:%s", 
+      auth = g_strdup_printf ("%s:\"%s\":%s:%s",
                               method, realm, user, password);
 
     DEBUG("%s authenticating user='%s' realm=%s",
@@ -788,6 +788,10 @@ tpsip_connection_dispose (GObject *object)
   g_assert (base->status == TP_CONNECTION_STATUS_DISCONNECTED
       || base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
   g_assert (base->self_handle == 0);
+
+  /* the base class owns channel factories/managers,
+   * here we just nullify the references */
+  priv->media_factory = NULL;
 
   if (G_OBJECT_CLASS (tpsip_connection_parent_class)->dispose)
     G_OBJECT_CLASS (tpsip_connection_parent_class)->dispose (object);

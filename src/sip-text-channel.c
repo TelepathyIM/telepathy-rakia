@@ -383,6 +383,7 @@ tpsip_text_channel_get_property(GObject *object,
               TP_IFACE_CHANNEL, "InitiatorHandle",
               TP_IFACE_CHANNEL, "InitiatorID",
               TP_IFACE_CHANNEL, "Requested",
+              TP_IFACE_CHANNEL, "Interfaces",
               NULL));
       break;
 
@@ -918,7 +919,7 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
       }
 
     tp_svc_channel_type_text_emit_send_error (self,
-	send_error, msg->timestamp, msg->type, msg->text);  
+	send_error, msg->timestamp, msg->type, msg->text);
   }
 
   g_queue_remove(priv->sending_messages, msg);

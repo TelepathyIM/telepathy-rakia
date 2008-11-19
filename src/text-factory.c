@@ -452,7 +452,7 @@ tpsip_text_factory_lookup_channel (TpsipTextFactory *fac,
 {
   TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
 
-  return (TpsipTextChannel *)g_hash_table_lookup (priv->channels,
+  return g_hash_table_lookup (priv->channels,
       GUINT_TO_POINTER(handle));
 }
 
