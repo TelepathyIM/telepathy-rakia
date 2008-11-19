@@ -414,6 +414,8 @@ static const gchar * const named_channel_allowed_properties[] = {
     NULL
 };
 
+/* not advertised in foreach_channel_class - can only be requested with
+ * RequestChannel, not with CreateChannel/EnsureChannel */
 static const gchar * const anon_channel_allowed_properties[] = {
     NULL
 };
@@ -435,9 +437,6 @@ tpsip_media_factory_foreach_channel_class (TpChannelManager *manager,
   /* no uint value yet - we'll change it for each channel class */
   g_hash_table_insert (table, TP_IFACE_CHANNEL ".TargetHandleType",
       handle_type_value);
-
-  g_value_set_uint (handle_type_value, TP_HANDLE_TYPE_NONE);
-  func (manager, table, anon_channel_allowed_properties, user_data);
 
   g_value_set_uint (handle_type_value, TP_HANDLE_TYPE_CONTACT);
   func (manager, table, named_channel_allowed_properties, user_data);
@@ -515,13 +514,7 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
   switch (handle_type)
     {
     case TP_HANDLE_TYPE_NONE:
-      if (handle != 0)
-        {
-          g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
-              "TargetHandle must be zero or omitted if TargetHandleType is "
-              "NONE");
-          goto error;
-        }
+      g_assert (handle == 0);
 
       if (require_target_handle)
         {
@@ -540,10 +533,7 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
       break;
 
     case TP_HANDLE_TYPE_CONTACT:
-      if (!tp_handle_is_valid (
-            tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT),
-            handle, &error))
-        goto error;
+      g_assert (handle != 0);
 
       if (tp_channel_manager_asv_has_unknown_properties (request_properties,
               media_channel_fixed_properties, named_channel_allowed_properties,

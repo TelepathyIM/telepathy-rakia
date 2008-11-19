@@ -438,6 +438,7 @@ tpsip_media_channel_get_property (GObject    *object,
               TP_IFACE_CHANNEL, "InitiatorHandle",
               TP_IFACE_CHANNEL, "InitiatorID",
               TP_IFACE_CHANNEL, "Requested",
+              TP_IFACE_CHANNEL, "Interfaces",
               NULL));
       break;
     default:
@@ -662,7 +663,7 @@ tpsip_media_channel_get_interfaces (TpSvcChannel *iface,
 }
 
 /***********************************************************************
- * Set: Channel.Interface.MediaSignalling Telepathy-0.13 interface 
+ * Set: Channel.Interface.MediaSignalling Telepathy-0.13 interface
  ***********************************************************************/
 
 /**
@@ -733,7 +734,7 @@ tpsip_media_channel_get_session_handlers (TpSvcChannelInterfaceMediaSignalling *
 
 
 /***********************************************************************
- * Set: Channel.Type.StreamedMedia Telepathy-0.13 interface 
+ * Set: Channel.Type.StreamedMedia Telepathy-0.13 interface
  ***********************************************************************/
 
 /**
@@ -906,7 +907,7 @@ tpsip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
  * has been created with initiator handle of the sender.
  */
 void
-tpsip_media_channel_receive_invite (TpsipMediaChannel *self, 
+tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
                                     nua_handle_t *nh)
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
@@ -915,7 +916,7 @@ tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
   g_assert (priv->initiator != conn->self_handle);
   g_assert (priv->session == NULL);
 
-  /* Start the local stream-engine; once the local 
+  /* Start the local stream-engine; once the local
    * media are ready, reply with nua_respond() */
   priv_create_session (self, nh, priv->initiator);
 
@@ -949,7 +950,7 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
   TpIntSet *set;
   guint reason = TP_CHANNEL_GROUP_CHANGE_REASON_ERROR;
- 
+
   switch (status)
     {
     case 410:
@@ -1047,7 +1048,7 @@ priv_nua_i_cancel_cb (TpsipMediaChannel *self,
          reason != NULL;
          reason = reason->re_next)
       {
-        const char *protocol = reason->re_protocol; 
+        const char *protocol = reason->re_protocol;
         if (protocol == NULL || strcmp (protocol, "SIP") != 0)
           continue;
         if (reason->re_cause != NULL)
@@ -1139,7 +1140,7 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
         tpsip_media_channel_change_call_state (self, peer,
                 TP_CHANNEL_CALL_STATE_QUEUED, 0);
       break;
-    
+
     case nua_callstate_completing:
       /* In auto-ack mode, we don't need to call nua_ack(), see NUTAG_AUTOACK() */
       break;
