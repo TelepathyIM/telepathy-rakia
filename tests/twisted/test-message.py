@@ -28,7 +28,7 @@ def test_new_channel(q, bus, conn, target_uri, initiator_uri, requested):
             dbus_interface='org.freedesktop.DBus.Properties')
     assert text_props['ChannelType'] == TEXT_TYPE, text_props
     assert 'Interfaces' in text_props, text_props
-    assert text_props['Interfaces'] == [], text_props
+    assert text_props['Interfaces'] == [DESTROYABLE_IFACE], text_props
     assert 'TargetHandle' in text_props, text_props
     assert text_props['TargetHandle'] == handle, \
             (text_props, handle)

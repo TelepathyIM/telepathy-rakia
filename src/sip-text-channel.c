@@ -70,6 +70,7 @@ G_DEFINE_TYPE_WITH_CODE (TpsipTextChannel, tpsip_text_channel, G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
 
 static const char *tpsip_text_channel_interfaces[] = {
+    TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE,
     NULL
 };
 
