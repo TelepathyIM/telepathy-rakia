@@ -399,6 +399,7 @@ static void
 tpsip_connection_class_init (TpsipConnectionClass *klass)
 {
   static const gchar *interfaces_always_present[] = {
+      TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
       TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
       TP_IFACE_CONNECTION_INTERFACE_ALIASING,
       NULL };
