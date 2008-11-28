@@ -389,7 +389,7 @@ tpsip_media_channel_get_property (GObject    *object,
           TpHandleRepoIface *repo = tp_base_connection_get_handles (
               base_conn, TP_HANDLE_TYPE_CONTACT);
 
-          g_value_set_string (value, tp_handle_inspect (repo, priv->initiator));
+          g_value_set_string (value, tp_handle_inspect (repo, priv->handle));
         }
       else
         g_value_set_static_string (value, "");
