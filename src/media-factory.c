@@ -333,6 +333,9 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
 
   tp_handle_unref (contact_repo, handle);
 
+  tp_channel_manager_emit_new_channel (fac,
+      TP_EXPORTABLE_CHANNEL (channel), NULL);
+
   return TRUE;
 }
 
