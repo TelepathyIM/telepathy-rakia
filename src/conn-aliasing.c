@@ -185,7 +185,7 @@ emit_self_alias_change (TpsipConnection *self, const gchar *alias)
 {
   TpBaseConnection *base = (TpBaseConnection *) self;
   GPtrArray *change_data;
-  GValue change_pair;
+  GValue change_pair = { 0, };
 
   g_value_init (&change_pair, TP_STRUCT_TYPE_ALIAS_PAIR);
   g_value_take_boxed (&change_pair,
