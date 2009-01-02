@@ -26,6 +26,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <dbus/dbus-protocol.h>
 
@@ -199,9 +200,116 @@ const TpCMProtocolSpec tpsip_protocols[] = {
 struct _TpsipConnectionManagerPrivate
 {
   su_root_t *sofia_root;
+
+  su_wait_t heartbeat_wait[1];
+  int       heartbeat_wait_id;
+  int       heartbeat_pipe[2];
 };
 
-#define TPSIP_CONNECTION_MANAGER_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManagerPrivate))
+#define TPSIP_CONNECTION_MANAGER_GET_PRIVATE(obj) ((obj)->priv)
+
+static void heartbeat_shutdown (TpsipConnectionManager *self);
+
+static int
+heartbeat_wakeup (TpsipConnectionManager *self,
+                  su_wait_t *wait,
+                  void *user_data)
+{
+  DEBUG("tick");
+
+  if ((wait->revents & (SU_WAIT_HUP | SU_WAIT_ERR)) != 0)
+    {
+      g_warning ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
+      heartbeat_shutdown (self);
+    }
+  else if ((wait->revents & SU_WAIT_IN) != 0)
+    {
+      ssize_t bytes_read;
+      char foo[1];
+
+      bytes_read = read (wait->fd, foo, 1);
+
+      if (bytes_read < 0)
+        {
+          g_warning ("error reading from the heartbeat descriptor: %s", strerror (errno));
+          heartbeat_shutdown (self);
+        }
+      else if (bytes_read == 0)
+        {
+          g_warning ("premature EOF from heartbeat descriptor");
+          heartbeat_shutdown (self);
+        }
+    }
+  else
+    g_assert_not_reached ();
+
+  return 0;
+}
+
+static gboolean
+heartbeat_pump (gpointer data)
+{
+  TpsipConnectionManager *self = TPSIP_CONNECTION_MANAGER (data); 
+  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
+  ssize_t write_res;
+  char foo[1];
+
+  DEBUG("tock...");
+
+  write_res = write (priv->heartbeat_pipe[1], foo, 1);
+
+  if (write_res < 0)
+    {
+      g_warning ("error writing to the heartbeat pipe: %s", strerror (errno));
+      heartbeat_shutdown (self);
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+static void
+heartbeat_init (TpsipConnectionManager *self)
+{
+  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
+  int wait_id;
+
+  /* In this testing code, we emulate the heartbeat socket with a
+   * timer-driven pipe */
+  if (pipe (priv->heartbeat_pipe) != 0)
+    g_error ("heartbeat pipe creation failed");
+
+  su_wait_init (priv->heartbeat_wait);
+  if (su_wait_create (priv->heartbeat_wait, priv->heartbeat_pipe[0],
+                      SU_WAIT_IN | SU_WAIT_HUP | SU_WAIT_ERR) != 0)
+    g_critical ("could not create a wait object");
+
+  wait_id = su_root_register (priv->sofia_root,
+      priv->heartbeat_wait, heartbeat_wakeup, NULL, 0);
+
+  g_return_if_fail (wait_id > 0);
+  priv->heartbeat_wait_id = wait_id;
+
+  /* For testing purposes only */
+  g_timeout_add (10000, heartbeat_pump, self);
+}
+
+static void
+heartbeat_shutdown (TpsipConnectionManager *self)
+{
+  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
+
+  if (priv->heartbeat_wait_id == 0)
+    return;
+
+  su_root_deregister (priv->sofia_root, priv->heartbeat_wait_id);
+  priv->heartbeat_wait_id = 0;
+
+  su_wait_destroy (priv->heartbeat_wait);
+
+  close (priv->heartbeat_pipe[1]);
+  close (priv->heartbeat_pipe[0]);
+}
 
 static void
 tpsip_connection_manager_init (TpsipConnectionManager *obj)
@@ -216,6 +324,8 @@ tpsip_connection_manager_init (TpsipConnectionManager *obj)
   su_root_threading(priv->sofia_root, 0);
   source = su_root_gsource(priv->sofia_root);
   g_source_attach(source, NULL);
+
+  heartbeat_init (obj);
 }
 
 static void tpsip_connection_manager_finalize (GObject *object);
@@ -245,6 +355,8 @@ tpsip_connection_manager_finalize (GObject *object)
   TpsipConnectionManager *self = TPSIP_CONNECTION_MANAGER (object);
   TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
   GSource *source;
+
+  heartbeat_shutdown (self);
 
   source = su_root_gsource(priv->sofia_root);
   g_source_destroy(source);

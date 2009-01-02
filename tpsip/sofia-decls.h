@@ -37,6 +37,7 @@
 #define NUA_HMAGIC_T     struct _TpsipEventTarget
 #define SU_ROOT_MAGIC_T  struct _TpsipConnectionManager
 #define SU_TIMER_ARG_T   struct _TpsipConnection
+#define SU_WAKEUP_ARG_T  void
 
 #include <sofia-sip/nua.h>
 #include <sofia-sip/su.h>
