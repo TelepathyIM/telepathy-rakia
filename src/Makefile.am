@@ -14,10 +14,11 @@ managerdir = $(datadir)/telepathy/managers
 # ----------------------------------------------------------------------
 # Headers and libraries
 
-AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @SOFIA_SIP_UA_CFLAGS@ \
-	    @TELEPATHY_GLIB_CFLAGS@ @COVERAGE_CFLAGS@ \
-	    -I$(top_builddir) -I$(top_srcdir)
-ALL_LIBS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_SIP_UA_LIBS@ @TELEPATHY_GLIB_LIBS@
+AM_CPPFLAGS = $(DBUS_CFLAGS) $(GLIB_CFLAGS) $(SOFIA_SIP_UA_CFLAGS) \
+	$(TELEPATHY_GLIB_CFLAGS) $(IPHB_CFLAGS)
+AM_CFLAGS = $(ERROR_CFLAGS) $(COVERAGE_CFLAGS)
+ALL_LIBS = $(DBUS_LIBS) $(GLIB_LIBS) $(SOFIA_SIP_UA_LIBS) \
+	$(TELEPATHY_GLIB_LIBS) $(IPHB_LIBS)
 
 # ----------------------------------------------------------------------
 # Build targets

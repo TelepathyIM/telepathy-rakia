@@ -24,9 +24,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <dbus/dbus-protocol.h>
 
@@ -35,6 +36,10 @@
 
 #include <tpsip/sofia-decls.h>
 #include <sofia-sip/su_glib.h>
+
+#ifdef HAVE_LIBIPHB
+#include <libiphb.h>
+#endif
 
 #include "sip-connection-manager.h"
 #include "sip-connection.h"
@@ -201,12 +206,17 @@ struct _TpsipConnectionManagerPrivate
 {
   su_root_t *sofia_root;
 
+#ifdef HAVE_LIBIPHB
+  iphb_t    heartbeat;
+  int       heartbeat_interval;
   su_wait_t heartbeat_wait[1];
   int       heartbeat_wait_id;
-  int       heartbeat_pipe[2];
+#endif
 };
 
 #define TPSIP_CONNECTION_MANAGER_GET_PRIVATE(obj) ((obj)->priv)
+
+#ifdef HAVE_LIBIPHB
 
 static void heartbeat_shutdown (TpsipConnectionManager *self);
 
@@ -215,7 +225,11 @@ heartbeat_wakeup (TpsipConnectionManager *self,
                   su_wait_t *wait,
                   void *user_data)
 {
+  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
+
   DEBUG("tick");
+
+  g_assert (priv->heartbeat != NULL);
 
   if ((wait->revents & (SU_WAIT_HUP | SU_WAIT_ERR)) != 0)
     {
@@ -224,21 +238,8 @@ heartbeat_wakeup (TpsipConnectionManager *self,
     }
   else if ((wait->revents & SU_WAIT_IN) != 0)
     {
-      ssize_t bytes_read;
-      char foo[1];
-
-      bytes_read = read (wait->fd, foo, 1);
-
-      if (bytes_read < 0)
-        {
-          g_warning ("error reading from the heartbeat descriptor: %s", strerror (errno));
-          heartbeat_shutdown (self);
-        }
-      else if (bytes_read == 0)
-        {
-          g_warning ("premature EOF from heartbeat descriptor");
-          heartbeat_shutdown (self);
-        }
+      iphb_wait (priv->heartbeat, 0, 0, 0);
+      DEBUG("returned from iphb_wait");
     }
   else
     g_assert_not_reached ();
@@ -246,41 +247,28 @@ heartbeat_wakeup (TpsipConnectionManager *self,
   return 0;
 }
 
-static gboolean
-heartbeat_pump (gpointer data)
-{
-  TpsipConnectionManager *self = TPSIP_CONNECTION_MANAGER (data); 
-  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
-  ssize_t write_res;
-  char foo[1];
-
-  DEBUG("tock...");
-
-  write_res = write (priv->heartbeat_pipe[1], foo, 1);
-
-  if (write_res < 0)
-    {
-      g_warning ("error writing to the heartbeat pipe: %s", strerror (errno));
-      heartbeat_shutdown (self);
-      return FALSE;
-    }
-
-  return TRUE;
-}
+#endif /* HAVE_LIBIPHB */
 
 static void
 heartbeat_init (TpsipConnectionManager *self)
 {
+#ifdef HAVE_LIBIPHB
   TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
   int wait_id;
 
-  /* In this testing code, we emulate the heartbeat socket with a
-   * timer-driven pipe */
-  if (pipe (priv->heartbeat_pipe) != 0)
-    g_error ("heartbeat pipe creation failed");
+  priv->heartbeat = iphb_open (&priv->heartbeat_interval);
+
+  if (priv->heartbeat == NULL)
+    {
+      g_warning ("opening IP heartbeat failed: %s", strerror (errno));
+      return;
+    }
+
+  DEBUG("heartbeat opened with interval %d", priv->heartbeat_interval);
 
   su_wait_init (priv->heartbeat_wait);
-  if (su_wait_create (priv->heartbeat_wait, priv->heartbeat_pipe[0],
+  if (su_wait_create (priv->heartbeat_wait,
+                      iphb_get_fd (priv->heartbeat),
                       SU_WAIT_IN | SU_WAIT_HUP | SU_WAIT_ERR) != 0)
     g_critical ("could not create a wait object");
 
@@ -289,14 +277,13 @@ heartbeat_init (TpsipConnectionManager *self)
 
   g_return_if_fail (wait_id > 0);
   priv->heartbeat_wait_id = wait_id;
-
-  /* For testing purposes only */
-  g_timeout_add (10000, heartbeat_pump, self);
+#endif /* HAVE_LIBIPHB */
 }
 
 static void
 heartbeat_shutdown (TpsipConnectionManager *self)
 {
+#ifdef HAVE_LIBIPHB
   TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
 
   if (priv->heartbeat_wait_id == 0)
@@ -307,8 +294,8 @@ heartbeat_shutdown (TpsipConnectionManager *self)
 
   su_wait_destroy (priv->heartbeat_wait);
 
-  close (priv->heartbeat_pipe[1]);
-  close (priv->heartbeat_pipe[0]);
+  iphb_close (priv->heartbeat);
+#endif /* HAVE_LIBIPHB */
 }
 
 static void
