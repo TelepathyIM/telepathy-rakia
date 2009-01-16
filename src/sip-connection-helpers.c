@@ -837,7 +837,7 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
 
 error:
   if (retval == NULL)
-      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_HANDLE,
           "invalid SIP URI");
 
   su_home_deinit (home);
