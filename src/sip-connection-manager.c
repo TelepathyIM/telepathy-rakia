@@ -47,6 +47,11 @@
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
+/* Time bounds for heartbeat. */
+#define TPSIP_HEARTBEAT_MIN 0
+#define TPSIP_HEARTBEAT_MAX 30
+
+
 G_DEFINE_TYPE(TpsipConnectionManager, tpsip_connection_manager,
     TP_TYPE_BASE_CONNECTION_MANAGER)
 
@@ -236,13 +241,8 @@ heartbeat_wakeup (TpsipConnectionManager *self,
       g_warning ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
       heartbeat_shutdown (self);
     }
-  else if ((wait->revents & SU_WAIT_IN) != 0)
-    {
-      iphb_wait (priv->heartbeat, 0, 0, 0);
-      DEBUG("returned from iphb_wait");
-    }
-  else
-    g_assert_not_reached ();
+
+  iphb_wait (priv->heartbeat, TPSIP_HEARTBEAT_MIN, TPSIP_HEARTBEAT_MAX, 0);
 
   return 0;
 }
@@ -264,12 +264,12 @@ heartbeat_init (TpsipConnectionManager *self)
       return;
     }
 
-  DEBUG("heartbeat opened with interval %d", priv->heartbeat_interval);
+  DEBUG("heartbeat opened with reference interval %d", priv->heartbeat_interval);
 
   su_wait_init (priv->heartbeat_wait);
   if (su_wait_create (priv->heartbeat_wait,
                       iphb_get_fd (priv->heartbeat),
-                      SU_WAIT_IN | SU_WAIT_HUP | SU_WAIT_ERR) != 0)
+                      SU_WAIT_IN) != 0)
     g_critical ("could not create a wait object");
 
   wait_id = su_root_register (priv->sofia_root,
@@ -277,6 +277,11 @@ heartbeat_init (TpsipConnectionManager *self)
 
   g_return_if_fail (wait_id > 0);
   priv->heartbeat_wait_id = wait_id;
+
+  /* Prime the heartbeat for the first time.
+   * The correct sequence is iphb_wait() -> poll */
+  iphb_wait (priv->heartbeat, TPSIP_HEARTBEAT_MIN, TPSIP_HEARTBEAT_MAX, 0);
+
 #endif /* HAVE_LIBIPHB */
 }
 
