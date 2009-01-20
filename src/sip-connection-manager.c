@@ -47,7 +47,7 @@
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
-/* Time bounds for heartbeat. */
+/* Time bounds for heartbeat, in seconds */
 #define TPSIP_HEARTBEAT_MIN 0
 #define TPSIP_HEARTBEAT_MAX 30
 
@@ -255,6 +255,8 @@ heartbeat_init (TpsipConnectionManager *self)
 #ifdef HAVE_LIBIPHB
   TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
   int wait_id;
+
+  su_root_set_max_defer (priv->sofia_root, TPSIP_HEARTBEAT_MAX * 1000L + 50L);
 
   priv->heartbeat = iphb_open (&priv->heartbeat_interval);
 
