@@ -16,6 +16,7 @@ EXTRA_DIST = \
     glib-gtypes-generator.py \
     glib-signals-marshal-gen.py \
     identity.xsl \
+    lcov.am \
     libglibcodegen.py
 
 CLEANFILES = libglibcodegen.pyc libglibcodegen.pyo $(noinst_SCRIPTS)

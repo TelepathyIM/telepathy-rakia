@@ -10,10 +10,19 @@ TESTS =
 TESTS_ENVIRONMENT = \
 	PYTHONPATH=@abs_top_srcdir@/tests/twisted
 
-check-local: check-coding-style
+check-local: check-coding-style check-twisted
+
+CHECK_TWISTED_SLEEP=0
+
+check-twisted:
 	$(MAKE) -C tools
-	sh $(srcdir)/tools/with-session-bus.sh --config-file=tools/tmp-session-bus.conf -- $(MAKE) check-TESTS \
-		TESTS="$(TWISTED_TESTS)" TESTS_ENVIRONMENT="PYTHONPATH=@abs_top_srcdir@/tests/twisted $(PYTHON)"
+	rm -f tools/sofiasip-testing.log
+	sh $(srcdir)/tools/with-session-bus.sh \
+		--config-file=tools/tmp-session-bus.conf \
+		--sleep=$(CHECK_TWISTED_SLEEP) \
+		-- $(MAKE) check-TESTS \
+		TESTS="$(TWISTED_TESTS)" \
+		TESTS_ENVIRONMENT="$(TESTS_ENVIRONMENT) $(PYTHON)"
 
 EXTRA_DIST = \
 	$(TWISTED_TESTS) \

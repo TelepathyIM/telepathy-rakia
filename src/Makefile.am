@@ -121,3 +121,5 @@ EXTRA_DIST = signals-marshal.list
 
 # Correctly clean the generated headers, but keep the xml description
 CLEANFILES = $(BUILT_SOURCES) $(manager_DATA)
+CLEANFILES += *.gcda *.gcno
+
