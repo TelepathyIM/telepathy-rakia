@@ -21,4 +21,8 @@ lcov-check:
 	$(MAKE) check $(LCOV_CHECK_ARGS)
 	$(MAKE) lcov-report
 
+lcov-clean:
+	-rm -rf $(top_builddir)/lcov.html
+	-rm -f $(top_builddir)/lcov.info*
+
 ## vim:set ft=automake:

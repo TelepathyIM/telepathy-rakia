@@ -34,6 +34,4 @@ dist-hook:
 include tools/lcov.am
 LCOV_CHECK_ARGS = CHECK_TWISTED_SLEEP=6
 
-clean-local:
-	-rm -rf lcov.html
-	-rm -f lcov.info*
+clean-local: lcov-clean
