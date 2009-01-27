@@ -1,7 +1,7 @@
 /*
  * sip-connection-manager.c - Source for TpsipConnectionManager
  * Copyright (C) 2005-2007 Collabora Ltd.
- * Copyright (C) 2005-2008 Nokia Corporation
+ * Copyright (C) 2005-2009 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
  *   @author Martti Mela <first.surname@nokia.com>
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
@@ -213,7 +213,6 @@ struct _TpsipConnectionManagerPrivate
 
 #ifdef HAVE_LIBIPHB
   iphb_t    heartbeat;
-  int       heartbeat_interval;
   su_wait_t heartbeat_wait[1];
   int       heartbeat_wait_id;
 #endif
@@ -240,6 +239,7 @@ heartbeat_wakeup (TpsipConnectionManager *self,
     {
       g_warning ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
       heartbeat_shutdown (self);
+      return 0;
     }
 
   iphb_wait (priv->heartbeat, TPSIP_HEARTBEAT_MIN, TPSIP_HEARTBEAT_MAX, 0);
@@ -255,10 +255,11 @@ heartbeat_init (TpsipConnectionManager *self)
 #ifdef HAVE_LIBIPHB
   TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
   int wait_id;
+  int reference_interval = 0;
 
   su_root_set_max_defer (priv->sofia_root, TPSIP_HEARTBEAT_MAX * 1000L + 50L);
 
-  priv->heartbeat = iphb_open (&priv->heartbeat_interval);
+  priv->heartbeat = iphb_open (&reference_interval);
 
   if (priv->heartbeat == NULL)
     {
@@ -266,7 +267,7 @@ heartbeat_init (TpsipConnectionManager *self)
       return;
     }
 
-  DEBUG("heartbeat opened with reference interval %d", priv->heartbeat_interval);
+  DEBUG("heartbeat opened with reference interval %d", reference_interval);
 
   su_wait_init (priv->heartbeat_wait);
   if (su_wait_create (priv->heartbeat_wait,
@@ -302,6 +303,7 @@ heartbeat_shutdown (TpsipConnectionManager *self)
   su_wait_destroy (priv->heartbeat_wait);
 
   iphb_close (priv->heartbeat);
+  priv->heartbeat = NULL;
 #endif /* HAVE_LIBIPHB */
 }
 
