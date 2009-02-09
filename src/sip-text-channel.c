@@ -893,7 +893,9 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
   TpChannelTextSendError send_error;
   GList *node;
 
-  DEBUG("enter");
+  /* ignore provisional responses */
+  if (ev->status < 200)
+    return TRUE;
 
   node = g_queue_find_custom (priv->sending_messages,
                               ev->nua_handle,
