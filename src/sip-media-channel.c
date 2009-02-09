@@ -1500,12 +1500,32 @@ _tpsip_media_channel_add_member (GObject *iface,
 
   if (priv->initiator == mixin->self_handle)
     {
-      /* case a: outgoing call (we are the initiator, a new handle added) */
+      TpIntSet *set;
+
+      /* case a: an old-school outbound call
+       * (we are the initiator, a new handle added with AddMembers) */
+
       priv_outbound_call (self, handle);
 
-      /* disallow addition of any new members */
-      tp_group_mixin_change_flags ((GObject *) self,
-          0, TP_CHANNEL_GROUP_FLAG_CAN_ADD);
+      /* Backwards compatible behavior:
+       * add the peer to remote pending without waiting for the actual request
+       * to be sent */
+      set = tp_intset_new ();
+      tp_intset_add (set, handle);
+      tp_group_mixin_change_members (iface,
+                                     "",
+                                     NULL,    /* add */
+                                     NULL,    /* remove */
+                                     NULL,    /* local pending */
+                                     set,     /* remote pending */
+                                     mixin->self_handle,        /* actor */
+                                     TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+      tp_intset_destroy (set);
+
+      /* update flags: allow removal and rescinding, no more adding */
+      tp_group_mixin_change_flags (iface,
+          TP_CHANNEL_GROUP_FLAG_CAN_REMOVE | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND,
+          TP_CHANNEL_GROUP_FLAG_CAN_ADD);
 
       return TRUE;
     }
