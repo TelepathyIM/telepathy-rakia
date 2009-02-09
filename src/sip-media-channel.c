@@ -1024,6 +1024,38 @@ tpsip_media_channel_change_call_state (TpsipMediaChannel *self,
 }
 
 static gboolean
+priv_nua_i_bye_cb (TpsipMediaChannel *self,
+                   const TpsipNuaEvent  *ev,
+                   tagi_t             tags[],
+                   gpointer           foo)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
+  TpIntSet *set;
+  TpHandle peer;
+
+  g_return_val_if_fail (priv->session != NULL, FALSE);
+
+  peer = tpsip_media_session_get_peer (priv->session);
+  set = tp_intset_new ();
+  tp_intset_add (set, peer);
+  tp_intset_add (set, mixin->self_handle);
+
+  tp_group_mixin_change_members ((GObject *) self,
+                                 "",
+                                 NULL, /* add */
+                                 set,  /* remove */
+                                 NULL,
+                                 NULL,
+                                 peer,
+                                 TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+
+  tp_intset_destroy (set);
+
+  return TRUE;
+}
+
+static gboolean
 priv_nua_i_cancel_cb (TpsipMediaChannel *self,
                       const TpsipNuaEvent  *ev,
                       tagi_t             tags[],
@@ -1322,6 +1354,10 @@ priv_connect_nua_handlers (TpsipMediaChannel *self, nua_handle_t *nh)
   g_signal_connect (self,
                     "nua-event::nua_i_invite",
                     G_CALLBACK (priv_nua_i_invite_cb),
+                    NULL);
+  g_signal_connect (self,
+                    "nua-event::nua_i_bye",
+                    G_CALLBACK (priv_nua_i_bye_cb),
                     NULL);
   g_signal_connect (self,
                     "nua-event::nua_i_cancel",
