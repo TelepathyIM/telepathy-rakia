@@ -537,8 +537,6 @@ tpsip_media_channel_dispose (GObject *object)
 
   priv->dispose_has_run = TRUE;
 
-  priv_destroy_session(self);
-
   if (!priv->closed)
     tpsip_media_channel_close (self);
 
