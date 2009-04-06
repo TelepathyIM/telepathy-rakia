@@ -669,6 +669,45 @@ priv_set_local_codecs (TpsipMediaStream *self,
     priv_generate_sdp (self);
 }
 
+static void
+tpsip_media_stream_codecs_updated (TpSvcMediaStreamHandler *iface,
+                                   const GPtrArray *codecs,
+                                   DBusGMethodInvocation *context)
+{
+  TpsipMediaStream *self = TPSIP_MEDIA_STREAM (iface);
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+
+  if (!priv->native_codecs_prepared)
+    {
+      GError e = { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "CodecsUpdated may not be called before codecs have been provided "
+          "with SetLocalCodecs or Ready" };
+
+      SESSION_DEBUG(priv->session,
+          "CodecsUpdated called before SetLocalCodecs or Ready");
+
+      dbus_g_method_return_error (context, &e);
+    }
+  else
+    {
+      GValue val = { 0, };
+
+      SESSION_DEBUG(priv->session, "putting list of %d locally supported "
+          "codecs from CodecsUpdated into cache", codecs->len);
+      g_value_init (&val, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST);
+      g_value_set_static_boxed (&val, codecs);
+      g_value_copy (&val, &priv->native_codecs);
+
+      /* This doesn't use priv_generate_sdp because it short-circuits if
+       * priv->stream_sdp is already set. We want to update it.
+       */
+      if (priv->native_cands_prepared)
+        priv_update_local_sdp (self);
+
+      tp_svc_media_stream_handler_return_from_codecs_updated (context);
+    }
+}
+
 /**
  * tpsip_media_stream_ready
  *
@@ -1922,6 +1961,7 @@ stream_handler_iface_init (gpointer g_iface, gpointer iface_data)
   IMPLEMENT(new_native_candidate);
   IMPLEMENT(ready);
   IMPLEMENT(set_local_codecs);
+  IMPLEMENT(codecs_updated);
   IMPLEMENT(stream_state);
   IMPLEMENT(supported_codecs);
   IMPLEMENT(hold_state);
