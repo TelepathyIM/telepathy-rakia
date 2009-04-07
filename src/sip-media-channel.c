@@ -959,10 +959,10 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
     case 600:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_BUSY;
       break;
+    case 404:
     case 408:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER;
       break;
-    case 404:
     case 480:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
       break;
