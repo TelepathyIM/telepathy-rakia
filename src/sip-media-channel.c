@@ -1195,11 +1195,18 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       break;
 
     case nua_callstate_terminated:
+      /* In cases of self-inflicted termination,
+       * we should have already gone through the moves */
+      if (tpsip_media_session_get_state (priv->session)
+          == TPSIP_MEDIA_SESSION_STATE_ENDED)
+        break;
+
       if (status >= 300)
         {
           tpsip_media_channel_peer_error (
                 self, peer, status, ev->text);
         }
+
       tpsip_media_session_change_state (priv->session,
                                         TPSIP_MEDIA_SESSION_STATE_ENDED);
       break;
@@ -1579,9 +1586,12 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (obj);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
+  TpIntSet *set = NULL;
+  TpHandle self_handle;
 
-  if (priv->initiator != mixin->self_handle &&
-      handle != mixin->self_handle)
+  self_handle = mixin->self_handle;
+
+  if (priv->initiator != self_handle && handle != self_handle)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_PERMISSION_DENIED,
           "handle %u cannot be removed because you are not the initiator of the"
@@ -1598,16 +1608,35 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
       return FALSE;
     }
 
-  if (handle == mixin->self_handle
+  /* We have excluded all the problem cases.
+   * Now we always want to remove both members on behalf of the local user */
+  set = tp_intset_new ();
+  tp_intset_add (set, self_handle);
+  tp_intset_add (set, tpsip_media_session_get_peer (priv->session));
+  tp_group_mixin_change_members (obj, "",
+                                 NULL,      /* add */
+                                 set,       /* remove */
+                                 NULL,
+                                 NULL,
+                                 self_handle, 0);
+  tp_intset_destroy (set);
+
+  if (handle == self_handle
       && tp_handle_set_is_member (mixin->local_pending, handle))
     {
       /* The user has rejected the call */
+
       gint status;
 
       status = tpsip_status_from_tp_reason (reason);
 
       /* XXX: raise NotAvailable if it's the wrong state? */
       tpsip_media_session_respond (priv->session, status, message);
+
+      /* This session is effectively ended, prevent the nua_i_state handler
+       * from useless work */
+      tpsip_media_session_change_state (priv->session,
+                                        TPSIP_MEDIA_SESSION_STATE_ENDED);
     }
   else
     {
