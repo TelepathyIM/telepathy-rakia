@@ -21,9 +21,7 @@
 #ifndef __TPSIP_MEDIA_FACTORY_H__
 #define __TPSIP_MEDIA_FACTORY_H__
 
-#include <telepathy-glib/channel-factory-iface.h>
-
-#include "sip-media-channel.h"
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 
@@ -53,13 +51,6 @@ GType tpsip_media_factory_get_type(void);
   (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_MEDIA_FACTORY))
 #define TPSIP_MEDIA_FACTORY_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_MEDIA_FACTORY, TpsipMediaFactoryClass))
-
-TpsipMediaChannel *tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
-                                                    gpointer request,
-                                                    TpHandleType handle_type,
-                                                    TpHandle handle,
-                                                    TpHandle creator,
-                                                    GError **error);
 
 G_END_DECLS
 

@@ -69,6 +69,9 @@ gchar * tpsip_handle_normalize (TpHandleRepoIface *repo,
 const url_t* tpsip_conn_get_contact_url (TpsipConnection *conn,
                                          TpHandle handle);
 
+TpHandle tpsip_handle_parse_from (TpHandleRepoIface *contact_repo,
+                                  const sip_t *sip);
+
 G_END_DECLS
 
 #endif /* #ifndef __TPSIP_CONNECTION_HELPERS_H__*/

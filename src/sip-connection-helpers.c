@@ -836,7 +836,7 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
 
 error:
   if (retval == NULL)
-      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_HANDLE,
           "invalid SIP URI");
 
   su_home_deinit (home);
@@ -888,4 +888,29 @@ tpsip_conn_get_contact_url (TpsipConnection *self,
     }
 
   return url;
+}
+
+TpHandle
+tpsip_handle_parse_from (TpHandleRepoIface *contact_repo,
+                         const sip_t *sip)
+{
+  TpHandle handle = 0;
+  gchar *url_str;
+
+  g_return_val_if_fail (sip != NULL, 0);
+
+  if (sip->sip_from)
+    {
+      su_home_t tmphome[1] = { SU_HOME_INIT(tmphome) };
+
+      url_str = url_as_string (tmphome, sip->sip_from->a_url);
+
+      handle = tp_handle_ensure (contact_repo, url_str, NULL, NULL);
+
+      /* TODO: set qdata for the display name */
+
+      su_home_deinit (tmphome);
+    }
+
+  return handle;
 }

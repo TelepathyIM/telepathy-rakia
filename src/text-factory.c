@@ -1,6 +1,6 @@
-/* 
+/*
  * text-factory.c - Text channel factory for SIP connection manager
- * Copyright (C) 2007 Collabora Ltd.
+ * Copyright (C) 2007-2008 Collabora Ltd.
  * Copyright (C) 2007-2008 Nokia Corporation
  *
  * This work is free software; you can redistribute it and/or
@@ -18,21 +18,35 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <telepathy-glib/svc-connection.h>
-#include <telepathy-glib/interfaces.h>
-#include <string.h>
 #include "text-factory.h"
+
+#include <string.h>
+
+#include <telepathy-glib/channel-manager.h>
+#include <telepathy-glib/dbus.h>
+#include <telepathy-glib/interfaces.h>
+
+#include "sip-text-channel.h"
+#include "sip-connection.h"
+#include "sip-connection-helpers.h"
+
+#include <sofia-sip/msg_header.h>
+#include <sofia-sip/sip_tag.h>
+#include <sofia-sip/sip_status.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_IM
 #include "debug.h"
 
 
-static void factory_iface_init (gpointer, gpointer);
+static void channel_manager_iface_init (gpointer g_iface, gpointer iface_data);
+static void connection_status_changed_cb (TpsipConnection *conn,
+    guint status, guint reason, TpsipTextFactory *self);
+static void tpsip_text_factory_close_all (TpsipTextFactory *self);
 
 G_DEFINE_TYPE_WITH_CODE (TpsipTextFactory, tpsip_text_factory,
     G_TYPE_OBJECT,
-    G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_FACTORY_IFACE,
-      factory_iface_init))
+    G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_MANAGER,
+      channel_manager_iface_init))
 
 enum
 {
@@ -46,6 +60,9 @@ struct _TpsipTextFactoryPrivate
   TpsipConnection *conn;
   /* guint handle => TpsipTextChannel *channel */
   GHashTable *channels;
+
+  gulong status_changed_id;
+  gulong message_received_id;
 
   gboolean dispose_has_run;
 };
@@ -65,6 +82,21 @@ tpsip_text_factory_init (TpsipTextFactory *fac)
 }
 
 static void
+tpsip_text_factory_constructed (GObject *object)
+{
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (object);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  GObjectClass *parent_object_class =
+      G_OBJECT_CLASS (tpsip_text_factory_parent_class);
+
+  if (parent_object_class->constructed != NULL)
+    parent_object_class->constructed (object);
+
+  priv->status_changed_id = g_signal_connect (priv->conn,
+      "status-changed", (GCallback) connection_status_changed_cb, object);
+}
+
+static void
 tpsip_text_factory_dispose (GObject *object)
 {
   TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (object);
@@ -75,8 +107,7 @@ tpsip_text_factory_dispose (GObject *object)
 
   priv->dispose_has_run = TRUE;
 
-  tp_channel_factory_iface_close_all (TP_CHANNEL_FACTORY_IFACE (object));
-
+  tpsip_text_factory_close_all (fac);
   g_assert (priv->channels == NULL);
 
   if (G_OBJECT_CLASS (tpsip_text_factory_parent_class)->dispose)
@@ -129,6 +160,7 @@ tpsip_text_factory_class_init (TpsipTextFactoryClass *klass)
 
   g_type_class_add_private (klass, sizeof (TpsipTextFactoryPrivate));
 
+  object_class->constructed = tpsip_text_factory_constructed;
   object_class->get_property = tpsip_text_factory_get_property;
   object_class->set_property = tpsip_text_factory_set_property;
   object_class->dispose = tpsip_text_factory_dispose;
@@ -140,21 +172,18 @@ tpsip_text_factory_class_init (TpsipTextFactoryClass *klass)
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 }
 
-static gboolean
-tpsip_text_factory_close_one (gpointer key,
-                            gpointer data,
-                            gpointer user_data)
-{
-  tpsip_text_channel_close (TPSIP_TEXT_CHANNEL(data));
-  return TRUE;
-}
-
 static void
-tpsip_text_factory_close_all (TpChannelFactoryIface *iface)
+tpsip_text_factory_close_all (TpsipTextFactory *fac)
 {
-  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
   TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
   GHashTable *channels;
+
+  if (priv->status_changed_id != 0)
+    {
+      g_signal_handler_disconnect (priv->conn,
+          priv->status_changed_id);
+      priv->status_changed_id = 0;
+    }
 
   if (!priv->channels)
     return;
@@ -162,27 +191,12 @@ tpsip_text_factory_close_all (TpChannelFactoryIface *iface)
   channels = priv->channels;
   priv->channels = NULL;
 
-  g_hash_table_foreach_remove (channels, tpsip_text_factory_close_one, NULL);
-}
-
-static void
-tpsip_text_factory_connecting (TpChannelFactoryIface *iface)
-{
-}
-
-static void
-tpsip_text_factory_connected (TpChannelFactoryIface *iface)
-{
-}
-
-static void
-tpsip_text_factory_disconnected (TpChannelFactoryIface *iface)
-{
+  g_hash_table_destroy (channels);
 }
 
 struct _ForeachData
 {
-  TpChannelFunc foreach;
+  TpExportableChannelFunc func;
   gpointer user_data;
 };
 
@@ -190,19 +204,22 @@ static void
 _foreach_slave (gpointer key, gpointer value, gpointer user_data)
 {
   struct _ForeachData *data = (struct _ForeachData *)user_data;
-  TpChannelIface *chan = TP_CHANNEL_IFACE (value);
+  TpExportableChannel *chan = TP_EXPORTABLE_CHANNEL (value);
 
-  data->foreach (chan, data->user_data);
+  data->func (chan, data->user_data);
 }
 
 static void
-tpsip_text_factory_foreach (TpChannelFactoryIface *iface,
-                          TpChannelFunc foreach,
-                          gpointer user_data)
+tpsip_text_factory_foreach_channel (TpChannelManager *manager,
+                                    TpExportableChannelFunc func,
+                                    gpointer user_data)
 {
-  struct _ForeachData data = { foreach, user_data };
-  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
+  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (manager);
   TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  struct _ForeachData data;
+
+  data.func = func;
+  data.user_data = user_data;
 
   g_hash_table_foreach (priv->channels, _foreach_slave, &data);
 }
@@ -216,15 +233,34 @@ tpsip_text_factory_foreach (TpChannelFactoryIface *iface,
 static void
 channel_closed (TpsipTextChannel *chan, gpointer user_data)
 {
-  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (user_data);
-  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
+  TpsipTextFactory *self = TPSIP_TEXT_FACTORY (user_data);
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (self);
   TpHandle contact_handle;
+  gboolean really_destroyed = TRUE;
 
-  g_object_get (chan, "handle", &contact_handle, NULL);
-  DEBUG("removing text channel with handle %u", contact_handle);
+  tp_channel_manager_emit_channel_closed_for_object (self,
+      (TpExportableChannel *) chan);
 
-  if (priv->channels)
-    g_hash_table_remove (priv->channels, GINT_TO_POINTER (contact_handle));
+  if (priv->channels == NULL)
+    return;
+
+  g_object_get (chan,
+      "handle", &contact_handle,
+      "channel-destroyed", &really_destroyed,
+      NULL);
+
+  if (really_destroyed)
+    {
+      DEBUG ("removing text channel with handle %u", contact_handle);
+      g_hash_table_remove (priv->channels, GINT_TO_POINTER (contact_handle));
+    }
+  else
+    {
+      DEBUG ("reopening channel with handle %u due to pending messages",
+             contact_handle);
+      tp_channel_manager_emit_new_channel (self,
+          (TpExportableChannel *) chan, NULL);
+    }
 }
 
 /**
@@ -232,19 +268,17 @@ channel_closed (TpsipTextChannel *chan, gpointer user_data)
  *
  * Creates a new empty TpsipTextChannel.
  */
-TpsipTextChannel *
-tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
+static TpsipTextChannel *
+tpsip_text_factory_new_channel (TpsipTextFactory *fac,
                                 TpHandle handle,
                                 TpHandle initiator,
-                                gpointer request)
+                                gpointer request_token)
 {
-  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
   TpsipTextFactoryPrivate *priv;
   TpsipTextChannel *chan;
   gchar *object_path;
   TpBaseConnection *conn;
-
-  g_assert (TPSIP_IS_TEXT_FACTORY (fac));
+  GSList *request_tokens;
 
   priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
   conn = (TpBaseConnection *)(priv->conn);
@@ -267,73 +301,343 @@ tpsip_text_factory_new_channel (TpChannelFactoryIface *iface,
 
   g_hash_table_insert (priv->channels, GUINT_TO_POINTER (handle), chan);
 
-  tp_channel_factory_iface_emit_new_channel (fac, (TpChannelIface *)chan,
-      request);
+  if (request_token != NULL)
+    request_tokens = g_slist_prepend (NULL, request_token);
+  else
+    request_tokens = NULL;
+
+  tp_channel_manager_emit_new_channel (fac,
+      (TpExportableChannel *) chan, request_tokens);
+
+  g_slist_free (request_tokens);
 
   return chan;
 }
 
-TpsipTextChannel *
-tpsip_text_factory_lookup_channel (TpChannelFactoryIface *iface,
-                                 guint handle)
+
+static const gchar * const text_channel_fixed_properties[] = {
+    TP_IFACE_CHANNEL ".ChannelType",
+    TP_IFACE_CHANNEL ".TargetHandleType",
+    NULL
+};
+
+static const gchar * const text_channel_allowed_properties[] = {
+    TP_IFACE_CHANNEL ".TargetHandle",
+    TP_IFACE_CHANNEL ".TargetID",
+    NULL
+};
+
+static void
+tpsip_text_factory_foreach_channel_class (TpChannelManager *manager,
+    TpChannelManagerChannelClassFunc func,
+    gpointer user_data)
 {
-  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
+  GHashTable *table = g_hash_table_new_full (g_str_hash, g_str_equal,
+      NULL, (GDestroyNotify) tp_g_value_slice_free);
+  GValue *value;
+
+  value = tp_g_value_slice_new (G_TYPE_STRING);
+  g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_TEXT);
+  g_hash_table_insert (table, (gchar *) text_channel_fixed_properties[0],
+      value);
+
+  value = tp_g_value_slice_new (G_TYPE_UINT);
+  g_value_set_uint (value, TP_HANDLE_TYPE_CONTACT);
+  g_hash_table_insert (table, (gchar *) text_channel_fixed_properties[1],
+      value);
+
+  func (manager, table, text_channel_allowed_properties, user_data);
+
+  g_hash_table_destroy (table);
+}
+
+
+static gboolean
+tpsip_text_factory_requestotron (TpsipTextFactory *self,
+                                 gpointer request_token,
+                                 GHashTable *request_properties,
+                                 gboolean require_new)
+{
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (self);
+  TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
+  TpHandle handle;
+  GError *error = NULL;
+  TpExportableChannel *channel;
+
+  if (tp_strdiff (tp_asv_get_string (request_properties,
+          TP_IFACE_CHANNEL ".ChannelType"), TP_IFACE_CHANNEL_TYPE_TEXT))
+    return FALSE;
+
+  if (tp_asv_get_uint32 (request_properties,
+        TP_IFACE_CHANNEL ".TargetHandleType", NULL) != TP_HANDLE_TYPE_CONTACT)
+    return FALSE;
+
+  /* validity already checked by TpBaseConnection */
+  handle = tp_asv_get_uint32 (request_properties,
+      TP_IFACE_CHANNEL ".TargetHandle", NULL);
+  g_assert (handle != 0);
+
+  if (tp_channel_manager_asv_has_unknown_properties (request_properties,
+          text_channel_fixed_properties, text_channel_allowed_properties,
+          &error))
+    goto error;
+
+  channel = g_hash_table_lookup (priv->channels,
+      GUINT_TO_POINTER (handle));
+
+  if (channel == NULL)
+    {
+      tpsip_text_factory_new_channel (self,
+          handle, base_conn->self_handle, request_token);
+      return TRUE;
+    }
+
+  if (require_new)
+    {
+      g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "Already chatting with contact #%u in another channel", handle);
+      goto error;
+    }
+
+  tp_channel_manager_emit_request_already_satisfied (self, request_token,
+      channel);
+  return TRUE;
+
+error:
+  tp_channel_manager_emit_request_failed (self, request_token,
+      error->domain, error->code, error->message);
+  g_error_free (error);
+  return TRUE;
+}
+
+
+static gboolean
+tpsip_text_factory_create_channel (TpChannelManager *manager,
+                                   gpointer request_token,
+                                   GHashTable *request_properties)
+{
+  TpsipTextFactory *self = TPSIP_TEXT_FACTORY (manager);
+
+  return tpsip_text_factory_requestotron (self, request_token,
+      request_properties, TRUE);
+}
+
+
+static gboolean
+tpsip_text_factory_request_channel (TpChannelManager *manager,
+                                    gpointer request_token,
+                                    GHashTable *request_properties)
+{
+  TpsipTextFactory *self = TPSIP_TEXT_FACTORY (manager);
+
+  return tpsip_text_factory_requestotron (self, request_token,
+      request_properties, FALSE);
+}
+
+
+static gboolean
+tpsip_text_factory_ensure_channel (TpChannelManager *manager,
+                                   gpointer request_token,
+                                   GHashTable *request_properties)
+{
+  TpsipTextFactory *self = TPSIP_TEXT_FACTORY (manager);
+
+  return tpsip_text_factory_requestotron (self, request_token,
+      request_properties, FALSE);
+}
+
+static inline TpsipTextChannel *
+tpsip_text_factory_lookup_channel (TpsipTextFactory *fac,
+                                   TpHandle handle)
+{
   TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
 
-  return (TpsipTextChannel *)g_hash_table_lookup (priv->channels,
+  return g_hash_table_lookup (priv->channels,
       GUINT_TO_POINTER(handle));
 }
 
-static TpChannelFactoryRequestStatus
-tpsip_text_factory_request (TpChannelFactoryIface *iface,
-                            const gchar *chan_type,
-                            TpHandleType handle_type,
-                            guint handle,
-                            gpointer request,
-                            TpChannelIface **ret,
-                            GError **error)
+static gboolean
+tpsip_nua_i_message_cb (TpBaseConnection    *conn,
+                        const TpsipNuaEvent *ev,
+                        tagi_t               tags[],
+                        TpsipTextFactory    *fac)
 {
-  TpsipTextFactory *fac = TPSIP_TEXT_FACTORY (iface);
-  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
-  TpChannelIface *chan;
-  TpChannelFactoryRequestStatus status;
+  TpsipTextChannel *channel;
+  TpHandleRepoIface *contact_repo;
+  TpHandle handle;
+  const sip_t *sip = ev->sip;
+  const char *text = "";
+  gsize len = 0;
+  gboolean own_text = FALSE;
 
-  if (strcmp (chan_type, TP_IFACE_CHANNEL_TYPE_TEXT))
+  /* Block anything else except text/plain messages (like isComposings) */
+  if (sip->sip_content_type
+      && (g_ascii_strcasecmp ("text/plain", sip->sip_content_type->c_type)))
     {
-      return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
+      nua_respond (ev->nua_handle,
+                   SIP_415_UNSUPPORTED_MEDIA,
+                   SIPTAG_ACCEPT_STR("text/plain"),
+                   NUTAG_WITH_THIS(ev->nua),
+                   TAG_END());
+      goto end;
     }
 
-  if (handle_type != TP_HANDLE_TYPE_CONTACT)
+  /* If there is some text, assure it's in UTF-8 encoding */
+  if (sip->sip_payload && sip->sip_payload->pl_len > 0)
     {
-      return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
+      const char *charset = NULL;
+      if (sip->sip_content_type)
+        {
+          charset = msg_header_find_param (
+              (msg_common_t *) sip->sip_content_type, "charset");
+        }
+
+      /* Default charset is UTF-8, we only need to convert if it's a different one */
+      if (charset && g_ascii_strcasecmp (charset, "UTF-8"))
+        {
+          GError *error;
+          gsize in_len;
+          text = g_convert (sip->sip_payload->pl_data, sip->sip_payload->pl_len,
+              "UTF-8", charset, &in_len, &len, &error);
+
+          if (text == NULL)
+            {
+              gint status;
+              const char *message = NULL;
+
+              g_message ("character set conversion failed for the message body: %s", error->message);
+
+              if (error->code == G_CONVERT_ERROR_ILLEGAL_SEQUENCE)
+                {
+                  status = 400;
+                  message = "Invalid character sequence in the message body";
+                }
+              else
+                {
+                  status = 500;
+                  message = "Character set conversion failed for the message body";
+                }
+              nua_respond (ev->nua_handle,
+                           status, message,
+                           NUTAG_WITH_THIS(ev->nua),
+                           TAG_END());
+
+              g_error_free (error);
+              goto end;
+            }
+
+          own_text = TRUE;
+
+          if (in_len != sip->sip_payload->pl_len)
+            {
+              nua_respond (ev->nua_handle,
+                           400, "Incomplete character sequence at the "
+                                "end of the message body",
+                           NUTAG_WITH_THIS(ev->nua),
+                           TAG_END());
+              goto end;
+            }
+        }
+      else
+        {
+          if (!g_utf8_validate (sip->sip_payload->pl_data,
+                                sip->sip_payload->pl_len,
+                                NULL))
+            {
+              nua_respond (ev->nua_handle,
+                           400, "Invalid character sequence in the message body",
+                           NUTAG_WITH_THIS(ev->nua),
+                           TAG_END());
+              goto end;
+            }
+          text = sip->sip_payload->pl_data;
+          len = (gsize) sip->sip_payload->pl_len;
+        }
     }
 
-  status = TP_CHANNEL_FACTORY_REQUEST_STATUS_EXISTING;
-  chan = g_hash_table_lookup (priv->channels, GINT_TO_POINTER (handle));
-  if (!chan)
+  contact_repo = tp_base_connection_get_handles (
+      conn, TP_HANDLE_TYPE_CONTACT);
+
+  handle = tpsip_handle_parse_from (contact_repo, sip);
+
+  if (!handle)
     {
-      TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn; 
-
-      chan = (TpChannelIface *)tpsip_text_factory_new_channel (iface,
-          handle, base_conn->self_handle, request);
-
-      status = TP_CHANNEL_FACTORY_REQUEST_STATUS_CREATED;
+      nua_respond (ev->nua_handle,
+                   400, "Invalid From address",
+                   NUTAG_WITH_THIS(ev->nua),
+                   TAG_END());
+      goto end;
     }
-  *ret = chan;
-  return status;
+
+  DEBUG("Got incoming message from <%s>",
+        tp_handle_inspect (contact_repo, handle));
+
+  channel = tpsip_text_factory_lookup_channel (fac, handle);
+
+  if (!channel)
+      channel = tpsip_text_factory_new_channel (fac,
+          handle, handle, NULL);
+
+  /* Return a provisional response to quench retransmissions.
+   * The acknowledgement will be signalled later with 200 OK */
+  nua_respond (ev->nua_handle,
+               SIP_182_QUEUED,
+               NUTAG_WITH_THIS(ev->nua),
+               TAG_END());
+
+  tpsip_text_channel_receive (channel,
+      ev->nua, ev->nua_handle, handle, text, len);
+
+  tp_handle_unref (contact_repo, handle);
+
+end:
+  if (own_text)
+    g_free ((gpointer) text);
+
+  return TRUE;
 }
 
 static void
-factory_iface_init (gpointer g_iface, gpointer iface_data)
+connection_status_changed_cb (TpsipConnection *conn,
+                              guint status,
+                              guint reason,
+                              TpsipTextFactory *self)
 {
-  TpChannelFactoryIfaceClass *klass = (TpChannelFactoryIfaceClass *) g_iface;
+  TpsipTextFactoryPrivate *priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (self);
 
-#define IMPLEMENT(x) klass->x = tpsip_text_factory_##x
-  IMPLEMENT(close_all);
-  IMPLEMENT(foreach);
-  IMPLEMENT(request);
-  IMPLEMENT(connecting);
-  IMPLEMENT(connected);
-  IMPLEMENT(disconnected);
-#undef IMPLEMENT
+  switch (status)
+    {
+    case TP_CONNECTION_STATUS_CONNECTING:
+
+      priv->message_received_id = g_signal_connect (priv->conn,
+          "nua-event::nua_i_message",
+          G_CALLBACK (tpsip_nua_i_message_cb),
+          self);
+
+      break;
+    case TP_CONNECTION_STATUS_DISCONNECTED:
+      tpsip_text_factory_close_all (self);
+
+      if (priv->message_received_id != 0)
+        {
+          g_signal_handler_disconnect (conn, priv->message_received_id);
+          priv->message_received_id = 0;
+        }
+
+      break;
+    default:
+      break;
+    }
+}
+
+static void
+channel_manager_iface_init (gpointer g_iface, gpointer iface_data)
+{
+  TpChannelManagerIface *iface = g_iface;
+
+  iface->foreach_channel = tpsip_text_factory_foreach_channel;
+  iface->foreach_channel_class = tpsip_text_factory_foreach_channel_class;
+  iface->create_channel = tpsip_text_factory_create_channel;
+  iface->request_channel = tpsip_text_factory_request_channel;
+  iface->ensure_channel = tpsip_text_factory_ensure_channel;
 }

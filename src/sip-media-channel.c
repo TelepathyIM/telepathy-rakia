@@ -31,9 +31,8 @@
 #include <telepathy-glib/channel-iface.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/errors.h>
-#include <telepathy-glib/gtypes.h>
+#include <telepathy-glib/exportable-channel.h>
 #include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/intset.h>
 #include <telepathy-glib/svc-channel.h>
 
 #include <tpsip/event-target.h>
@@ -72,6 +71,7 @@ G_DEFINE_TYPE_WITH_CODE (TpsipMediaChannel, tpsip_media_channel,
       hold_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_STREAMED_MEDIA,
       streamed_media_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_EXPORTABLE_CHANNEL, NULL);
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
 
 static const gchar *tpsip_media_channel_interfaces[] = {
@@ -95,8 +95,11 @@ enum
   PROP_TARGET_ID,
   PROP_INITIATOR,
   PROP_INITIATOR_ID,
+  PROP_PEER,
   PROP_REQUESTED,
   PROP_INTERFACES,
+  PROP_CHANNEL_DESTROYED,
+  PROP_CHANNEL_PROPERTIES,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
   PROP_STUN_SERVER,
@@ -113,7 +116,7 @@ enum
   NUM_TP_PROPS
 };
 
-const TpPropertySignature media_channel_property_signatures[NUM_TP_PROPS] =
+static const TpPropertySignature media_channel_property_signatures[NUM_TP_PROPS] =
 {
     { "nat-traversal",          G_TYPE_STRING },
     { "stun-server",            G_TYPE_STRING },
@@ -235,7 +238,7 @@ static gboolean tpsip_media_channel_remove_with_reason (
 static void
 tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
 {
-  static const TpDBusPropertiesMixinPropImpl channel_props[] = {
+  static TpDBusPropertiesMixinPropImpl channel_props[] = {
       { "ChannelType", "channel-type", NULL },
       { "Interfaces", "interfaces", NULL },
       { "TargetHandleType", "handle-type", NULL },
@@ -246,14 +249,15 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       { "Requested", "requested", NULL },
       { NULL }
   };
-  static const TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+  static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
       { TP_IFACE_CHANNEL,
         tp_dbus_properties_mixin_getter_gobject_properties,
         NULL,
-        (TpDBusPropertiesMixinPropImpl *) channel_props,
+        channel_props,
       },
       { NULL }
   };
+
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GParamSpec *param_spec;
 
@@ -275,6 +279,11 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       "object-path");
   g_object_class_override_property (object_class, PROP_CHANNEL_TYPE,
       "channel-type");
+
+  g_object_class_override_property (object_class, PROP_CHANNEL_DESTROYED,
+      "channel-destroyed");
+  g_object_class_override_property (object_class, PROP_CHANNEL_PROPERTIES,
+      "channel-properties");
 
   param_spec = g_param_spec_object ("connection", "TpsipConnection object",
       "SIP connection object that owns this SIP media channel object.",
@@ -333,7 +342,7 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       media_channel_property_signatures, NUM_TP_PROPS, NULL);
 
   klass->dbus_props_class.interfaces =
-      (TpDBusPropertiesMixinIfaceImpl *) prop_interfaces;
+      prop_interfaces;
   tp_dbus_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipMediaChannelClass, dbus_props_class));
 
@@ -375,8 +384,30 @@ tpsip_media_channel_get_property (GObject    *object,
           TP_HANDLE_TYPE_CONTACT : TP_HANDLE_TYPE_NONE);
       break;
     case PROP_TARGET_ID:
-      g_value_set_static_string (value, "");
+      if (priv->handle != 0)
+        {
+          TpHandleRepoIface *repo = tp_base_connection_get_handles (
+              base_conn, TP_HANDLE_TYPE_CONTACT);
+
+          g_value_set_string (value, tp_handle_inspect (repo, priv->handle));
+        }
+      else
+        g_value_set_static_string (value, "");
       break;
+    case PROP_PEER:
+      {
+        TpHandle peer = 0;
+
+        if (priv->handle != 0)
+          peer = priv->handle;
+        else if (priv->session != NULL)
+          g_object_get (priv->session,
+              "peer", &peer,
+              NULL);
+
+        g_value_set_uint (value, peer);
+        break;
+      }
     case PROP_INITIATOR:
       g_value_set_uint (value, priv->initiator);
       break;
@@ -393,6 +424,22 @@ tpsip_media_channel_get_property (GObject    *object,
       break;
     case PROP_INTERFACES:
       g_value_set_static_boxed (value, tpsip_media_channel_interfaces);
+      break;
+    case PROP_CHANNEL_DESTROYED:
+      g_value_set_boolean (value, priv->closed);
+      break;
+    case PROP_CHANNEL_PROPERTIES:
+      g_value_take_boxed (value,
+          tp_dbus_properties_mixin_make_properties_hash (object,
+              TP_IFACE_CHANNEL, "ChannelType",
+              TP_IFACE_CHANNEL, "TargetHandleType",
+              TP_IFACE_CHANNEL, "TargetHandle",
+              TP_IFACE_CHANNEL, "TargetID",
+              TP_IFACE_CHANNEL, "InitiatorHandle",
+              TP_IFACE_CHANNEL, "InitiatorID",
+              TP_IFACE_CHANNEL, "Requested",
+              TP_IFACE_CHANNEL, "Interfaces",
+              NULL));
       break;
     default:
       /* Some properties live in the mixin */
@@ -444,6 +491,8 @@ tpsip_media_channel_set_property (GObject     *object,
       priv->object_path = g_value_dup_string (value);
       break;
     case PROP_HANDLE:
+      /* XXX: this property is defined as writable,
+       * but don't set it after construction, mmkay? */
       /* we don't ref it here because we don't necessarily have access to the
        * contact repo yet - instead we ref it in constructed. */
       priv->handle = g_value_get_uint (value);
@@ -487,8 +536,6 @@ tpsip_media_channel_dispose (GObject *object)
   DEBUG("enter");
 
   priv->dispose_has_run = TRUE;
-
-  priv_destroy_session(self);
 
   if (!priv->closed)
     tpsip_media_channel_close (self);
@@ -614,7 +661,7 @@ tpsip_media_channel_get_interfaces (TpSvcChannel *iface,
 }
 
 /***********************************************************************
- * Set: Channel.Interface.MediaSignalling Telepathy-0.13 interface 
+ * Set: Channel.Interface.MediaSignalling Telepathy-0.13 interface
  ***********************************************************************/
 
 /**
@@ -685,7 +732,7 @@ tpsip_media_channel_get_session_handlers (TpSvcChannelInterfaceMediaSignalling *
 
 
 /***********************************************************************
- * Set: Channel.Type.StreamedMedia Telepathy-0.13 interface 
+ * Set: Channel.Type.StreamedMedia Telepathy-0.13 interface
  ***********************************************************************/
 
 /**
@@ -858,7 +905,7 @@ tpsip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
  * has been created with initiator handle of the sender.
  */
 void
-tpsip_media_channel_receive_invite (TpsipMediaChannel *self, 
+tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
                                     nua_handle_t *nh)
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
@@ -867,7 +914,7 @@ tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
   g_assert (priv->initiator != conn->self_handle);
   g_assert (priv->session == NULL);
 
-  /* Start the local stream-engine; once the local 
+  /* Start the local stream-engine; once the local
    * media are ready, reply with nua_respond() */
   priv_create_session (self, nh, priv->initiator);
 
@@ -901,7 +948,7 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
   TpIntSet *set;
   guint reason = TP_CHANNEL_GROUP_CHANGE_REASON_ERROR;
- 
+
   switch (status)
     {
     case 410:
@@ -975,6 +1022,38 @@ tpsip_media_channel_change_call_state (TpsipMediaChannel *self,
 }
 
 static gboolean
+priv_nua_i_bye_cb (TpsipMediaChannel *self,
+                   const TpsipNuaEvent  *ev,
+                   tagi_t             tags[],
+                   gpointer           foo)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
+  TpIntSet *set;
+  TpHandle peer;
+
+  g_return_val_if_fail (priv->session != NULL, FALSE);
+
+  peer = tpsip_media_session_get_peer (priv->session);
+  set = tp_intset_new ();
+  tp_intset_add (set, peer);
+  tp_intset_add (set, mixin->self_handle);
+
+  tp_group_mixin_change_members ((GObject *) self,
+                                 "",
+                                 NULL, /* add */
+                                 set,  /* remove */
+                                 NULL,
+                                 NULL,
+                                 peer,
+                                 TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+
+  tp_intset_destroy (set);
+
+  return TRUE;
+}
+
+static gboolean
 priv_nua_i_cancel_cb (TpsipMediaChannel *self,
                       const TpsipNuaEvent  *ev,
                       tagi_t             tags[],
@@ -999,7 +1078,7 @@ priv_nua_i_cancel_cb (TpsipMediaChannel *self,
          reason != NULL;
          reason = reason->re_next)
       {
-        const char *protocol = reason->re_protocol; 
+        const char *protocol = reason->re_protocol;
         if (protocol == NULL || strcmp (protocol, "SIP") != 0)
           continue;
         if (reason->re_cause != NULL)
@@ -1091,7 +1170,7 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
         tpsip_media_channel_change_call_state (self, peer,
                 TP_CHANNEL_CALL_STATE_QUEUED, 0);
       break;
-    
+
     case nua_callstate_completing:
       /* In auto-ack mode, we don't need to call nua_ack(), see NUTAG_AUTOACK() */
       break;
@@ -1275,6 +1354,10 @@ priv_connect_nua_handlers (TpsipMediaChannel *self, nua_handle_t *nh)
                     G_CALLBACK (priv_nua_i_invite_cb),
                     NULL);
   g_signal_connect (self,
+                    "nua-event::nua_i_bye",
+                    G_CALLBACK (priv_nua_i_bye_cb),
+                    NULL);
+  g_signal_connect (self,
                     "nua-event::nua_i_cancel",
                     G_CALLBACK (priv_nua_i_cancel_cb),
                     NULL);
@@ -1415,12 +1498,32 @@ _tpsip_media_channel_add_member (GObject *iface,
 
   if (priv->initiator == mixin->self_handle)
     {
-      /* case a: outgoing call (we are the initiator, a new handle added) */
+      TpIntSet *set;
+
+      /* case a: an old-school outbound call
+       * (we are the initiator, a new handle added with AddMembers) */
+
       priv_outbound_call (self, handle);
 
-      /* disallow addition of any new members */
-      tp_group_mixin_change_flags ((GObject *) self,
-          0, TP_CHANNEL_GROUP_FLAG_CAN_ADD);
+      /* Backwards compatible behavior:
+       * add the peer to remote pending without waiting for the actual request
+       * to be sent */
+      set = tp_intset_new ();
+      tp_intset_add (set, handle);
+      tp_group_mixin_change_members (iface,
+                                     "",
+                                     NULL,    /* add */
+                                     NULL,    /* remove */
+                                     NULL,    /* local pending */
+                                     set,     /* remote pending */
+                                     mixin->self_handle,        /* actor */
+                                     TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+      tp_intset_destroy (set);
+
+      /* update flags: allow removal and rescinding, no more adding */
+      tp_group_mixin_change_flags (iface,
+          TP_CHANNEL_GROUP_FLAG_CAN_REMOVE | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND,
+          TP_CHANNEL_GROUP_FLAG_CAN_ADD);
 
       return TRUE;
     }

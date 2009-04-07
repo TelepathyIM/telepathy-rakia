@@ -33,6 +33,7 @@
 #include <telepathy-glib/handle-repo-dynamic.h>
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
+#include <telepathy-glib/svc-generic.h>
 
 #include <tpsip/event-target.h>
 
@@ -48,7 +49,6 @@
 #include "sip-connection-sofia.h"
 
 #include <sofia-sip/msg_header.h>
-#include <sofia-sip/sip_status.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
@@ -132,31 +132,6 @@ priv_url_from_string_value (su_home_t *home, const GValue *value)
   return (url_str)? url_make (home, url_str) : NULL;
 }
 
-static TpHandle
-priv_handle_parse_from (const sip_t *sip,
-                        TpHandleRepoIface *contact_repo)
-{
-  TpHandle handle = 0;
-  gchar *url_str;
-
-  g_return_val_if_fail (sip != NULL, 0);
-
-  if (sip->sip_from)
-    {
-      su_home_t tmphome[1] = { SU_HOME_INIT(tmphome) };
-
-      url_str = url_as_string (tmphome, sip->sip_from->a_url);
-
-      handle = tp_handle_ensure (contact_repo, url_str, NULL, NULL);
-
-      /* TODO: set qdata for the display name */
-
-      su_home_deinit (tmphome);
-    }
-
-  return handle;
-}
-
 static void
 tpsip_create_handle_repos (TpBaseConnection *conn,
                            TpHandleRepoIface *repos[NUM_TP_HANDLE_TYPES])
@@ -170,24 +145,21 @@ tpsip_create_handle_repos (TpBaseConnection *conn,
 }
 
 static GPtrArray *
-tpsip_connection_create_channel_factories (TpBaseConnection *base)
+tpsip_connection_create_channel_managers (TpBaseConnection *conn)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (base);
-  TpsipConnectionPrivate *priv;
-  GPtrArray *factories = g_ptr_array_sized_new (2);
+  TpsipConnection *self = TPSIP_CONNECTION (conn);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  GPtrArray *channel_managers = g_ptr_array_sized_new (2);
 
-  g_assert (TPSIP_IS_CONNECTION (self));
-  priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  g_ptr_array_add (channel_managers,
+      g_object_new (TPSIP_TYPE_TEXT_FACTORY,
+        "connection", self, NULL));
 
-  priv->text_factory = (TpChannelFactoryIface *)g_object_new (
-      TPSIP_TYPE_TEXT_FACTORY, "connection", self, NULL);
-  g_ptr_array_add (factories, priv->text_factory);
+  priv->media_factory = g_object_new (TPSIP_TYPE_MEDIA_FACTORY,
+        "connection", self, NULL);
+  g_ptr_array_add (channel_managers, priv->media_factory);
 
-  priv->media_factory = (TpChannelFactoryIface *)g_object_new (
-      TPSIP_TYPE_MEDIA_FACTORY, "connection", self, NULL);
-  g_ptr_array_add (factories, priv->media_factory);
-
-  return factories;
+  return channel_managers;
 }
 
 static void
@@ -196,10 +168,6 @@ tpsip_connection_init (TpsipConnection *self)
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   priv->sofia_home = su_home_new(sizeof (su_home_t));
-  priv->auth_table = g_hash_table_new_full (g_direct_hash,
-                                            g_direct_equal,
-                                            NULL /* (GDestroyNotify) nua_handle_unref */,
-                                            g_free);
 
   tp_contacts_mixin_init ((GObject *) self,
       G_STRUCT_OFFSET (TpsipConnection, contacts));
@@ -250,7 +218,7 @@ tpsip_connection_set_property (GObject      *object,
   }
   case PROP_REGISTRAR: {
     priv->registrar_url = priv_url_from_string_value (priv->sofia_home, value);
-    if (priv->sofia_nua) 
+    if (priv->sofia_nua)
       nua_set_params(priv->sofia_nua,
                      NUTAG_REGISTRAR(priv->registrar_url),
                      TAG_END());
@@ -431,6 +399,7 @@ static void
 tpsip_connection_class_init (TpsipConnectionClass *klass)
 {
   static const gchar *interfaces_always_present[] = {
+      TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
       TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
       TP_IFACE_CONNECTION_INTERFACE_ALIASING,
       NULL };
@@ -443,8 +412,9 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
   /* Implement pure-virtual methods */
   base_class->create_handle_repos = tpsip_create_handle_repos;
   base_class->get_unique_connection_name = tpsip_connection_unique_name;
-  base_class->create_channel_factories =
-    tpsip_connection_create_channel_factories;
+  base_class->create_channel_managers =
+      tpsip_connection_create_channel_managers;
+  base_class->create_channel_factories = NULL;
   base_class->disconnected = tpsip_connection_disconnected;
   base_class->start_connecting = tpsip_connection_start_connecting;
   base_class->shut_down = tpsip_connection_shut_down;
@@ -683,10 +653,10 @@ priv_handle_auth (TpsipConnection* self,
   g_assert (realm != NULL);
   if (user && method) {
     if (realm[0] == '"')
-      auth = g_strdup_printf ("%s:%s:%s:%s", 
+      auth = g_strdup_printf ("%s:%s:%s:%s",
                               method, realm, user, password);
     else
-      auth = g_strdup_printf ("%s:\"%s\":%s:%s", 
+      auth = g_strdup_printf ("%s:\"%s\":%s:%s",
                               method, realm, user, password);
 
     DEBUG("%s authenticating user='%s' realm=%s",
@@ -777,187 +747,6 @@ tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
   return TRUE;
 }
 
-static gboolean
-tpsip_connection_nua_i_invite_cb (TpsipConnection   *self,
-                                  const TpsipNuaEvent  *ev,
-                                  tagi_t             tags[],
-                                  gpointer           foo)
-{
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
-  TpsipMediaChannel *channel;
-  TpHandleRepoIface *contact_repo;
-  TpHandle handle;
-  GError *error = NULL;
-
-  /* figure out a handle for the identity */
-
-  contact_repo = tp_base_connection_get_handles ((TpBaseConnection *)self,
-                                                 TP_HANDLE_TYPE_CONTACT);
-
-  handle = priv_handle_parse_from (ev->sip, contact_repo);
-  if (!handle)
-    {
-      g_message ("incoming INVITE with invalid sender information");
-      nua_respond (ev->nua_handle, 400, "Invalid From address", TAG_END());
-      return TRUE;
-    }
-
-  DEBUG("Got incoming invite from <%s>", 
-        tp_handle_inspect (contact_repo, handle));
-
-  channel = tpsip_media_factory_new_channel (
-                TPSIP_MEDIA_FACTORY (priv->media_factory),
-                NULL,
-                TP_HANDLE_TYPE_CONTACT,
-                handle,
-                handle,
-                &error);
-  if (channel)
-    {
-      tpsip_media_channel_receive_invite (channel, ev->nua_handle);
-    }
-  else
-    {
-      g_warning ("creation of SIP media channel failed: %s", error->message);
-      g_error_free (error);
-      nua_respond (ev->nua_handle, SIP_500_INTERNAL_SERVER_ERROR, TAG_END());
-    }
-
-  tp_handle_unref (contact_repo, handle);
-
-  return TRUE;
-}
-
-static gboolean
-tpsip_connection_nua_i_message_cb (TpsipConnection   *self,
-                                   const TpsipNuaEvent  *ev,
-                                   tagi_t             tags[],
-                                   gpointer           foo)
-{
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
-  TpsipTextChannel *channel;
-  TpHandleRepoIface *contact_repo;
-  TpHandle handle;
-  const sip_t *sip = ev->sip;
-  char *text = NULL;
-
-  /* Block anything else except text/plain messages (like isComposings) */
-  if (sip->sip_content_type
-      && (g_ascii_strcasecmp ("text/plain", sip->sip_content_type->c_type)))
-    {
-      nua_respond (ev->nua_handle,
-                   SIP_415_UNSUPPORTED_MEDIA,
-                   SIPTAG_ACCEPT_STR("text/plain"),
-                   NUTAG_WITH_THIS(ev->nua),
-                   TAG_END());
-      goto end;
-    }
-
-  /* If there is some text, assure it's in UTF-8 encoding */
-  if (sip->sip_payload && sip->sip_payload->pl_len > 0)
-    {
-      const char *charset = NULL;
-      if (sip->sip_content_type && sip->sip_content_type->c_params != 0)
-        {
-          charset = msg_params_find (sip->sip_content_type->c_params, "charset=");
-        }
-
-      /* Default charset is UTF-8, we only need to convert if it's a different one */
-      if (charset && g_ascii_strcasecmp (charset, "UTF-8"))
-        {
-          GError *error;
-          gsize in_len, out_len;
-          text = g_convert (sip->sip_payload->pl_data, sip->sip_payload->pl_len,
-              "UTF-8", charset, &in_len, &out_len, &error);
-
-          if (text == NULL)
-            {
-              gint status;
-              gchar *message;
-
-              status = (error->code == G_CONVERT_ERROR_ILLEGAL_SEQUENCE)
-                       ? 400 : 500;
-              message = g_strdup_printf ("Character set conversion failed"
-                                                " for the message body: %s",
-                                         error->message);
-              nua_respond (ev->nua_handle,
-                           status, message,
-                           NUTAG_WITH_THIS(ev->nua),
-                           TAG_END());
-
-              g_free (message);
-              g_error_free (error);
-              goto end;
-            }
-          if (in_len != sip->sip_payload->pl_len)
-            {
-              nua_respond (ev->nua_handle,
-                           400, "Incomplete character sequence at the "
-                                "end of the message body",
-                           NUTAG_WITH_THIS(ev->nua),
-                           TAG_END());
-              goto end;
-            }
-        }
-      else
-        {
-          if (!g_utf8_validate (sip->sip_payload->pl_data,
-                                sip->sip_payload->pl_len,
-                                NULL))
-            {
-              nua_respond (ev->nua_handle,
-                           400, "Invalid characters in the message body",
-                           NUTAG_WITH_THIS(ev->nua),
-                           TAG_END());
-              goto end;
-            }
-          text = g_strndup (sip->sip_payload->pl_data, sip->sip_payload->pl_len);
-        }
-    }
-  else
-    {
-      text = g_strdup ("");
-    }
-
-  contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)self, TP_HANDLE_TYPE_CONTACT);
-
-  handle = priv_handle_parse_from (sip, contact_repo);
-
-  if (handle)
-    {
-      DEBUG("Got incoming message from <%s>", 
-            tp_handle_inspect (contact_repo, handle));
-
-      channel = tpsip_text_factory_lookup_channel (priv->text_factory, handle);
-
-      if (!channel)
-        channel = tpsip_text_factory_new_channel (priv->text_factory,
-            handle, handle, NULL);
-
-      tpsip_text_channel_receive (channel, handle, text);
-
-      tp_handle_unref (contact_repo, handle);
-
-      nua_respond (ev->nua_handle,
-                   SIP_200_OK,
-                   NUTAG_WITH_THIS(ev->nua),
-                   TAG_END());
-    }
-  else
-    {
-      nua_respond (ev->nua_handle,
-                   400, "Invalid From address",
-                   NUTAG_WITH_THIS(ev->nua),
-                   TAG_END());
-    }
-
-end:
-  g_free (text);
-
-  return TRUE;
-}
-
 static void
 tpsip_connection_shut_down (TpBaseConnection *base)
 {
@@ -995,18 +784,15 @@ tpsip_connection_dispose (GObject *object)
 
   DEBUG("disposing of TpsipConnection %p", self);
 
-  /* these are borrowed refs, the real ones are owned by the superclass */
-  priv->media_factory = NULL;
-  priv->text_factory = NULL;
-
-  /* may theoretically involve NUA handle unrefs */
-  g_hash_table_destroy (priv->auth_table);
-
   /* the base class is responsible for unreffing the self handle when we
    * disconnect */
   g_assert (base->status == TP_CONNECTION_STATUS_DISCONNECTED
       || base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
   g_assert (base->self_handle == 0);
+
+  /* the base class owns channel factories/managers,
+   * here we just nullify the references */
+  priv->media_factory = NULL;
 
   if (G_OBJECT_CLASS (tpsip_connection_parent_class)->dispose)
     G_OBJECT_CLASS (tpsip_connection_parent_class)->dispose (object);
@@ -1128,14 +914,6 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
    * at registration time */
   nua_get_params (priv->sofia_nua, TAG_ANY(), TAG_NULL());
 
-  g_signal_connect (self,
-                    "nua-event::nua_i_invite",
-                    G_CALLBACK (tpsip_connection_nua_i_invite_cb),
-                    NULL);
-  g_signal_connect (self,
-                    "nua-event::nua_i_message",
-                    G_CALLBACK (tpsip_connection_nua_i_message_cb),
-                    NULL);
   g_signal_connect (self,
                     "nua-event::nua_r_register",
                     G_CALLBACK (tpsip_connection_nua_r_register_cb),

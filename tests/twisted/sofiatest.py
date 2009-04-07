@@ -33,25 +33,31 @@ class SipProxy(sip.RegisterProxy):
                 uri=str(message.uri), headers=message.headers, body=message.body,
                 sip_message=message))
 
+    def handle_response(self, message, addr):
+        self.event_func(servicetest.Event('sip-response',
+            code=message.code, headers=message.headers, body=message.body,
+            sip_message=message))
 
 def prepare_test(event_func, register_cb, params=None):
-    default_params = {
+    actual_params = {
         'account': 'testacc@127.0.0.1',
         'password': 'testpwd',
         'proxy-host': '127.0.0.1',
         'port': dbus.UInt16(9090),
+        'local-ip-address': '127.0.0.1'
     }
 
     if params is not None:
-        default_params.update(params)
+        actual_params.update(params)
 
     bus, conn = servicetest.prepare_test(event_func,
-        'sofiasip', 'sip', default_params)
+        'sofiasip', 'sip', actual_params)
 
-    sip = SipProxy()
+    port = int(actual_params['port'])
+    sip = SipProxy(host=actual_params['proxy-host'], port=port)
     sip.event_func = event_func
     sip.registrar_handler = register_cb
-    reactor.listenUDP(int(default_params['port']), sip)
+    reactor.listenUDP(port, sip)
     return bus, conn, sip
 
 def default_register_cb(message, host, port):

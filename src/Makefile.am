@@ -1,8 +1,8 @@
 #
 # Makefile.am for telepathy-sofiasip/src
 #
-# Copyright (C) 2006 Nokia Corporation
-# Contact: Kai Vehmanen <first.surname@nokia.com>
+# Copyright (C) 2006-2009 Nokia Corporation
+# Contact: Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
 # Licensed under LGPL. See file COPYING.
 #
 
@@ -14,10 +14,12 @@ managerdir = $(datadir)/telepathy/managers
 # ----------------------------------------------------------------------
 # Headers and libraries
 
-AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @SOFIA_SIP_UA_CFLAGS@ \
-	    @TELEPATHY_GLIB_CFLAGS@ @COVERAGE_CFLAGS@ \
-	    -I$(top_builddir) -I$(top_srcdir)
-ALL_LIBS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_SIP_UA_LIBS@ @TELEPATHY_GLIB_LIBS@
+AM_CPPFLAGS = $(DBUS_CFLAGS) $(GLIB_CFLAGS) \
+	$(SOFIA_SIP_UA_CFLAGS) $(TELEPATHY_GLIB_CFLAGS) \
+	-I$(top_builddir) -I$(top_srcdir)
+AM_CFLAGS = $(ERROR_CFLAGS)
+ALL_LIBS = $(DBUS_LIBS) $(GLIB_LIBS) $(SOFIA_SIP_UA_LIBS) \
+	$(TELEPATHY_GLIB_LIBS)
 
 # ----------------------------------------------------------------------
 # Build targets
@@ -34,10 +36,10 @@ noinst_LTLIBRARIES = libtpsip-convenience.la
 # Rules for building the targets
 
 signals-marshal.c: ${srcdir}/signals-marshal.list
-	glib-genmarshal --body --prefix=_tpsip_marshal $< >$@
+	glib-genmarshal --body --prefix=_tpsip_marshal $< >$@ || rm -f $@
 
 signals-marshal.h: ${srcdir}/signals-marshal.list
-	glib-genmarshal --header --prefix=_tpsip_marshal $< >$@
+	glib-genmarshal --header --prefix=_tpsip_marshal $< >$@ || rm -f $@
 
 # rules for makeing the glib enum objects
 %-enumtypes.h: %.h
@@ -46,7 +48,7 @@ signals-marshal.h: ${srcdir}/signals-marshal.list
 	--fprod "/* enumerations from \"@filename@\" */\n" \
 	--vhead "GType @enum_name@_get_type (void);\n#define $(shell echo $* | tr [:lower:]- [:upper:]_ | sed 's/_.*//')_TYPE_@ENUMSHORT@ (@enum_name@_get_type())\n"         \
 	--ftail "G_END_DECLS\n\n#endif /* __$(shell echo $* | tr [:lower:]- [:upper:]_)_ENUM_TYPES_H__ */" \
-	$< > $@
+	$< > $@ || rm -f $@
 
 %-enumtypes.c: %.h
 	glib-mkenums \
@@ -55,7 +57,7 @@ signals-marshal.h: ${srcdir}/signals-marshal.list
 	--vhead "GType\n@enum_name@_get_type (void)\n{\n  static GType etype = 0;\n  if (etype == 0) {\n    static const G@Type@Value values[] = {"     \
 	--vprod "      { @VALUENAME@, \"@VALUENAME@\", \"@valuenick@\" }," \
 	--vtail "      { 0, NULL, NULL }\n    };\n    etype = g_@type@_register_static (\"@EnumName@\", values);\n  }\n  return etype;\n}\n" \
-	$< > $@
+	$< > $@ || rm -f $@
 
 sofiasip.manager: write-mgr-file
 	if ./write-mgr-file > $@.tmp; then \
@@ -121,3 +123,5 @@ EXTRA_DIST = signals-marshal.list
 
 # Correctly clean the generated headers, but keep the xml description
 CLEANFILES = $(BUILT_SOURCES) $(manager_DATA)
+CLEANFILES += *.gcda *.gcno
+

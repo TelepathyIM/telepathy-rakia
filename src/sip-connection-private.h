@@ -21,7 +21,7 @@
 #ifndef __TPSIP_CONNECTION_PRIVATE_H__
 #define __TPSIP_CONNECTION_PRIVATE_H__
 
-#include <telepathy-glib/channel-factory-iface.h>
+#include "media-factory.h"
 
 #include <tpsip/sofia-decls.h>
 #include <sofia-sip/sresolv.h>
@@ -39,11 +39,7 @@ struct _TpsipConnectionPrivate
 
   gchar *registrar_realm;
 
-  GHashTable *auth_table;
-
-  /* channels */
-  TpChannelFactoryIface *text_factory;
-  TpChannelFactoryIface *media_factory;
+  TpsipMediaFactory *media_factory;
 
   gchar *address;
   gchar *auth_user;

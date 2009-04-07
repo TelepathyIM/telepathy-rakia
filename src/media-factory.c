@@ -1,6 +1,6 @@
 /*
  * media-factory.c - Media channel factory for SIP connection manager
- * Copyright (C) 2007 Collabora Ltd.
+ * Copyright (C) 2007-2008 Collabora Ltd.
  * Copyright (C) 2007-2008 Nokia Corporation
  *
  * This work is free software; you can redistribute it and/or
@@ -18,21 +18,31 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <telepathy-glib/svc-connection.h>
-#include <telepathy-glib/interfaces.h>
-#include <string.h>
 #include "media-factory.h"
+
+#include <string.h>
+
+#include <telepathy-glib/channel-manager.h>
+#include <telepathy-glib/dbus.h>
+#include <telepathy-glib/interfaces.h>
+
+#include "sip-media-channel.h"
 #include "sip-connection.h"
+#include "sip-connection-helpers.h"
+
+#include <sofia-sip/sip_status.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
-static void factory_iface_init (gpointer, gpointer);
+static void channel_manager_iface_init (gpointer, gpointer);
+static void tpsip_media_factory_constructed (GObject *object);
+static void tpsip_media_factory_close_all (TpsipMediaFactory *fac);
 
 G_DEFINE_TYPE_WITH_CODE (TpsipMediaFactory, tpsip_media_factory,
     G_TYPE_OBJECT,
-    G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_FACTORY_IFACE,
-      factory_iface_init))
+    G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_MANAGER,
+        channel_manager_iface_init))
 
 enum
 {
@@ -51,6 +61,9 @@ struct _TpsipMediaFactoryPrivate
   GPtrArray *channels;
   /* for unique channel object paths, currently always increments */
   guint channel_index;
+
+  gulong status_changed_id;
+  gulong invite_received_id;
 
   gchar *stun_server;
   guint16 stun_port;
@@ -82,14 +95,20 @@ tpsip_media_factory_dispose (GObject *object)
 
   priv->dispose_has_run = TRUE;
 
-  tp_channel_factory_iface_close_all (TP_CHANNEL_FACTORY_IFACE (object));
-
+  tpsip_media_factory_close_all (fac);
   g_assert (priv->channels == NULL);
-
-  g_free (priv->stun_server);
 
   if (G_OBJECT_CLASS (tpsip_media_factory_parent_class)->dispose)
     G_OBJECT_CLASS (tpsip_media_factory_parent_class)->dispose (object);
+}
+
+static void
+tpsip_media_factory_finalize (GObject *object)
+{
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (object);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+
+  g_free (priv->stun_server);
 }
 
 static void
@@ -151,9 +170,11 @@ tpsip_media_factory_class_init (TpsipMediaFactoryClass *klass)
 
   g_type_class_add_private (klass, sizeof (TpsipMediaFactoryPrivate));
 
+  object_class->constructed = tpsip_media_factory_constructed;
   object_class->get_property = tpsip_media_factory_get_property;
   object_class->set_property = tpsip_media_factory_set_property;
   object_class->dispose = tpsip_media_factory_dispose;
+  object_class->finalize = tpsip_media_factory_finalize;
 
   param_spec = g_param_spec_object ("connection", "TpsipConnection object",
       "SIP connection that owns this media channel factory",
@@ -176,82 +197,48 @@ tpsip_media_factory_class_init (TpsipMediaFactoryClass *klass)
 }
 
 static void
-tpsip_media_factory_close_one (gpointer data, gpointer user_data)
+tpsip_media_factory_close_all (TpsipMediaFactory *fac)
 {
-  tpsip_media_channel_close (TPSIP_MEDIA_CHANNEL(data));
-  g_object_unref (data);
-}
-
-static void
-tpsip_media_factory_close_all (TpChannelFactoryIface *iface)
-{
-  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (iface);
   TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-  GPtrArray *channels;
 
-  channels = priv->channels;
-  priv->channels = NULL;
-  if (channels)
+  if (priv->status_changed_id != 0)
     {
-      g_ptr_array_foreach (channels, tpsip_media_factory_close_one, NULL);
+      g_signal_handler_disconnect (priv->conn,
+          priv->status_changed_id);
+      priv->status_changed_id = 0;
+    }
+
+  if (priv->channels != NULL)
+    {
+      GPtrArray *channels;
+      guint i;
+
+      channels = priv->channels;
+      priv->channels = NULL;
+
+      for (i = 0; i < channels->len; i++)
+        {
+          TpsipMediaChannel *chan = g_ptr_array_index (channels, i);
+          g_object_unref (chan);
+        }
+
       g_ptr_array_free (channels, TRUE);
     }
 }
 
-static void
-tpsip_media_factory_connecting (TpChannelFactoryIface *iface)
-{
-}
-
-static void
-tpsip_media_factory_connected (TpChannelFactoryIface *iface)
-{
-}
-
-static void
-tpsip_media_factory_disconnected (TpChannelFactoryIface *iface)
-{
-}
-
-struct _ForeachData
-{
-  TpChannelFunc foreach;
-  gpointer user_data;
-};
-
-static void
-_foreach_slave (gpointer channel, gpointer user_data)
-{
-  struct _ForeachData *data = (struct _ForeachData *)user_data;
-  TpChannelIface *chan = TP_CHANNEL_IFACE (channel);
-
-  data->foreach (chan, data->user_data);
-}
-
-static void
-tpsip_media_factory_foreach (TpChannelFactoryIface *iface,
-                          TpChannelFunc foreach,
-                          gpointer user_data)
-{
-  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (iface);
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-
-  struct _ForeachData data = { foreach, user_data };
-
-  g_ptr_array_foreach (priv->channels, _foreach_slave, &data);
-}
-
 /**
- * channel_closed:
- *
+ * media_channel_closed_cb:
  * Signal callback for when a media channel is closed. Removes the references
  * that #TpsipMediaFactory holds to them.
  */
 static void
-channel_closed (TpsipMediaChannel *chan, gpointer user_data)
+media_channel_closed_cb (TpsipMediaChannel *chan, gpointer user_data)
 {
   TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (user_data);
   TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+
+  tp_channel_manager_emit_channel_closed_for_object (fac,
+      TP_EXPORTABLE_CHANNEL (chan));
 
   if (priv->channels)
     {
@@ -265,13 +252,10 @@ channel_closed (TpsipMediaChannel *chan, gpointer user_data)
  *
  * Creates a new empty TpsipMediaChannel.
  */
-TpsipMediaChannel *
-tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
-                                 gpointer request,
-                                 TpHandleType handle_type,
-                                 TpHandle handle,
-                                 TpHandle initiator,
-                                 GError **error)
+static TpsipMediaChannel *
+new_media_channel (TpsipMediaFactory *fac,
+                   TpHandle initiator,
+                   TpHandle maybe_peer)
 {
   TpsipMediaFactoryPrivate *priv;
   TpsipMediaChannel *chan = NULL;
@@ -283,29 +267,6 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
 
   priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
   conn = (TpBaseConnection *)priv->conn;
-
-  switch (handle_type)
-    {
-    case TP_HANDLE_TYPE_CONTACT:
-      if (!tp_handle_is_valid (
-              tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT),
-              handle, error))
-        goto err;
-      break;
-    case TP_HANDLE_TYPE_NONE:
-      if (handle != 0)
-        {
-          g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
-              "TargetHandle must be zero or omitted if TargetHandleType is "
-              "NONE");
-          goto err;
-        }
-      break;
-    default:
-      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-          "SIP media channels can not be created with this handle type");
-      goto err;
-    }
 
   object_path = g_strdup_printf ("%s/MediaChannel%u", conn->object_path,
       priv->channel_index++);
@@ -320,7 +281,7 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
   chan = g_object_new (TPSIP_TYPE_MEDIA_CHANNEL,
                        "connection", priv->conn,
                        "object-path", object_path,
-                       "handle", handle,
+                       "handle", maybe_peer,
                        "initiator", initiator,
                        "nat-traversal", nat_traversal,
                        NULL);
@@ -334,99 +295,343 @@ tpsip_media_factory_new_channel (TpsipMediaFactory *fac,
         g_object_set ((GObject *) chan, "stun-port", priv->stun_port, NULL);
     }
 
-  if (handle_type == TP_HANDLE_TYPE_CONTACT && handle != initiator)
-    {
-      g_assert (initiator == conn->self_handle);
-
-      if (!_tpsip_media_channel_add_member ((GObject *) chan,
-               handle, "", error))
-        goto err;
-    }
-
-  g_signal_connect (chan, "closed", (GCallback) channel_closed, fac);
+  g_signal_connect (chan, "closed", G_CALLBACK (media_channel_closed_cb), fac);
 
   g_ptr_array_add (priv->channels, chan);
 
-  tp_channel_factory_iface_emit_new_channel (fac, (TpChannelIface *)chan,
-      request);
-
   return chan;
-
-err:
-  if (chan != NULL)
-    g_object_unref (chan);
-  return NULL;
 }
 
-static TpChannelFactoryRequestStatus
-tpsip_media_factory_request (TpChannelFactoryIface *iface,
-                             const gchar *chan_type,
-                             TpHandleType handle_type,
-                             TpHandle handle,
-                             gpointer request,
-                             TpChannelIface **ret,
-                             GError **error_ret)
+static gboolean
+tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
+                       const TpsipNuaEvent *ev,
+                       tagi_t               tags[],
+                       TpsipMediaFactory   *fac)
 {
-  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (iface);
-  TpsipMediaFactoryPrivate *priv;
-  TpChannelIface *chan;
-  TpChannelFactoryRequestStatus status = TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
-  TpBaseConnection *base_conn;
-  GError *error = NULL;
+  TpsipMediaChannel *channel;
+  TpHandleRepoIface *contact_repo;
+  TpHandle handle;
 
-  if (strcmp (chan_type, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA))
+  /* figure out a handle for the identity */
+
+  contact_repo = tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT);
+
+  handle = tpsip_handle_parse_from (contact_repo, ev->sip);
+  if (!handle)
     {
-      return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
+      g_message ("incoming INVITE with invalid sender information");
+      nua_respond (ev->nua_handle, 400, "Invalid From address", TAG_END());
+      return TRUE;
     }
 
-  priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-  base_conn = (TpBaseConnection *)priv->conn;
+  DEBUG("Got incoming invite from <%s>",
+        tp_handle_inspect (contact_repo, handle));
 
-  chan = (TpChannelIface *) tpsip_media_factory_new_channel (fac,
-                                                             request,
-                                                             handle_type,
-                                                             handle,
-                                                             base_conn->self_handle,
-                                                             &error);
-  if (chan != NULL)
-    {
-      *ret = chan;
-      status = TP_CHANNEL_FACTORY_REQUEST_STATUS_CREATED;
-    }
-  else
-    {
-      g_assert (error != NULL);
-      switch (error->code)
-        {
-        case TP_ERROR_INVALID_HANDLE:
-        case TP_ERROR_INVALID_ARGUMENT:
-          status = TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
-          break;
-        case TP_ERROR_NOT_AVAILABLE:
-          status = TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
-          break;
-        default:
-          status = TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
-        }
-      if (error_ret != NULL)
-        *error_ret = error;
-      else
-        g_error_free (error);
-    }
-  return status;
+  channel = new_media_channel (fac, handle, handle);
+
+  tpsip_media_channel_receive_invite (channel, ev->nua_handle);
+
+  tp_handle_unref (contact_repo, handle);
+
+  tp_channel_manager_emit_new_channel (fac,
+      TP_EXPORTABLE_CHANNEL (channel), NULL);
+
+  return TRUE;
 }
 
 static void
-factory_iface_init (gpointer g_iface, gpointer iface_data)
+connection_status_changed_cb (TpsipConnection *conn,
+                              guint status,
+                              guint reason,
+                              TpsipMediaFactory *self)
 {
-  TpChannelFactoryIfaceClass *klass = (TpChannelFactoryIfaceClass *) g_iface;
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (self);
 
-#define IMPLEMENT(x) klass->x = tpsip_media_factory_##x
-  IMPLEMENT(close_all);
-  IMPLEMENT(foreach);
-  IMPLEMENT(request);
-  IMPLEMENT(connecting);
-  IMPLEMENT(connected);
-  IMPLEMENT(disconnected);
-#undef IMPLEMENT
+  switch (status)
+    {
+    case TP_CONNECTION_STATUS_CONNECTED:
+
+      priv->invite_received_id = g_signal_connect (conn,
+          "nua-event::nua_i_invite",
+          G_CALLBACK (tpsip_nua_i_invite_cb), self);
+
+      break;
+    case TP_CONNECTION_STATUS_DISCONNECTED:
+
+      tpsip_media_factory_close_all (self);
+
+      if (priv->invite_received_id != 0)
+        {
+          g_signal_handler_disconnect (conn, priv->invite_received_id);
+          priv->invite_received_id = 0;
+        }
+
+      break;
+    default:
+      break;
+    }
+}
+
+static void
+tpsip_media_factory_constructed (GObject *object)
+{
+  TpsipMediaFactory *self = TPSIP_MEDIA_FACTORY (object);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (self);
+  GObjectClass *parent_object_class =
+      G_OBJECT_CLASS (tpsip_media_factory_parent_class);
+
+  if (parent_object_class->constructed != NULL)
+    parent_object_class->constructed (object);
+
+  priv->status_changed_id = g_signal_connect (priv->conn,
+      "status-changed", (GCallback) connection_status_changed_cb, object);
+}
+
+static void
+tpsip_media_factory_foreach_channel (TpChannelManager *manager,
+                                     TpExportableChannelFunc foreach,
+                                     gpointer user_data)
+{
+  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (manager);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  guint i;
+
+  for (i = 0; i < priv->channels->len; i++)
+    {
+      TpExportableChannel *channel = TP_EXPORTABLE_CHANNEL (
+          g_ptr_array_index (priv->channels, i));
+
+      foreach (channel, user_data);
+    }
+}
+
+static const gchar * const media_channel_fixed_properties[] = {
+    TP_IFACE_CHANNEL ".ChannelType",
+    TP_IFACE_CHANNEL ".TargetHandleType",
+    NULL
+};
+
+static const gchar * const named_channel_allowed_properties[] = {
+    TP_IFACE_CHANNEL ".TargetHandle",
+    TP_IFACE_CHANNEL ".TargetID",
+    NULL
+};
+
+/* not advertised in foreach_channel_class - can only be requested with
+ * RequestChannel, not with CreateChannel/EnsureChannel */
+static const gchar * const anon_channel_allowed_properties[] = {
+    NULL
+};
+
+static void
+tpsip_media_factory_foreach_channel_class (TpChannelManager *manager,
+    TpChannelManagerChannelClassFunc func,
+    gpointer user_data)
+{
+  GHashTable *table = g_hash_table_new_full (g_str_hash, g_str_equal,
+      NULL, (GDestroyNotify) tp_g_value_slice_free);
+  GValue *value, *handle_type_value;
+
+  value = tp_g_value_slice_new (G_TYPE_STRING);
+  g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA);
+  g_hash_table_insert (table, TP_IFACE_CHANNEL ".ChannelType", value);
+
+  handle_type_value = tp_g_value_slice_new (G_TYPE_UINT);
+  /* no uint value yet - we'll change it for each channel class */
+  g_hash_table_insert (table, TP_IFACE_CHANNEL ".TargetHandleType",
+      handle_type_value);
+
+  g_value_set_uint (handle_type_value, TP_HANDLE_TYPE_CONTACT);
+  func (manager, table, named_channel_allowed_properties, user_data);
+
+  g_hash_table_destroy (table);
+}
+
+typedef enum
+{
+  METHOD_REQUEST,
+  METHOD_CREATE,
+  METHOD_ENSURE,
+} RequestMethod;
+
+static gboolean
+tpsip_media_factory_requestotron (TpChannelManager *manager,
+                                  gpointer request_token,
+                                  GHashTable *request_properties,
+                                  RequestMethod method)
+{
+  TpsipMediaFactory *self = TPSIP_MEDIA_FACTORY (manager);
+  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (self);
+  TpBaseConnection *conn = (TpBaseConnection *) priv->conn;
+  TpHandleType handle_type;
+  TpHandle handle;
+  TpsipMediaChannel *channel = NULL;
+  GError *error = NULL;
+  GSList *request_tokens;
+  gboolean require_target_handle;
+  gboolean add_peer_to_remote_pending;
+
+  /* Supported modes of operation:
+   * - RequestChannel(None, 0):
+   *     channel is anonymous;
+   *     caller uses RequestStreams to set the peer and start the call.
+   * - RequestChannel(Contact, n) where n != 0:
+   *     channel has TargetHandle=n;
+   *     n is in remote pending;
+   *     call is started when caller calls RequestStreams.
+   * - CreateChannel({THT: Contact, TH: n}):
+   *     channel has TargetHandle=n
+   *     n is not in the group interface at all
+   *     call is started when caller calls RequestStreams.
+   * - EnsureChannel({THT: Contact, TH: n}):
+   *     look for a channel whose peer is n, and return that if found with
+   *       whatever properties and group membership it has;
+   *     otherwise the same as into CreateChannel
+   */
+  switch (method)
+    {
+    case METHOD_REQUEST:
+      require_target_handle = FALSE;
+      add_peer_to_remote_pending = TRUE;
+      break;
+    case METHOD_CREATE:
+    case METHOD_ENSURE:
+      require_target_handle = TRUE;
+      add_peer_to_remote_pending = FALSE;
+      break;
+    default:
+      g_assert_not_reached ();
+    }
+
+  if (tp_strdiff (tp_asv_get_string (request_properties,
+          TP_IFACE_CHANNEL ".ChannelType"),
+        TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA))
+    return FALSE;
+
+  handle_type = tp_asv_get_uint32 (request_properties,
+      TP_IFACE_CHANNEL ".TargetHandleType", NULL);
+
+  handle = tp_asv_get_uint32 (request_properties,
+      TP_IFACE_CHANNEL ".TargetHandle", NULL);
+
+  switch (handle_type)
+    {
+    case TP_HANDLE_TYPE_NONE:
+      g_assert (handle == 0);
+
+      if (require_target_handle)
+        {
+          g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+              "A valid Contact handle must be provided when requesting a media "
+              "channel");
+          goto error;
+        }
+
+      if (tp_channel_manager_asv_has_unknown_properties (request_properties,
+              media_channel_fixed_properties, anon_channel_allowed_properties,
+              &error))
+        goto error;
+
+      channel = new_media_channel (self, conn->self_handle, 0);
+      break;
+
+    case TP_HANDLE_TYPE_CONTACT:
+      g_assert (handle != 0);
+
+      if (tp_channel_manager_asv_has_unknown_properties (request_properties,
+              media_channel_fixed_properties, named_channel_allowed_properties,
+              &error))
+        goto error;
+
+      if (method == METHOD_ENSURE)
+        {
+          guint i;
+          TpHandle peer = 0;
+
+          for (i = 0; i < priv->channels->len; i++)
+            {
+              channel = g_ptr_array_index (priv->channels, i);
+              g_object_get (channel, "peer", &peer, NULL);
+
+              if (peer == handle)
+                {
+                  tp_channel_manager_emit_request_already_satisfied (self,
+                      request_token, TP_EXPORTABLE_CHANNEL (channel));
+                  return TRUE;
+                }
+            }
+        }
+
+      channel = new_media_channel (self, conn->self_handle, handle);
+
+      if (add_peer_to_remote_pending)
+        {
+          if (!_tpsip_media_channel_add_member ((GObject *) channel, handle,
+                "", &error))
+            {
+              tpsip_media_channel_close (channel);
+              goto error;
+            }
+        }
+
+      break;
+
+    default:
+      return FALSE;
+    }
+
+  g_assert (channel != NULL);
+
+  request_tokens = g_slist_prepend (NULL, request_token);
+  tp_channel_manager_emit_new_channel (self,
+      TP_EXPORTABLE_CHANNEL (channel), request_tokens);
+  g_slist_free (request_tokens);
+
+  return TRUE;
+
+error:
+  tp_channel_manager_emit_request_failed (self, request_token,
+      error->domain, error->code, error->message);
+  g_error_free (error);
+  return TRUE;
+}
+
+static gboolean
+tpsip_media_factory_request_channel (TpChannelManager *manager,
+                                     gpointer request_token,
+                                     GHashTable *request_properties)
+{
+  return tpsip_media_factory_requestotron (manager, request_token,
+      request_properties, METHOD_REQUEST);
+}
+
+static gboolean
+tpsip_media_factory_create_channel (TpChannelManager *manager,
+                                    gpointer request_token,
+                                    GHashTable *request_properties)
+{
+  return tpsip_media_factory_requestotron (manager, request_token,
+      request_properties, METHOD_CREATE);
+}
+
+static gboolean
+tpsip_media_factory_ensure_channel (TpChannelManager *manager,
+                                    gpointer request_token,
+                                    GHashTable *request_properties)
+{
+  return tpsip_media_factory_requestotron (manager, request_token,
+      request_properties, METHOD_ENSURE);
+}
+
+static void
+channel_manager_iface_init (gpointer g_iface,
+                            gpointer iface_data)
+{
+  TpChannelManagerIface *iface = g_iface;
+
+  iface->foreach_channel = tpsip_media_factory_foreach_channel;
+  iface->foreach_channel_class = tpsip_media_factory_foreach_channel_class;
+  iface->request_channel = tpsip_media_factory_request_channel;
+  iface->create_channel = tpsip_media_factory_create_channel;
+  iface->ensure_channel = tpsip_media_factory_ensure_channel;
 }

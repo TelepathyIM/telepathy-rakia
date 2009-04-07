@@ -30,3 +30,8 @@ dist-hook:
 		git --work-tree=${top_srcdir} log --stat > ${distdir}/ChangeLog || \
 		git --work-tree=${top_srcdir} log > ${distdir}/ChangeLog; \
 	fi
+
+include tools/lcov.am
+LCOV_CHECK_ARGS = CHECK_TWISTED_SLEEP=6
+
+clean-local: lcov-clean

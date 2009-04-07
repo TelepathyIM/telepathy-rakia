@@ -27,8 +27,6 @@
 
 #include <tpsip/sofia-decls.h>
 
-typedef struct _TpsipHandleStorage TpsipHandleStorage;
-
 G_BEGIN_DECLS
 
 typedef struct _TpsipTextChannel TpsipTextChannel;
@@ -60,13 +58,12 @@ GType tpsip_text_channel_get_type(void);
 #define TPSIP_TEXT_CHANNEL_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_TEXT_CHANNEL, TpsipTextChannelClass))
 
-
-void tpsip_text_channel_close (TpsipTextChannel *self);
-
-void tpsip_text_channel_receive (TpsipTextChannel *obj,
-                                 TpHandle        sender,
-                                 const char     *message);
-
+void tpsip_text_channel_receive (TpsipTextChannel  *obj,
+                                 nua_t             *nua,
+                                 nua_handle_t      *nh,
+                                 TpHandle           sender,
+                                 const char        *text,
+                                 gsize              len);
 
 G_END_DECLS
 
