@@ -350,6 +350,7 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
                              G_STRUCT_OFFSET (TpsipMediaChannelClass, group_class),
                              _tpsip_media_channel_add_member,
                              NULL);
+  tp_group_mixin_class_allow_self_removal (object_class);
   tp_group_mixin_class_set_remove_with_reason_func(object_class,
                              tpsip_media_channel_remove_with_reason);
   tp_group_mixin_init_dbus_properties (object_class);
