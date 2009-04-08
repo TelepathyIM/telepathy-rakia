@@ -939,6 +939,16 @@ priv_nua_i_invite_cb (TpsipMediaChannel *self,
   return TRUE;
 }
 
+static guint
+tpsip_media_channel_get_call_state (TpsipMediaChannel *self,
+                                    TpHandle peer)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  return GPOINTER_TO_UINT (g_hash_table_lookup (priv->call_states,
+      GUINT_TO_POINTER (peer)));
+}
+
 static void
 tpsip_media_channel_peer_error (TpsipMediaChannel *self,
                                 TpHandle peer,
@@ -965,6 +975,12 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
       break;
     case 480:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
+      break;
+    case 404:
+      reason = (tpsip_media_channel_get_call_state (self, peer)
+             & (TP_CHANNEL_CALL_STATE_RINGING | TP_CHANNEL_CALL_STATE_QUEUED))
+          ? TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER
+          : TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
       break;
     case 603:
       /* No reason means roughly "rejected" */
