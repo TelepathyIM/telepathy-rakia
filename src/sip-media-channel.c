@@ -973,10 +973,8 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
     case 408:
       reason = TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER;
       break;
-    case 480:
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
-      break;
     case 404:
+    case 480:
       reason = (tpsip_media_channel_get_call_state (self, peer)
              & (TP_CHANNEL_CALL_STATE_RINGING | TP_CHANNEL_CALL_STATE_QUEUED))
           ? TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER
