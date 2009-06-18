@@ -229,19 +229,37 @@ tpsip_connection_set_property (GObject      *object,
     break;
   }
   case PROP_KEEPALIVE_MECHANISM: {
-    priv->keepalive_mechanism = g_value_get_enum (value);
-    if (priv->sofia_nua) {
-      tpsip_conn_update_nua_outbound (self);
-      tpsip_conn_update_nua_keepalive_interval (self);
-    }
+    TpsipConnectionKeepaliveMechanism mech = g_value_get_enum (value);
+    if (priv->keepalive_interval_specified && priv->keepalive_interval == 0)
+      {
+        if (mech != TPSIP_CONNECTION_KEEPALIVE_NONE
+            && mech != TPSIP_CONNECTION_KEEPALIVE_AUTO)
+          g_warning ("keep-alive mechanism selection is ignored when interval is 0");
+      }
+    else
+      {
+        priv->keepalive_mechanism = mech;
+        if (priv->sofia_nua != NULL)
+          {
+            tpsip_conn_update_nua_outbound (self);
+            tpsip_conn_update_nua_keepalive_interval (self);
+          }
+      }
     break;
   }
   case PROP_KEEPALIVE_INTERVAL: {
-    priv->keepalive_interval = g_value_get_int (value);
-    if (priv->sofia_nua
-	&& priv->keepalive_mechanism != TPSIP_CONNECTION_KEEPALIVE_NONE) {
-      tpsip_conn_update_nua_keepalive_interval(self);
-    }
+    priv->keepalive_interval = g_value_get_uint (value);
+    priv->keepalive_interval_specified = TRUE;
+    if (priv->keepalive_interval == 0)
+      {
+        priv->keepalive_mechanism = TPSIP_CONNECTION_KEEPALIVE_NONE;
+        if (priv->sofia_nua != NULL)
+          tpsip_conn_update_nua_outbound (self);
+      }
+    if (priv->sofia_nua)
+      {
+        tpsip_conn_update_nua_keepalive_interval(self);
+      }
     break;
   }
   case PROP_DISCOVER_BINDING: {
@@ -339,7 +357,9 @@ tpsip_connection_get_property (GObject      *object,
     break;
   }
   case PROP_KEEPALIVE_INTERVAL: {
-    g_value_set_int (value, priv->keepalive_interval);
+    /* FIXME: get the keepalive interval from NUA in case anything
+     * really retrieves this property */
+    g_value_set_uint (value, priv->keepalive_interval);
     break;
   }
   case PROP_DISCOVER_BINDING: {
@@ -492,10 +512,10 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
       G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_KEEPALIVE_MECHANISM);
 
-  param_spec = g_param_spec_int ("keepalive-interval", "Keepalive interval",
-      "Interval between keepalives in seconds "
-      "(0 = internal default, -1 = let the stack decide)",
-      -1, G_MAXINT32, -1,
+  param_spec = g_param_spec_uint ("keepalive-interval", "Keepalive interval",
+      "Interval between keepalive probes in seconds "
+      "(0 = disabled, unset = use a default interval)",
+      0, G_MAXUINT32, 0,
       G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_KEEPALIVE_INTERVAL);
 

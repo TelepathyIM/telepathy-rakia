@@ -47,7 +47,7 @@ struct _TpsipConnectionPrivate
   gchar *alias;
   gchar *transport;
   TpsipConnectionKeepaliveMechanism keepalive_mechanism;
-  gint keepalive_interval;
+  guint keepalive_interval;
   gboolean discover_stun;
   gchar *stun_host;
   guint stun_port;
@@ -57,6 +57,7 @@ struct _TpsipConnectionPrivate
   gchar *extra_auth_password;
   gboolean loose_routing;
   gboolean discover_binding;
+  gboolean keepalive_interval_specified;
 
   gboolean dispose_has_run;
 };
