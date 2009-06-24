@@ -32,6 +32,7 @@
 
 #include <sofia-sip/sip.h>
 #include <sofia-sip/sip_header.h>
+#include <sofia-sip/tport_tag.h>
 
 #include "sip-connection-private.h"
 
@@ -416,6 +417,7 @@ tpsip_conn_update_nua_keepalive_interval (TpsipConnection *conn)
 
   nua_set_params (priv->sofia_nua,
                   NUTAG_KEEPALIVE(keepalive_interval),
+                  TPTAG_KEEPALIVE(keepalive_interval),
                   TAG_NULL());
 }
 
