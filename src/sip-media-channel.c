@@ -350,6 +350,7 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
                              G_STRUCT_OFFSET (TpsipMediaChannelClass, group_class),
                              _tpsip_media_channel_add_member,
                              NULL);
+  tp_group_mixin_class_allow_self_removal (object_class);
   tp_group_mixin_class_set_remove_with_reason_func(object_class,
                              tpsip_media_channel_remove_with_reason);
   tp_group_mixin_init_dbus_properties (object_class);
@@ -536,8 +537,6 @@ tpsip_media_channel_dispose (GObject *object)
   DEBUG("enter");
 
   priv->dispose_has_run = TRUE;
-
-  priv_destroy_session(self);
 
   if (!priv->closed)
     tpsip_media_channel_close (self);
@@ -941,6 +940,16 @@ priv_nua_i_invite_cb (TpsipMediaChannel *self,
   return TRUE;
 }
 
+static guint
+tpsip_media_channel_get_call_state (TpsipMediaChannel *self,
+                                    TpHandle peer)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  return GPOINTER_TO_UINT (g_hash_table_lookup (priv->call_states,
+      GUINT_TO_POINTER (peer)));
+}
+
 static void
 tpsip_media_channel_peer_error (TpsipMediaChannel *self,
                                 TpHandle peer,
@@ -966,7 +975,10 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
       break;
     case 404:
     case 480:
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
+      reason = (tpsip_media_channel_get_call_state (self, peer)
+             & (TP_CHANNEL_CALL_STATE_RINGING | TP_CHANNEL_CALL_STATE_QUEUED))
+          ? TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER
+          : TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
       break;
     case 603:
       /* No reason means roughly "rejected" */
@@ -1021,6 +1033,38 @@ tpsip_media_channel_change_call_state (TpsipMediaChannel *self,
     }
 
   return new_state;
+}
+
+static gboolean
+priv_nua_i_bye_cb (TpsipMediaChannel *self,
+                   const TpsipNuaEvent  *ev,
+                   tagi_t             tags[],
+                   gpointer           foo)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
+  TpIntSet *set;
+  TpHandle peer;
+
+  g_return_val_if_fail (priv->session != NULL, FALSE);
+
+  peer = tpsip_media_session_get_peer (priv->session);
+  set = tp_intset_new ();
+  tp_intset_add (set, peer);
+  tp_intset_add (set, mixin->self_handle);
+
+  tp_group_mixin_change_members ((GObject *) self,
+                                 "",
+                                 NULL, /* add */
+                                 set,  /* remove */
+                                 NULL,
+                                 NULL,
+                                 peer,
+                                 TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+
+  tp_intset_destroy (set);
+
+  return TRUE;
 }
 
 static gboolean
@@ -1165,11 +1209,18 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       break;
 
     case nua_callstate_terminated:
+      /* In cases of self-inflicted termination,
+       * we should have already gone through the moves */
+      if (tpsip_media_session_get_state (priv->session)
+          == TPSIP_MEDIA_SESSION_STATE_ENDED)
+        break;
+
       if (status >= 300)
         {
           tpsip_media_channel_peer_error (
                 self, peer, status, ev->text);
         }
+
       tpsip_media_session_change_state (priv->session,
                                         TPSIP_MEDIA_SESSION_STATE_ENDED);
       break;
@@ -1324,6 +1375,10 @@ priv_connect_nua_handlers (TpsipMediaChannel *self, nua_handle_t *nh)
                     G_CALLBACK (priv_nua_i_invite_cb),
                     NULL);
   g_signal_connect (self,
+                    "nua-event::nua_i_bye",
+                    G_CALLBACK (priv_nua_i_bye_cb),
+                    NULL);
+  g_signal_connect (self,
                     "nua-event::nua_i_cancel",
                     G_CALLBACK (priv_nua_i_cancel_cb),
                     NULL);
@@ -1464,12 +1519,32 @@ _tpsip_media_channel_add_member (GObject *iface,
 
   if (priv->initiator == mixin->self_handle)
     {
-      /* case a: outgoing call (we are the initiator, a new handle added) */
+      TpIntSet *set;
+
+      /* case a: an old-school outbound call
+       * (we are the initiator, a new handle added with AddMembers) */
+
       priv_outbound_call (self, handle);
 
-      /* disallow addition of any new members */
-      tp_group_mixin_change_flags ((GObject *) self,
-          0, TP_CHANNEL_GROUP_FLAG_CAN_ADD);
+      /* Backwards compatible behavior:
+       * add the peer to remote pending without waiting for the actual request
+       * to be sent */
+      set = tp_intset_new ();
+      tp_intset_add (set, handle);
+      tp_group_mixin_change_members (iface,
+                                     "",
+                                     NULL,    /* add */
+                                     NULL,    /* remove */
+                                     NULL,    /* local pending */
+                                     set,     /* remote pending */
+                                     mixin->self_handle,        /* actor */
+                                     TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+      tp_intset_destroy (set);
+
+      /* update flags: allow removal and rescinding, no more adding */
+      tp_group_mixin_change_flags (iface,
+          TP_CHANNEL_GROUP_FLAG_CAN_REMOVE | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND,
+          TP_CHANNEL_GROUP_FLAG_CAN_ADD);
 
       return TRUE;
     }
@@ -1525,9 +1600,12 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (obj);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
+  TpIntSet *set = NULL;
+  TpHandle self_handle;
 
-  if (priv->initiator != mixin->self_handle &&
-      handle != mixin->self_handle)
+  self_handle = mixin->self_handle;
+
+  if (priv->initiator != self_handle && handle != self_handle)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_PERMISSION_DENIED,
           "handle %u cannot be removed because you are not the initiator of the"
@@ -1544,16 +1622,35 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
       return FALSE;
     }
 
-  if (handle == mixin->self_handle
+  /* We have excluded all the problem cases.
+   * Now we always want to remove both members on behalf of the local user */
+  set = tp_intset_new ();
+  tp_intset_add (set, self_handle);
+  tp_intset_add (set, tpsip_media_session_get_peer (priv->session));
+  tp_group_mixin_change_members (obj, "",
+                                 NULL,      /* add */
+                                 set,       /* remove */
+                                 NULL,
+                                 NULL,
+                                 self_handle, 0);
+  tp_intset_destroy (set);
+
+  if (handle == self_handle
       && tp_handle_set_is_member (mixin->local_pending, handle))
     {
       /* The user has rejected the call */
+
       gint status;
 
       status = tpsip_status_from_tp_reason (reason);
 
       /* XXX: raise NotAvailable if it's the wrong state? */
       tpsip_media_session_respond (priv->session, status, message);
+
+      /* This session is effectively ended, prevent the nua_i_state handler
+       * from useless work */
+      tpsip_media_session_change_state (priv->session,
+                                        TPSIP_MEDIA_SESSION_STATE_ENDED);
     }
   else
     {

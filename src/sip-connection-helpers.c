@@ -379,8 +379,8 @@ tpsip_conn_update_nua_outbound (TpsipConnection *conn)
 static void
 priv_sanitize_keepalive_interval (TpsipConnectionPrivate *priv)
 {
-  gint minimum_interval;
-  if (priv->keepalive_interval > 0)
+  guint minimum_interval;
+  if (priv->keepalive_interval != 0)
     {
       minimum_interval =
               (priv->keepalive_mechanism == TPSIP_CONNECTION_KEEPALIVE_REGISTER)
@@ -388,7 +388,7 @@ priv_sanitize_keepalive_interval (TpsipConnectionPrivate *priv)
               : TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL;
       if (priv->keepalive_interval < minimum_interval)
         {
-          g_warning ("keepalive interval is too low, pushing to %d", minimum_interval);
+          g_warning ("keepalive interval is too low, pushing to %u", minimum_interval);
           priv->keepalive_interval = minimum_interval;
         }
     }
@@ -400,14 +400,11 @@ tpsip_conn_update_nua_keepalive_interval (TpsipConnection *conn)
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   long keepalive_interval;
 
-  if (priv->keepalive_interval < 0)
+  if (!priv->keepalive_interval_specified)
     return;
 
   if (priv->keepalive_mechanism == TPSIP_CONNECTION_KEEPALIVE_NONE)
     keepalive_interval = 0;
-  else if (priv->keepalive_interval == 0)
-    /* XXX: figure out proper default timeouts depending on transport */
-    keepalive_interval = TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
   else
     {
       priv_sanitize_keepalive_interval (priv);
@@ -432,13 +429,13 @@ tpsip_conn_update_nua_contact_features (TpsipConnection *conn)
   if (priv->keepalive_mechanism != TPSIP_CONNECTION_KEEPALIVE_REGISTER)
     return;
 
-  if (priv->keepalive_interval < 0)
+  if (priv->keepalive_interval == 0)
     return;
 
   priv_sanitize_keepalive_interval (priv);
-  timeout = (priv->keepalive_interval > 0)
-        ? priv->keepalive_interval
-        : TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
+  timeout = priv->keepalive_interval_specified
+      ? priv->keepalive_interval
+      : TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
   contact_features = g_strdup_printf ("expires=%u", timeout);
   nua_set_params(priv->sofia_nua,
 		 NUTAG_M_FEATURES(contact_features),
@@ -789,16 +786,15 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
       if (priv_is_tel_num (sipuri))
         {
           user = priv_strip_tel_num (sipuri);
-          url = url_format (home, "sip:%s@%s;user=phone",
-              user, base_url->url_host);
         }
       else
         {
           user = g_uri_escape_string (sipuri,
               TPSIP_RESERVED_CHARS_ALLOWED_IN_USERNAME, FALSE);
-          url = url_format (home, "sip:%s@%s",
-              user, base_url->url_host);
         }
+
+      url = url_format (home, "sip:%s@%s",
+          user, base_url->url_host);
 
       g_free (user);
 
@@ -837,7 +833,7 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
 
 error:
   if (retval == NULL)
-      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_HANDLE,
           "invalid SIP URI");
 
   su_home_deinit (home);

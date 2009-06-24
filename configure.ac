@@ -3,7 +3,7 @@ AC_PREREQ([2.59])
 m4_define([THIS_PACKAGE],[telepathy-sofiasip])
 m4_define([VERSION_MAJOR],[0])
 m4_define([VERSION_MINOR],[5])
-m4_define([VERSION_MICRO],[14])
+m4_define([VERSION_MICRO],[16])
 m4_define([VERSION_NANO],[1])
 
 m4_define([BASE_VERSION],[VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO])
@@ -26,6 +26,9 @@ dnl check for tools
 AC_PROG_CC
 AC_PROG_CC_STDC
 AM_PROG_MKDIR_P
+
+COMPILER_OPTIMISATIONS
+COMPILER_COVERAGE
 
 dnl decide on error flags
 AS_COMPILER_FLAG(-Wall, WALL="yes", WALL="no")
@@ -59,16 +62,6 @@ if test x$enable_syslog = xyes; then
   AC_DEFINE(ENABLE_SYSLOG, [], [Enable syslog handler for Sofia log messages])
 fi
 
-AC_ARG_ENABLE(coverage,
-  AC_HELP_STRING([--enable-coverage],[compile with coverage info]),
-  [enable_coverage=$enableval],
-  [enable_coverage=no]
-)
-if test x$enable_coverage = xyes; then
-  COVERAGE_CFLAGS="-g -fprofile-arcs -ftest-coverage"
-fi
-AC_SUBST(COVERAGE_CFLAGS)
-
 dnl GTK docs
 GTK_DOC_CHECK
 
@@ -97,7 +90,7 @@ AC_SUBST(SOFIA_SIP_UA_CFLAGS)
 AC_SUBST(SOFIA_SIP_UA_VERSION)
 
 dnl Check for telepathy-glib
-PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.7.17])
+PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.7.27])
 AC_SUBST(TELEPATHY_GLIB_CFLAGS)
 AC_SUBST(TELEPATHY_GLIB_LIBS)
 

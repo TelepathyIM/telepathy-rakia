@@ -1071,8 +1071,6 @@ tpsip_tp_media_type (sdp_media_e sip_mtype)
       case sdp_media_video: return TP_MEDIA_STREAM_TYPE_VIDEO; 
       default: return G_MAXUINT;
     }
-
-  g_assert_not_reached();
 }
 
 /**
@@ -1675,12 +1673,12 @@ static void
 priv_append_rtpmaps (const GPtrArray *codecs, GString *mline, GString *alines)
 {
   GValue codec = { 0, };
-  gchar *co_name;
+  gchar *co_name = NULL;
   guint co_id;
   /* guint co_type; */
   guint co_clockrate;
   guint co_channels;
-  GHashTable *co_params;
+  GHashTable *co_params = NULL;
   guint i;
 
   g_value_init (&codec, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CODEC);
@@ -1726,7 +1724,9 @@ priv_append_rtpmaps (const GPtrArray *codecs, GString *mline, GString *alines)
       g_string_append_printf (mline, " %u", co_id);
 
       g_free (co_name);
+      co_name = NULL;
       g_hash_table_destroy (co_params);
+      co_params = NULL;
     }
 }
 
@@ -1750,7 +1750,6 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   gchar *tr_profile = NULL;
   guint tr_port;
   guint tr_component;
-  guint tr_proto;
   /* guint tr_type; */
   /* gdouble tr_pref; */
   guint rtcp_port = 0;
@@ -1772,6 +1771,7 @@ priv_update_local_sdp(TpsipMediaStream *stream)
       GValueArray *candidate;
       const gchar *candidate_id;
       const GPtrArray *ca_tports;
+      guint tr_proto = TP_MEDIA_STREAM_BASE_PROTO_UDP;
       guint j;
 
       candidate = g_ptr_array_index (candidates, i);

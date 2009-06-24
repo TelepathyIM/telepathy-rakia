@@ -69,7 +69,7 @@ typedef struct {
     gboolean loose_routing;
     gboolean discover_binding;
     gchar *keepalive_mechanism;
-    gint keepalive_interval;
+    guint keepalive_interval;
     gboolean discover_stun;
     gchar *stun_server;
     guint stun_port;
@@ -173,8 +173,8 @@ static const TpCMParamSpec tpsip_params[] = {
     /* Mechanism used for connection keepalive maintenance */
     { "keepalive-mechanism", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, keepalive_mechanism) },
-    /* KA interval */
-    { "keepalive-interval", DBUS_TYPE_INT32_AS_STRING, G_TYPE_INT,
+    /* Keep-alive interval */
+    { "keepalive-interval", DBUS_TYPE_UINT32_AS_STRING, G_TYPE_UINT,
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, keepalive_interval) },
     /* Use SRV DNS lookup to discover STUN server */
     { "discover-stun", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,

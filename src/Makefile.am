@@ -1,7 +1,7 @@
 #
 # Makefile.am for telepathy-sofiasip/src
 #
-# Copyright (C) 2006-2008 Nokia Corporation
+# Copyright (C) 2006-2009 Nokia Corporation
 # Contact: Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
 # Licensed under LGPL. See file COPYING.
 #
@@ -122,3 +122,5 @@ EXTRA_DIST = signals-marshal.list
 
 # Correctly clean the generated headers, but keep the xml description
 CLEANFILES = $(BUILT_SOURCES) $(manager_DATA)
+CLEANFILES += *.gcda *.gcno
+
