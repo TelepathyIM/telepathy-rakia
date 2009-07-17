@@ -808,7 +808,6 @@ tpsip_connection_dispose (GObject *object)
    * disconnect */
   g_assert (base->status == TP_CONNECTION_STATUS_DISCONNECTED
       || base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
-  g_assert (base->self_handle == 0);
 
   /* the base class owns channel factories/managers,
    * here we just nullify the references */
