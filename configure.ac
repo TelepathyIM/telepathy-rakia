@@ -20,7 +20,7 @@ AS_VERSION(THIS_PACKAGE, TELEPATHY_SIP_VERSION,
 AM_INIT_AUTOMAKE([1.8 -Wno-portability])
 
 AM_PROG_LIBTOOL
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADER([config.h])
 
 dnl check for tools
 AC_PROG_CC
@@ -93,6 +93,28 @@ dnl Check for telepathy-glib
 PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.7.27])
 AC_SUBST(TELEPATHY_GLIB_CFLAGS)
 AC_SUBST(TELEPATHY_GLIB_LIBS)
+
+dnl Check for optional IP heartbeat support
+AC_ARG_WITH(iphb,
+  AC_HELP_STRING([--with-iphb],[Use IP heartbeat support in Maemo]),
+  [],
+  [with_iphb=no]
+)
+if test "x$with_iphb" != xno; then
+  AC_CHECK_LIB(iphb, [iphb_open],
+    [
+      AC_DEFINE([HAVE_LIBIPHB], [], [IP heartbeat library is available])
+      IPHB_CFLAGS='-I$(includedir)/iphbd'
+      IPHB_LIBS=-liphb
+    ],
+    [AC_MSG_ERROR([IP heartbeat library not found])]
+  )
+else
+  IPHB_CFLAGS=
+  IPHB_LIBS=
+fi
+AC_SUBST(IPHB_CFLAGS)
+AC_SUBST(IPHB_LIBS)
 
 dnl Check for code generation tools
 XSLTPROC=
