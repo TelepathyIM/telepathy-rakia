@@ -1177,12 +1177,18 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
   switch ((enum nua_callstate)ss_state)
     {
     case nua_callstate_proceeding:
-      if (status == 180)
-        tpsip_media_channel_change_call_state (self, peer,
-                TP_CHANNEL_CALL_STATE_RINGING, 0);
-      else if (status == 182)
-        tpsip_media_channel_change_call_state (self, peer,
-                TP_CHANNEL_CALL_STATE_QUEUED, 0);
+      switch (status)
+        {
+          case 180:
+          case 183: /* FIXME: use state IN_PROGRESS when we get it from the spec */
+            tpsip_media_channel_change_call_state (self, peer,
+                    TP_CHANNEL_CALL_STATE_RINGING, 0);
+            break;
+          case 182:
+            tpsip_media_channel_change_call_state (self, peer,
+                    TP_CHANNEL_CALL_STATE_QUEUED, 0);
+            break;
+        }
       break;
 
     case nua_callstate_completing:
