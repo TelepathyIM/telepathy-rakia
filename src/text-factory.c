@@ -569,6 +569,12 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
       goto end;
     }
 
+  /* Send the final response immediately as recommended by RFC 3428 */
+  nua_respond (ev->nua_handle,
+               SIP_200_OK,
+               NUTAG_WITH_THIS(ev->nua),
+               TAG_END());
+
   DEBUG("Got incoming message from <%s>",
         tp_handle_inspect (contact_repo, handle));
 
@@ -578,15 +584,8 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
       channel = tpsip_text_factory_new_channel (fac,
           handle, handle, NULL);
 
-  /* Return a provisional response to quench retransmissions.
-   * The acknowledgement will be signalled later with 200 OK */
-  nua_respond (ev->nua_handle,
-               SIP_182_QUEUED,
-               NUTAG_WITH_THIS(ev->nua),
-               TAG_END());
-
   tpsip_text_channel_receive (channel,
-      ev->nua, ev->nua_handle, handle, text, len);
+      ev->nua, handle, text, len);
 
   tp_handle_unref (contact_repo, handle);
 
