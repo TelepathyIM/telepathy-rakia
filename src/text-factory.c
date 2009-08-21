@@ -468,7 +468,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
   const sip_t *sip = ev->sip;
   const char *text = "";
   gsize len = 0;
-  gboolean own_text = FALSE;
+  char *allocated_text = NULL;
 
   /* Block anything else except text/plain messages (like isComposings) */
   if (sip->sip_content_type
@@ -497,10 +497,11 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
         {
           GError *error;
           gsize in_len;
-          text = g_convert (sip->sip_payload->pl_data, sip->sip_payload->pl_len,
+          allocated_text = g_convert (
+              sip->sip_payload->pl_data, sip->sip_payload->pl_len,
               "UTF-8", charset, &in_len, &len, &error);
 
-          if (text == NULL)
+          if (allocated_text == NULL)
             {
               gint status;
               const char *message = NULL;
@@ -526,7 +527,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
               goto end;
             }
 
-          own_text = TRUE;
+          text = allocated_text;
 
           if (in_len != sip->sip_payload->pl_len)
             {
@@ -590,8 +591,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
   tp_handle_unref (contact_repo, handle);
 
 end:
-  if (own_text)
-    g_free ((gpointer) text);
+  g_free (allocated_text);
 
   return TRUE;
 }
