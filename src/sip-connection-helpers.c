@@ -795,12 +795,31 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
               TPSIP_RESERVED_CHARS_ALLOWED_IN_USERNAME, FALSE);
         }
 
-      url = url_format (home, "sip:%s@%s",
-          user, base_url->url_host);
+      if (base_url->url_type == url_sips)
+        url = url_format (home, "sips:%s@%s",
+            user, base_url->url_host);
+      else
+        url = url_format (home, "sip:%s@%s",
+            user, base_url->url_host);
 
       g_free (user);
 
       if (!url) goto error;
+    }
+  else if (url->url_scheme == NULL)
+    {
+      /* Set the scheme to SIP or SIPS accordingly to the connection's
+       * transport preference */
+      if (g_ascii_strcasecmp (priv->transport, "tls") == 0)
+        {
+          url->url_type = url_sips;
+          url->url_scheme = "sips";
+        }
+      else
+        {
+          url->url_type = url_sip;
+          url->url_scheme = "sip";
+        }
     }
 
   if (url_sanitize (url) != 0) goto error;
