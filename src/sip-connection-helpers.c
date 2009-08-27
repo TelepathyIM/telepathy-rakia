@@ -810,7 +810,8 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
     {
       /* Set the scheme to SIP or SIPS accordingly to the connection's
        * transport preference */
-      if (g_ascii_strcasecmp (priv->transport, "tls") == 0)
+      if (priv->transport != NULL
+          && g_ascii_strcasecmp (priv->transport, "tls") == 0)
         {
           url->url_type = url_sips;
           url->url_scheme = "sips";
