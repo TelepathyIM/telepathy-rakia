@@ -60,7 +60,6 @@ GType tpsip_text_channel_get_type(void);
 
 void tpsip_text_channel_receive (TpsipTextChannel  *obj,
                                  nua_t             *nua,
-                                 nua_handle_t      *nh,
                                  TpHandle           sender,
                                  const char        *text,
                                  gsize              len);
