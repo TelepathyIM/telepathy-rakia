@@ -122,11 +122,9 @@ AC_CHECK_PROGS([XSLTPROC], [xsltproc])
 if test -z "$XSLTPROC"; then
   AC_MSG_ERROR([xsltproc (from the libxslt source package) is required])
 fi
-PYTHON=
-AC_CHECK_PROGS([PYTHON], [python2.7 python2.6 python2.5 python2.4 python2.3 python])
-if test -z "$PYTHON"; then
-  AC_MSG_ERROR([Python is required to compile this package])
-fi
+AM_PATH_PYTHON([2.3],[],
+  [AC_MSG_ERROR([Python is required to compile this package])]
+)
 
 dnl Check for twisted python for tests
 AC_MSG_CHECKING([for TwistedPython with SIP protocol support])
