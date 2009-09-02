@@ -77,6 +77,8 @@ gboolean tpsip_media_stream_is_local_ready (TpsipMediaStream *self);
 gboolean tpsip_media_stream_is_codec_intersect_pending (TpsipMediaStream *self);
 void tpsip_media_stream_start_telephony_event (TpsipMediaStream *self, guchar event);
 void tpsip_media_stream_stop_telephony_event  (TpsipMediaStream *self);
+gboolean tpsip_media_stream_request_hold_state (TpsipMediaStream *self,
+                                                gboolean hold);
 
 guint tpsip_tp_media_type (sdp_media_e sip_mtype);
 

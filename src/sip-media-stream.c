@@ -124,6 +124,7 @@ struct _TpsipMediaStreamPrivate
   gboolean push_remote_cands_pending;   /* SetRemoteCandidates emission is pending */
   gboolean push_remote_codecs_pending;  /* SetRemoteCodecs emission is pending */
   gboolean codec_intersect_pending;     /* codec intersection is pending */
+  gboolean requested_hold_state;        /* hold state last requested from the stream handler */
   gboolean dispose_has_run;
 };
 
@@ -841,6 +842,10 @@ static void
 tpsip_media_stream_unhold_failure (TpSvcMediaStreamHandler *self,
                                    DBusGMethodInvocation *context)
 {
+  /* Not doing anything to hold_state or requested_hold_state,
+   * because the session is going to put all streams on hold after getting
+   * the signal below */
+
   g_signal_emit (self, signals[SIG_UNHOLD_FAILURE], 0);
   tp_svc_media_stream_handler_return_from_unhold_failure (context);
 }
@@ -1257,6 +1262,20 @@ tpsip_media_stream_stop_telephony_event  (TpsipMediaStream *self)
 {
   tp_svc_media_stream_handler_emit_stop_telephony_event (
         (TpSvcMediaStreamHandler *)self);
+}
+
+gboolean
+tpsip_media_stream_request_hold_state (TpsipMediaStream *self, gboolean hold)
+{
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+
+  if ((!priv->requested_hold_state) != (!hold))
+    {
+      priv->requested_hold_state = hold;
+      tp_svc_media_stream_handler_emit_set_stream_held (self, hold);
+      return TRUE;
+    }
+  return FALSE;
 }
 
 static void

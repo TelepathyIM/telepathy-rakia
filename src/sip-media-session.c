@@ -1166,7 +1166,8 @@ priv_initiate_hold (TpsipMediaSession *self,
 
   if (hold)
     {
-      if (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD)
+      if (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD
+          || priv->hold_state == TP_LOCAL_HOLD_STATE_PENDING_HOLD)
         {
           g_message ("redundant hold request");
           return;
@@ -1174,7 +1175,8 @@ priv_initiate_hold (TpsipMediaSession *self,
     }
   else
     {
-      if (priv->hold_state == TP_LOCAL_HOLD_STATE_UNHELD)
+      if (priv->hold_state == TP_LOCAL_HOLD_STATE_UNHELD
+          || priv->hold_state == TP_LOCAL_HOLD_STATE_PENDING_UNHOLD)
         {
           g_message ("redundant unhold request");
           return;
@@ -1185,18 +1187,9 @@ priv_initiate_hold (TpsipMediaSession *self,
   for (i = 0; i < priv->streams->len; i++)
     {
       stream = g_ptr_array_index(priv->streams, i);
-      if (stream != NULL)
-        {
-          gboolean stream_held = FALSE;
-          g_object_get (stream,
-                        "hold-state", &stream_held,
-                        NULL);
-          if ((!stream_held) != (!hold))
-            {
-              tp_svc_media_stream_handler_emit_set_stream_held (stream, hold);
-              stream_hold_requested = TRUE;
-            }
-        }
+      if (stream != NULL
+          && tpsip_media_stream_request_hold_state (stream, hold))
+        stream_hold_requested = TRUE;
     }
 
   if (stream_hold_requested)
@@ -1938,10 +1931,7 @@ priv_stream_hold_state_cb (TpsipMediaStream *stream,
       break;
     default:
       g_message ("unexpected hold state change from a stream");
-
-      /* Try to follow the changes and report the resulting hold state */
-      g_object_get (stream, "hold-state", &hold, NULL);
-      priv->hold_reason = TP_LOCAL_HOLD_STATE_REASON_NONE;
+      return;
     }
 
   /* Check if all streams have reached the desired hold state */
