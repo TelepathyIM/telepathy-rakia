@@ -1218,25 +1218,45 @@ priv_finalize_hold (TpsipMediaSession *self)
   guint hold_mask;
   guint unhold_mask;
   guint i;
+  gboolean held = FALSE;
 
   DEBUG("enter");
 
   switch (priv->hold_state)
     {
     case TP_LOCAL_HOLD_STATE_PENDING_HOLD:
+      held = TRUE;
+      break;
+    case TP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+      held = FALSE;
+      break;
+    default:
+      /* Streams changed state without request, signal this to the client.
+       * All streams should have the same hold state at this point,
+       * so just query one of them for the current hold state */
+      stream = NULL;
+      for (i = 0; i < priv->streams->len; i++)
+        {
+          stream = g_ptr_array_index(priv->streams, i);
+          if (stream != NULL)
+            break;
+        }
+      g_return_if_fail (stream != NULL);
+
+      g_object_get (stream, "hold-state", &held, NULL);
+    }
+
+  if (held)
+    {
       final_hold_state = TP_LOCAL_HOLD_STATE_HELD;
       hold_mask = TP_MEDIA_STREAM_DIRECTION_SEND;
       unhold_mask = 0;
-      break;
-    case TP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+    }
+  else
+    {
       final_hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
       hold_mask = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
       unhold_mask = TP_MEDIA_STREAM_DIRECTION_RECEIVE;
-      break;
-    default:
-      /* This internal function must not be called in final hold states */
-      g_assert_not_reached ();
-      return;
     }
 
   priv->hold_state = final_hold_state;
@@ -1931,7 +1951,10 @@ priv_stream_hold_state_cb (TpsipMediaStream *stream,
       break;
     default:
       g_message ("unexpected hold state change from a stream");
-      return;
+
+      /* Try to follow the changes and report the resulting hold state */
+      g_object_get (stream, "hold-state", &hold, NULL);
+      priv->hold_reason = TP_LOCAL_HOLD_STATE_REASON_NONE;
     }
 
   /* Check if all streams have reached the desired hold state */
