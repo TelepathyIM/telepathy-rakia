@@ -72,6 +72,13 @@ const url_t* tpsip_conn_get_contact_url (TpsipConnection *conn,
 TpHandle tpsip_handle_parse_from (TpHandleRepoIface *contact_repo,
                                   const sip_t *sip);
 
+/***********************************************************************
+ * Heartbeat management for keepalives
+ ***********************************************************************/
+
+void tpsip_conn_heartbeat_init (TpsipConnection *self);
+void tpsip_conn_heartbeat_shutdown (TpsipConnection *self);
+
 G_END_DECLS
 
 #endif /* #ifndef __TPSIP_CONNECTION_HELPERS_H__*/

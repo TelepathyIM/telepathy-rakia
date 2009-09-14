@@ -37,19 +37,11 @@
 #include <tpsip/sofia-decls.h>
 #include <sofia-sip/su_glib.h>
 
-#ifdef HAVE_LIBIPHB
-#include <libiphb.h>
-#endif
-
 #include "sip-connection-manager.h"
 #include "sip-connection.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
-
-/* Time bounds for heartbeat, in seconds */
-#define TPSIP_HEARTBEAT_MIN 0
-#define TPSIP_HEARTBEAT_MAX 30
 
 
 G_DEFINE_TYPE(TpsipConnectionManager, tpsip_connection_manager,
@@ -210,102 +202,9 @@ const TpCMProtocolSpec tpsip_protocols[] = {
 struct _TpsipConnectionManagerPrivate
 {
   su_root_t *sofia_root;
-
-#ifdef HAVE_LIBIPHB
-  iphb_t    heartbeat;
-  su_wait_t heartbeat_wait[1];
-  int       heartbeat_wait_id;
-#endif
 };
 
 #define TPSIP_CONNECTION_MANAGER_GET_PRIVATE(obj) ((obj)->priv)
-
-#ifdef HAVE_LIBIPHB
-
-static void heartbeat_shutdown (TpsipConnectionManager *self);
-
-static int
-heartbeat_wakeup (TpsipConnectionManager *self,
-                  su_wait_t *wait,
-                  void *user_data)
-{
-  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
-
-  DEBUG("tick");
-
-  g_assert (priv->heartbeat != NULL);
-
-  if ((wait->revents & (SU_WAIT_HUP | SU_WAIT_ERR)) != 0)
-    {
-      g_warning ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
-      heartbeat_shutdown (self);
-      return 0;
-    }
-
-  iphb_wait (priv->heartbeat, TPSIP_HEARTBEAT_MIN, TPSIP_HEARTBEAT_MAX, 0);
-
-  return 0;
-}
-
-#endif /* HAVE_LIBIPHB */
-
-static void
-heartbeat_init (TpsipConnectionManager *self)
-{
-#ifdef HAVE_LIBIPHB
-  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
-  int wait_id;
-  int reference_interval = 0;
-
-  su_root_set_max_defer (priv->sofia_root, TPSIP_HEARTBEAT_MAX * 1000L + 50L);
-
-  priv->heartbeat = iphb_open (&reference_interval);
-
-  if (priv->heartbeat == NULL)
-    {
-      g_warning ("opening IP heartbeat failed: %s", strerror (errno));
-      return;
-    }
-
-  DEBUG("heartbeat opened with reference interval %d", reference_interval);
-
-  su_wait_init (priv->heartbeat_wait);
-  if (su_wait_create (priv->heartbeat_wait,
-                      iphb_get_fd (priv->heartbeat),
-                      SU_WAIT_IN) != 0)
-    g_critical ("could not create a wait object");
-
-  wait_id = su_root_register (priv->sofia_root,
-      priv->heartbeat_wait, heartbeat_wakeup, NULL, 0);
-
-  g_return_if_fail (wait_id > 0);
-  priv->heartbeat_wait_id = wait_id;
-
-  /* Prime the heartbeat for the first time.
-   * The correct sequence is iphb_wait() -> poll */
-  iphb_wait (priv->heartbeat, TPSIP_HEARTBEAT_MIN, TPSIP_HEARTBEAT_MAX, 0);
-
-#endif /* HAVE_LIBIPHB */
-}
-
-static void
-heartbeat_shutdown (TpsipConnectionManager *self)
-{
-#ifdef HAVE_LIBIPHB
-  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
-
-  if (priv->heartbeat_wait_id == 0)
-    return;
-
-  su_root_deregister (priv->sofia_root, priv->heartbeat_wait_id);
-  priv->heartbeat_wait_id = 0;
-
-  su_wait_destroy (priv->heartbeat_wait);
-
-  iphb_close (priv->heartbeat);
-  priv->heartbeat = NULL;
-#endif /* HAVE_LIBIPHB */
-}
 
 static void
 tpsip_connection_manager_init (TpsipConnectionManager *obj)
@@ -321,7 +220,7 @@ tpsip_connection_manager_init (TpsipConnectionManager *obj)
   source = su_root_gsource(priv->sofia_root);
   g_source_attach(source, NULL);
 
-  heartbeat_init (obj);
+  su_root_set_max_defer (priv->sofia_root, TPSIP_DEFER_TIMEOUT * 1000L);
 }
 
 static void tpsip_connection_manager_finalize (GObject *object);
@@ -351,8 +250,6 @@ tpsip_connection_manager_finalize (GObject *object)
   TpsipConnectionManager *self = TPSIP_CONNECTION_MANAGER (object);
   TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
   GSource *source;
-
-  heartbeat_shutdown (self);
 
   source = su_root_gsource(priv->sofia_root);
   g_source_destroy(source);

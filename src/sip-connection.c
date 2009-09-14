@@ -780,6 +780,8 @@ tpsip_connection_shut_down (TpBaseConnection *base)
   /* We disposed of the REGISTER handle in the disconnected method */
   g_assert (priv->register_op == NULL);
 
+  tpsip_conn_heartbeat_shutdown (self);
+
   if (priv->sofia_nua != NULL)
     nua_shutdown (priv->sofia_nua);
 
@@ -950,6 +952,8 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
   tpsip_event_target_attach (priv->register_op, (GObject *) self);
 
   nua_register (priv->register_op, TAG_NULL());
+
+  tpsip_conn_heartbeat_init (self);
 
   return TRUE;
 }

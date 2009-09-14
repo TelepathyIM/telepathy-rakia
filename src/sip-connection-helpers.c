@@ -18,6 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <config.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -932,4 +934,98 @@ tpsip_handle_parse_from (TpHandleRepoIface *contact_repo,
     }
 
   return handle;
+}
+
+#ifdef HAVE_LIBIPHB
+
+static int
+heartbeat_wakeup (su_root_magic_t *foo,
+                  su_wait_t *wait,
+                  void *user_data)
+{
+  TpsipConnection *self = (TpsipConnection *) user_data;
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  gint keepalive_earliest; 
+
+  DEBUG("tick");
+
+  g_assert (priv->heartbeat != NULL);
+
+  if ((wait->revents & (SU_WAIT_HUP | SU_WAIT_ERR)) != 0)
+    {
+      g_warning ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
+      tpsip_conn_heartbeat_shutdown (self);
+      return 0;
+    }
+
+  keepalive_earliest = (int) priv->keepalive_interval - TPSIP_DEFER_TIMEOUT;
+  if (keepalive_earliest < 0)
+    keepalive_earliest = 0;
+
+  iphb_wait (priv->heartbeat,
+      (gushort) keepalive_earliest,
+      (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT),
+      0);
+
+  return 0;
+}
+
+#endif /* HAVE_LIBIPHB */
+
+void
+tpsip_conn_heartbeat_init (TpsipConnection *self)
+{
+#ifdef HAVE_LIBIPHB
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  int wait_id;
+  int reference_interval = 0;
+
+  priv->heartbeat = iphb_open (&reference_interval);
+
+  if (priv->heartbeat == NULL)
+    {
+      g_warning ("opening IP heartbeat failed: %s", strerror (errno));
+      return;
+    }
+
+  DEBUG("heartbeat opened with reference interval %d", reference_interval);
+
+  su_wait_init (priv->heartbeat_wait);
+  if (su_wait_create (priv->heartbeat_wait,
+                      iphb_get_fd (priv->heartbeat),
+                      SU_WAIT_IN) != 0)
+    g_critical ("could not create a wait object");
+
+  wait_id = su_root_register (priv->sofia_root,
+      priv->heartbeat_wait, heartbeat_wakeup, self, 0);
+
+  g_return_if_fail (wait_id > 0);
+  priv->heartbeat_wait_id = wait_id;
+
+  /* Prime the heartbeat for the first time.
+   * The minimum wakeup timeout is 0 to fall in step with other
+   * clients using the same interval */
+  iphb_wait (priv->heartbeat,
+      0, (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT), 0);
+
+#endif /* HAVE_LIBIPHB */
+}
+
+void
+tpsip_conn_heartbeat_shutdown (TpsipConnection *self)
+{
+#ifdef HAVE_LIBIPHB
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+
+  if (priv->heartbeat_wait_id == 0)
+    return;
+
+  su_root_deregister (priv->sofia_root, priv->heartbeat_wait_id);
+  priv->heartbeat_wait_id = 0;
+
+  su_wait_destroy (priv->heartbeat_wait);
+
+  iphb_close (priv->heartbeat);
+  priv->heartbeat = NULL;
+#endif /* HAVE_LIBIPHB */
 }

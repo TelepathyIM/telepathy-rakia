@@ -21,10 +21,15 @@
 #ifndef __TPSIP_CONNECTION_PRIVATE_H__
 #define __TPSIP_CONNECTION_PRIVATE_H__
 
+#include <config.h>
 #include "media-factory.h"
 
 #include <tpsip/sofia-decls.h>
 #include <sofia-sip/sresolv.h>
+
+#ifdef HAVE_LIBIPHB
+#include <libiphb.h>
+#endif
 
 struct _TpsipConnectionPrivate
 {
@@ -36,6 +41,12 @@ struct _TpsipConnectionPrivate
   const url_t *account_url;
   url_t *proxy_url;
   url_t *registrar_url;
+
+#ifdef HAVE_LIBIPHB
+  iphb_t    heartbeat;
+  su_wait_t heartbeat_wait[1];
+  int       heartbeat_wait_id;
+#endif
 
   gchar *registrar_realm;
 
