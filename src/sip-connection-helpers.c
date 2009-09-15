@@ -951,7 +951,7 @@ heartbeat_wakeup (su_root_magic_t *foo,
 
   g_assert (priv->heartbeat != NULL);
 
-  if ((wait->revents & (SU_WAIT_HUP | SU_WAIT_ERR)) != 0)
+  if ((wait->revents & (SU_WAIT_IN | SU_WAIT_HUP | SU_WAIT_ERR)) != SU_WAIT_IN)
     {
       g_warning ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
       tpsip_conn_heartbeat_shutdown (self);
@@ -962,10 +962,15 @@ heartbeat_wakeup (su_root_magic_t *foo,
   if (keepalive_earliest < 0)
     keepalive_earliest = 0;
 
-  iphb_wait (priv->heartbeat,
-      (gushort) keepalive_earliest,
-      (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT),
-      0);
+  if (iphb_wait (priv->heartbeat,
+        (gushort) keepalive_earliest,
+        (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT),
+        0) < 0)
+    {
+      g_warning ("iphb_wait failed");
+      tpsip_conn_heartbeat_shutdown (self);
+      return 0;
+    }
 
   return 0;
 }
@@ -979,6 +984,8 @@ tpsip_conn_heartbeat_init (TpsipConnection *self)
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
   int wait_id;
   int reference_interval = 0;
+
+  g_assert (priv->heartbeat == NULL);
 
   priv->heartbeat = iphb_open (&reference_interval);
 
@@ -1005,8 +1012,12 @@ tpsip_conn_heartbeat_init (TpsipConnection *self)
   /* Prime the heartbeat for the first time.
    * The minimum wakeup timeout is 0 to fall in step with other
    * clients using the same interval */
-  iphb_wait (priv->heartbeat,
-      0, (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT), 0);
+  if (iphb_wait (priv->heartbeat,
+        0, (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT), 0) < 0)
+    {
+      g_warning ("iphb_wait failed");
+      tpsip_conn_heartbeat_shutdown (self);
+    }
 
 #endif /* HAVE_LIBIPHB */
 }
