@@ -727,6 +727,7 @@ tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
                                     tagi_t               tags[],
                                     gpointer             foo)
 {
+  TpBaseConnection *base = (TpBaseConnection *) self;
   TpConnectionStatus conn_status = TP_CONNECTION_STATUS_DISCONNECTED;
   TpConnectionStatusReason reason = 0;
 
@@ -755,14 +756,18 @@ tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
         }
       else /* if (ev->status == 200) */
         {
+          if (base->status != TP_CONNECTION_STATUS_CONNECTING)
+            return TRUE;
+
           DEBUG("succesfully registered to the network");
           conn_status = TP_CONNECTION_STATUS_CONNECTED;
           reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
+
+          tpsip_conn_heartbeat_init (self);
         }
     }
 
-  tp_base_connection_change_status ((TpBaseConnection *) self,
-                                    conn_status, reason);
+  tp_base_connection_change_status (base, conn_status, reason);
 
   return TRUE;
 }
@@ -952,8 +957,6 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
   tpsip_event_target_attach (priv->register_op, (GObject *) self);
 
   nua_register (priv->register_op, TAG_NULL());
-
-  tpsip_conn_heartbeat_init (self);
 
   return TRUE;
 }
