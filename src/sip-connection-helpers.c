@@ -69,6 +69,8 @@ static sip_from_t *
 priv_sip_from_url_make (TpsipConnection *conn,
                         su_home_t *home)
 {
+  static GRegex *escape_regex = NULL;
+
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   sip_from_t *from;
   gchar *alias = NULL;
@@ -80,7 +82,27 @@ priv_sip_from_url_make (TpsipConnection *conn,
 
   g_object_get (conn, "alias", &alias, NULL);
   if (alias != NULL)
-    from->a_display = su_strdup (home, alias);
+    {
+      gchar *escaped_alias;
+
+      /* Make the alias into a quoted string, escaping all characters
+       * that cannot go verbatim into a quoted string */
+
+      if (escape_regex == NULL)
+        {
+          escape_regex = g_regex_new (
+              "[\"\\\\[:cntrl:]]", G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+        }
+
+      escaped_alias = g_regex_replace (escape_regex, alias, -1, 0,
+          "\\\\\\0", 0, NULL);
+
+      g_free (alias);
+
+      from->a_display = su_strcat_all (home, "\"", escaped_alias, "\"", NULL);
+
+      g_free (escaped_alias);
+    }
 
   return from;
 }
