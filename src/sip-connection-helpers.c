@@ -91,7 +91,8 @@ priv_sip_from_url_make (TpsipConnection *conn,
       if (escape_regex == NULL)
         {
           escape_regex = g_regex_new (
-              "[\"\\\\[:cntrl:]]", G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+              "[\"\\\\\\x01-\\x09\\x0b\\x0c\\x0e-\\x1f\\x7f]",
+              G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
         }
 
       escaped_alias = g_regex_replace (escape_regex, alias, -1, 0,
