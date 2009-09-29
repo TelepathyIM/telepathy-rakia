@@ -36,5 +36,12 @@ def test(q, bus, conn, sip_proxy):
     from_header = event.sip_message.headers['from'][0]
     assert from_header.startswith('"foo@bar.baz" <' + self_uri + '>'), from_header
 
+    # test if escaping and whitespace normalization works
+    conn.Aliasing.SetAliases({self_handle: 'foo " bar \\\r\n baz\t'})
+    text_iface.Send(0, 'Hello again')
+    event = q.expect('sip-message')
+    from_header = event.sip_message.headers['from'][0]
+    assert from_header.startswith(r'"foo \" bar \\ baz " <' + self_uri + '>'), from_header
+
 if __name__ == '__main__':
     exec_test(test)
