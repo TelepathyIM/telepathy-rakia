@@ -220,7 +220,9 @@ tpsip_connection_manager_init (TpsipConnectionManager *obj)
   source = su_root_gsource(priv->sofia_root);
   g_source_attach(source, NULL);
 
+#ifdef HAVE_LIBIPHB
   su_root_set_max_defer (priv->sofia_root, TPSIP_DEFER_TIMEOUT * 1000L);
+#endif
 }
 
 static void tpsip_connection_manager_finalize (GObject *object);
