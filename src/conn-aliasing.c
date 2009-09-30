@@ -27,6 +27,8 @@
 
 #include "sip-connection-helpers.h"
 
+#include <string.h>
+
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
@@ -203,6 +205,31 @@ emit_self_alias_change (TpsipConnection *self, const gchar *alias)
   g_value_unset (&change_pair);
 }
 
+static const gchar *
+collapse_whitespace (const gchar *str, gchar **to_free)
+{
+  static GRegex *whitespace_regex = NULL;
+
+  const gchar *p;
+  gchar *subst_res;
+
+  p = (const gchar *) strpbrk (str, " \t\r\n");
+  if (p == NULL)
+    return str;
+
+  if (whitespace_regex == NULL)
+    {
+      whitespace_regex = g_regex_new ("[[:space:]]+",
+          G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+    }
+
+  subst_res = g_regex_replace_literal (whitespace_regex, str, -1, p - str, " ",
+      0, NULL);
+
+  *to_free = subst_res;
+  return subst_res;
+}
+
 static void
 tpsip_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
                               GHashTable *aliases,
@@ -211,6 +238,7 @@ tpsip_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
   TpsipConnection *self = TPSIP_CONNECTION (iface);
   TpBaseConnection *base = (TpBaseConnection *) self;
   const gchar *alias;
+  gchar *to_free = NULL;
 
   TP_BASE_CONNECTION_ERROR_IF_NOT_CONNECTED (base, context);
 
@@ -226,10 +254,14 @@ tpsip_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
       return;
     }
 
+  alias = collapse_whitespace (alias, &to_free);
+
   DEBUG("setting alias for self: %s", alias);
   g_object_set (self, "alias", alias, NULL);
 
   emit_self_alias_change (self, alias);
+
+  g_free (to_free);
 
   tp_svc_connection_interface_aliasing_return_from_set_aliases (context);
 }
