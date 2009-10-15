@@ -131,9 +131,7 @@ static const TpCMParamSpec tpsip_params[] = {
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, auth_user) },
     /* Password */
     { "password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, /* according to the .manager file this is 
-      TP_CONN_MGR_PARAM_FLAG_REQUIRED | TP_CONN_MGR_PARAM_FLAG_REGISTER,
-      but in the code this is not the case */
+      TP_CONN_MGR_PARAM_FLAG_SECRET,
       NULL, G_STRUCT_OFFSET (TpsipConnParams, password) },
     /* Display name for self */
     { "alias", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL,
@@ -190,7 +188,8 @@ static const TpCMParamSpec tpsip_params[] = {
     { "extra-auth-user", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_user) },
     { "extra-auth-password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_password) },
+      TP_CONN_MGR_PARAM_FLAG_SECRET,
+      NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_password) },
     { NULL, NULL, 0, 0, NULL, 0 }
 };
 
