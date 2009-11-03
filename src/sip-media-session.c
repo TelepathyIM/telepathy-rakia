@@ -1166,7 +1166,8 @@ priv_initiate_hold (TpsipMediaSession *self,
 
   if (hold)
     {
-      if (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD)
+      if (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD
+          || priv->hold_state == TP_LOCAL_HOLD_STATE_PENDING_HOLD)
         {
           g_message ("redundant hold request");
           return;
@@ -1174,7 +1175,8 @@ priv_initiate_hold (TpsipMediaSession *self,
     }
   else
     {
-      if (priv->hold_state == TP_LOCAL_HOLD_STATE_UNHELD)
+      if (priv->hold_state == TP_LOCAL_HOLD_STATE_UNHELD
+          || priv->hold_state == TP_LOCAL_HOLD_STATE_PENDING_UNHOLD)
         {
           g_message ("redundant unhold request");
           return;
@@ -1185,18 +1187,9 @@ priv_initiate_hold (TpsipMediaSession *self,
   for (i = 0; i < priv->streams->len; i++)
     {
       stream = g_ptr_array_index(priv->streams, i);
-      if (stream != NULL)
-        {
-          gboolean stream_held = FALSE;
-          g_object_get (stream,
-                        "hold-state", &stream_held,
-                        NULL);
-          if ((!stream_held) != (!hold))
-            {
-              tp_svc_media_stream_handler_emit_set_stream_held (stream, hold);
-              stream_hold_requested = TRUE;
-            }
-        }
+      if (stream != NULL
+          && tpsip_media_stream_request_hold_state (stream, hold))
+        stream_hold_requested = TRUE;
     }
 
   if (stream_hold_requested)
@@ -1225,25 +1218,45 @@ priv_finalize_hold (TpsipMediaSession *self)
   guint hold_mask;
   guint unhold_mask;
   guint i;
+  gboolean held = FALSE;
 
   DEBUG("enter");
 
   switch (priv->hold_state)
     {
     case TP_LOCAL_HOLD_STATE_PENDING_HOLD:
+      held = TRUE;
+      break;
+    case TP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+      held = FALSE;
+      break;
+    default:
+      /* Streams changed state without request, signal this to the client.
+       * All streams should have the same hold state at this point,
+       * so just query one of them for the current hold state */
+      stream = NULL;
+      for (i = 0; i < priv->streams->len; i++)
+        {
+          stream = g_ptr_array_index(priv->streams, i);
+          if (stream != NULL)
+            break;
+        }
+      g_return_if_fail (stream != NULL);
+
+      g_object_get (stream, "hold-state", &held, NULL);
+    }
+
+  if (held)
+    {
       final_hold_state = TP_LOCAL_HOLD_STATE_HELD;
       hold_mask = TP_MEDIA_STREAM_DIRECTION_SEND;
       unhold_mask = 0;
-      break;
-    case TP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+    }
+  else
+    {
       final_hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
       hold_mask = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
       unhold_mask = TP_MEDIA_STREAM_DIRECTION_RECEIVE;
-      break;
-    default:
-      /* This internal function must not be called in final hold states */
-      g_assert_not_reached ();
-      return;
     }
 
   priv->hold_state = final_hold_state;

@@ -108,7 +108,6 @@ struct _TpsipTextPendingMessage
   gchar *text;
 
   nua_handle_t *nh;
-  nua_saved_event_t saved_event[1];
 };
 
 typedef struct _TpsipTextChannelPrivate TpsipTextChannelPrivate;
@@ -144,22 +143,10 @@ static void tpsip_text_pending_free (TpsipTextPendingMessage *msg,
 
   g_free (msg->text);
 
-  if (msg->saved_event[0])
-    nua_destroy_event (msg->saved_event);
-
   if (msg->nh)
     nua_handle_unref (msg->nh);
 
   g_slice_free (TpsipTextPendingMessage, msg);
-}
-
-static inline void
-tpsip_text_pending_respond (TpsipTextPendingMessage *msg)
-{
-  nua_respond (msg->nh,
-               SIP_200_OK,
-               NUTAG_WITH_SAVED(msg->saved_event),
-               TAG_END());
 }
 
 static void
@@ -578,8 +565,6 @@ tpsip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
 
       g_queue_remove (priv->pending_messages, msg);
 
-      tpsip_text_pending_respond (msg);
-
       tpsip_text_pending_free (msg, contact_repo);
     }
 
@@ -797,7 +782,6 @@ tpsip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
         {
           TpsipTextPendingMessage * msg = (TpsipTextPendingMessage *) cur->data;
           tpsip_pending_message_list_add (messages, msg);
-          tpsip_text_pending_respond (msg);
           tpsip_text_pending_free (msg, contact_repo);
         }
     }
@@ -972,7 +956,6 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
 
 void tpsip_text_channel_receive(TpsipTextChannel *chan,
                                 nua_t *nua,
-                                nua_handle_t *nh,
                                 TpHandle sender,
                                 const char *text,
                                 gsize len)
@@ -985,16 +968,11 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
 
   msg->id = priv->recv_id++;
   msg->timestamp = time(NULL);
-  msg->nh = nh;
   msg->sender = sender;
   msg->type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL;
   msg->text = g_strndup (text, len);
 
-  nua_save_event (nua, msg->saved_event);
-
   g_queue_push_tail(priv->pending_messages, msg);
-
-  nua_handle_ref (nh);
 
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);

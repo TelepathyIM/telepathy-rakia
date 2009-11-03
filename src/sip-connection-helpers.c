@@ -18,6 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <config.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -67,6 +69,8 @@ static sip_from_t *
 priv_sip_from_url_make (TpsipConnection *conn,
                         su_home_t *home)
 {
+  static GRegex *escape_regex = NULL;
+
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   sip_from_t *from;
   gchar *alias = NULL;
@@ -78,7 +82,28 @@ priv_sip_from_url_make (TpsipConnection *conn,
 
   g_object_get (conn, "alias", &alias, NULL);
   if (alias != NULL)
-    from->a_display = su_strdup (home, alias);
+    {
+      gchar *escaped_alias;
+
+      /* Make the alias into a quoted string, escaping all characters
+       * that cannot go verbatim into a quoted string */
+
+      if (escape_regex == NULL)
+        {
+          escape_regex = g_regex_new (
+              "[\"\\\\\\x01-\\x09\\x0b\\x0c\\x0e-\\x1f\\x7f]",
+              G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+        }
+
+      escaped_alias = g_regex_replace (escape_regex, alias, -1, 0,
+          "\\\\\\0", 0, NULL);
+
+      g_free (alias);
+
+      from->a_display = su_strcat_all (home, "\"", escaped_alias, "\"", NULL);
+
+      g_free (escaped_alias);
+    }
 
   return from;
 }
@@ -795,12 +820,32 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
               TPSIP_RESERVED_CHARS_ALLOWED_IN_USERNAME, FALSE);
         }
 
-      url = url_format (home, "sip:%s@%s",
-          user, base_url->url_host);
+      if (base_url->url_type == url_sips)
+        url = url_format (home, "sips:%s@%s",
+            user, base_url->url_host);
+      else
+        url = url_format (home, "sip:%s@%s",
+            user, base_url->url_host);
 
       g_free (user);
 
       if (!url) goto error;
+    }
+  else if (url->url_scheme == NULL)
+    {
+      /* Set the scheme to SIP or SIPS accordingly to the connection's
+       * transport preference */
+      if (priv->transport != NULL
+          && g_ascii_strcasecmp (priv->transport, "tls") == 0)
+        {
+          url->url_type = url_sips;
+          url->url_scheme = "sips";
+        }
+      else
+        {
+          url->url_type = url_sip;
+          url->url_scheme = "sip";
+        }
     }
 
   if (url_sanitize (url) != 0) goto error;
@@ -912,4 +957,109 @@ tpsip_handle_parse_from (TpHandleRepoIface *contact_repo,
     }
 
   return handle;
+}
+
+#ifdef HAVE_LIBIPHB
+
+static int
+heartbeat_wakeup (su_root_magic_t *foo,
+                  su_wait_t *wait,
+                  void *user_data)
+{
+  TpsipConnection *self = (TpsipConnection *) user_data;
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  gint keepalive_earliest; 
+
+  DEBUG("tick");
+
+  g_assert (priv->heartbeat != NULL);
+
+  if ((wait->revents & (SU_WAIT_IN | SU_WAIT_HUP | SU_WAIT_ERR)) != SU_WAIT_IN)
+    {
+      g_warning ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
+      tpsip_conn_heartbeat_shutdown (self);
+      return 0;
+    }
+
+  keepalive_earliest = (int) priv->keepalive_interval - TPSIP_DEFER_TIMEOUT;
+  if (keepalive_earliest < 0)
+    keepalive_earliest = 0;
+
+  if (iphb_wait (priv->heartbeat,
+        (gushort) keepalive_earliest,
+        (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT),
+        0) < 0)
+    {
+      g_warning ("iphb_wait failed");
+      tpsip_conn_heartbeat_shutdown (self);
+      return 0;
+    }
+
+  return 0;
+}
+
+#endif /* HAVE_LIBIPHB */
+
+void
+tpsip_conn_heartbeat_init (TpsipConnection *self)
+{
+#ifdef HAVE_LIBIPHB
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  int wait_id;
+  int reference_interval = 0;
+
+  g_assert (priv->heartbeat == NULL);
+
+  priv->heartbeat = iphb_open (&reference_interval);
+
+  if (priv->heartbeat == NULL)
+    {
+      g_warning ("opening IP heartbeat failed: %s", strerror (errno));
+      return;
+    }
+
+  DEBUG("heartbeat opened with reference interval %d", reference_interval);
+
+  su_wait_init (priv->heartbeat_wait);
+  if (su_wait_create (priv->heartbeat_wait,
+                      iphb_get_fd (priv->heartbeat),
+                      SU_WAIT_IN) != 0)
+    g_critical ("could not create a wait object");
+
+  wait_id = su_root_register (priv->sofia_root,
+      priv->heartbeat_wait, heartbeat_wakeup, self, 0);
+
+  g_return_if_fail (wait_id > 0);
+  priv->heartbeat_wait_id = wait_id;
+
+  /* Prime the heartbeat for the first time.
+   * The minimum wakeup timeout is 0 to fall in step with other
+   * clients using the same interval */
+  if (iphb_wait (priv->heartbeat,
+        0, (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT), 0) < 0)
+    {
+      g_warning ("iphb_wait failed");
+      tpsip_conn_heartbeat_shutdown (self);
+    }
+
+#endif /* HAVE_LIBIPHB */
+}
+
+void
+tpsip_conn_heartbeat_shutdown (TpsipConnection *self)
+{
+#ifdef HAVE_LIBIPHB
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+
+  if (priv->heartbeat_wait_id == 0)
+    return;
+
+  su_root_deregister (priv->sofia_root, priv->heartbeat_wait_id);
+  priv->heartbeat_wait_id = 0;
+
+  su_wait_destroy (priv->heartbeat_wait);
+
+  iphb_close (priv->heartbeat);
+  priv->heartbeat = NULL;
+#endif /* HAVE_LIBIPHB */
 }

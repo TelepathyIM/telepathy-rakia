@@ -3,8 +3,8 @@ AC_PREREQ([2.59])
 m4_define([THIS_PACKAGE],[telepathy-sofiasip])
 m4_define([VERSION_MAJOR],[0])
 m4_define([VERSION_MINOR],[5])
-m4_define([VERSION_MICRO],[17])
-m4_define([VERSION_NANO],[0])
+m4_define([VERSION_MICRO],[18])
+m4_define([VERSION_NANO],[1])
 
 m4_define([BASE_VERSION],[VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO])
 m4_define([THIS_VERSION],
@@ -122,11 +122,9 @@ AC_CHECK_PROGS([XSLTPROC], [xsltproc])
 if test -z "$XSLTPROC"; then
   AC_MSG_ERROR([xsltproc (from the libxslt source package) is required])
 fi
-PYTHON=
-AC_CHECK_PROGS([PYTHON], [python2.5 python2.4 python2.3 python])
-if test -z "$PYTHON"; then
-  AC_MSG_ERROR([Python is required to compile this package])
-fi
+AM_PATH_PYTHON([2.3],[],
+  [AC_MSG_ERROR([Python is required to compile this package])]
+)
 
 dnl Check for twisted python for tests
 AC_MSG_CHECKING([for TwistedPython with SIP protocol support])
