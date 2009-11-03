@@ -43,6 +43,11 @@
 #include "sip-connection-helpers.h"
 #include "sip-media-session.h"
 
+#define TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK \
+    (TP_CHANNEL_CALL_STATE_RINGING | \
+     TP_CHANNEL_CALL_STATE_QUEUED | \
+     TP_CHANNEL_CALL_STATE_IN_PROGRESS)
+
 static void event_target_init (gpointer, gpointer);
 static void channel_iface_init (gpointer, gpointer);
 static void media_signalling_iface_init (gpointer, gpointer);
@@ -976,7 +981,7 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
     case 404:
     case 480:
       reason = (tpsip_media_channel_get_call_state (self, peer)
-             & (TP_CHANNEL_CALL_STATE_RINGING | TP_CHANNEL_CALL_STATE_QUEUED))
+             & TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK)
           ? TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER
           : TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
       break;
@@ -1200,10 +1205,9 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
 
     case nua_callstate_ready:
 
-      /* Clear Ringing and Queued call states when the call is established */
+      /* Clear any pre-establishment call states */
       tpsip_media_channel_change_call_state (self, peer, 0,
-                TP_CHANNEL_CALL_STATE_RINGING |
-                TP_CHANNEL_CALL_STATE_QUEUED);
+          TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK);
 
       if (status < 300)
         tpsip_media_session_accept (priv->session);
