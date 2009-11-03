@@ -1180,13 +1180,16 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       switch (status)
         {
           case 180:
-          case 183: /* FIXME: use state IN_PROGRESS when we get it from the spec */
             tpsip_media_channel_change_call_state (self, peer,
                     TP_CHANNEL_CALL_STATE_RINGING, 0);
             break;
           case 182:
             tpsip_media_channel_change_call_state (self, peer,
                     TP_CHANNEL_CALL_STATE_QUEUED, 0);
+            break;
+          case 183:
+            tpsip_media_channel_change_call_state (self, peer,
+                    TP_CHANNEL_CALL_STATE_IN_PROGRESS, 0);
             break;
         }
       break;
