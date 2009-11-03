@@ -20,6 +20,7 @@ AS_VERSION(THIS_PACKAGE, TELEPATHY_SIP_VERSION,
 AM_INIT_AUTOMAKE([1.8 -Wno-portability])
 
 AM_PROG_LIBTOOL
+
 AC_CONFIG_HEADER([config.h])
 
 dnl check for tools
@@ -44,7 +45,7 @@ fi
 AC_SUBST(ERROR_CFLAGS)
 
 AC_ARG_ENABLE(debug,
-  AC_HELP_STRING([--disable-debug],[omit debug code]),
+  AS_HELP_STRING([--disable-debug],[omit debug code]),
     enable_debug=$enableval, enable_debug=yes )
 
 if test x$enable_debug = xyes; then
@@ -54,7 +55,7 @@ fi
 AC_C_INLINE
 
 AC_ARG_ENABLE(syslog,
-  AC_HELP_STRING([--enable-syslog],[use syslog for Sofia log messages]),
+  AS_HELP_STRING([--enable-syslog],[use syslog for Sofia log messages]),
   [enable_syslog=$enableval],
   [enable_syslog=no]
 )
@@ -96,7 +97,7 @@ AC_SUBST(TELEPATHY_GLIB_LIBS)
 
 dnl Check for optional IP heartbeat support
 AC_ARG_WITH(iphb,
-  AC_HELP_STRING([--with-iphb],[Use IP heartbeat support in Maemo]),
+  AS_HELP_STRING([--with-iphb],[use IP heartbeat support in Maemo]),
   [],
   [with_iphb=no]
 )
