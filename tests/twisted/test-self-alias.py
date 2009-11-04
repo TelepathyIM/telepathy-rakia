@@ -15,6 +15,8 @@ def test(q, bus, conn, sip_proxy):
 
     self_handle = conn.GetSelfHandle()
 
+    default_alias = conn.Aliasing.GetAliases([self_handle])[self_handle]
+
     conn.Aliasing.SetAliases({self_handle: 'foo@bar.baz'})
 
     event = q.expect('dbus-signal', signal='AliasesChanged',
@@ -27,7 +29,7 @@ def test(q, bus, conn, sip_proxy):
 
     text_iface = dbus.Interface(bus.get_object(conn.bus_name, event.args[0]),
                                TEXT_TYPE)
-    text_iface.Send(0, 'Hello')
+    text_iface.Send(0, 'Check the display name in From')
 
     event = q.expect('sip-message')
 
@@ -36,9 +38,16 @@ def test(q, bus, conn, sip_proxy):
     from_header = event.sip_message.headers['from'][0]
     assert from_header.startswith('"foo@bar.baz" <' + self_uri + '>'), from_header
 
-    # test if escaping and whitespace normalization works
+    # Test setting of the default alias
+    conn.Aliasing.SetAliases({self_handle: default_alias})
+    text_iface.Send(0, 'The display name should be missing in From')
+    event = q.expect('sip-message')
+    from_header = event.sip_message.headers['from'][0]
+    assert from_header.startswith('<' + self_uri + '>'), from_header
+
+    # Test if escaping and whitespace normalization works
     conn.Aliasing.SetAliases({self_handle: 'foo " bar \\\r\n baz\t'})
-    text_iface.Send(0, 'Hello again')
+    text_iface.Send(0, 'Check display name escaping in From')
     event = q.expect('sip-message')
     from_header = event.sip_message.headers['from'][0]
     assert from_header.startswith(r'"foo \" bar \\ baz " <' + self_uri + '>'), from_header
