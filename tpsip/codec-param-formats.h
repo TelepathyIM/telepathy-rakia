@@ -57,17 +57,10 @@ typedef void (* TpsipCodecParamFormatFunc) (GHashTable *params, GString *out);
  */
 typedef void (* TpsipCodecParamParseFunc) (const gchar *str, GHashTable *out);
 
+void tpsip_codec_param_formats_init (void);
+
 void tpsip_codec_param_format_generic (GHashTable *params, GString *out);
 
-/**
- * tpsip_codec_param_parse_generic:
- * @str: a string value with the parameter description
- * @out: the parameter map to populate
- *
- * Parses parameters formatted as a semicolon separated list of
- * <replaceable>parameter</replaceable><literal>=</literal><replaceable>value</replaceable>
- * pairs, as recommended in IETF RFC 4855 Section 3.
- */
 void tpsip_codec_param_parse_generic (const gchar *str, GHashTable *out);
 
 G_END_DECLS
