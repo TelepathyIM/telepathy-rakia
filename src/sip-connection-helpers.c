@@ -30,6 +30,8 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
 
+#include <tpsip/util.h>
+
 #include "sip-connection-helpers.h"
 
 #include <sofia-sip/sip.h>
@@ -69,8 +71,6 @@ static sip_from_t *
 priv_sip_from_url_make (TpsipConnection *conn,
                         su_home_t *home)
 {
-  static GRegex *escape_regex = NULL;
-
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   sip_from_t *from;
   gchar *alias = NULL;
@@ -83,26 +83,18 @@ priv_sip_from_url_make (TpsipConnection *conn,
   g_object_get (conn, "alias", &alias, NULL);
   if (alias != NULL)
     {
-      gchar *escaped_alias;
+      gchar *alias_quoted;
 
       /* Make the alias into a quoted string, escaping all characters
        * that cannot go verbatim into a quoted string */
 
-      if (escape_regex == NULL)
-        {
-          escape_regex = g_regex_new (
-              "[\"\\\\\\x01-\\x09\\x0b\\x0c\\x0e-\\x1f\\x7f]",
-              G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
-        }
-
-      escaped_alias = g_regex_replace (escape_regex, alias, -1, 0,
-          "\\\\\\0", 0, NULL);
+      alias_quoted = tpsip_quote_string (alias);
 
       g_free (alias);
 
-      from->a_display = su_strcat_all (home, "\"", escaped_alias, "\"", NULL);
+      from->a_display = su_strdup (home, alias_quoted);
 
-      g_free (escaped_alias);
+      g_free (alias_quoted);
     }
 
   return from;
