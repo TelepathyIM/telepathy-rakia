@@ -27,6 +27,8 @@ G_BEGIN_DECLS
 
 gchar * tpsip_quote_string (const gchar *src);
 
+gchar * tpsip_unquote_string (const gchar *src, gsize len);
+
 void tpsip_string_append_quoted (GString *buf, const gchar *text);
 
 G_END_DECLS

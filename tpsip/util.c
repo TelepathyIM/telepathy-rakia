@@ -86,8 +86,8 @@ tpsip_string_append_quoted (GString *buf, const gchar *text)
  * Formats the content of @text as a quoted string accordingly to SIP
  * or MIME syntax.
  *
- * Returns: a newly allocated quoted string. The string is to be freed with
- * g_free().
+ * Returns: a newly allocated quoted string.
+ * The string is to be freed with g_free().
  */
 gchar *
 tpsip_quote_string (const gchar *src)
@@ -99,4 +99,47 @@ tpsip_quote_string (const gchar *src)
   tpsip_string_append_quoted (buf, src);
 
   return g_string_free (buf, FALSE);
+}
+
+/**
+ * tpsip_unquote_string:
+ * @src: the quoted string, including the encompassing double quotes
+ * @len: length of the string @src in bytes,
+ *       or -1 if the string is null-terminated
+ *
+ * Extracts text out of a quoted string literal accordingly to SIP
+ * or MIME syntax, unescaping characters preceded by backspaces.
+ *
+ * Returns: a newly allocated unquoted string.
+ * The string is to be freed with g_free().
+ */
+gchar *
+tpsip_unquote_string (const gchar *src, gsize len)
+{
+  gchar *res;
+  gchar *p;
+  gsize i;
+
+  g_return_val_if_fail (src != NULL, NULL);
+
+  if (len < 0)
+    len = strlen (src);
+
+  g_return_val_if_fail (len >= 2, NULL);
+  g_return_val_if_fail (src[0] == '"' && src[len - 1] == '"', NULL);
+
+  res = g_malloc (len - 2 + 1);
+
+  p = res;
+
+  for (i = 1; i < len - 1; ++i)
+    {
+      if (src[i] == '\\')
+        ++i;
+      *p++ = src[i];
+    }
+ 
+  *p = '\0';
+
+  return res;
 }
