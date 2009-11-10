@@ -318,7 +318,7 @@ tpsip_codec_param_formats_init ()
 #define DTMF_RANGE "[0-9]+(-[0-9]+)?"
 
   dtmf_events_regex = g_regex_new (
-      "(" DTMF_RANGE "(," DTMF_RANGE ")*)\\s*(;|$)",
+      "^(" DTMF_RANGE "(," DTMF_RANGE ")*)\\s*(;|$)",
       G_REGEX_RAW | G_REGEX_OPTIMIZE,
       0, NULL);
   g_assert (dtmf_events_regex != NULL);
