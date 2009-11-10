@@ -32,6 +32,7 @@
 #define FMTP_MATCH_NAME_VALUE "v"
 
 static GRegex *fmtp_attr_regex = NULL;
+static GRegex *dtmf_events_regex = NULL;
 
 static void
 format_param_generic (gpointer key, gpointer val, gpointer user_data)
@@ -100,6 +101,8 @@ tpsip_codec_param_parse_generic (const gchar *fmtp, GHashTable *out)
   if (!fmtp[pos])
     return;
 
+  g_assert (fmtp_attr_regex != NULL);
+
   g_regex_match_full (fmtp_attr_regex,
       fmtp, -1, pos, G_REGEX_MATCH_ANCHORED, &match, NULL);
 
@@ -141,10 +144,57 @@ tpsip_codec_param_parse_generic (const gchar *fmtp, GHashTable *out)
                " as an attribute-value list: %s", &fmtp[pos]);
 }
 
+/* Custom format for audio/telephone-event */
+
+static void
+tpsip_codec_param_format_telephone_event (GHashTable *params, GString *out)
+{
+  const gchar *events;
+
+  /* events parameter value comes first without the parameter name */
+  events = g_hash_table_lookup (params, "events");
+  if (events != NULL)
+    {
+      g_string_append (out, events);
+      g_hash_table_remove (params, "events");
+    }
+
+  /* format the rest of the parameters, if any */
+  tpsip_codec_param_format_generic (params, out);
+}
+
+static void
+tpsip_codec_param_parse_telephone_event (const gchar *fmtp, GHashTable *out)
+{
+  GMatchInfo *match = NULL;
+  gint end_pos = 0;
+
+  g_assert (dtmf_events_regex != NULL);
+
+  /* Parse the events list */
+
+  g_regex_match (dtmf_events_regex, fmtp, 0, &match);
+
+  if (g_match_info_matches (match))
+    {
+      gchar *events;
+
+      events = g_match_info_fetch (match, 1);
+      g_hash_table_insert (out, g_strdup ("events"), events);
+
+      g_match_info_fetch_pos (match, 0, NULL, &end_pos);
+    }
+
+  g_match_info_free (match);
+
+  /* Parse the remaining parameters, if any */
+  tpsip_codec_param_parse_generic (fmtp + end_pos, out);
+}
+
 /**
  * tpsip_codec_param_formats_init:
  *
- * Initializes the codec formatting infrastructure.
+ * Initializes the codec parameter formatting infrastructure.
  * This function must be called before using any other functions in this module.
  * Calling the function more than once has no effect.
  */
@@ -167,4 +217,12 @@ tpsip_codec_param_formats_init ()
       0 /* G_REGEX_MATCH_ANCHORED */,
       NULL);
   g_assert (fmtp_attr_regex != NULL);
+
+#define DTMF_RANGE "[0-9]+(-[0-9]+)?"
+
+  dtmf_events_regex = g_regex_new (
+      "(" DTMF_RANGE "(," DTMF_RANGE ")*)\\s*(;|$)",
+      G_REGEX_RAW | G_REGEX_OPTIMIZE,
+      0, NULL);
+  g_assert (dtmf_events_regex != NULL);
 }
