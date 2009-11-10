@@ -300,6 +300,11 @@ tpsip_codec_param_formats_init ()
       codec_param_formats[i] = g_hash_table_new (g_str_hash, g_str_equal);
     }
 
+  tpsip_codec_param_register_format (
+      TP_MEDIA_STREAM_TYPE_AUDIO, "telephone-event",
+      tpsip_codec_param_format_telephone_event,
+      tpsip_codec_param_parse_telephone_event);
+
   fmtp_attr_regex = g_regex_new (
       "(?<" FMTP_MATCH_NAME_PARAM ">" FMTP_TOKEN_PARAM ")"
       "\\s*=\\s*"
