@@ -23,6 +23,8 @@
 
 #include <glib.h>
 
+#include <telepathy-glib/enums.h>
+
 G_BEGIN_DECLS
 
 /**
@@ -33,8 +35,8 @@ G_BEGIN_DECLS
  * Defines the function pointer signature for codec parameter formatters.
  * A formatter takes a codec parameter map as passed in
  * a org.freedesktop.Telepathy.Media.StreamHandler codec structure,
- * and outputs its SDP representation, as per the value for an a=fmtp
- * attribute, into the string buffer @out.
+ * and outputs its SDP representation, as per the value for an
+ * <literal>a=fmtp</literal> attribute, into the string buffer @out.
  *
  * <note>
  *   <para>The function is allowed to modify the @params hash table.
@@ -52,12 +54,24 @@ typedef void (* TpsipCodecParamFormatFunc) (GHashTable *params, GString *out);
  * @out: the parameter map to populate
  *
  * Defines the function pointer signature for codec parameter parsers.
- * A parser takes the string value coming from an a=fmtp SDP attribute,
- * and populates the parameter hash table.
+ * A parser takes the string value coming from an <literal>a=fmtp</literal>
+ * SDP attribute, and populates the parameter hash table.
  */
 typedef void (* TpsipCodecParamParseFunc) (const gchar *str, GHashTable *out);
 
 void tpsip_codec_param_formats_init (void);
+
+void tpsip_codec_param_format (TpMediaStreamType media, const char *name,
+                               GHashTable *params, GString *out);
+
+void tpsip_codec_param_parse (TpMediaStreamType media, const char *name,
+                              const gchar *fmtp, GHashTable *out);
+
+void tpsip_codec_param_register_format (
+            TpMediaStreamType media,
+            const char *name,
+            TpsipCodecParamFormatFunc format,
+            TpsipCodecParamParseFunc parse);
 
 void tpsip_codec_param_format_generic (GHashTable *params, GString *out);
 

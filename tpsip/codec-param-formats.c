@@ -31,8 +31,92 @@
 #define FMTP_MATCH_NAME_PARAM "p"
 #define FMTP_MATCH_NAME_VALUE "v"
 
+typedef struct _TpsipCodecParamFormatting {
+  TpsipCodecParamFormatFunc format;
+  TpsipCodecParamParseFunc parse;
+} TpsipCodecParamFormatting;
+
 static GRegex *fmtp_attr_regex = NULL;
 static GRegex *dtmf_events_regex = NULL;
+
+static GHashTable *codec_param_formats[NUM_TP_MEDIA_STREAM_TYPES];
+
+/**
+ * tpsip_codec_param_format:
+ * @media: the media type
+ * @name: name of the codec, as per its MIME subtype registration
+ * @params: the map of codec parameters
+ * @out: a #GString for the output
+ *
+ * Formats the parameters passed in the @params into a string suitable for
+ * <literal>a=fmtp</literal> attribute for an RTP payload description,
+ * as specified for the media type defined by @media and @name.
+ */
+void
+tpsip_codec_param_format (TpMediaStreamType media, const char *name,
+                          GHashTable *params, GString *out)
+{
+  TpsipCodecParamFormatting *fmt;
+
+  /* XXX: thread unsafe, we don't care for now */
+  fmt = g_hash_table_lookup (codec_param_formats[media], name);
+
+  if (fmt != NULL && fmt->format != NULL)
+    fmt->format (params, out);
+  else
+    tpsip_codec_param_format_generic (params, out);
+}
+
+/**
+ * tpsip_codec_param_parse:
+ * @media: the media type
+ * @name: name of the codec, as per its MIME subtype registration
+ * @fmtp: a string with the codec-specific parameter data
+ * @out: the parameter map to populate
+ *
+ * Parses the payload-specific parameter description as coming from an
+ * <literal>a=fmtp</literal> attribute of an RTP payload description.
+ * The media type is defined by @media and @name.
+ */
+void
+tpsip_codec_param_parse (TpMediaStreamType media, const char *name,
+                         const gchar *fmtp, GHashTable *out)
+{
+  TpsipCodecParamFormatting *fmt;
+
+  /* XXX: thread unsafe, we don't care for now */
+  fmt = g_hash_table_lookup (codec_param_formats[media], name);
+
+  if (fmt != NULL && fmt->parse != NULL)
+    fmt->parse (fmtp, out);
+  else
+    tpsip_codec_param_parse_generic (fmtp, out);
+}
+
+/**
+ * tpsip_codec_param_register_format:
+ * @media: the media type
+ * @name: name of the codec, as per its MIME subtype registration. Must be a static string.
+ * @format: pointer to the formatting function
+ * @parse: pointer to the parsing function
+ *
+ * Registers custom SDP payload parameter formatting routines for a media
+ * type.
+ */
+void
+tpsip_codec_param_register_format (TpMediaStreamType media, const char *name,
+                                   TpsipCodecParamFormatFunc format,
+                                   TpsipCodecParamParseFunc parse)
+{
+  TpsipCodecParamFormatting *fmt;
+
+  fmt = g_slice_new (TpsipCodecParamFormatting);
+  fmt->format = format;
+  fmt->parse = parse;
+
+  /* XXX: thread unsafe, we don't care for now */
+  g_hash_table_insert (codec_param_formats[media], name, fmt);
+}
 
 static void
 format_param_generic (gpointer key, gpointer val, gpointer user_data)
@@ -203,10 +287,18 @@ tpsip_codec_param_formats_init ()
 {
   static volatile gsize been_here = 0;
 
+  int i;
+
   if (g_once_init_enter (&been_here))
     g_once_init_leave (&been_here, 1);
   else
     return;
+
+  for (i = 0; i < NUM_TP_MEDIA_STREAM_TYPES; ++i)
+    {
+      /* XXX: we ignore deallocation of values for now */
+      codec_param_formats[i] = g_hash_table_new (g_str_hash, g_str_equal);
+    }
 
   fmtp_attr_regex = g_regex_new (
       "(?<" FMTP_MATCH_NAME_PARAM ">" FMTP_TOKEN_PARAM ")"
