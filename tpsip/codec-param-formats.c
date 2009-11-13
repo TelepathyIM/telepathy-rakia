@@ -71,7 +71,7 @@ tpsip_codec_param_format (TpMediaStreamType media, const char *name,
  * tpsip_codec_param_parse:
  * @media: the media type
  * @name: name of the codec, as per its MIME subtype registration
- * @fmtp: a string with the codec-specific parameter data
+ * @fmtp: a string with the codec-specific parameter data. May be #NULL.
  * @out: the parameter map to populate
  *
  * Parses the payload-specific parameter description as coming from an
@@ -83,6 +83,9 @@ tpsip_codec_param_parse (TpMediaStreamType media, const char *name,
                          const gchar *fmtp, GHashTable *out)
 {
   TpsipCodecParamFormatting *fmt;
+
+  if (fmtp == NULL)
+    return;
 
   /* XXX: thread unsafe, we don't care for now */
   fmt = g_hash_table_lookup (codec_param_formats[media], name);
