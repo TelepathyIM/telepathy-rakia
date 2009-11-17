@@ -162,10 +162,12 @@ static const TpCMParamSpec tpsip_params[] = {
       G_STRUCT_OFFSET (TpsipConnParams, discover_binding) },
     /* Mechanism used for connection keepalive maintenance */
     { "keepalive-mechanism", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, keepalive_mechanism) },
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "auto",
+      G_STRUCT_OFFSET (TpsipConnParams, keepalive_mechanism) },
     /* Keep-alive interval */
     { "keepalive-interval", DBUS_TYPE_UINT32_AS_STRING, G_TYPE_UINT,
-      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, keepalive_interval) },
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(0),
+      G_STRUCT_OFFSET (TpsipConnParams, keepalive_interval) },
     /* Use SRV DNS lookup to discover STUN server */
     { "discover-stun", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
