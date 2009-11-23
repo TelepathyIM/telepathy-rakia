@@ -322,8 +322,7 @@ tpsip_codec_param_formats_init ()
       "(?<"  FMTP_MATCH_NAME_VALUE ">" FMTP_TOKEN_VALUE ")"
       "\\s*(;\\s*|$)",
       G_REGEX_RAW | G_REGEX_OPTIMIZE,
-      0 /* G_REGEX_MATCH_ANCHORED */,
-      NULL);
+      0, NULL);
   g_assert (fmtp_attr_regex != NULL);
 
 #define DTMF_RANGE "[0-9]+(-[0-9]+)?"

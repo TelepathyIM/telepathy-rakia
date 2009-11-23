@@ -136,7 +136,14 @@ tpsip_unquote_string (const gchar *src, gsize len)
   for (i = 1; i < len - 1; ++i)
     {
       if (src[i] == '\\')
-        ++i;
+        {
+          ++i;
+          if (G_UNLIKELY (i == len - 1))
+            {
+              g_critical ("the quoted string is missing the termination quote, improperly escaped?");
+              return NULL;
+            }
+        }
       *p++ = src[i];
     }
  
