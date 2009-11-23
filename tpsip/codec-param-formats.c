@@ -41,6 +41,8 @@ static GRegex *dtmf_events_regex = NULL;
 
 static GHashTable *codec_param_formats[NUM_TP_MEDIA_STREAM_TYPES];
 
+static void tpsip_codec_param_formats_init ();
+
 /**
  * tpsip_codec_param_format:
  * @media: the media type
@@ -57,6 +59,8 @@ tpsip_codec_param_format (TpMediaStreamType media, const char *name,
                           GHashTable *params, GString *out)
 {
   TpsipCodecParamFormatting *fmt;
+
+  tpsip_codec_param_formats_init ();
 
   /* XXX: thread unsafe, we don't care for now */
   fmt = g_hash_table_lookup (codec_param_formats[media], name);
@@ -87,6 +91,8 @@ tpsip_codec_param_parse (TpMediaStreamType media, const char *name,
   if (fmtp == NULL)
     return;
 
+  tpsip_codec_param_formats_init ();
+
   /* XXX: thread unsafe, we don't care for now */
   fmt = g_hash_table_lookup (codec_param_formats[media], name);
 
@@ -112,6 +118,8 @@ tpsip_codec_param_register_format (TpMediaStreamType media, const char *name,
                                    TpsipCodecParamParseFunc parse)
 {
   TpsipCodecParamFormatting *fmt;
+
+  tpsip_codec_param_formats_init ();
 
   fmt = g_slice_new (TpsipCodecParamFormatting);
   fmt->format = format;
@@ -278,14 +286,14 @@ tpsip_codec_param_parse_telephone_event (const gchar *fmtp, GHashTable *out)
   tpsip_codec_param_parse_generic (fmtp + end_pos, out);
 }
 
-/**
+/*
  * tpsip_codec_param_formats_init:
  *
  * Initializes the codec parameter formatting infrastructure.
  * This function must be called before using any other functions in this module.
  * Calling the function more than once has no effect.
  */
-void
+static void
 tpsip_codec_param_formats_init ()
 {
   static volatile gsize been_here = 0;

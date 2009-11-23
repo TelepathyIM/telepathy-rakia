@@ -59,8 +59,6 @@ typedef void (* TpsipCodecParamFormatFunc) (GHashTable *params, GString *out);
  */
 typedef void (* TpsipCodecParamParseFunc) (const gchar *str, GHashTable *out);
 
-void tpsip_codec_param_formats_init (void);
-
 void tpsip_codec_param_format (TpMediaStreamType media, const char *name,
                                GHashTable *params, GString *out);
 

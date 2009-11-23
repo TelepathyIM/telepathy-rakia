@@ -417,8 +417,6 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
                   NULL, NULL,
                   g_cclosure_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
-
-  tpsip_codec_param_formats_init ();
 }
 
 void
