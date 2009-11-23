@@ -61,17 +61,16 @@ tpsip_string_append_quoted (GString *buf, const gchar *text)
   while (*p)
     {
       const gchar *q;
-      gchar ch;
 
       /* Get the following text span to append verbatim */
       for (q = p; !escape_table[*q]; ++q)
         { /* do nothing */ }
       g_string_append_len (buf, p, q - p);
 
-      if (ch == '\0')
+      if (*q == '\0')
         break;
 
-      quoted_pair[1] = ch;
+      quoted_pair[1] = *q;
       g_string_append_len (buf, quoted_pair, 2);
 
       p = q + 1;
