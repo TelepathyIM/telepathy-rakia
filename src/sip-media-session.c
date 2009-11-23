@@ -77,6 +77,8 @@ enum
   PROP_PEER,
   PROP_HOLD_STATE,
   PROP_HOLD_STATE_REASON,
+  PROP_REMOTE_PTIME,
+  PROP_REMOTE_MAX_PTIME,
   PROP_RTCP_ENABLED,
   PROP_LOCAL_IP_ADDRESS,
   LAST_PROPERTY
@@ -124,6 +126,8 @@ struct _TpsipMediaSessionPrivate
   nua_handle_t *nua_op;                   /* see gobj. prop. 'nua-handle' */
   TpHandle peer;                          /* see gobj. prop. 'peer' */
   gchar *local_ip_address;                /* see gobj. prop. 'local-ip-address' */
+  guint remote_ptime;                     /* see gobj. prop. 'remote-ptime' */
+  guint remote_max_ptime;                 /* see gobj. prop. 'remote-max-ptime' */
   gboolean rtcp_enabled;                  /* see gobj. prop. 'rtcp-enabled' */
   TpsipMediaSessionState state;           /* session state */
   TpLocalHoldState hold_state;         /* local hold state aggregated from stream directions */
@@ -228,6 +232,12 @@ static void tpsip_media_session_get_property (GObject    *object,
       break;
     case PROP_HOLD_STATE_REASON:
       g_value_set_uint (value, priv->hold_reason);
+      break;
+    case PROP_REMOTE_PTIME:
+      g_value_set_uint (value, priv->remote_ptime);
+      break;
+    case PROP_REMOTE_MAX_PTIME:
+      g_value_set_uint (value, priv->remote_max_ptime);
       break;
     case PROP_LOCAL_IP_ADDRESS:
       g_value_set_string (value, priv->local_ip_address);
@@ -336,6 +346,22 @@ tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
       TP_LOCAL_HOLD_STATE_REASON_NONE,
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_HOLD_STATE_REASON, param_spec);
+
+  param_spec = g_param_spec_uint ("remote-ptime",
+      "a=ptime value of remote media session",
+      "Value of the a=ptime attribute if the remote media session",
+      0, G_MAXUINT,
+      0,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_REMOTE_PTIME, param_spec);
+
+  param_spec = g_param_spec_uint ("remote-max-ptime",
+      "a=maxptime value of remote media session",
+      "Value of the a=maxptime attribute if the remote media session",
+      0, G_MAXUINT,
+      0,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_REMOTE_MAX_PTIME, param_spec);
 
   param_spec = g_param_spec_string ("local-ip-address", "Local IP address",
       "The local IP address preferred for media streams",
@@ -1463,6 +1489,18 @@ priv_update_remote_hold (TpsipMediaSession *session)
                                            TP_CHANNEL_CALL_STATE_HELD);
 }
 
+static guint
+tpsip_sdp_get_uint_attribute (sdp_session_t *sdp, const char *name)
+{
+  const sdp_attribute_t *attr;
+
+  attr = sdp_attribute_find (sdp->sdp_attributes, name);
+  if (attr == NULL)
+    return 0;
+
+  return (guint) g_ascii_strtoull (attr->a_value, NULL, 10);
+}
+
 static gboolean
 priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
 {
@@ -1475,8 +1513,14 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
 
   g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
 
-  /* Update the session-wide RTCP enable flag
-   * before updating stream media */
+  /* Update the session-wide parameters
+   * before updating streams' media */
+
+  priv->remote_ptime     = tpsip_sdp_get_uint_attribute (priv->remote_sdp,
+                                                         "ptime");
+  priv->remote_max_ptime = tpsip_sdp_get_uint_attribute (priv->remote_sdp,
+                                                         "maxptime");
+
   priv->rtcp_enabled = !tpsip_sdp_rtcp_bandwidth_throttled (
                                 priv->remote_sdp->sdp_bandwidths);
 
