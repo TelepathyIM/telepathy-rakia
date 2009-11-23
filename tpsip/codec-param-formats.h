@@ -39,7 +39,7 @@ G_BEGIN_DECLS
  * <literal>a=fmtp</literal> attribute, into the string buffer @out.
  *
  * <note>
- *   <para>The function is allowed to modify the @params hash table.
+ *   <para>The function is allowed to delete pairs from the @params hash table.
  *   This is useful to implement a custom formatter that processes the
  *   few parameters treated specially, removes them from the map, and 
  *   calls a more generic formatter such as tpsip_codec_param_format_generic().

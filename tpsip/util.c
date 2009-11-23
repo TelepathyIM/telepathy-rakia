@@ -64,7 +64,8 @@ tpsip_string_append_quoted (GString *buf, const gchar *text)
       gchar ch;
 
       /* Get the following text span to append verbatim */
-      for (q = p; !escape_table[ch = *q]; ++q);
+      for (q = p; !escape_table[*q]; ++q)
+        { /* do nothing */ }
       g_string_append_len (buf, p, q - p);
 
       if (ch == '\0')
