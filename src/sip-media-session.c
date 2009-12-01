@@ -234,10 +234,14 @@ static void tpsip_media_session_get_property (GObject    *object,
       g_value_set_uint (value, priv->hold_reason);
       break;
     case PROP_REMOTE_PTIME:
-      g_value_set_uint (value, priv->remote_ptime);
+      if (priv->remote_ptime != 0)
+        g_value_take_string (value,
+            g_strdup_printf ("%u", priv->remote_ptime));
       break;
     case PROP_REMOTE_MAX_PTIME:
-      g_value_set_uint (value, priv->remote_max_ptime);
+      if (priv->remote_max_ptime != 0)
+        g_value_take_string (value,
+            g_strdup_printf ("%u", priv->remote_max_ptime));
       break;
     case PROP_LOCAL_IP_ADDRESS:
       g_value_set_string (value, priv->local_ip_address);
@@ -347,19 +351,17 @@ tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_HOLD_STATE_REASON, param_spec);
 
-  param_spec = g_param_spec_uint ("remote-ptime",
+  param_spec = g_param_spec_string ("remote-ptime",
       "a=ptime value of remote media session",
-      "Value of the a=ptime attribute if the remote media session",
-      0, G_MAXUINT,
-      0,
+      "Value of the a=ptime attribute of the remote media session, or NULL",
+      NULL,
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_REMOTE_PTIME, param_spec);
 
-  param_spec = g_param_spec_uint ("remote-max-ptime",
+  param_spec = g_param_spec_string ("remote-max-ptime",
       "a=maxptime value of remote media session",
-      "Value of the a=maxptime attribute if the remote media session",
-      0, G_MAXUINT,
-      0,
+      "Value of the a=maxptime attribute of the remote media session, or NULL",
+      NULL,
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_REMOTE_MAX_PTIME, param_spec);
 
