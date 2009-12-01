@@ -1292,6 +1292,8 @@ static void push_remote_codecs (TpsipMediaStream *stream)
   GType codec_type;
   const sdp_media_t *sdpmedia;
   const sdp_rtpmap_t *rtpmap;
+  gchar *ptime = NULL;
+  gchar *max_ptime = NULL;
 
   DEBUG ("enter");
 
@@ -1310,6 +1312,11 @@ static void push_remote_codecs (TpsipMediaStream *stream)
       priv->push_remote_codecs_pending = TRUE;
       return;
     }
+
+  g_object_get (priv->session,
+      "remote-ptime", &ptime,
+      "remote-max-ptime", &max_ptime,
+      NULL);
 
   codec_type = TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CODEC;
   codecs_type = TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST;
@@ -1331,6 +1338,13 @@ static void push_remote_codecs (TpsipMediaStream *stream)
 
       tpsip_codec_param_parse (priv->media_type, rtpmap->rm_encoding,
           rtpmap->rm_fmtp, opt_params);
+
+      if (ptime != NULL)
+        g_hash_table_insert (opt_params,
+            g_strdup("ptime"), g_strdup (ptime));
+      if (max_ptime != NULL)
+        g_hash_table_insert (opt_params,
+            g_strdup("maxptime"), g_strdup (max_ptime));
 
       /* RFC2327: see "m=" line definition 
        *  - note, 'encoding_params' is assumed to be channel
@@ -1359,6 +1373,8 @@ static void push_remote_codecs (TpsipMediaStream *stream)
     }
 
   g_hash_table_destroy (opt_params);
+  g_free (ptime);
+  g_free (max_ptime);
 
   SESSION_DEBUG(priv->session, "passing %d remote codecs to stream engine",
                 codecs->len);
