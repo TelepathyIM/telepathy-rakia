@@ -35,6 +35,11 @@
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
+typedef enum {
+  TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO = 1 << 0,
+  TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO = 1 << 1,
+} TpsipMediaChannelCreationFlags;
+
 static void channel_manager_iface_init (gpointer, gpointer);
 static void tpsip_media_factory_constructed (GObject *object);
 static void tpsip_media_factory_close_all (TpsipMediaFactory *fac);
@@ -255,13 +260,16 @@ media_channel_closed_cb (TpsipMediaChannel *chan, gpointer user_data)
 static TpsipMediaChannel *
 new_media_channel (TpsipMediaFactory *fac,
                    TpHandle initiator,
-                   TpHandle maybe_peer)
+                   TpHandle maybe_peer,
+                   TpsipMediaChannelCreationFlags flags)
 {
   TpsipMediaFactoryPrivate *priv;
   TpsipMediaChannel *chan = NULL;
   TpBaseConnection *conn;
   gchar *object_path;
   const gchar *nat_traversal = "none";
+  gboolean initial_audio;
+  gboolean initial_video;
 
   g_assert (initiator != 0);
 
@@ -273,6 +281,9 @@ new_media_channel (TpsipMediaFactory *fac,
 
   DEBUG("channel object path %s", object_path);
 
+  initial_audio = ((flags & TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO) != 0);
+  initial_video = ((flags & TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO) != 0);
+
   if (priv->stun_server != NULL)
     {
       nat_traversal = "stun";
@@ -283,6 +294,8 @@ new_media_channel (TpsipMediaFactory *fac,
                        "object-path", object_path,
                        "handle", maybe_peer,
                        "initiator", initiator,
+                       "initial-audio", initial_audio,
+                       "initial-video", initial_video,
                        "nat-traversal", nat_traversal,
                        NULL);
 
@@ -302,6 +315,33 @@ new_media_channel (TpsipMediaFactory *fac,
   return chan;
 }
 
+static guint
+initial_media_flags_from_sdp (const sdp_session_t *sdp)
+{
+  const sdp_media_t *media;
+  guint flags = 0;
+
+  for (media = sdp->sdp_media; media != NULL; media = media->m_next)
+    {
+      if (media->m_rejected || media->m_port == 0)
+        continue;
+
+      switch (media->m_type)
+        {
+        case sdp_media_audio:
+          flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO;
+          break;
+        case sdp_media_video:
+          flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO;
+          break;
+        default:
+          break;
+        }
+    }
+
+  return flags;
+}
+
 static gboolean
 tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
                        const TpsipNuaEvent *ev,
@@ -311,6 +351,9 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
   TpsipMediaChannel *channel;
   TpHandleRepoIface *contact_repo;
   TpHandle handle;
+  guint channel_flags = 0;
+  const sdp_session_t *sdp = NULL;
+  int offer_recv = 0;
 
   /* figure out a handle for the identity */
 
@@ -327,7 +370,15 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
   DEBUG("Got incoming invite from <%s>",
         tp_handle_inspect (contact_repo, handle));
 
-  channel = new_media_channel (fac, handle, handle);
+  tl_gets(tags,
+          NUTAG_OFFER_RECV_REF(offer_recv),
+          SOATAG_REMOTE_SDP_REF(sdp),
+          TAG_END());
+
+  if (offer_recv && sdp != NULL)
+    channel_flags = initial_media_flags_from_sdp (sdp);
+
+  channel = new_media_channel (fac, handle, handle, channel_flags);
 
   tpsip_media_channel_receive_invite (channel, ev->nua_handle);
 
@@ -414,12 +465,16 @@ static const gchar * const media_channel_fixed_properties[] = {
 static const gchar * const named_channel_allowed_properties[] = {
     TP_IFACE_CHANNEL ".TargetHandle",
     TP_IFACE_CHANNEL ".TargetID",
+    TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio",
+    TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo",
     NULL
 };
 
 /* not advertised in foreach_channel_class - can only be requested with
  * RequestChannel, not with CreateChannel/EnsureChannel */
 static const gchar * const anon_channel_allowed_properties[] = {
+    TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio",
+    TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo",
     NULL
 };
 
@@ -468,6 +523,7 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
   TpsipMediaChannel *channel = NULL;
   GError *error = NULL;
   GSList *request_tokens;
+  guint chan_flags = 0;
   gboolean require_target_handle;
   gboolean add_peer_to_remote_pending;
 
@@ -514,6 +570,14 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
   handle = tp_asv_get_uint32 (request_properties,
       TP_IFACE_CHANNEL ".TargetHandle", NULL);
 
+  if (tp_asv_get_boolean (request_properties,
+        TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio", NULL))
+    chan_flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO;
+
+  if (tp_asv_get_boolean (request_properties,
+        TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo", NULL))
+    chan_flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO;
+
   switch (handle_type)
     {
     case TP_HANDLE_TYPE_NONE:
@@ -532,7 +596,7 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
               &error))
         goto error;
 
-      channel = new_media_channel (self, conn->self_handle, 0);
+      channel = new_media_channel (self, conn->self_handle, 0, chan_flags);
       break;
 
     case TP_HANDLE_TYPE_CONTACT:
@@ -562,13 +626,15 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
             }
         }
 
-      channel = new_media_channel (self, conn->self_handle, handle);
+      channel = new_media_channel (self, conn->self_handle, handle, chan_flags);
 
       if (add_peer_to_remote_pending)
         {
           if (!_tpsip_media_channel_add_member ((GObject *) channel, handle,
                 "", &error))
             {
+              /* FIXME: do we really want to emit Closed in this case?
+               * There wasn't a NewChannel/NewChannels emission */
               tpsip_media_channel_close (channel);
               goto error;
             }

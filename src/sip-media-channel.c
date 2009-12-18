@@ -104,6 +104,8 @@ enum
   PROP_INTERFACES,
   PROP_CHANNEL_DESTROYED,
   PROP_CHANNEL_PROPERTIES,
+  PROP_INITIAL_AUDIO,
+  PROP_INITIAL_VIDEO,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
   PROP_STUN_SERVER,
@@ -139,6 +141,8 @@ struct _TpsipMediaChannelPrivate
   TpHandle initiator;
   GHashTable *call_states;
 
+  gboolean initial_audio;
+  gboolean initial_video;
   gboolean closed;
   gboolean dispose_has_run;
 };
@@ -253,11 +257,22 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       { "Requested", "requested", NULL },
       { NULL }
   };
+  static TpDBusPropertiesMixinPropImpl streamed_media_props[] = {
+      { "InitialAudio", "initial-audio", NULL },
+      { "InitialVideo", "initial-video", NULL },
+      { NULL }
+  };
+
   static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
       { TP_IFACE_CHANNEL,
         tp_dbus_properties_mixin_getter_gobject_properties,
         NULL,
         channel_props,
+      },
+      { TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA,
+        tp_dbus_properties_mixin_getter_gobject_properties,
+        NULL,
+        streamed_media_props,
       },
       { NULL }
   };
@@ -340,6 +355,20 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       FALSE,
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
+
+  param_spec = g_param_spec_boolean ("initial-audio", "InitialAudio",
+      "Whether the channel initially contained an audio stream",
+      FALSE,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_INITIAL_AUDIO,
+      param_spec);
+
+  param_spec = g_param_spec_boolean ("initial-video", "InitialVideo",
+      "Whether the channel initially contained a video stream",
+      FALSE,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_INITIAL_VIDEO,
+      param_spec);
 
   tp_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipMediaChannelClass, properties_class),
@@ -430,7 +459,15 @@ tpsip_media_channel_get_property (GObject    *object,
               TP_IFACE_CHANNEL, "InitiatorID",
               TP_IFACE_CHANNEL, "Requested",
               TP_IFACE_CHANNEL, "Interfaces",
+              TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA, "InitialAudio",
+              TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA, "InitialVideo",
               NULL));
+      break;
+    case PROP_INITIAL_AUDIO:
+      g_value_set_boolean (value, priv->initial_audio);
+      break;
+    case PROP_INITIAL_VIDEO:
+      g_value_set_boolean (value, priv->initial_video);
       break;
     default:
       /* Some properties live in the mixin */
@@ -491,6 +528,12 @@ tpsip_media_channel_set_property (GObject     *object,
     case PROP_INITIATOR:
       /* similarly we can't ref this yet */
       priv->initiator = g_value_get_uint (value);
+      break;
+    case PROP_INITIAL_AUDIO:
+      priv->initial_audio = g_value_get_boolean (value);
+      break;
+    case PROP_INITIAL_VIDEO:
+      priv->initial_video = g_value_get_boolean (value);
       break;
     default:
       /* some properties live in the mixin */
