@@ -100,7 +100,6 @@ enum
   PROP_TARGET_ID,
   PROP_INITIATOR,
   PROP_INITIATOR_ID,
-  PROP_PEER,
   PROP_REQUESTED,
   PROP_INTERFACES,
   PROP_CHANNEL_DESTROYED,
@@ -400,20 +399,6 @@ tpsip_media_channel_get_property (GObject    *object,
       else
         g_value_set_static_string (value, "");
       break;
-    case PROP_PEER:
-      {
-        TpHandle peer = 0;
-
-        if (priv->handle != 0)
-          peer = priv->handle;
-        else if (priv->session != NULL)
-          g_object_get (priv->session,
-              "peer", &peer,
-              NULL);
-
-        g_value_set_uint (value, peer);
-        break;
-      }
     case PROP_INITIATOR:
       g_value_set_uint (value, priv->initiator);
       break;
