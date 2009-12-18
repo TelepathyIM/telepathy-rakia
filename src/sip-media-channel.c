@@ -934,6 +934,26 @@ tpsip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
  * Set: sip-media-channel API towards sip-connection
  ***********************************************************************/
 
+void
+tpsip_media_channel_create_initial_streams (TpsipMediaChannel *self)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  g_assert (priv->initiator != priv->handle);
+
+  priv_outbound_call (self, priv->handle);
+
+  g_assert (priv->session != NULL);
+
+  if (priv->initial_audio)
+    tpsip_media_session_add_stream (priv->session,
+        TP_MEDIA_STREAM_TYPE_AUDIO, TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+
+  if (priv->initial_video)
+    tpsip_media_session_add_stream (priv->session,
+        TP_MEDIA_STREAM_TYPE_VIDEO, TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+}
+
 /**
  * Handle an incoming INVITE, normally called just after the channel
  * has been created with initiator handle of the sender.

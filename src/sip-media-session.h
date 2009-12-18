@@ -21,6 +21,8 @@
 #ifndef __TPSIP_MEDIA_SESSION_H__
 #define __TPSIP_MEDIA_SESSION_H__
 
+#include "sip-media-stream.h"
+
 #include <glib-object.h>
 #include <telepathy-glib/handle.h>
 #include <sofia-sip/sdp.h>
@@ -77,6 +79,9 @@ void tpsip_media_session_change_state (TpsipMediaSession *session,
                                      TpsipMediaSessionState new_state);
 gboolean tpsip_media_session_set_remote_media (TpsipMediaSession *chan,
                                             const sdp_session_t* r_sdp);
+TpsipMediaStream* tpsip_media_session_add_stream (TpsipMediaSession *self,
+                                                  guint media_type,
+                                                  guint pending_send_flags);
 gboolean tpsip_media_session_request_streams (TpsipMediaSession *session,
 					    const GArray *media_types,
 					    GPtrArray *ret,

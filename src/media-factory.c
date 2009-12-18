@@ -653,6 +653,8 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
       TP_EXPORTABLE_CHANNEL (channel), request_tokens);
   g_slist_free (request_tokens);
 
+  tpsip_media_channel_create_initial_streams (channel);
+
   return TRUE;
 
 error:
