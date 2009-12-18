@@ -874,6 +874,8 @@ tpsip_media_channel_request_stream_direction (TpSvcChannelTypeStreamedMedia *ifa
 
   priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
+  /* TODO: find out if it's practical to disable this when
+   * priv->immutable_streams is set */
   if (priv->session != NULL)
     {
       tpsip_media_session_request_stream_direction (priv->session,
@@ -1801,7 +1803,14 @@ tpsip_media_channel_request_hold (TpSvcChannelInterfaceHold *iface,
 
   priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (priv->session != NULL)
+  if (priv->immutable_streams)
+    {
+      GError e = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+                  "Session modification disabled"};
+      dbus_g_method_return_error (context, &e);
+      return;
+    }
+  else if (priv->session != NULL)
     {
       tpsip_media_session_request_hold (priv->session, hold);
     }
@@ -1810,6 +1819,7 @@ tpsip_media_channel_request_hold (TpSvcChannelInterfaceHold *iface,
       GError e = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
                   "The media session is not available"};
       dbus_g_method_return_error (context, &e);
+      return;
     }
 
   tp_svc_channel_interface_hold_return_from_request_hold (context);
