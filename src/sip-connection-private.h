@@ -68,6 +68,8 @@ struct _TpsipConnectionPrivate
   gchar *extra_auth_password;
   gboolean loose_routing;
   gboolean discover_binding;
+  gboolean immutable_streams;
+
   gboolean keepalive_interval_specified;
 
   gboolean dispose_has_run;

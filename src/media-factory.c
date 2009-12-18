@@ -270,6 +270,7 @@ new_media_channel (TpsipMediaFactory *fac,
   const gchar *nat_traversal = "none";
   gboolean initial_audio;
   gboolean initial_video;
+  gboolean immutable_streams = FALSE;
 
   g_assert (initiator != 0);
 
@@ -284,6 +285,10 @@ new_media_channel (TpsipMediaFactory *fac,
   initial_audio = ((flags & TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO) != 0);
   initial_video = ((flags & TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO) != 0);
 
+  g_object_get (conn,
+      "immutable-streams", &immutable_streams,
+      NULL);
+
   if (priv->stun_server != NULL)
     {
       nat_traversal = "stun";
@@ -296,6 +301,7 @@ new_media_channel (TpsipMediaFactory *fac,
                        "initiator", initiator,
                        "initial-audio", initial_audio,
                        "initial-video", initial_video,
+                       "immutable-streams", immutable_streams,
                        "nat-traversal", nat_traversal,
                        NULL);
 
