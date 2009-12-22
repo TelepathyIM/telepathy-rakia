@@ -479,8 +479,6 @@ static const gchar * const named_channel_allowed_properties[] = {
 /* not advertised in foreach_channel_class - can only be requested with
  * RequestChannel, not with CreateChannel/EnsureChannel */
 static const gchar * const anon_channel_allowed_properties[] = {
-    TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio",
-    TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo",
     NULL
 };
 
@@ -576,14 +574,6 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
   handle = tp_asv_get_uint32 (request_properties,
       TP_IFACE_CHANNEL ".TargetHandle", NULL);
 
-  if (tp_asv_get_boolean (request_properties,
-        TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio", NULL))
-    chan_flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO;
-
-  if (tp_asv_get_boolean (request_properties,
-        TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo", NULL))
-    chan_flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO;
-
   switch (handle_type)
     {
     case TP_HANDLE_TYPE_NONE:
@@ -602,7 +592,7 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
               &error))
         goto error;
 
-      channel = new_media_channel (self, conn->self_handle, 0, chan_flags);
+      channel = new_media_channel (self, conn->self_handle, 0, 0);
       break;
 
     case TP_HANDLE_TYPE_CONTACT:
@@ -631,6 +621,14 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
                 }
             }
         }
+
+      if (tp_asv_get_boolean (request_properties,
+            TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio", NULL))
+        chan_flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO;
+
+      if (tp_asv_get_boolean (request_properties,
+            TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo", NULL))
+        chan_flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO;
 
       channel = new_media_channel (self, conn->self_handle, handle, chan_flags);
 
