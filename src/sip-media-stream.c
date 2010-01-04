@@ -1292,6 +1292,8 @@ static void push_remote_codecs (TpsipMediaStream *stream)
   GType codec_type;
   const sdp_media_t *sdpmedia;
   const sdp_rtpmap_t *rtpmap;
+  gchar *ptime = NULL;
+  gchar *max_ptime = NULL;
 
   DEBUG ("enter");
 
@@ -1311,6 +1313,21 @@ static void push_remote_codecs (TpsipMediaStream *stream)
       return;
     }
 
+  ptime = tpsip_sdp_get_string_attribute (sdpmedia->m_attributes, "ptime");
+  if (ptime == NULL)
+    {
+      g_object_get (priv->session,
+          "remote-ptime", &ptime,
+          NULL);
+    }
+  max_ptime = tpsip_sdp_get_string_attribute (sdpmedia->m_attributes, "maxptime");
+  if (max_ptime == NULL)
+    {
+      g_object_get (priv->session,
+          "remote-max-ptime", &max_ptime,
+          NULL);
+    }
+
   codec_type = TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CODEC;
   codecs_type = TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST;
 
@@ -1328,6 +1345,13 @@ static void push_remote_codecs (TpsipMediaStream *stream)
       g_value_init (&codec, codec_type);
       g_value_take_boxed (&codec,
                           dbus_g_type_specialized_construct (codec_type));
+
+      if (ptime != NULL)
+        g_hash_table_insert (opt_params,
+            g_strdup("ptime"), g_strdup (ptime));
+      if (max_ptime != NULL)
+        g_hash_table_insert (opt_params,
+            g_strdup("maxptime"), g_strdup (max_ptime));
 
       tpsip_codec_param_parse (priv->media_type, rtpmap->rm_encoding,
           rtpmap->rm_fmtp, opt_params);
@@ -1359,6 +1383,8 @@ static void push_remote_codecs (TpsipMediaStream *stream)
     }
 
   g_hash_table_destroy (opt_params);
+  g_free (ptime);
+  g_free (max_ptime);
 
   SESSION_DEBUG(priv->session, "passing %d remote codecs to stream engine",
                 codecs->len);
