@@ -1346,15 +1346,15 @@ static void push_remote_codecs (TpsipMediaStream *stream)
       g_value_take_boxed (&codec,
                           dbus_g_type_specialized_construct (codec_type));
 
-      tpsip_codec_param_parse (priv->media_type, rtpmap->rm_encoding,
-          rtpmap->rm_fmtp, opt_params);
-
       if (ptime != NULL)
         g_hash_table_insert (opt_params,
             g_strdup("ptime"), g_strdup (ptime));
       if (max_ptime != NULL)
         g_hash_table_insert (opt_params,
             g_strdup("maxptime"), g_strdup (max_ptime));
+
+      tpsip_codec_param_parse (priv->media_type, rtpmap->rm_encoding,
+          rtpmap->rm_fmtp, opt_params);
 
       /* RFC2327: see "m=" line definition 
        *  - note, 'encoding_params' is assumed to be channel
