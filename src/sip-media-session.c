@@ -126,8 +126,8 @@ struct _TpsipMediaSessionPrivate
   nua_handle_t *nua_op;                   /* see gobj. prop. 'nua-handle' */
   TpHandle peer;                          /* see gobj. prop. 'peer' */
   gchar *local_ip_address;                /* see gobj. prop. 'local-ip-address' */
-  guint remote_ptime;                     /* see gobj. prop. 'remote-ptime' */
-  guint remote_max_ptime;                 /* see gobj. prop. 'remote-max-ptime' */
+  gchar *remote_ptime;                    /* see gobj. prop. 'remote-ptime' */
+  gchar *remote_max_ptime;                /* see gobj. prop. 'remote-max-ptime' */
   gboolean rtcp_enabled;                  /* see gobj. prop. 'rtcp-enabled' */
   TpsipMediaSessionState state;           /* session state */
   TpLocalHoldState hold_state;         /* local hold state aggregated from stream directions */
@@ -234,14 +234,10 @@ static void tpsip_media_session_get_property (GObject    *object,
       g_value_set_uint (value, priv->hold_reason);
       break;
     case PROP_REMOTE_PTIME:
-      if (priv->remote_ptime != 0)
-        g_value_take_string (value,
-            g_strdup_printf ("%u", priv->remote_ptime));
+      g_value_set_string (value, priv->remote_ptime);
       break;
     case PROP_REMOTE_MAX_PTIME:
-      if (priv->remote_max_ptime != 0)
-        g_value_take_string (value,
-            g_strdup_printf ("%u", priv->remote_max_ptime));
+      g_value_set_string (value, priv->remote_max_ptime);
       break;
     case PROP_LOCAL_IP_ADDRESS:
       g_value_set_string (value, priv->local_ip_address);
@@ -438,6 +434,8 @@ tpsip_media_session_finalize (GObject *object)
   if (priv->backup_home != NULL)
     su_home_unref (priv->backup_home);
 
+  g_free (priv->remote_ptime);
+  g_free (priv->remote_max_ptime);
   g_free (priv->local_ip_address);
   g_free (priv->object_path);
 
@@ -1491,40 +1489,41 @@ priv_update_remote_hold (TpsipMediaSession *session)
                                            TP_CHANNEL_CALL_STATE_HELD);
 }
 
-static guint
-tpsip_sdp_get_uint_attribute (sdp_session_t *sdp, const char *name)
+gchar *
+tpsip_sdp_get_string_attribute (const sdp_attribute_t *attrs, const char *name)
 {
-  const sdp_attribute_t *attr;
+  sdp_attribute_t *attr;
 
-  attr = sdp_attribute_find (sdp->sdp_attributes, name);
+  attr = sdp_attribute_find (attrs, name);
   if (attr == NULL)
-    return 0;
+    return NULL;
 
-  return (guint) g_ascii_strtoull (attr->a_value, NULL, 10);
+  return g_strdup (attr->a_value);
 }
 
 static gboolean
 priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  const sdp_session_t *sdp = priv->remote_sdp;
   const sdp_media_t *media;
   gboolean has_supported_media = FALSE;
   guint direction_up_mask;
   guint pending_send_mask;
   guint i;
 
-  g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
+  g_return_val_if_fail (sdp != NULL, FALSE);
 
   /* Update the session-wide parameters
    * before updating streams' media */
 
-  priv->remote_ptime     = tpsip_sdp_get_uint_attribute (priv->remote_sdp,
-                                                         "ptime");
-  priv->remote_max_ptime = tpsip_sdp_get_uint_attribute (priv->remote_sdp,
-                                                         "maxptime");
+  priv->remote_ptime     = tpsip_sdp_get_string_attribute (
+      sdp->sdp_attributes, "ptime");
+  priv->remote_max_ptime = tpsip_sdp_get_string_attribute (
+      sdp->sdp_attributes, "maxptime");
 
   priv->rtcp_enabled = !tpsip_sdp_rtcp_bandwidth_throttled (
-                                priv->remote_sdp->sdp_bandwidths);
+                                sdp->sdp_bandwidths);
 
   /*
    * Do not allow:
@@ -1547,7 +1546,7 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
   if (priv->pending_offer)
     pending_send_mask |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
 
-  media = priv->remote_sdp->sdp_media;
+  media = sdp->sdp_media;
 
   /* note: for each session, we maintain an ordered list of
    *       streams (SDP m-lines) which are matched 1:1 to

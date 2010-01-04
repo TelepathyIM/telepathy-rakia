@@ -1313,10 +1313,20 @@ static void push_remote_codecs (TpsipMediaStream *stream)
       return;
     }
 
-  g_object_get (priv->session,
-      "remote-ptime", &ptime,
-      "remote-max-ptime", &max_ptime,
-      NULL);
+  ptime = tpsip_sdp_get_string_attribute (sdpmedia->m_attributes, "ptime");
+  if (ptime == NULL)
+    {
+      g_object_get (priv->session,
+          "remote-ptime", &ptime,
+          NULL);
+    }
+  max_ptime = tpsip_sdp_get_string_attribute (sdpmedia->m_attributes, "maxptime");
+  if (max_ptime == NULL)
+    {
+      g_object_get (priv->session,
+          "remote-max-ptime", &max_ptime,
+          NULL);
+    }
 
   codec_type = TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CODEC;
   codecs_type = TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST;

@@ -116,6 +116,9 @@ gint tpsip_media_session_rate_native_transport (TpsipMediaSession *session,
 
 gboolean tpsip_sdp_rtcp_bandwidth_throttled (const sdp_bandwidth_t *b);
 
+gchar * tpsip_sdp_get_string_attribute (const sdp_attribute_t *attrs,
+                                        const char *name);
+
 #ifdef ENABLE_DEBUG
 
 #define SESSION_DEBUG(s, ...)    tpsip_media_session_debug (s, __VA_ARGS__)
