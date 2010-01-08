@@ -76,6 +76,8 @@ gboolean _tpsip_media_channel_add_member (GObject *iface,
                                           const gchar *message,
                                           GError **error);
 
+void tpsip_media_channel_create_initial_streams (TpsipMediaChannel *self);
+
 void tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
                                          nua_handle_t *nh);
 

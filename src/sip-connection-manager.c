@@ -65,6 +65,7 @@ typedef struct {
     gboolean discover_stun;
     gchar *stun_server;
     guint stun_port;
+    gboolean immutable_streams;
     gchar *local_ip_address;
     guint local_port;
     gchar *extra_auth_user;
@@ -114,6 +115,7 @@ enum {
     TPSIP_CONN_PARAM_DISCOVER_STUN,
     TPSIP_CONN_PARAM_STUN_SERVER,
     TPSIP_CONN_PARAM_STUN_PORT,
+    TPSIP_CONN_PARAM_IMMUTABLE_STREAMS,
     TPSIP_CONN_PARAM_LOCAL_IP_ADDRESS,
     TPSIP_CONN_PARAM_LOCAL_PORT,
     TPSIP_CONN_PARAM_EXTRA_AUTH_USER,
@@ -180,6 +182,10 @@ static const TpCMParamSpec tpsip_params[] = {
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT,
       GUINT_TO_POINTER(TPSIP_DEFAULT_STUN_PORT),
       G_STRUCT_OFFSET (TpsipConnParams, stun_port) },
+    /* If the session content cannot be modified once initially set up */
+    { "immutable-streams", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(FALSE),
+      G_STRUCT_OFFSET (TpsipConnParams, immutable_streams) },
     /* Local IP address to use, workaround purposes only */
     { "local-ip-address", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, local_ip_address) },
@@ -482,6 +488,9 @@ tpsip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   SET_PROPERTY_IF_PARAM_SET ("stun-port", TPSIP_CONN_PARAM_STUN_PORT,
       params->stun_port);
+
+  SET_PROPERTY_IF_PARAM_SET ("immutable-streams", TPSIP_CONN_PARAM_IMMUTABLE_STREAMS,
+      params->immutable_streams);
 
   SET_PROPERTY_IF_PARAM_SET ("keepalive-interval",
       TPSIP_CONN_PARAM_KEEPALIVE_INTERVAL, params->keepalive_interval);

@@ -22,6 +22,7 @@
 #define __TPSIP_MEDIA_STREAM_H__
 
 #include <glib-object.h>
+#include <telepathy-glib/enums.h>
 #include <sofia-sip/sdp.h>
 
 G_BEGIN_DECLS

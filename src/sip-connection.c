@@ -97,6 +97,7 @@ enum
   PROP_STUN_SERVER,        /**< STUN server address (if not set, derived
 			        from public SIP address */
   PROP_STUN_PORT,          /**< STUN port */
+  PROP_IMMUTABLE_STREAMS,  /**< If the session content is immutable once set up */
   PROP_LOCAL_IP_ADDRESS,   /**< Local IP address (normally not needed, chosen by stack) */
   PROP_LOCAL_PORT,         /**< Local port for SIP (normally not needed, chosen by stack) */
   PROP_EXTRA_AUTH_USER,	   /**< User name to use for extra authentication challenges */
@@ -280,6 +281,9 @@ tpsip_connection_set_property (GObject      *object,
     priv->stun_host = g_value_dup_string (value);
     break;
   }
+  case PROP_IMMUTABLE_STREAMS:
+    priv->immutable_streams = g_value_get_boolean (value);
+    break;
   case PROP_LOCAL_IP_ADDRESS: {
     g_free (priv->local_ip_address);
     priv->local_ip_address = g_value_dup_string (value);
@@ -377,6 +381,9 @@ tpsip_connection_get_property (GObject      *object,
     g_value_set_uint (value, priv->stun_port);
     break;
   }
+  case PROP_IMMUTABLE_STREAMS:
+    g_value_set_boolean (value, priv->immutable_streams);
+    break;
   case PROP_LOCAL_IP_ADDRESS: {
     g_value_set_string (value, priv->local_ip_address);
     break;
@@ -544,6 +551,13 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
       TPSIP_DEFAULT_STUN_PORT, /*default value*/
       G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_STUN_PORT);
+
+  param_spec = g_param_spec_boolean ("immutable-streams", "Immutable streams",
+      "Set if additional streams cannot be requested on a media channel,"
+      " nor existing streams can be removed",
+      FALSE,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  INST_PROP(PROP_IMMUTABLE_STREAMS);
 
   param_spec = g_param_spec_string ("local-ip-address", "Local IP address",
       "Local IP address to use",

@@ -164,9 +164,6 @@ tpsip_media_session_get_stream (TpsipMediaSession *self,
                               guint stream_id,
                               GError **error);
 
-static TpsipMediaStream* priv_create_media_stream (TpsipMediaSession *session,
-                                                 guint media_type,
-                                                 guint pending_send_flags);
 static void priv_request_response_step (TpsipMediaSession *session);
 static void priv_session_invite (TpsipMediaSession *session, gboolean reinvite);
 static void priv_local_media_changed (TpsipMediaSession *session);
@@ -862,9 +859,8 @@ gboolean tpsip_media_session_request_streams (TpsipMediaSession *session,
     guint media_type = g_array_index (media_types, guint, i);
     TpsipMediaStream *stream;
 
-    stream = priv_create_media_stream (session,
-                                       media_type,
-                                       TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+    stream = tpsip_media_session_add_stream (session,
+        media_type, TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
 
     if (stream == NULL)
       {
@@ -1560,7 +1556,7 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
       media_type = tpsip_tp_media_type (media->m_type);
 
       if (i >= priv->streams->len)
-        stream = priv_create_media_stream (
+        stream = tpsip_media_session_add_stream (
                         session,
                         media_type,
                         TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
@@ -2030,10 +2026,10 @@ priv_stream_unhold_failure_cb (TpsipMediaStream *stream,
                       TP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE);
 }
 
-static TpsipMediaStream*
-priv_create_media_stream (TpsipMediaSession *self,
-                          guint media_type,
-                          guint pending_send_flags)
+TpsipMediaStream*
+tpsip_media_session_add_stream (TpsipMediaSession *self,
+                                guint media_type,
+                                guint pending_send_flags)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   gchar *object_path;
