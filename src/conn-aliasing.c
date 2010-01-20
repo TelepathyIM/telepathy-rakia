@@ -27,6 +27,8 @@
 
 #include "sip-connection-helpers.h"
 
+#include <string.h>
+
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
@@ -44,6 +46,39 @@ tpsip_connection_get_alias_flags (TpSvcConnectionInterfaceAliasing *iface,
 }
 
 static gchar *
+conn_get_default_alias (TpsipConnection *self,
+                        TpHandleRepoIface *contact_handles,
+                        TpHandle handle)
+{
+  const url_t *url;
+  gchar *alias = NULL;
+
+  /* TODO: create our custom handle repo to be able to get the URL off it.
+   * Then we can reuse the contact_handles parameter */
+  url = tpsip_conn_get_contact_url (self, handle);
+
+  switch (url->url_type)
+    {
+    case url_sip:
+      /* Return the SIP URI stripped down to [user@]host */
+      if (url->url_user != NULL)
+        alias = g_strdup_printf ("%s@%s",
+                                 url->url_user, url->url_host);
+      else
+        alias = g_strdup (url->url_host);
+      break;
+    case url_tel:
+      /* Retrieve the telephone number */
+      alias = g_strdup (url->url_host);
+      break;
+    default:
+      /* Return the handle string as is */
+      alias = g_strdup (tp_handle_inspect (contact_handles, handle));
+    }
+  return alias;
+}
+
+static gchar *
 conn_get_alias (TpsipConnection *self,
                 TpHandleRepoIface *contact_handles,
                 TpHandle handle)
@@ -58,29 +93,7 @@ conn_get_alias (TpsipConnection *self,
     }
 
   if (alias == NULL)
-    {
-      const url_t *url;
-
-      url = tpsip_conn_get_contact_url (self, handle);
-      switch (url->url_type)
-        {
-        case url_sip:
-          /* Return the SIP URI stripped down to [user@]host */
-          if (url->url_user != NULL)
-            alias = g_strdup_printf ("%s@%s",
-                                     url->url_user, url->url_host);
-          else
-            alias = g_strdup (url->url_host);
-          break;
-        case url_tel:
-          /* Retrieve the telephone number */
-          alias = g_strdup (url->url_host);
-          break;
-        default:
-          /* Return the handle string as is */
-          alias = g_strdup (tp_handle_inspect (contact_handles, handle));
-        }
-    }
+    alias = conn_get_default_alias (self, contact_handles, handle);
 
   g_assert (alias != NULL);
   DEBUG("handle %u got alias %s", handle, alias);
@@ -203,6 +216,31 @@ emit_self_alias_change (TpsipConnection *self, const gchar *alias)
   g_value_unset (&change_pair);
 }
 
+static const gchar *
+collapse_whitespace (const gchar *str, gchar **to_free)
+{
+  static GRegex *whitespace_regex = NULL;
+
+  const gchar *p;
+  gchar *subst_res;
+
+  p = (const gchar *) strpbrk (str, " \t\r\n");
+  if (p == NULL)
+    return str;
+
+  if (whitespace_regex == NULL)
+    {
+      whitespace_regex = g_regex_new ("[[:space:]]+",
+          G_REGEX_RAW | G_REGEX_OPTIMIZE, 0, NULL);
+    }
+
+  subst_res = g_regex_replace_literal (whitespace_regex, str, -1, p - str, " ",
+      0, NULL);
+
+  *to_free = subst_res;
+  return subst_res;
+}
+
 static void
 tpsip_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
                               GHashTable *aliases,
@@ -210,7 +248,10 @@ tpsip_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
 {
   TpsipConnection *self = TPSIP_CONNECTION (iface);
   TpBaseConnection *base = (TpBaseConnection *) self;
+  TpHandleRepoIface *contact_handles;
   const gchar *alias;
+  gchar *default_alias;
+  gchar *to_free = NULL;
 
   TP_BASE_CONNECTION_ERROR_IF_NOT_CONNECTED (base, context);
 
@@ -226,10 +267,28 @@ tpsip_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
       return;
     }
 
-  DEBUG("setting alias for self: %s", alias);
-  g_object_set (self, "alias", alias, NULL);
+  alias = collapse_whitespace (alias, &to_free);
+
+  contact_handles = tp_base_connection_get_handles (base,
+      TP_HANDLE_TYPE_CONTACT);
+  default_alias = conn_get_default_alias (self,
+      contact_handles, base->self_handle);
+
+  if (strcmp (alias, default_alias) == 0)
+    {
+      DEBUG("using default alias for self");
+      g_object_set (self, "alias", NULL, NULL);
+    }
+  else
+    {
+      DEBUG("setting alias for self: %s", alias);
+      g_object_set (self, "alias", alias, NULL);
+    }
 
   emit_self_alias_change (self, alias);
+
+  g_free (default_alias);
+  g_free (to_free);
 
   tp_svc_connection_interface_aliasing_return_from_set_aliases (context);
 }

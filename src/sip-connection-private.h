@@ -21,10 +21,15 @@
 #ifndef __TPSIP_CONNECTION_PRIVATE_H__
 #define __TPSIP_CONNECTION_PRIVATE_H__
 
+#include <config.h>
 #include "media-factory.h"
 
 #include <tpsip/sofia-decls.h>
 #include <sofia-sip/sresolv.h>
+
+#ifdef HAVE_LIBIPHB
+#include <libiphb.h>
+#endif
 
 struct _TpsipConnectionPrivate
 {
@@ -37,6 +42,12 @@ struct _TpsipConnectionPrivate
   url_t *proxy_url;
   url_t *registrar_url;
 
+#ifdef HAVE_LIBIPHB
+  iphb_t    heartbeat;
+  su_wait_t heartbeat_wait[1];
+  int       heartbeat_wait_id;
+#endif
+
   gchar *registrar_realm;
 
   TpsipMediaFactory *media_factory;
@@ -47,7 +58,7 @@ struct _TpsipConnectionPrivate
   gchar *alias;
   gchar *transport;
   TpsipConnectionKeepaliveMechanism keepalive_mechanism;
-  gint keepalive_interval;
+  guint keepalive_interval;
   gboolean discover_stun;
   gchar *stun_host;
   guint stun_port;
@@ -57,6 +68,9 @@ struct _TpsipConnectionPrivate
   gchar *extra_auth_password;
   gboolean loose_routing;
   gboolean discover_binding;
+  gboolean immutable_streams;
+
+  gboolean keepalive_interval_specified;
 
   gboolean dispose_has_run;
 };

@@ -34,6 +34,9 @@ G_BEGIN_DECLS
 
 #define TPSIP_DEFAULT_STUN_PORT 3478
 
+/* Maximum defer timeout for deferrable Sofia timers */
+#define TPSIP_DEFER_TIMEOUT 30
+
 typedef enum
 {
   TPSIP_CONNECTION_KEEPALIVE_AUTO = 0,	/** Keepalive management is up to the implementation */

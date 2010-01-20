@@ -35,6 +35,8 @@
 
 #include "config.h"
 
+#include <tpsip/codec-param-formats.h>
+
 #include "sip-media-stream.h"
 #include "sip-media-session.h"
 
@@ -72,8 +74,6 @@ enum
 };
 
 static guint signals[SIG_LAST_SIGNAL] = {0};
-
-static GRegex *fmtp_attr_regex = NULL;
 
 /* properties */
 enum
@@ -124,6 +124,7 @@ struct _TpsipMediaStreamPrivate
   gboolean push_remote_cands_pending;   /* SetRemoteCandidates emission is pending */
   gboolean push_remote_codecs_pending;  /* SetRemoteCodecs emission is pending */
   gboolean codec_intersect_pending;     /* codec intersection is pending */
+  gboolean requested_hold_state;        /* hold state last requested from the stream handler */
   gboolean dispose_has_run;
 };
 
@@ -416,21 +417,6 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
                   NULL, NULL,
                   g_cclosure_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
-
-/* Regexps for the name and the value parts of the parameter syntax */
-#define FMTP_TOKEN_ATTR "([-A-Za-z0-9_.]+)"
-#define FMTP_TOKEN_VALUE "([^;\"\\s]+|\"([^\"\\\\]|\\\\.)*\")"
-/* Indexes of the respective match groups in the whole regexp below */
-#define FMTP_MATCH_ATTR 1
-#define FMTP_MATCH_VALUE 2
-
-  fmtp_attr_regex = g_regex_new (FMTP_TOKEN_ATTR
-                                   "\\s*=\\s*"
-                                   FMTP_TOKEN_VALUE,
-                                 G_REGEX_RAW,
-                                 0 /* G_REGEX_MATCH_ANCHORED */,
-                                 NULL);
-  g_assert (fmtp_attr_regex != NULL);
 }
 
 void
@@ -880,6 +866,10 @@ static void
 tpsip_media_stream_unhold_failure (TpSvcMediaStreamHandler *self,
                                    DBusGMethodInvocation *context)
 {
+  /* Not doing anything to hold_state or requested_hold_state,
+   * because the session is going to put all streams on hold after getting
+   * the signal below */
+
   g_signal_emit (self, signals[SIG_UNHOLD_FAILURE], 0);
   tp_svc_media_stream_handler_return_from_unhold_failure (context);
 }
@@ -1298,6 +1288,20 @@ tpsip_media_stream_stop_telephony_event  (TpsipMediaStream *self)
         (TpSvcMediaStreamHandler *)self);
 }
 
+gboolean
+tpsip_media_stream_request_hold_state (TpsipMediaStream *self, gboolean hold)
+{
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+
+  if ((!priv->requested_hold_state) != (!hold))
+    {
+      priv->requested_hold_state = hold;
+      tp_svc_media_stream_handler_emit_set_stream_held (self, hold);
+      return TRUE;
+    }
+  return FALSE;
+}
+
 static void
 priv_generate_sdp (TpsipMediaStream *self)
 {
@@ -1311,116 +1315,6 @@ priv_generate_sdp (TpsipMediaStream *self)
   g_assert (priv->stream_sdp != NULL);
 
   g_signal_emit (self, signals[SIG_READY], 0);
-}
-
-static gchar *
-priv_fmtp_fetch_value (const GMatchInfo *match)
-{
-  const gchar *str;
-  gchar *value;
-  gchar *pv;
-  gint vstart = 0;
-  gint vend = 0;
-  gint i;
-
-  str = g_match_info_get_string (match);
-  g_match_info_fetch_pos (match, FMTP_MATCH_VALUE, &vstart, &vend);
-
-  if (vstart < vend - 1 && str[vstart] == '"' && str[vend - 1] == '"')
-    {
-      /* Unescape the quoted pair contents */
-
-      /* The buffer should be enough for the non-collapsed contents
-       * minus the quotes */
-      value = g_malloc ((vend - 1 - vstart) * sizeof (gchar));
-      pv = value;
-      for (i = vstart + 1; i < vend - 1; i++)
-        {
-          if (str[i] == '\\')
-            ++i;
-          *pv++ = str[i];
-        }
-      *pv = '\0';
-    }
-  else
-    {
-      /* Pass as is */
-      value = g_strndup (str + vstart, vend - vstart);
-    }
-
-  return value;
-}
-
-static int
-priv_fmtp_match_length (const GMatchInfo *match)
-{
-  gint attr_start = 0;
-  gint attr_end = 0;
-
-  g_match_info_fetch_pos (match, 0, &attr_start, &attr_end);
-
-  g_assert (attr_start == 0);
-  g_assert (attr_end > 0);
-
-  return attr_end;
-}
-
-static void
-priv_fmtp_parse (const char *fmtp, GHashTable *param_hash)
-{
-  GMatchInfo *match;
-  gchar *name;
-  gchar *value;
-  const char *p = fmtp;
-
-  if (fmtp == NULL)
-    return;
-
-  for (;;)
-    {
-      while (g_ascii_isspace (*p))
-        ++p;
-
-      if (*p == '\0')
-        break;
-
-      g_regex_match (fmtp_attr_regex, p, G_REGEX_MATCH_ANCHORED, &match);
-      if (!g_match_info_matches (match))
-        goto pass_as_is;
-
-      name = g_match_info_fetch (match, FMTP_MATCH_ATTR);
-
-      value = priv_fmtp_fetch_value (match);
-
-      p += priv_fmtp_match_length (match);
-
-      g_match_info_free (match);
-
-      DEBUG("parsed parameter %s=%s", name, value);
-
-      g_hash_table_insert (param_hash, name, value);
-
-      while (g_ascii_isspace (*p))
-        ++p;
-
-      switch (*p)
-        {
-        case '\0':
-          break;
-        case ';':
-          ++p;
-          break;
-        default:
-          goto pass_as_is;
-        }
-    }
-
-  return;
-
-pass_as_is:
-  DEBUG("failed to parse format-specific parameters as an attribute-value list: %s", fmtp);
-  g_hash_table_remove_all (param_hash);
-  g_hash_table_insert (param_hash, g_strdup (""), g_strdup (fmtp));
 }
 
 /**
@@ -1437,6 +1331,8 @@ static void push_remote_codecs (TpsipMediaStream *stream)
   GType codec_type;
   const sdp_media_t *sdpmedia;
   const sdp_rtpmap_t *rtpmap;
+  gchar *ptime = NULL;
+  gchar *max_ptime = NULL;
 
   DEBUG ("enter");
 
@@ -1454,6 +1350,21 @@ static void push_remote_codecs (TpsipMediaStream *stream)
       DEBUG("the stream engine is not ready, SetRemoteCodecs is pending");
       priv->push_remote_codecs_pending = TRUE;
       return;
+    }
+
+  ptime = tpsip_sdp_get_string_attribute (sdpmedia->m_attributes, "ptime");
+  if (ptime == NULL)
+    {
+      g_object_get (priv->session,
+          "remote-ptime", &ptime,
+          NULL);
+    }
+  max_ptime = tpsip_sdp_get_string_attribute (sdpmedia->m_attributes, "maxptime");
+  if (max_ptime == NULL)
+    {
+      g_object_get (priv->session,
+          "remote-max-ptime", &max_ptime,
+          NULL);
     }
 
   codec_type = TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CODEC;
@@ -1474,7 +1385,15 @@ static void push_remote_codecs (TpsipMediaStream *stream)
       g_value_take_boxed (&codec,
                           dbus_g_type_specialized_construct (codec_type));
 
-      priv_fmtp_parse (rtpmap->rm_fmtp, opt_params);
+      if (ptime != NULL)
+        g_hash_table_insert (opt_params,
+            g_strdup("ptime"), g_strdup (ptime));
+      if (max_ptime != NULL)
+        g_hash_table_insert (opt_params,
+            g_strdup("maxptime"), g_strdup (max_ptime));
+
+      tpsip_codec_param_parse (priv->media_type, rtpmap->rm_encoding,
+          rtpmap->rm_fmtp, opt_params);
 
       /* RFC2327: see "m=" line definition 
        *  - note, 'encoding_params' is assumed to be channel
@@ -1503,6 +1422,8 @@ static void push_remote_codecs (TpsipMediaStream *stream)
     }
 
   g_hash_table_destroy (opt_params);
+  g_free (ptime);
+  g_free (max_ptime);
 
   SESSION_DEBUG(priv->session, "passing %d remote codecs to stream engine",
                 codecs->len);
@@ -1689,32 +1610,12 @@ return "-";
 }
 
 static void
-priv_marshal_param (gpointer key,
-                    gpointer val,
-                    gpointer user_data)
-{
-  GString *params = (GString *) user_data;
-  const char *name = (const char *) key;
-  const char *value = (const char *) val;
-
-  if (params->len != 0)
-    g_string_append_c (params, ';');
-
-  if (name == NULL || !*name)
-    g_string_append_printf (params, "%s", value);
-  else if (value == NULL)
-    g_string_append_printf (params, "%s", name);
-  else
-    g_string_append_printf (params, "%s=%s", name, value);
-}
-
-static void
 priv_append_rtpmaps (const GPtrArray *codecs, GString *mline, GString *alines)
 {
   GValue codec = { 0, };
   gchar *co_name = NULL;
   guint co_id;
-  /* guint co_type; */
+  guint co_type;
   guint co_clockrate;
   guint co_channels;
   GHashTable *co_params = NULL;
@@ -1729,7 +1630,7 @@ priv_append_rtpmaps (const GPtrArray *codecs, GString *mline, GString *alines)
       dbus_g_type_struct_get (&codec,
                               0, &co_id,
                               1, &co_name,
-                              /* 2, &co_type, */
+                              2, &co_type,
                               3, &co_clockrate,
                               4, &co_channels,
                               5, &co_params,
@@ -1753,7 +1654,8 @@ priv_append_rtpmaps (const GPtrArray *codecs, GString *mline, GString *alines)
           GString *fmtp_value;
           g_string_append_printf (alines, "a=fmtp:%u ", co_id);
           fmtp_value = g_string_new (NULL);
-          g_hash_table_foreach (co_params, priv_marshal_param, fmtp_value);
+          tpsip_codec_param_format (co_type, co_name,
+              co_params, fmtp_value);
           g_string_append (alines, fmtp_value->str);
           g_string_free (fmtp_value, TRUE);
           g_string_append (alines, "\r\n");

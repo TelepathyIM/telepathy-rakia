@@ -77,6 +77,8 @@ enum
   PROP_PEER,
   PROP_HOLD_STATE,
   PROP_HOLD_STATE_REASON,
+  PROP_REMOTE_PTIME,
+  PROP_REMOTE_MAX_PTIME,
   PROP_RTCP_ENABLED,
   PROP_LOCAL_IP_ADDRESS,
   LAST_PROPERTY
@@ -124,6 +126,8 @@ struct _TpsipMediaSessionPrivate
   nua_handle_t *nua_op;                   /* see gobj. prop. 'nua-handle' */
   TpHandle peer;                          /* see gobj. prop. 'peer' */
   gchar *local_ip_address;                /* see gobj. prop. 'local-ip-address' */
+  gchar *remote_ptime;                    /* see gobj. prop. 'remote-ptime' */
+  gchar *remote_max_ptime;                /* see gobj. prop. 'remote-max-ptime' */
   gboolean rtcp_enabled;                  /* see gobj. prop. 'rtcp-enabled' */
   TpsipMediaSessionState state;           /* session state */
   TpLocalHoldState hold_state;         /* local hold state aggregated from stream directions */
@@ -160,9 +164,6 @@ tpsip_media_session_get_stream (TpsipMediaSession *self,
                               guint stream_id,
                               GError **error);
 
-static TpsipMediaStream* priv_create_media_stream (TpsipMediaSession *session,
-                                                 guint media_type,
-                                                 guint pending_send_flags);
 static void priv_request_response_step (TpsipMediaSession *session);
 static void priv_session_invite (TpsipMediaSession *session, gboolean reinvite);
 static void priv_local_media_changed (TpsipMediaSession *session);
@@ -228,6 +229,12 @@ static void tpsip_media_session_get_property (GObject    *object,
       break;
     case PROP_HOLD_STATE_REASON:
       g_value_set_uint (value, priv->hold_reason);
+      break;
+    case PROP_REMOTE_PTIME:
+      g_value_set_string (value, priv->remote_ptime);
+      break;
+    case PROP_REMOTE_MAX_PTIME:
+      g_value_set_string (value, priv->remote_max_ptime);
       break;
     case PROP_LOCAL_IP_ADDRESS:
       g_value_set_string (value, priv->local_ip_address);
@@ -337,6 +344,20 @@ tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_HOLD_STATE_REASON, param_spec);
 
+  param_spec = g_param_spec_string ("remote-ptime",
+      "a=ptime value of remote media session",
+      "Value of the a=ptime attribute of the remote media session, or NULL",
+      NULL,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_REMOTE_PTIME, param_spec);
+
+  param_spec = g_param_spec_string ("remote-max-ptime",
+      "a=maxptime value of remote media session",
+      "Value of the a=maxptime attribute of the remote media session, or NULL",
+      NULL,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_REMOTE_MAX_PTIME, param_spec);
+
   param_spec = g_param_spec_string ("local-ip-address", "Local IP address",
       "The local IP address preferred for media streams",
       NULL,
@@ -410,6 +431,8 @@ tpsip_media_session_finalize (GObject *object)
   if (priv->backup_home != NULL)
     su_home_unref (priv->backup_home);
 
+  g_free (priv->remote_ptime);
+  g_free (priv->remote_max_ptime);
   g_free (priv->local_ip_address);
   g_free (priv->object_path);
 
@@ -836,9 +859,8 @@ gboolean tpsip_media_session_request_streams (TpsipMediaSession *session,
     guint media_type = g_array_index (media_types, guint, i);
     TpsipMediaStream *stream;
 
-    stream = priv_create_media_stream (session,
-                                       media_type,
-                                       TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+    stream = tpsip_media_session_add_stream (session,
+        media_type, TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
 
     if (stream == NULL)
       {
@@ -1166,7 +1188,8 @@ priv_initiate_hold (TpsipMediaSession *self,
 
   if (hold)
     {
-      if (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD)
+      if (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD
+          || priv->hold_state == TP_LOCAL_HOLD_STATE_PENDING_HOLD)
         {
           g_message ("redundant hold request");
           return;
@@ -1174,7 +1197,8 @@ priv_initiate_hold (TpsipMediaSession *self,
     }
   else
     {
-      if (priv->hold_state == TP_LOCAL_HOLD_STATE_UNHELD)
+      if (priv->hold_state == TP_LOCAL_HOLD_STATE_UNHELD
+          || priv->hold_state == TP_LOCAL_HOLD_STATE_PENDING_UNHOLD)
         {
           g_message ("redundant unhold request");
           return;
@@ -1185,18 +1209,9 @@ priv_initiate_hold (TpsipMediaSession *self,
   for (i = 0; i < priv->streams->len; i++)
     {
       stream = g_ptr_array_index(priv->streams, i);
-      if (stream != NULL)
-        {
-          gboolean stream_held = FALSE;
-          g_object_get (stream,
-                        "hold-state", &stream_held,
-                        NULL);
-          if ((!stream_held) != (!hold))
-            {
-              tp_svc_media_stream_handler_emit_set_stream_held (stream, hold);
-              stream_hold_requested = TRUE;
-            }
-        }
+      if (stream != NULL
+          && tpsip_media_stream_request_hold_state (stream, hold))
+        stream_hold_requested = TRUE;
     }
 
   if (stream_hold_requested)
@@ -1225,25 +1240,45 @@ priv_finalize_hold (TpsipMediaSession *self)
   guint hold_mask;
   guint unhold_mask;
   guint i;
+  gboolean held = FALSE;
 
   DEBUG("enter");
 
   switch (priv->hold_state)
     {
     case TP_LOCAL_HOLD_STATE_PENDING_HOLD:
+      held = TRUE;
+      break;
+    case TP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+      held = FALSE;
+      break;
+    default:
+      /* Streams changed state without request, signal this to the client.
+       * All streams should have the same hold state at this point,
+       * so just query one of them for the current hold state */
+      stream = NULL;
+      for (i = 0; i < priv->streams->len; i++)
+        {
+          stream = g_ptr_array_index(priv->streams, i);
+          if (stream != NULL)
+            break;
+        }
+      g_return_if_fail (stream != NULL);
+
+      g_object_get (stream, "hold-state", &held, NULL);
+    }
+
+  if (held)
+    {
       final_hold_state = TP_LOCAL_HOLD_STATE_HELD;
       hold_mask = TP_MEDIA_STREAM_DIRECTION_SEND;
       unhold_mask = 0;
-      break;
-    case TP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
+    }
+  else
+    {
       final_hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
       hold_mask = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
       unhold_mask = TP_MEDIA_STREAM_DIRECTION_RECEIVE;
-      break;
-    default:
-      /* This internal function must not be called in final hold states */
-      g_assert_not_reached ();
-      return;
     }
 
   priv->hold_state = final_hold_state;
@@ -1450,22 +1485,41 @@ priv_update_remote_hold (TpsipMediaSession *session)
                                            TP_CHANNEL_CALL_STATE_HELD);
 }
 
+gchar *
+tpsip_sdp_get_string_attribute (const sdp_attribute_t *attrs, const char *name)
+{
+  sdp_attribute_t *attr;
+
+  attr = sdp_attribute_find (attrs, name);
+  if (attr == NULL)
+    return NULL;
+
+  return g_strdup (attr->a_value);
+}
+
 static gboolean
 priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  const sdp_session_t *sdp = priv->remote_sdp;
   const sdp_media_t *media;
   gboolean has_supported_media = FALSE;
   guint direction_up_mask;
   guint pending_send_mask;
   guint i;
 
-  g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
+  g_return_val_if_fail (sdp != NULL, FALSE);
 
-  /* Update the session-wide RTCP enable flag
-   * before updating stream media */
+  /* Update the session-wide parameters
+   * before updating streams' media */
+
+  priv->remote_ptime     = tpsip_sdp_get_string_attribute (
+      sdp->sdp_attributes, "ptime");
+  priv->remote_max_ptime = tpsip_sdp_get_string_attribute (
+      sdp->sdp_attributes, "maxptime");
+
   priv->rtcp_enabled = !tpsip_sdp_rtcp_bandwidth_throttled (
-                                priv->remote_sdp->sdp_bandwidths);
+                                sdp->sdp_bandwidths);
 
   /*
    * Do not allow:
@@ -1488,7 +1542,7 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
   if (priv->pending_offer)
     pending_send_mask |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
 
-  media = priv->remote_sdp->sdp_media;
+  media = sdp->sdp_media;
 
   /* note: for each session, we maintain an ordered list of
    *       streams (SDP m-lines) which are matched 1:1 to
@@ -1502,7 +1556,7 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
       media_type = tpsip_tp_media_type (media->m_type);
 
       if (i >= priv->streams->len)
-        stream = priv_create_media_stream (
+        stream = tpsip_media_session_add_stream (
                         session,
                         media_type,
                         TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
@@ -1972,10 +2026,10 @@ priv_stream_unhold_failure_cb (TpsipMediaStream *stream,
                       TP_LOCAL_HOLD_STATE_REASON_RESOURCE_NOT_AVAILABLE);
 }
 
-static TpsipMediaStream*
-priv_create_media_stream (TpsipMediaSession *self,
-                          guint media_type,
-                          guint pending_send_flags)
+TpsipMediaStream*
+tpsip_media_session_add_stream (TpsipMediaSession *self,
+                                guint media_type,
+                                guint pending_send_flags)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
   gchar *object_path;

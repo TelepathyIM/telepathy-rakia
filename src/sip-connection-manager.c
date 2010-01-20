@@ -1,7 +1,7 @@
 /*
  * sip-connection-manager.c - Source for TpsipConnectionManager
  * Copyright (C) 2005-2007 Collabora Ltd.
- * Copyright (C) 2005-2008 Nokia Corporation
+ * Copyright (C) 2005-2009 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
  *   @author Martti Mela <first.surname@nokia.com>
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
@@ -24,6 +24,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -40,6 +42,7 @@
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
+
 
 G_DEFINE_TYPE(TpsipConnectionManager, tpsip_connection_manager,
     TP_TYPE_BASE_CONNECTION_MANAGER)
@@ -58,10 +61,11 @@ typedef struct {
     gboolean loose_routing;
     gboolean discover_binding;
     gchar *keepalive_mechanism;
-    gint keepalive_interval;
+    guint keepalive_interval;
     gboolean discover_stun;
     gchar *stun_server;
     guint stun_port;
+    gboolean immutable_streams;
     gchar *local_ip_address;
     guint local_port;
     gchar *extra_auth_user;
@@ -111,6 +115,7 @@ enum {
     TPSIP_CONN_PARAM_DISCOVER_STUN,
     TPSIP_CONN_PARAM_STUN_SERVER,
     TPSIP_CONN_PARAM_STUN_PORT,
+    TPSIP_CONN_PARAM_IMMUTABLE_STREAMS,
     TPSIP_CONN_PARAM_LOCAL_IP_ADDRESS,
     TPSIP_CONN_PARAM_LOCAL_PORT,
     TPSIP_CONN_PARAM_EXTRA_AUTH_USER,
@@ -128,9 +133,7 @@ static const TpCMParamSpec tpsip_params[] = {
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, auth_user) },
     /* Password */
     { "password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, /* according to the .manager file this is 
-      TP_CONN_MGR_PARAM_FLAG_REQUIRED | TP_CONN_MGR_PARAM_FLAG_REGISTER,
-      but in the code this is not the case */
+      TP_CONN_MGR_PARAM_FLAG_SECRET,
       NULL, G_STRUCT_OFFSET (TpsipConnParams, password) },
     /* Display name for self */
     { "alias", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL,
@@ -161,10 +164,12 @@ static const TpCMParamSpec tpsip_params[] = {
       G_STRUCT_OFFSET (TpsipConnParams, discover_binding) },
     /* Mechanism used for connection keepalive maintenance */
     { "keepalive-mechanism", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, keepalive_mechanism) },
-    /* KA interval */
-    { "keepalive-interval", DBUS_TYPE_INT32_AS_STRING, G_TYPE_INT,
-      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, keepalive_interval) },
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "auto",
+      G_STRUCT_OFFSET (TpsipConnParams, keepalive_mechanism) },
+    /* Keep-alive interval */
+    { "keepalive-interval", DBUS_TYPE_UINT32_AS_STRING, G_TYPE_UINT,
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(0),
+      G_STRUCT_OFFSET (TpsipConnParams, keepalive_interval) },
     /* Use SRV DNS lookup to discover STUN server */
     { "discover-stun", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
@@ -177,6 +182,10 @@ static const TpCMParamSpec tpsip_params[] = {
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT,
       GUINT_TO_POINTER(TPSIP_DEFAULT_STUN_PORT),
       G_STRUCT_OFFSET (TpsipConnParams, stun_port) },
+    /* If the session content cannot be modified once initially set up */
+    { "immutable-streams", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(FALSE),
+      G_STRUCT_OFFSET (TpsipConnParams, immutable_streams) },
     /* Local IP address to use, workaround purposes only */
     { "local-ip-address", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, local_ip_address) },
@@ -187,7 +196,8 @@ static const TpCMParamSpec tpsip_params[] = {
     { "extra-auth-user", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       0, NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_user) },
     { "extra-auth-password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
-      0, NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_password) },
+      TP_CONN_MGR_PARAM_FLAG_SECRET,
+      NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_password) },
     { NULL, NULL, 0, 0, NULL, 0 }
 };
 
@@ -201,7 +211,7 @@ struct _TpsipConnectionManagerPrivate
   su_root_t *sofia_root;
 };
 
-#define TPSIP_CONNECTION_MANAGER_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManagerPrivate))
+#define TPSIP_CONNECTION_MANAGER_GET_PRIVATE(obj) ((obj)->priv)
 
 static void
 tpsip_connection_manager_init (TpsipConnectionManager *obj)
@@ -216,6 +226,10 @@ tpsip_connection_manager_init (TpsipConnectionManager *obj)
   su_root_threading(priv->sofia_root, 0);
   source = su_root_gsource(priv->sofia_root);
   g_source_attach(source, NULL);
+
+#ifdef HAVE_LIBIPHB
+  su_root_set_max_defer (priv->sofia_root, TPSIP_DEFER_TIMEOUT * 1000L);
+#endif
 }
 
 static void tpsip_connection_manager_finalize (GObject *object);
@@ -474,6 +488,9 @@ tpsip_connection_manager_new_connection (TpBaseConnectionManager *base,
 
   SET_PROPERTY_IF_PARAM_SET ("stun-port", TPSIP_CONN_PARAM_STUN_PORT,
       params->stun_port);
+
+  SET_PROPERTY_IF_PARAM_SET ("immutable-streams", TPSIP_CONN_PARAM_IMMUTABLE_STREAMS,
+      params->immutable_streams);
 
   SET_PROPERTY_IF_PARAM_SET ("keepalive-interval",
       TPSIP_CONN_PARAM_KEEPALIVE_INTERVAL, params->keepalive_interval);

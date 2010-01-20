@@ -3,7 +3,7 @@ AC_PREREQ([2.59])
 m4_define([THIS_PACKAGE],[telepathy-sofiasip])
 m4_define([VERSION_MAJOR],[0])
 m4_define([VERSION_MINOR],[5])
-m4_define([VERSION_MICRO],[15])
+m4_define([VERSION_MICRO],[19])
 m4_define([VERSION_NANO],[1])
 
 m4_define([BASE_VERSION],[VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO])
@@ -17,10 +17,11 @@ AS_VERSION(THIS_PACKAGE, TELEPATHY_SIP_VERSION,
            VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO,
            WERROR="no", WERROR="yes")
 
-AM_INIT_AUTOMAKE([1.8 -Wno-portability])
+AM_INIT_AUTOMAKE([1.9 -Wno-portability])
 
-AM_PROG_LIBTOOL
-AM_CONFIG_HEADER(config.h)
+AC_PROG_LIBTOOL
+
+AC_CONFIG_HEADER([config.h])
 
 dnl check for tools
 AC_PROG_CC
@@ -44,7 +45,7 @@ fi
 AC_SUBST(ERROR_CFLAGS)
 
 AC_ARG_ENABLE(debug,
-  AC_HELP_STRING([--disable-debug],[omit debug code]),
+  AS_HELP_STRING([--disable-debug],[omit debug code]),
     enable_debug=$enableval, enable_debug=yes )
 
 if test x$enable_debug = xyes; then
@@ -54,7 +55,7 @@ fi
 AC_C_INLINE
 
 AC_ARG_ENABLE(syslog,
-  AC_HELP_STRING([--enable-syslog],[use syslog for Sofia log messages]),
+  AS_HELP_STRING([--enable-syslog],[use syslog for Sofia log messages]),
   [enable_syslog=$enableval],
   [enable_syslog=no]
 )
@@ -90,9 +91,31 @@ AC_SUBST(SOFIA_SIP_UA_CFLAGS)
 AC_SUBST(SOFIA_SIP_UA_VERSION)
 
 dnl Check for telepathy-glib
-PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.7.17])
+PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.7.37])
 AC_SUBST(TELEPATHY_GLIB_CFLAGS)
 AC_SUBST(TELEPATHY_GLIB_LIBS)
+
+dnl Check for optional IP heartbeat support
+AC_ARG_WITH(iphb,
+  AS_HELP_STRING([--with-iphb],[use IP heartbeat support in Maemo]),
+  [],
+  [with_iphb=no]
+)
+if test "x$with_iphb" != xno; then
+  AC_CHECK_LIB(iphb, [iphb_open],
+    [
+      AC_DEFINE([HAVE_LIBIPHB], [], [IP heartbeat library is available])
+      IPHB_CFLAGS='-I$(includedir)/iphbd'
+      IPHB_LIBS=-liphb
+    ],
+    [AC_MSG_ERROR([IP heartbeat library not found])]
+  )
+else
+  IPHB_CFLAGS=
+  IPHB_LIBS=
+fi
+AC_SUBST(IPHB_CFLAGS)
+AC_SUBST(IPHB_LIBS)
 
 dnl Check for code generation tools
 XSLTPROC=
@@ -100,11 +123,9 @@ AC_CHECK_PROGS([XSLTPROC], [xsltproc])
 if test -z "$XSLTPROC"; then
   AC_MSG_ERROR([xsltproc (from the libxslt source package) is required])
 fi
-PYTHON=
-AC_CHECK_PROGS([PYTHON], [python2.5 python2.4 python2.3 python])
-if test -z "$PYTHON"; then
-  AC_MSG_ERROR([Python is required to compile this package])
-fi
+AM_PATH_PYTHON([2.3],[],
+  [AC_MSG_ERROR([Python is required to compile this package])]
+)
 
 dnl Check for twisted python for tests
 AC_MSG_CHECKING([for TwistedPython with SIP protocol support])

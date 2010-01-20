@@ -43,6 +43,11 @@
 #include "sip-connection-helpers.h"
 #include "sip-media-session.h"
 
+#define TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK \
+    (TP_CHANNEL_CALL_STATE_RINGING | \
+     TP_CHANNEL_CALL_STATE_QUEUED | \
+     TP_CHANNEL_CALL_STATE_IN_PROGRESS)
+
 static void event_target_init (gpointer, gpointer);
 static void channel_iface_init (gpointer, gpointer);
 static void media_signalling_iface_init (gpointer, gpointer);
@@ -95,11 +100,13 @@ enum
   PROP_TARGET_ID,
   PROP_INITIATOR,
   PROP_INITIATOR_ID,
-  PROP_PEER,
   PROP_REQUESTED,
   PROP_INTERFACES,
   PROP_CHANNEL_DESTROYED,
   PROP_CHANNEL_PROPERTIES,
+  PROP_INITIAL_AUDIO,
+  PROP_INITIAL_VIDEO,
+  PROP_IMMUTABLE_STREAMS,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
   PROP_STUN_SERVER,
@@ -135,6 +142,9 @@ struct _TpsipMediaChannelPrivate
   TpHandle initiator;
   GHashTable *call_states;
 
+  gboolean initial_audio;
+  gboolean initial_video;
+  gboolean immutable_streams;
   gboolean closed;
   gboolean dispose_has_run;
 };
@@ -249,11 +259,23 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       { "Requested", "requested", NULL },
       { NULL }
   };
+  static TpDBusPropertiesMixinPropImpl streamed_media_props[] = {
+      { "InitialAudio", "initial-audio", NULL },
+      { "InitialVideo", "initial-video", NULL },
+      { "ImmutableStreams", "immutable-streams", NULL },
+      { NULL }
+  };
+
   static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
       { TP_IFACE_CHANNEL,
         tp_dbus_properties_mixin_getter_gobject_properties,
         NULL,
         channel_props,
+      },
+      { TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA,
+        tp_dbus_properties_mixin_getter_gobject_properties,
+        NULL,
+        streamed_media_props,
       },
       { NULL }
   };
@@ -337,6 +359,27 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
 
+  param_spec = g_param_spec_boolean ("initial-audio", "InitialAudio",
+      "Whether the channel initially contained an audio stream",
+      FALSE,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_INITIAL_AUDIO,
+      param_spec);
+
+  param_spec = g_param_spec_boolean ("initial-video", "InitialVideo",
+      "Whether the channel initially contained a video stream",
+      FALSE,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_INITIAL_VIDEO,
+      param_spec);
+
+  param_spec = g_param_spec_boolean ("immutable-streams", "ImmutableStreams",
+      "Whether the set of streams on this channel are fixed once requested",
+      FALSE,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_IMMUTABLE_STREAMS,
+      param_spec);
+
   tp_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipMediaChannelClass, properties_class),
       media_channel_property_signatures, NUM_TP_PROPS, NULL);
@@ -350,6 +393,7 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
                              G_STRUCT_OFFSET (TpsipMediaChannelClass, group_class),
                              _tpsip_media_channel_add_member,
                              NULL);
+  tp_group_mixin_class_allow_self_removal (object_class);
   tp_group_mixin_class_set_remove_with_reason_func(object_class,
                              tpsip_media_channel_remove_with_reason);
   tp_group_mixin_init_dbus_properties (object_class);
@@ -394,20 +438,6 @@ tpsip_media_channel_get_property (GObject    *object,
       else
         g_value_set_static_string (value, "");
       break;
-    case PROP_PEER:
-      {
-        TpHandle peer = 0;
-
-        if (priv->handle != 0)
-          peer = priv->handle;
-        else if (priv->session != NULL)
-          g_object_get (priv->session,
-              "peer", &peer,
-              NULL);
-
-        g_value_set_uint (value, peer);
-        break;
-      }
     case PROP_INITIATOR:
       g_value_set_uint (value, priv->initiator);
       break;
@@ -439,7 +469,19 @@ tpsip_media_channel_get_property (GObject    *object,
               TP_IFACE_CHANNEL, "InitiatorID",
               TP_IFACE_CHANNEL, "Requested",
               TP_IFACE_CHANNEL, "Interfaces",
+              TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA, "InitialAudio",
+              TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA, "InitialVideo",
+              TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA, "ImmutableStreams",
               NULL));
+      break;
+    case PROP_INITIAL_AUDIO:
+      g_value_set_boolean (value, priv->initial_audio);
+      break;
+    case PROP_INITIAL_VIDEO:
+      g_value_set_boolean (value, priv->initial_video);
+      break;
+    case PROP_IMMUTABLE_STREAMS:
+      g_value_set_boolean (value, priv->immutable_streams);
       break;
     default:
       /* Some properties live in the mixin */
@@ -500,6 +542,15 @@ tpsip_media_channel_set_property (GObject     *object,
     case PROP_INITIATOR:
       /* similarly we can't ref this yet */
       priv->initiator = g_value_get_uint (value);
+      break;
+    case PROP_INITIAL_AUDIO:
+      priv->initial_audio = g_value_get_boolean (value);
+      break;
+    case PROP_INITIAL_VIDEO:
+      priv->initial_video = g_value_get_boolean (value);
+      break;
+    case PROP_IMMUTABLE_STREAMS:
+      priv->immutable_streams = g_value_get_boolean (value);
       break;
     default:
       /* some properties live in the mixin */
@@ -778,7 +829,12 @@ tpsip_media_channel_remove_streams (TpSvcChannelTypeStreamedMedia *iface,
 
   priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (priv->session != NULL)
+  if (priv->immutable_streams)
+    {
+      error = g_error_new (TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+          "Cannot remove streams from the existing channel");
+    }
+  else if (priv->session != NULL)
     {
        tpsip_media_session_remove_streams(priv->session,
                                         streams,
@@ -818,6 +874,8 @@ tpsip_media_channel_request_stream_direction (TpSvcChannelTypeStreamedMedia *ifa
 
   priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
+  /* TODO: find out if it's practical to disable this when
+   * priv->immutable_streams is set */
   if (priv->session != NULL)
     {
       tpsip_media_session_request_stream_direction (priv->session,
@@ -865,6 +923,14 @@ tpsip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 
   priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
+  if (priv->immutable_streams)
+    {
+      GError e = { TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+          "Cannot add streams to the existing channel" };
+      dbus_g_method_return_error (context, &e);
+      return;
+    }
+
   contact_repo = tp_base_connection_get_handles (
       (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
 
@@ -899,6 +965,26 @@ tpsip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 /***********************************************************************
  * Set: sip-media-channel API towards sip-connection
  ***********************************************************************/
+
+void
+tpsip_media_channel_create_initial_streams (TpsipMediaChannel *self)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  g_assert (priv->initiator != priv->handle);
+
+  priv_outbound_call (self, priv->handle);
+
+  g_assert (priv->session != NULL);
+
+  if (priv->initial_audio)
+    tpsip_media_session_add_stream (priv->session,
+        TP_MEDIA_STREAM_TYPE_AUDIO, TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+
+  if (priv->initial_video)
+    tpsip_media_session_add_stream (priv->session,
+        TP_MEDIA_STREAM_TYPE_VIDEO, TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+}
 
 /**
  * Handle an incoming INVITE, normally called just after the channel
@@ -939,6 +1025,16 @@ priv_nua_i_invite_cb (TpsipMediaChannel *self,
   return TRUE;
 }
 
+static guint
+tpsip_media_channel_get_call_state (TpsipMediaChannel *self,
+                                    TpHandle peer)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  return GPOINTER_TO_UINT (g_hash_table_lookup (priv->call_states,
+      GUINT_TO_POINTER (peer)));
+}
+
 static void
 tpsip_media_channel_peer_error (TpsipMediaChannel *self,
                                 TpHandle peer,
@@ -964,7 +1060,10 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
       break;
     case 404:
     case 480:
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
+      reason = (tpsip_media_channel_get_call_state (self, peer)
+             & TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK)
+          ? TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER
+          : TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
       break;
     case 603:
       /* No reason means roughly "rejected" */
@@ -1163,12 +1262,21 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
   switch ((enum nua_callstate)ss_state)
     {
     case nua_callstate_proceeding:
-      if (status == 180)
-        tpsip_media_channel_change_call_state (self, peer,
-                TP_CHANNEL_CALL_STATE_RINGING, 0);
-      else if (status == 182)
-        tpsip_media_channel_change_call_state (self, peer,
-                TP_CHANNEL_CALL_STATE_QUEUED, 0);
+      switch (status)
+        {
+          case 180:
+            tpsip_media_channel_change_call_state (self, peer,
+                    TP_CHANNEL_CALL_STATE_RINGING, 0);
+            break;
+          case 182:
+            tpsip_media_channel_change_call_state (self, peer,
+                    TP_CHANNEL_CALL_STATE_QUEUED, 0);
+            break;
+          case 183:
+            tpsip_media_channel_change_call_state (self, peer,
+                    TP_CHANNEL_CALL_STATE_IN_PROGRESS, 0);
+            break;
+        }
       break;
 
     case nua_callstate_completing:
@@ -1177,10 +1285,9 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
 
     case nua_callstate_ready:
 
-      /* Clear Ringing and Queued call states when the call is established */
+      /* Clear any pre-establishment call states */
       tpsip_media_channel_change_call_state (self, peer, 0,
-                TP_CHANNEL_CALL_STATE_RINGING |
-                TP_CHANNEL_CALL_STATE_QUEUED);
+          TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK);
 
       if (status < 300)
         tpsip_media_session_accept (priv->session);
@@ -1195,11 +1302,18 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       break;
 
     case nua_callstate_terminated:
+      /* In cases of self-inflicted termination,
+       * we should have already gone through the moves */
+      if (tpsip_media_session_get_state (priv->session)
+          == TPSIP_MEDIA_SESSION_STATE_ENDED)
+        break;
+
       if (status >= 300)
         {
           tpsip_media_channel_peer_error (
                 self, peer, status, ev->text);
         }
+
       tpsip_media_session_change_state (priv->session,
                                         TPSIP_MEDIA_SESSION_STATE_ENDED);
       break;
@@ -1579,9 +1693,12 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
   TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (obj);
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
+  TpIntSet *set = NULL;
+  TpHandle self_handle;
 
-  if (priv->initiator != mixin->self_handle &&
-      handle != mixin->self_handle)
+  self_handle = mixin->self_handle;
+
+  if (priv->initiator != self_handle && handle != self_handle)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_PERMISSION_DENIED,
           "handle %u cannot be removed because you are not the initiator of the"
@@ -1598,16 +1715,35 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
       return FALSE;
     }
 
-  if (handle == mixin->self_handle
+  /* We have excluded all the problem cases.
+   * Now we always want to remove both members on behalf of the local user */
+  set = tp_intset_new ();
+  tp_intset_add (set, self_handle);
+  tp_intset_add (set, tpsip_media_session_get_peer (priv->session));
+  tp_group_mixin_change_members (obj, "",
+                                 NULL,      /* add */
+                                 set,       /* remove */
+                                 NULL,
+                                 NULL,
+                                 self_handle, 0);
+  tp_intset_destroy (set);
+
+  if (handle == self_handle
       && tp_handle_set_is_member (mixin->local_pending, handle))
     {
       /* The user has rejected the call */
+
       gint status;
 
       status = tpsip_status_from_tp_reason (reason);
 
       /* XXX: raise NotAvailable if it's the wrong state? */
       tpsip_media_session_respond (priv->session, status, message);
+
+      /* This session is effectively ended, prevent the nua_i_state handler
+       * from useless work */
+      tpsip_media_session_change_state (priv->session,
+                                        TPSIP_MEDIA_SESSION_STATE_ENDED);
     }
   else
     {
@@ -1667,7 +1803,14 @@ tpsip_media_channel_request_hold (TpSvcChannelInterfaceHold *iface,
 
   priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (priv->session != NULL)
+  if (priv->immutable_streams)
+    {
+      GError e = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+                  "Session modification disabled"};
+      dbus_g_method_return_error (context, &e);
+      return;
+    }
+  else if (priv->session != NULL)
     {
       tpsip_media_session_request_hold (priv->session, hold);
     }
@@ -1676,6 +1819,7 @@ tpsip_media_channel_request_hold (TpSvcChannelInterfaceHold *iface,
       GError e = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
                   "The media session is not available"};
       dbus_g_method_return_error (context, &e);
+      return;
     }
 
   tp_svc_channel_interface_hold_return_from_request_hold (context);

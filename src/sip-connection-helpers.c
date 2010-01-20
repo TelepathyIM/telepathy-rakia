@@ -18,6 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <config.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -28,10 +30,13 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
 
+#include <tpsip/util.h>
+
 #include "sip-connection-helpers.h"
 
 #include <sofia-sip/sip.h>
 #include <sofia-sip/sip_header.h>
+#include <sofia-sip/tport_tag.h>
 
 #include "sip-connection-private.h"
 
@@ -77,7 +82,20 @@ priv_sip_from_url_make (TpsipConnection *conn,
 
   g_object_get (conn, "alias", &alias, NULL);
   if (alias != NULL)
-    from->a_display = su_strdup (home, alias);
+    {
+      gchar *alias_quoted;
+
+      /* Make the alias into a quoted string, escaping all characters
+       * that cannot go verbatim into a quoted string */
+
+      alias_quoted = tpsip_quote_string (alias);
+
+      g_free (alias);
+
+      from->a_display = su_strdup (home, alias_quoted);
+
+      g_free (alias_quoted);
+    }
 
   return from;
 }
@@ -379,8 +397,8 @@ tpsip_conn_update_nua_outbound (TpsipConnection *conn)
 static void
 priv_sanitize_keepalive_interval (TpsipConnectionPrivate *priv)
 {
-  gint minimum_interval;
-  if (priv->keepalive_interval > 0)
+  guint minimum_interval;
+  if (priv->keepalive_interval != 0)
     {
       minimum_interval =
               (priv->keepalive_mechanism == TPSIP_CONNECTION_KEEPALIVE_REGISTER)
@@ -388,7 +406,7 @@ priv_sanitize_keepalive_interval (TpsipConnectionPrivate *priv)
               : TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL;
       if (priv->keepalive_interval < minimum_interval)
         {
-          g_warning ("keepalive interval is too low, pushing to %d", minimum_interval);
+          g_warning ("keepalive interval is too low, pushing to %u", minimum_interval);
           priv->keepalive_interval = minimum_interval;
         }
     }
@@ -400,14 +418,11 @@ tpsip_conn_update_nua_keepalive_interval (TpsipConnection *conn)
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   long keepalive_interval;
 
-  if (priv->keepalive_interval < 0)
+  if (!priv->keepalive_interval_specified)
     return;
 
   if (priv->keepalive_mechanism == TPSIP_CONNECTION_KEEPALIVE_NONE)
     keepalive_interval = 0;
-  else if (priv->keepalive_interval == 0)
-    /* XXX: figure out proper default timeouts depending on transport */
-    keepalive_interval = TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
   else
     {
       priv_sanitize_keepalive_interval (priv);
@@ -419,6 +434,7 @@ tpsip_conn_update_nua_keepalive_interval (TpsipConnection *conn)
 
   nua_set_params (priv->sofia_nua,
                   NUTAG_KEEPALIVE(keepalive_interval),
+                  TPTAG_KEEPALIVE(keepalive_interval),
                   TAG_NULL());
 }
 
@@ -432,13 +448,13 @@ tpsip_conn_update_nua_contact_features (TpsipConnection *conn)
   if (priv->keepalive_mechanism != TPSIP_CONNECTION_KEEPALIVE_REGISTER)
     return;
 
-  if (priv->keepalive_interval < 0)
+  if (priv->keepalive_interval == 0)
     return;
 
   priv_sanitize_keepalive_interval (priv);
-  timeout = (priv->keepalive_interval > 0)
-        ? priv->keepalive_interval
-        : TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
+  timeout = priv->keepalive_interval_specified
+      ? priv->keepalive_interval
+      : TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
   contact_features = g_strdup_printf ("expires=%u", timeout);
   nua_set_params(priv->sofia_nua,
 		 NUTAG_M_FEATURES(contact_features),
@@ -789,20 +805,39 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
       if (priv_is_tel_num (sipuri))
         {
           user = priv_strip_tel_num (sipuri);
-          url = url_format (home, "sip:%s@%s;user=phone",
-              user, base_url->url_host);
         }
       else
         {
           user = g_uri_escape_string (sipuri,
               TPSIP_RESERVED_CHARS_ALLOWED_IN_USERNAME, FALSE);
-          url = url_format (home, "sip:%s@%s",
-              user, base_url->url_host);
         }
+
+      if (base_url->url_type == url_sips)
+        url = url_format (home, "sips:%s@%s",
+            user, base_url->url_host);
+      else
+        url = url_format (home, "sip:%s@%s",
+            user, base_url->url_host);
 
       g_free (user);
 
       if (!url) goto error;
+    }
+  else if (url->url_scheme == NULL)
+    {
+      /* Set the scheme to SIP or SIPS accordingly to the connection's
+       * transport preference */
+      if (priv->transport != NULL
+          && g_ascii_strcasecmp (priv->transport, "tls") == 0)
+        {
+          url->url_type = url_sips;
+          url->url_scheme = "sips";
+        }
+      else
+        {
+          url->url_type = url_sip;
+          url->url_scheme = "sip";
+        }
     }
 
   if (url_sanitize (url) != 0) goto error;
@@ -914,4 +949,109 @@ tpsip_handle_parse_from (TpHandleRepoIface *contact_repo,
     }
 
   return handle;
+}
+
+#ifdef HAVE_LIBIPHB
+
+static int
+heartbeat_wakeup (su_root_magic_t *foo,
+                  su_wait_t *wait,
+                  void *user_data)
+{
+  TpsipConnection *self = (TpsipConnection *) user_data;
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  gint keepalive_earliest; 
+
+  DEBUG("tick");
+
+  g_assert (priv->heartbeat != NULL);
+
+  if ((wait->revents & (SU_WAIT_IN | SU_WAIT_HUP | SU_WAIT_ERR)) != SU_WAIT_IN)
+    {
+      g_warning ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
+      tpsip_conn_heartbeat_shutdown (self);
+      return 0;
+    }
+
+  keepalive_earliest = (int) priv->keepalive_interval - TPSIP_DEFER_TIMEOUT;
+  if (keepalive_earliest < 0)
+    keepalive_earliest = 0;
+
+  if (iphb_wait (priv->heartbeat,
+        (gushort) keepalive_earliest,
+        (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT),
+        0) < 0)
+    {
+      g_warning ("iphb_wait failed");
+      tpsip_conn_heartbeat_shutdown (self);
+      return 0;
+    }
+
+  return 0;
+}
+
+#endif /* HAVE_LIBIPHB */
+
+void
+tpsip_conn_heartbeat_init (TpsipConnection *self)
+{
+#ifdef HAVE_LIBIPHB
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  int wait_id;
+  int reference_interval = 0;
+
+  g_assert (priv->heartbeat == NULL);
+
+  priv->heartbeat = iphb_open (&reference_interval);
+
+  if (priv->heartbeat == NULL)
+    {
+      g_warning ("opening IP heartbeat failed: %s", strerror (errno));
+      return;
+    }
+
+  DEBUG("heartbeat opened with reference interval %d", reference_interval);
+
+  su_wait_init (priv->heartbeat_wait);
+  if (su_wait_create (priv->heartbeat_wait,
+                      iphb_get_fd (priv->heartbeat),
+                      SU_WAIT_IN) != 0)
+    g_critical ("could not create a wait object");
+
+  wait_id = su_root_register (priv->sofia_root,
+      priv->heartbeat_wait, heartbeat_wakeup, self, 0);
+
+  g_return_if_fail (wait_id > 0);
+  priv->heartbeat_wait_id = wait_id;
+
+  /* Prime the heartbeat for the first time.
+   * The minimum wakeup timeout is 0 to fall in step with other
+   * clients using the same interval */
+  if (iphb_wait (priv->heartbeat,
+        0, (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT), 0) < 0)
+    {
+      g_warning ("iphb_wait failed");
+      tpsip_conn_heartbeat_shutdown (self);
+    }
+
+#endif /* HAVE_LIBIPHB */
+}
+
+void
+tpsip_conn_heartbeat_shutdown (TpsipConnection *self)
+{
+#ifdef HAVE_LIBIPHB
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+
+  if (priv->heartbeat_wait_id == 0)
+    return;
+
+  su_root_deregister (priv->sofia_root, priv->heartbeat_wait_id);
+  priv->heartbeat_wait_id = 0;
+
+  su_wait_destroy (priv->heartbeat_wait);
+
+  iphb_close (priv->heartbeat);
+  priv->heartbeat = NULL;
+#endif /* HAVE_LIBIPHB */
 }

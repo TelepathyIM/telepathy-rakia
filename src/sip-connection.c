@@ -97,6 +97,7 @@ enum
   PROP_STUN_SERVER,        /**< STUN server address (if not set, derived
 			        from public SIP address */
   PROP_STUN_PORT,          /**< STUN port */
+  PROP_IMMUTABLE_STREAMS,  /**< If the session content is immutable once set up */
   PROP_LOCAL_IP_ADDRESS,   /**< Local IP address (normally not needed, chosen by stack) */
   PROP_LOCAL_PORT,         /**< Local port for SIP (normally not needed, chosen by stack) */
   PROP_EXTRA_AUTH_USER,	   /**< User name to use for extra authentication challenges */
@@ -229,19 +230,37 @@ tpsip_connection_set_property (GObject      *object,
     break;
   }
   case PROP_KEEPALIVE_MECHANISM: {
-    priv->keepalive_mechanism = g_value_get_enum (value);
-    if (priv->sofia_nua) {
-      tpsip_conn_update_nua_outbound (self);
-      tpsip_conn_update_nua_keepalive_interval (self);
-    }
+    TpsipConnectionKeepaliveMechanism mech = g_value_get_enum (value);
+    if (priv->keepalive_interval_specified && priv->keepalive_interval == 0)
+      {
+        if (mech != TPSIP_CONNECTION_KEEPALIVE_NONE
+            && mech != TPSIP_CONNECTION_KEEPALIVE_AUTO)
+          g_warning ("keep-alive mechanism selection is ignored when interval is 0");
+      }
+    else
+      {
+        priv->keepalive_mechanism = mech;
+        if (priv->sofia_nua != NULL)
+          {
+            tpsip_conn_update_nua_outbound (self);
+            tpsip_conn_update_nua_keepalive_interval (self);
+          }
+      }
     break;
   }
   case PROP_KEEPALIVE_INTERVAL: {
-    priv->keepalive_interval = g_value_get_int (value);
-    if (priv->sofia_nua
-	&& priv->keepalive_mechanism != TPSIP_CONNECTION_KEEPALIVE_NONE) {
-      tpsip_conn_update_nua_keepalive_interval(self);
-    }
+    priv->keepalive_interval = g_value_get_uint (value);
+    priv->keepalive_interval_specified = TRUE;
+    if (priv->keepalive_interval == 0)
+      {
+        priv->keepalive_mechanism = TPSIP_CONNECTION_KEEPALIVE_NONE;
+        if (priv->sofia_nua != NULL)
+          tpsip_conn_update_nua_outbound (self);
+      }
+    if (priv->sofia_nua)
+      {
+        tpsip_conn_update_nua_keepalive_interval(self);
+      }
     break;
   }
   case PROP_DISCOVER_BINDING: {
@@ -262,6 +281,9 @@ tpsip_connection_set_property (GObject      *object,
     priv->stun_host = g_value_dup_string (value);
     break;
   }
+  case PROP_IMMUTABLE_STREAMS:
+    priv->immutable_streams = g_value_get_boolean (value);
+    break;
   case PROP_LOCAL_IP_ADDRESS: {
     g_free (priv->local_ip_address);
     priv->local_ip_address = g_value_dup_string (value);
@@ -339,7 +361,9 @@ tpsip_connection_get_property (GObject      *object,
     break;
   }
   case PROP_KEEPALIVE_INTERVAL: {
-    g_value_set_int (value, priv->keepalive_interval);
+    /* FIXME: get the keepalive interval from NUA in case anything
+     * really retrieves this property */
+    g_value_set_uint (value, priv->keepalive_interval);
     break;
   }
   case PROP_DISCOVER_BINDING: {
@@ -357,6 +381,9 @@ tpsip_connection_get_property (GObject      *object,
     g_value_set_uint (value, priv->stun_port);
     break;
   }
+  case PROP_IMMUTABLE_STREAMS:
+    g_value_set_boolean (value, priv->immutable_streams);
+    break;
   case PROP_LOCAL_IP_ADDRESS: {
     g_value_set_string (value, priv->local_ip_address);
     break;
@@ -492,10 +519,10 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
       G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_KEEPALIVE_MECHANISM);
 
-  param_spec = g_param_spec_int ("keepalive-interval", "Keepalive interval",
-      "Interval between keepalives in seconds "
-      "(0 = internal default, -1 = let the stack decide)",
-      -1, G_MAXINT32, -1,
+  param_spec = g_param_spec_uint ("keepalive-interval", "Keepalive interval",
+      "Interval between keepalive probes in seconds "
+      "(0 = disabled, unset = use a default interval)",
+      0, G_MAXUINT32, 0,
       G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_KEEPALIVE_INTERVAL);
 
@@ -524,6 +551,13 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
       TPSIP_DEFAULT_STUN_PORT, /*default value*/
       G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_STUN_PORT);
+
+  param_spec = g_param_spec_boolean ("immutable-streams", "Immutable streams",
+      "Set if additional streams cannot be requested on a media channel,"
+      " nor existing streams can be removed",
+      FALSE,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  INST_PROP(PROP_IMMUTABLE_STREAMS);
 
   param_spec = g_param_spec_string ("local-ip-address", "Local IP address",
       "Local IP address to use",
@@ -707,6 +741,7 @@ tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
                                     tagi_t               tags[],
                                     gpointer             foo)
 {
+  TpBaseConnection *base = (TpBaseConnection *) self;
   TpConnectionStatus conn_status = TP_CONNECTION_STATUS_DISCONNECTED;
   TpConnectionStatusReason reason = 0;
 
@@ -735,14 +770,18 @@ tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
         }
       else /* if (ev->status == 200) */
         {
+          if (base->status != TP_CONNECTION_STATUS_CONNECTING)
+            return TRUE;
+
           DEBUG("succesfully registered to the network");
           conn_status = TP_CONNECTION_STATUS_CONNECTED;
           reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
+
+          tpsip_conn_heartbeat_init (self);
         }
     }
 
-  tp_base_connection_change_status ((TpBaseConnection *) self,
-                                    conn_status, reason);
+  tp_base_connection_change_status (base, conn_status, reason);
 
   return TRUE;
 }
@@ -759,6 +798,8 @@ tpsip_connection_shut_down (TpBaseConnection *base)
 
   /* We disposed of the REGISTER handle in the disconnected method */
   g_assert (priv->register_op == NULL);
+
+  tpsip_conn_heartbeat_shutdown (self);
 
   if (priv->sofia_nua != NULL)
     nua_shutdown (priv->sofia_nua);
@@ -788,7 +829,6 @@ tpsip_connection_dispose (GObject *object)
    * disconnect */
   g_assert (base->status == TP_CONNECTION_STATUS_DISCONNECTED
       || base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
-  g_assert (base->self_handle == 0);
 
   /* the base class owns channel factories/managers,
    * here we just nullify the references */
