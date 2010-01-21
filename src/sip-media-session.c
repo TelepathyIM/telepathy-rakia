@@ -2047,15 +2047,17 @@ tpsip_media_session_add_stream (TpsipMediaSession *self,
                                    stream_id);
     if (tpsip_media_session_is_local_hold_ongoing (self))
       {
-        direction = (pending_send_flags == 0)
-                ? TP_MEDIA_STREAM_DIRECTION_SEND
-                : TP_MEDIA_STREAM_DIRECTION_NONE;
+        direction = ((pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND)
+                     != 0)
+                ? TP_MEDIA_STREAM_DIRECTION_NONE
+                : TP_MEDIA_STREAM_DIRECTION_SEND;
       }
     else
       {
-        direction = (pending_send_flags == 0)
-                ? TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL
-                : TP_MEDIA_STREAM_DIRECTION_RECEIVE;
+        direction = ((pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND)
+                     != 0)
+                ? TP_MEDIA_STREAM_DIRECTION_RECEIVE
+                : TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
       }
 
     stream = g_object_new (TPSIP_TYPE_MEDIA_STREAM,
@@ -2104,11 +2106,15 @@ tpsip_media_session_add_stream (TpsipMediaSession *self,
                                                           stream_id,
                                                           priv->peer,
                                                           media_type);
-    tp_svc_channel_type_streamed_media_emit_stream_direction_changed (
-        priv->channel,
-        stream_id,
-        direction,
-        pending_send_flags);
+    if (direction != TP_MEDIA_STREAM_DIRECTION_RECEIVE
+        && pending_send_flags != TP_MEDIA_STREAM_PENDING_LOCAL_SEND)
+      {
+        tp_svc_channel_type_streamed_media_emit_stream_direction_changed (
+            priv->channel,
+            stream_id,
+            direction,
+            pending_send_flags);
+      }
   }
 
   /* note: we add an entry even for unsupported media types */

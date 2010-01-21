@@ -900,7 +900,7 @@ priv_get_requested_direction (TpsipMediaStreamPrivate *priv)
   TpMediaStreamDirection direction;
 
   direction = priv->direction;
-  if (priv->pending_send_flags != 0)
+  if ((priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
     direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
   return direction;
 }
@@ -1117,10 +1117,7 @@ priv_update_sending (TpsipMediaStream *stream,
    * considering that effective sending direction and pending send should be
    * mutually exclusive */
   if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND) == 0
-      || (pending_send_flags
-          & (TP_MEDIA_STREAM_PENDING_REMOTE_SEND
-             | TP_MEDIA_STREAM_PENDING_LOCAL_SEND))
-         != 0)
+      || (pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
     {
       sending = FALSE;
     }
@@ -1147,13 +1144,22 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
   pending_send_flags = priv->pending_send_flags & pending_send_mask;
 
   if ((direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0
-      && (priv->pending_send_flags & ~pending_send_mask) == 0)
+      && (pending_send_mask
+          & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
     {
       /* We're requested to start sending, but we need to confirm this
-       * with the client or the remote party.
+       * with the client.
        * Clear the sending bit and set the pending send flag. */
       direction &= ~(guint)TP_MEDIA_STREAM_DIRECTION_SEND;
-      pending_send_flags |= pending_send_mask;
+      pending_send_flags |= TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
+    }
+  if ((direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE) != 0
+      && (pending_send_mask
+          & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0)
+    {
+      /* We're requested to start receiving, but the remote end did not
+       * confirm if it will send. Set the pending send flag. */
+      pending_send_flags |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
     }
 
   if (priv->direction == direction
@@ -1181,9 +1187,9 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
 }
 
 /*
- * Checks for the pending send flag(s) present in @pending_send_mask,
- * if set, enable the sending bit in the stream direction and clear
- * the flag(s) that have been checked.
+ * Clears the pending send flag(s) present in @pending_send_mask.
+ * If the local pending send flag is thus cleared,
+ * enable the sending bit in the stream direction.
  */
 void
 tpsip_media_stream_apply_pending_send (TpsipMediaStream *stream,
@@ -1197,8 +1203,10 @@ tpsip_media_stream_apply_pending_send (TpsipMediaStream *stream,
 
   if ((priv->pending_send_flags & pending_send_mask) != 0)
     {
-      priv->direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
       priv->pending_send_flags &= ~pending_send_mask;
+
+      if ((priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
+        priv->direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
 
       DEBUG("set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
 
