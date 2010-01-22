@@ -588,7 +588,7 @@ priv_apply_streams_pending_send (TpsipMediaSession *session,
     {
       stream = g_ptr_array_index(priv->streams, i);
       if (stream != NULL)
-        tpsip_media_stream_apply_pending_send (stream, pending_send_mask);
+        tpsip_media_stream_apply_pending_direction (stream, pending_send_mask);
     }
 }
 

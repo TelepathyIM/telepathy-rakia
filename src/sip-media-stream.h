@@ -71,8 +71,8 @@ void tpsip_media_stream_set_sending (TpsipMediaStream *self, gboolean sending);
 void tpsip_media_stream_set_direction (TpsipMediaStream *stream,
                                        TpMediaStreamDirection direction,
                                        guint pending_send_mask);
-void tpsip_media_stream_apply_pending_send (TpsipMediaStream *stream,
-                                            guint pending_send_mask);
+void tpsip_media_stream_apply_pending_direction (TpsipMediaStream *stream,
+                                                 guint pending_send_mask);
 TpMediaStreamDirection tpsip_media_stream_get_requested_direction (TpsipMediaStream *self);
 gboolean tpsip_media_stream_is_local_ready (TpsipMediaStream *self);
 gboolean tpsip_media_stream_is_codec_intersect_pending (TpsipMediaStream *self);
