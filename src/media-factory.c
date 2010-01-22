@@ -603,6 +603,17 @@ tpsip_media_factory_requestotron (TpChannelManager *manager,
               &error))
         goto error;
 
+      /* Calls to self are problematic in terms of StreamedMedia channel
+       * interface and its semantically required Group member changes;
+       * we disable them until a better API is available through
+       * Call channel type */
+      if (handle == conn->self_handle)
+        {
+          g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+              "Cannot call self");
+          goto error;
+        }
+
       if (method == METHOD_ENSURE)
         {
           guint i;
