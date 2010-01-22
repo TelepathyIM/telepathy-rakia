@@ -135,8 +135,7 @@ static void push_remote_codecs (TpsipMediaStream *stream);
 static void push_remote_candidates (TpsipMediaStream *stream);
 static void push_active_candidate_pair (TpsipMediaStream *stream);
 static void priv_update_sending (TpsipMediaStream *stream,
-                                 TpMediaStreamDirection direction,
-                                 guint pending_send_flags);
+                                 TpMediaStreamDirection direction);
 static void priv_update_local_sdp(TpsipMediaStream *stream);
 static void priv_generate_sdp (TpsipMediaStream *stream);
 
@@ -1012,8 +1011,7 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
       /* Disable sending at this point if it will be disabled
        * accordingly to the new direction */
       priv_update_sending (stream,
-                           priv->direction & new_direction,
-                           priv->pending_send_flags);
+                           priv->direction & new_direction);
     }
 
   /* First add the new candidate, then update the codec set.
@@ -1120,8 +1118,7 @@ tpsip_media_stream_set_sending (TpsipMediaStream *stream, gboolean sending)
 
 static void
 priv_update_sending (TpsipMediaStream *stream,
-                     TpMediaStreamDirection direction,
-                     guint pending_send_flags)
+                     TpMediaStreamDirection direction)
 {
   TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
   gboolean sending = TRUE;
@@ -1131,7 +1128,7 @@ priv_update_sending (TpsipMediaStream *stream,
    * mutually exclusive */
   if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND) == 0
       || priv->pending_remote_receive
-      || (pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
+      || (priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
     {
       sending = FALSE;
     }
@@ -1194,7 +1191,7 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
                  priv->direction, priv->pending_send_flags);
 
   if (priv->remote_media != NULL)
-    priv_update_sending (stream, priv->direction, priv->pending_send_flags);
+    priv_update_sending (stream, priv->direction);
 
   if (priv->native_cands_prepared
       && priv->native_codecs_prepared
@@ -1240,7 +1237,7 @@ tpsip_media_stream_apply_pending_direction (TpsipMediaStream *stream,
     }
 
   /* Always check to enable sending because the session could become accepted */
-  priv_update_sending (stream, priv->direction, priv->pending_send_flags);
+  priv_update_sending (stream, priv->direction);
 }
 
 TpMediaStreamDirection
