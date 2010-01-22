@@ -571,19 +571,19 @@ priv_close_all_streams (TpsipMediaSession *session)
 }
 
 static void
-priv_apply_streams_pending_send (TpsipMediaSession *session,
-                                 guint pending_send_mask)
+priv_apply_streams_pending_direction (TpsipMediaSession *session,
+                                      guint pending_send_mask)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
   TpsipMediaStream *stream;
   guint i;
 
   /* If there has been a local change pending a re-INVITE,
-   * leave pending remote send for the next transaction */
+   * suspend remote approval until the next transaction */
   if (priv->pending_offer)
     pending_send_mask &= ~(guint)TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
 
-  /* Apply the local pending send flags where applicable */
+  /* Apply the pending direction changes */
   for (i = 0; i < priv->streams->len; i++)
     {
       stream = g_ptr_array_index(priv->streams, i);
@@ -623,8 +623,8 @@ tpsip_media_session_change_state (TpsipMediaSession *session,
       /* Apply any pending remote send after outgoing INVITEs.
        * We don't want automatic removal of pending local send after
        * responding to incoming re-INVITEs, however */
-      priv_apply_streams_pending_send (session,
-                                       TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+      priv_apply_streams_pending_direction (session,
+          TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
       break;
     case TPSIP_MEDIA_SESSION_STATE_ENDED:
       priv_close_all_streams (session);
@@ -1044,9 +1044,9 @@ tpsip_media_session_accept (TpsipMediaSession *self)
   priv->accepted = TRUE;
 
   /* Apply the pending send flags */
-  priv_apply_streams_pending_send (self,
-                                   TP_MEDIA_STREAM_PENDING_LOCAL_SEND |
-                                   TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+  priv_apply_streams_pending_direction (self,
+      TP_MEDIA_STREAM_PENDING_LOCAL_SEND |
+      TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
 
   /* Will change session state to active when streams are ready */
   priv_request_response_step (self);
