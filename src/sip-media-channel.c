@@ -979,11 +979,15 @@ tpsip_media_channel_create_initial_streams (TpsipMediaChannel *self)
 
   if (priv->initial_audio)
     tpsip_media_session_add_stream (priv->session,
-        TP_MEDIA_STREAM_TYPE_AUDIO, TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+        TP_MEDIA_STREAM_TYPE_AUDIO,
+        TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
+        TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
 
   if (priv->initial_video)
     tpsip_media_session_add_stream (priv->session,
-        TP_MEDIA_STREAM_TYPE_VIDEO, TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+        TP_MEDIA_STREAM_TYPE_VIDEO,
+        TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
+        TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
 }
 
 /**

@@ -881,9 +881,10 @@ const char *tpsip_media_stream_local_sdp (TpsipMediaStream *obj)
   return priv->stream_sdp;
 }
 
-static inline guint
-tpsip_tp_stream_direction_from_remote (sdp_mode_t mode)
+TpMediaStreamDirection
+tpsip_media_stream_direction_from_remote_media (const sdp_media_t *media)
 {
+  sdp_mode_t mode = media->m_mode;
   return ((mode & sdp_recvonly)? TP_MEDIA_STREAM_DIRECTION_SEND : 0)
        | ((mode & sdp_sendonly)? TP_MEDIA_STREAM_DIRECTION_RECEIVE : 0);
 }
@@ -992,7 +993,7 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
     }
 
   old_direction = priv_get_requested_direction (priv);
-  new_direction = tpsip_tp_stream_direction_from_remote (new_media->m_mode);
+  new_direction = tpsip_media_stream_direction_from_remote_media (new_media);
 
   /* Make sure the peer can only enable sending or receiving direction
    * if it's allowed to */
