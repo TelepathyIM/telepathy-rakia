@@ -182,24 +182,35 @@ tpsip_media_stream_init (TpsipMediaStream *self)
   priv->push_remote_codecs_pending = FALSE;
 }
 
-static GObject *
-tpsip_media_stream_constructor (GType type, guint n_props,
-			      GObjectConstructParam *props)
+static void
+tpsip_media_stream_constructed (GObject *obj)
 {
-  GObject *obj;
-  TpsipMediaStreamPrivate *priv;
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (
+      TPSIP_MEDIA_STREAM (obj));
+  GObjectClass *parent_object_class =
+      G_OBJECT_CLASS (tpsip_media_stream_parent_class);
   DBusGConnection *bus;
 
-  /* call base class constructor */
-  obj = G_OBJECT_CLASS (tpsip_media_stream_parent_class)->
-           constructor (type, n_props, props);
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (TPSIP_MEDIA_STREAM (obj));
+  /* call base class method */
+  if (parent_object_class->constructed != NULL)
+    parent_object_class->constructed (obj);
+
+  /* XXX: overloading the remote pending send flag to check
+   * if this is a locally offered stream. The code creating such streams
+   * always sets the flag, because the remote end is supposed to decide
+   * whether it wants to send.
+   * This may look weird during a local hold. However, the pending flag
+   * will be harmlessly cleared once the offer-answer is complete. */
+  if ((priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0
+      && (priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0)
+    {
+      /* Block sending until the stream is remotely accepted */
+      priv->pending_remote_receive = TRUE;
+    }
 
   /* go for the bus */
   bus = tp_get_bus ();
   dbus_g_connection_register_g_object (bus, priv->object_path, obj);
-
-  return obj;
 }
 
 static void
@@ -295,7 +306,7 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
 
   g_type_class_add_private (klass, sizeof (TpsipMediaStreamPrivate));
 
-  object_class->constructor = tpsip_media_stream_constructor;
+  object_class->constructed = tpsip_media_stream_constructed;
 
   object_class->get_property = tpsip_media_stream_get_property;
   object_class->set_property = tpsip_media_stream_set_property;
@@ -1123,11 +1134,6 @@ priv_update_sending (TpsipMediaStream *stream,
       || (pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
     {
       sending = FALSE;
-    }
-  else
-    {
-      if (!tpsip_media_session_is_accepted (priv->session))
-        sending = FALSE;
     }
 
   tpsip_media_stream_set_sending (stream, sending);
