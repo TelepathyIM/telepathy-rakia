@@ -11,6 +11,8 @@ noinst_LTLIBRARIES = libtpsip.la
 AM_CPPFLAGS = @GLIB_CFLAGS@ @TELEPATHY_GLIB_CFLAGS@ @SOFIA_SIP_UA_CFLAGS@ \
 	      -I$(top_builddir) -I$(top_srcdir)
 
+AM_CFLAGS = $(ERROR_CFLAGS) $(COVERAGE_CFLAGS)
+
 tpsip_includedir = $(includedir)/telepathy-sofiasip-0.6/tpsip
 
 tpsip_include_HEADERS = \
