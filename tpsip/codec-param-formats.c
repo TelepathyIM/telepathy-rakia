@@ -126,7 +126,7 @@ tpsip_codec_param_register_format (TpMediaStreamType media, const char *name,
   fmt->parse = parse;
 
   /* XXX: thread unsafe, we don't care for now */
-  g_hash_table_insert (codec_param_formats[media], name, fmt);
+  g_hash_table_insert (codec_param_formats[media], g_strdup (name), fmt);
 }
 
 static void

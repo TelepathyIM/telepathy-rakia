@@ -20,6 +20,8 @@
 
 #include "util.h"
 
+#include <string.h>
+
 
 static const guchar escape_table[256] =
   { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1,
@@ -63,7 +65,7 @@ tpsip_string_append_quoted (GString *buf, const gchar *text)
       const gchar *q;
 
       /* Get the following text span to append verbatim */
-      for (q = p; !escape_table[*q]; ++q)
+      for (q = p; !escape_table[(guchar) *q]; ++q)
         { /* do nothing */ }
       g_string_append_len (buf, p, q - p);
 
