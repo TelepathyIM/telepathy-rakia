@@ -874,8 +874,14 @@ tpsip_media_channel_request_stream_direction (TpSvcChannelTypeStreamedMedia *ifa
 
   priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  /* TODO: find out if it's practical to disable this when
-   * priv->immutable_streams is set */
+  if (priv->immutable_streams)
+    {
+      GError e = { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "Cannot change directions on an immutable channel" };
+      dbus_g_method_return_error (context, &e);
+      return;
+    }
+
   if (priv->session != NULL)
     {
       tpsip_media_session_request_stream_direction (priv->session,
@@ -925,8 +931,8 @@ tpsip_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 
   if (priv->immutable_streams)
     {
-      GError e = { TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
-          "Cannot add streams to the existing channel" };
+      GError e = { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "Cannot add streams to the immutable channel" };
       dbus_g_method_return_error (context, &e);
       return;
     }
