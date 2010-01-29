@@ -119,6 +119,7 @@ struct _TpsipMediaStreamPrivate
   gboolean ready_received;              /* our ready method has been called */
   gboolean playing;                     /* stream set to playing */
   gboolean sending;                     /* stream set to sending */
+  gboolean pending_remote_receive;      /* TRUE if remote is to agree to receive media */
   gboolean native_cands_prepared;       /* all candidates discovered */
   gboolean native_codecs_prepared;      /* all codecs discovered */
   gboolean push_remote_cands_pending;   /* SetRemoteCandidates emission is pending */
@@ -134,8 +135,7 @@ static void push_remote_codecs (TpsipMediaStream *stream);
 static void push_remote_candidates (TpsipMediaStream *stream);
 static void push_active_candidate_pair (TpsipMediaStream *stream);
 static void priv_update_sending (TpsipMediaStream *stream,
-                                 TpMediaStreamDirection direction,
-                                 guint pending_send_flags);
+                                 TpMediaStreamDirection direction);
 static void priv_update_local_sdp(TpsipMediaStream *stream);
 static void priv_generate_sdp (TpsipMediaStream *stream);
 
@@ -181,24 +181,35 @@ tpsip_media_stream_init (TpsipMediaStream *self)
   priv->push_remote_codecs_pending = FALSE;
 }
 
-static GObject *
-tpsip_media_stream_constructor (GType type, guint n_props,
-			      GObjectConstructParam *props)
+static void
+tpsip_media_stream_constructed (GObject *obj)
 {
-  GObject *obj;
-  TpsipMediaStreamPrivate *priv;
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (
+      TPSIP_MEDIA_STREAM (obj));
+  GObjectClass *parent_object_class =
+      G_OBJECT_CLASS (tpsip_media_stream_parent_class);
   DBusGConnection *bus;
 
-  /* call base class constructor */
-  obj = G_OBJECT_CLASS (tpsip_media_stream_parent_class)->
-           constructor (type, n_props, props);
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (TPSIP_MEDIA_STREAM (obj));
+  /* call base class method */
+  if (parent_object_class->constructed != NULL)
+    parent_object_class->constructed (obj);
+
+  /* XXX: overloading the remote pending send flag to check
+   * if this is a locally offered stream. The code creating such streams
+   * always sets the flag, because the remote end is supposed to decide
+   * whether it wants to send.
+   * This may look weird during a local hold. However, the pending flag
+   * will be harmlessly cleared once the offer-answer is complete. */
+  if ((priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0
+      && (priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0)
+    {
+      /* Block sending until the stream is remotely accepted */
+      priv->pending_remote_receive = TRUE;
+    }
 
   /* go for the bus */
   bus = tp_get_bus ();
   dbus_g_connection_register_g_object (bus, priv->object_path, obj);
-
-  return obj;
 }
 
 static void
@@ -294,7 +305,7 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
 
   g_type_class_add_private (klass, sizeof (TpsipMediaStreamPrivate));
 
-  object_class->constructor = tpsip_media_stream_constructor;
+  object_class->constructed = tpsip_media_stream_constructed;
 
   object_class->get_property = tpsip_media_stream_get_property;
   object_class->set_property = tpsip_media_stream_set_property;
@@ -909,9 +920,10 @@ const char *tpsip_media_stream_local_sdp (TpsipMediaStream *obj)
   return priv->stream_sdp;
 }
 
-static inline guint
-tpsip_tp_stream_direction_from_remote (sdp_mode_t mode)
+TpMediaStreamDirection
+tpsip_media_stream_direction_from_remote_media (const sdp_media_t *media)
 {
+  sdp_mode_t mode = media->m_mode;
   return ((mode & sdp_recvonly)? TP_MEDIA_STREAM_DIRECTION_SEND : 0)
        | ((mode & sdp_sendonly)? TP_MEDIA_STREAM_DIRECTION_RECEIVE : 0);
 }
@@ -939,7 +951,7 @@ priv_get_requested_direction (TpsipMediaStreamPrivate *priv)
   TpMediaStreamDirection direction;
 
   direction = priv->direction;
-  if (priv->pending_send_flags != 0)
+  if ((priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
     direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
   return direction;
 }
@@ -1020,7 +1032,7 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
     }
 
   old_direction = priv_get_requested_direction (priv);
-  new_direction = tpsip_tp_stream_direction_from_remote (new_media->m_mode);
+  new_direction = tpsip_media_stream_direction_from_remote_media (new_media);
 
   /* Make sure the peer can only enable sending or receiving direction
    * if it's allowed to */
@@ -1039,8 +1051,7 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
       /* Disable sending at this point if it will be disabled
        * accordingly to the new direction */
       priv_update_sending (stream,
-                           priv->direction & new_direction,
-                           priv->pending_send_flags);
+                           priv->direction & new_direction);
     }
 
   /* First add the new candidate, then update the codec set.
@@ -1147,27 +1158,19 @@ tpsip_media_stream_set_sending (TpsipMediaStream *stream, gboolean sending)
 
 static void
 priv_update_sending (TpsipMediaStream *stream,
-                     TpMediaStreamDirection direction,
-                     guint pending_send_flags)
+                     TpMediaStreamDirection direction)
 {
+  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
   gboolean sending = TRUE;
 
   /* XXX: the pending send flag check is probably an overkill
    * considering that effective sending direction and pending send should be
    * mutually exclusive */
   if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND) == 0
-      || (pending_send_flags
-          & (TP_MEDIA_STREAM_PENDING_REMOTE_SEND
-             | TP_MEDIA_STREAM_PENDING_LOCAL_SEND))
-         != 0)
+      || priv->pending_remote_receive
+      || (priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
     {
       sending = FALSE;
-    }
-  else
-    {
-      TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
-      if (!tpsip_media_session_is_accepted (priv->session))
-        sending = FALSE;
     }
 
   tpsip_media_stream_set_sending (stream, sending);
@@ -1185,14 +1188,36 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
   pending_send_flags = priv->pending_send_flags & pending_send_mask;
 
-  if ((direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0
-      && (priv->pending_send_flags & ~pending_send_mask) == 0)
+  if ((direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0)
     {
-      /* We're requested to start sending, but we need to confirm this
-       * with the client or the remote party.
-       * Clear the sending bit and set the pending send flag. */
-      direction &= ~(guint)TP_MEDIA_STREAM_DIRECTION_SEND;
-      pending_send_flags |= pending_send_mask;
+      /* We are requested to start sending, but... */
+      if ((pending_send_mask
+            & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
+        {
+          /* ... but we need to confirm this with the client.
+           * Clear the sending bit and set the pending send flag. */
+          direction &= ~(guint)TP_MEDIA_STREAM_DIRECTION_SEND;
+          pending_send_flags |= TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
+        }
+      if ((pending_send_mask
+              & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0
+          && (priv->pending_send_flags
+              & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) == 0)
+        {
+          g_assert ((priv_get_requested_direction (priv) & TP_MEDIA_STREAM_DIRECTION_SEND) == 0);
+
+          /* ... but the caller wants to agree with the remote
+           * end first. Block the stream handler from sending for now. */
+          priv->pending_remote_receive = TRUE;
+        }
+    }
+  if ((direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE) != 0
+      && (pending_send_mask
+          & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0)
+    {
+      /* We're requested to start receiving, but the remote end did not
+       * confirm if it will send. Set the pending send flag. */
+      pending_send_flags |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
     }
 
   if (priv->direction == direction
@@ -1210,7 +1235,7 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
                  priv->direction, priv->pending_send_flags);
 
   if (priv->remote_media != NULL)
-    priv_update_sending (stream, priv->direction, priv->pending_send_flags);
+    priv_update_sending (stream, priv->direction);
 
   if (priv->native_cands_prepared
       && priv->native_codecs_prepared
@@ -1220,13 +1245,15 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
 }
 
 /*
- * Checks for the pending send flag(s) present in @pending_send_mask,
- * if set, enable the sending bit in the stream direction and clear
- * the flag(s) that have been checked.
+ * Clears the pending send flag(s) present in @pending_send_mask.
+ * If #TP_MEDIA_STREAM_PENDING_LOCAL_SEND is thus cleared,
+ * enable the sending bit in the stream direction.
+ * If @pending_send_mask has #TP_MEDIA_STREAM_PENDING_REMOTE_SEND flag set,
+ * also start sending if agreed by the stream direction.
  */
 void
-tpsip_media_stream_apply_pending_send (TpsipMediaStream *stream,
-                                       guint pending_send_mask)
+tpsip_media_stream_apply_pending_direction (TpsipMediaStream *stream,
+                                            guint pending_send_mask)
 {
   TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
@@ -1236,8 +1263,10 @@ tpsip_media_stream_apply_pending_send (TpsipMediaStream *stream,
 
   if ((priv->pending_send_flags & pending_send_mask) != 0)
     {
-      priv->direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
       priv->pending_send_flags &= ~pending_send_mask;
+
+      if ((priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
+        priv->direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
 
       DEBUG("set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
 
@@ -1245,8 +1274,14 @@ tpsip_media_stream_apply_pending_send (TpsipMediaStream *stream,
                      priv->direction, priv->pending_send_flags);
     }
 
+  if ((pending_send_mask & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0)
+    {
+      priv->pending_remote_receive = FALSE;
+      DEBUG("remote end ready to receive");
+    }
+
   /* Always check to enable sending because the session could become accepted */
-  priv_update_sending (stream, priv->direction, priv->pending_send_flags);
+  priv_update_sending (stream, priv->direction);
 }
 
 TpMediaStreamDirection
