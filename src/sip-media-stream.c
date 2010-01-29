@@ -1161,8 +1161,12 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
           pending_send_flags |= TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
         }
       if ((pending_send_mask
-                & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0)
+              & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0
+          && (priv->pending_send_flags
+              & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) == 0)
         {
+          g_assert ((priv_get_requested_direction (priv) & TP_MEDIA_STREAM_DIRECTION_SEND) == 0);
+
           /* ... but the caller wants to agree with the remote
            * end first. Block the stream handler from sending for now. */
           priv->pending_remote_receive = TRUE;
