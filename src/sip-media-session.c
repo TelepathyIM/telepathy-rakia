@@ -2102,7 +2102,7 @@ tpsip_media_session_add_stream (TpsipMediaSession *self,
                                                           priv->peer,
                                                           media_type);
     if (direction != TP_MEDIA_STREAM_DIRECTION_RECEIVE
-        && pending_send_flags != TP_MEDIA_STREAM_PENDING_LOCAL_SEND)
+        || pending_send_flags != TP_MEDIA_STREAM_PENDING_LOCAL_SEND)
       {
         tp_svc_channel_type_streamed_media_emit_stream_direction_changed (
             priv->channel,
