@@ -137,6 +137,11 @@ main (int argc, char** argv)
 {
   int status;
   gpointer logdata;
+  guint fatal_mask;
+
+  fatal_mask = g_log_set_always_fatal (G_LOG_FATAL_MASK);
+  fatal_mask |= G_LOG_LEVEL_CRITICAL;
+  g_log_set_always_fatal (fatal_mask);  
 
 #ifdef ENABLE_DEBUG
   tpsip_debug_set_flags_from_env ();
