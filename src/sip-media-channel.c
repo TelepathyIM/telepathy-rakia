@@ -321,13 +321,15 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
   g_object_class_install_property (object_class, PROP_NAT_TRAVERSAL, param_spec);
 
   param_spec = g_param_spec_string ("stun-server", "STUN server",
-      "IP or address of STUN server.", NULL,
-      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+      "IP or address of STUN server.",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_STUN_SERVER, param_spec);
 
   param_spec = g_param_spec_uint ("stun-port", "STUN port",
-      "UDP port of STUN server.", 0, G_MAXUINT16, 0,
-      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+      "UDP port of STUN server.",
+      0, G_MAXUINT16, TPSIP_DEFAULT_STUN_PORT,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_STUN_PORT, param_spec);
 
   param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
