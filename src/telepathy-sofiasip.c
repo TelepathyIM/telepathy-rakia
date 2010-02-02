@@ -33,22 +33,12 @@
 
 #include <sofia-sip/su_log.h>
 
-#ifdef ENABLE_SYSLOG
-#include <syslog.h>
-
-#define SOFIA_LOG_FAC LOG_USER
-#define SOFIA_LOG_PRI LOG_MAKEPRI(SOFIA_LOG_FAC, LOG_INFO)
-
-#endif
-
 static TpBaseConnectionManager *
 construct_cm (void)
 {
   return (TpBaseConnectionManager *)g_object_new (
       TPSIP_TYPE_CONNECTION_MANAGER, NULL);
 }
-
-#ifdef ENABLE_SYSLOG
 
 static void
 sofia_log_handler (void *logdata, const char *format, va_list args)
@@ -77,10 +67,10 @@ sofia_log_handler (void *logdata, const char *format, va_list args)
       g_string_set_size (buf, pos + length_added);
     }
 
-  /* If we have a terminated line, pass it to syslog */
+  /* If we have a terminated line, log it */
   if (buf->str[buf->len - 1] == '\n')
     {
-      syslog (SOFIA_LOG_PRI, "%s", buf->str);
+      tpsip_log (TPSIP_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG, "%s", buf->str);
       g_string_truncate (buf, 0);
     }
 }
@@ -89,10 +79,6 @@ static gpointer
 sofia_log_init ()
 {
   GString *buf;
-
-  /* XXX: if GLib is modified to send log messages to syslog,
-   * hopefully it would use the same flags and facility */
-  openlog (NULL, LOG_PERROR | LOG_PID, SOFIA_LOG_FAC);
 
   buf = g_string_sized_new (80);
 
@@ -108,29 +94,14 @@ sofia_log_finalize (gpointer logdata)
 
   if (buf->len != 0)
     {
-      syslog (SOFIA_LOG_PRI, "%s", buf->str);
-      MESSAGE ("last Sofia log message was not newline-terminated");
+      /* Don't use tpsip_log here because the CM has already been finalized, so
+       * out TpDebugSender will have too. It isn't crucial, anyway. */
+      g_debug ("%s", buf->str);
+      g_message ("last Sofia log message was not newline-terminated");
     }
 
   g_string_free (buf, TRUE);
-
-  closelog();
 }
-
-#else /* !ENABLE_SYSLOG */
-
-static gpointer
-sofia_log_init ()
-{
-  return NULL;
-}
-
-static void
-sofia_log_finalize (gpointer logdata)
-{
-}
-
-#endif /* ENABLE_SYSLOG */
 
 int
 main (int argc, char** argv)

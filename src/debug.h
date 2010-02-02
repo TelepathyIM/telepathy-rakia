@@ -34,6 +34,7 @@ typedef enum
   TPSIP_DEBUG_MEDIA         = 1 << 1,
   TPSIP_DEBUG_IM            = 1 << 2,
   TPSIP_DEBUG_EVENTS        = 1 << 3,
+  TPSIP_DEBUG_SOFIA         = 1 << 4,
 } TpsipDebugFlags;
 
 void tpsip_debug_set_flags_from_env ();
