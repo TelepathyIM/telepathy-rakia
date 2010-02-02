@@ -643,7 +643,7 @@ priv_handle_auth (TpsipConnection* self,
         priv->registrar_realm = g_strdup (realm);
       else if (wa && strcmp(priv->registrar_realm, realm) != 0)
         {
-          g_message ("registrar realm changed from %s to %s", priv->registrar_realm, realm);
+          MESSAGE ("registrar realm changed from %s to %s", priv->registrar_realm, realm);
           g_free (priv->registrar_realm);
           priv->registrar_realm = g_strdup (realm);
         }

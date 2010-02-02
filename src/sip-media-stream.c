@@ -604,7 +604,7 @@ tpsip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   if (priv->stream_sdp != NULL)
     {
-      g_message ("Stream %u: SDP already generated, ignoring native candidate '%s'", priv->id, candidate_id);
+      MESSAGE ("Stream %u: SDP already generated, ignoring native candidate '%s'", priv->id, candidate_id);
       tp_svc_media_stream_handler_return_from_new_native_candidate (context);
       return;
     }
@@ -733,7 +733,7 @@ tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
 
   if (priv->ready_received)
     {
-      g_message ("Ready called more than once");
+      MESSAGE ("Ready called more than once");
       tp_svc_media_stream_handler_return_from_ready (context);
       return;
     }

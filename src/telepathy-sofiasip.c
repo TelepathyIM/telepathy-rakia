@@ -109,7 +109,7 @@ sofia_log_finalize (gpointer logdata)
   if (buf->len != 0)
     {
       syslog (SOFIA_LOG_PRI, "%s", buf->str);
-      g_message ("last Sofia log message was not newline-terminated");
+      MESSAGE ("last Sofia log message was not newline-terminated");
     }
 
   g_string_free (buf, TRUE);

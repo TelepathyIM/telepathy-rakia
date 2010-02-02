@@ -368,7 +368,7 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
   handle = tpsip_handle_parse_from (contact_repo, ev->sip);
   if (!handle)
     {
-      g_message ("incoming INVITE with invalid sender information");
+      MESSAGE ("incoming INVITE with invalid sender information");
       nua_respond (ev->nua_handle, 400, "Invalid From address", TAG_END());
       return TRUE;
     }

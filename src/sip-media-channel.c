@@ -1300,7 +1300,7 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
       else
         {
           /* Was something wrong with our re-INVITE? We can't cope anyway. */
-          g_message ("can't handle non-fatal response %d %s", status, ev->text);
+          MESSAGE ("can't handle non-fatal response %d %s", status, ev->text);
           tpsip_media_session_terminate (priv->session);
         }
       break;
@@ -1658,7 +1658,7 @@ _tpsip_media_channel_add_member (GObject *iface,
       return TRUE;
     }
 
-  g_message ("unsupported member change requested for a media channel");
+  MESSAGE ("unsupported member change requested for a media channel");
 
   g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
       "handle %u cannot be added in the current state", handle);

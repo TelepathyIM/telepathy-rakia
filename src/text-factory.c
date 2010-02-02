@@ -506,7 +506,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
               gint status;
               const char *message = NULL;
 
-              g_message ("character set conversion failed for the message body: %s", error->message);
+              MESSAGE ("character set conversion failed for the message body: %s", error->message);
 
               if (error->code == G_CONVERT_ERROR_ILLEGAL_SEQUENCE)
                 {
