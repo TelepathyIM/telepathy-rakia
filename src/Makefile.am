@@ -16,7 +16,8 @@ managerdir = $(datadir)/telepathy/managers
 
 AM_CPPFLAGS = $(DBUS_CFLAGS) $(GLIB_CFLAGS) $(SOFIA_SIP_UA_CFLAGS) \
 	$(TELEPATHY_GLIB_CFLAGS) $(IPHB_CFLAGS) \
-	-I$(top_builddir) -I$(top_srcdir)
+	-I$(top_builddir) -I$(top_srcdir) \
+	-DG_LOG_DOMAIN=\"tpsip\"
 AM_CFLAGS = $(ERROR_CFLAGS) $(COVERAGE_CFLAGS)
 ALL_LIBS = $(DBUS_LIBS) $(GLIB_LIBS) $(SOFIA_SIP_UA_LIBS) \
 	$(TELEPATHY_GLIB_LIBS) $(IPHB_LIBS)
