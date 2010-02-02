@@ -1016,7 +1016,8 @@ tpsip_conn_heartbeat_init (TpsipConnection *self)
   if (su_wait_create (priv->heartbeat_wait,
                       iphb_get_fd (priv->heartbeat),
                       SU_WAIT_IN) != 0)
-    g_critical ("could not create a wait object");
+    tpsip_log (DEBUG_FLAG, G_LOG_LEVEL_CRITICAL,
+        "could not create a wait object");
 
   wait_id = su_root_register (priv->sofia_root,
       priv->heartbeat_wait, heartbeat_wakeup, self, 0);
