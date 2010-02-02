@@ -418,7 +418,7 @@ tpsip_media_session_finalize (GObject *object)
     TpsipMediaStream *stream = g_ptr_array_index (priv->streams, i);
     if (stream != NULL)
       {
-        g_warning ("stream %u (%p) left over, reaping", i, stream);
+        WARNING ("stream %u (%p) left over, reaping", i, stream);
         g_object_unref (stream);
       }
   }
@@ -989,7 +989,7 @@ priv_zap_event (TpsipMediaSession *self)
     {
       nua_event_data_t const *ev_data = nua_event_data (priv->saved_event);
       g_assert (ev_data != NULL);
-      g_warning ("zapping unhandled saved event '%s'", nua_event_name (ev_data->e_event));
+      WARNING ("zapping unhandled saved event '%s'", nua_event_name (ev_data->e_event));
       nua_destroy_event (priv->saved_event);
     }
 }
@@ -1578,7 +1578,7 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
       else if (tpsip_media_stream_get_media_type (stream) != media_type)
         {
           /* XXX: close this stream and create a new one in its place? */
-          g_warning ("The peer has changed the media type, don't know what to do");
+          WARNING ("The peer has changed the media type, don't know what to do");
         }
       else if (tpsip_media_stream_set_remote_media (stream,
                                                     media,
@@ -1748,7 +1748,7 @@ priv_session_invite (TpsipMediaSession *session, gboolean reinvite)
                         : TPSIP_MEDIA_SESSION_STATE_INVITE_SENT);
     }
   else
-    g_warning ("cannot send a valid SDP offer, are there no streams?");
+    WARNING ("cannot send a valid SDP offer, are there no streams?");
 
   g_string_free (user_sdp, TRUE);
 }
@@ -1789,7 +1789,7 @@ priv_session_respond (TpsipMediaSession *session)
     }
   else
     {
-      g_warning ("cannot respond with a valid SDP answer, were all streams closed?");
+      WARNING ("cannot respond with a valid SDP answer, were all streams closed?");
 
       priv_session_rollback (session);
     }

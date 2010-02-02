@@ -50,6 +50,9 @@ G_END_DECLS
 #define DEBUG(format, ...) \
   tpsip_log(DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "%s: " format, \
       G_STRFUNC, ##__VA_ARGS__)
+#define WARNING(format, ...) \
+  tpsip_log(DEBUG_FLAG, G_LOG_LEVEL_WARNING, "%s: " format, \
+      G_STRFUNC, ##__VA_ARGS__)
 
 /* #define DEBUGGING tpsip_debug_flag_is_set(DEBUG_FLAG) */
 
@@ -60,6 +63,7 @@ G_END_DECLS
 #ifdef DEBUG_FLAG
 
 #define DEBUG(format, ...)
+#define WARNING(format, ...)
 
 #endif /* DEBUG_FLAG */
 

@@ -75,7 +75,7 @@ priv_r_unregister (int status,
        * do about this in the Telepathy model - once you've gone DISCONNECTED
        * you're really not meant to go "oops, I'm still CONNECTED after all".
        * So we ignore it and hope it goes away. */
-      g_warning ("Registrar won't let me unregister: %d %s", status, phrase);
+      WARNING ("Registrar won't let me unregister: %d %s", status, phrase);
     }
 }
 #endif

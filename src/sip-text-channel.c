@@ -831,7 +831,7 @@ tpsip_text_channel_send(TpSvcChannelTypeText *iface,
       GError invalid =  { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
           "Invalid recipient" };
 
-      g_warning ("invalid recipient handle %d", priv->handle);
+      WARNING ("invalid recipient handle %d", priv->handle);
       dbus_g_method_return_error (context, &invalid);
       return;
     }
@@ -888,7 +888,7 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
   /* Shouldn't happen... */
   if (node == NULL)
     {
-      g_warning ("message pending sent acknowledgement not found");
+      WARNING ("message pending sent acknowledgement not found");
       return FALSE;
     }
 

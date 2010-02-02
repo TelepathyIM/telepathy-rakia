@@ -235,7 +235,7 @@ tpsip_connection_set_property (GObject      *object,
       {
         if (mech != TPSIP_CONNECTION_KEEPALIVE_NONE
             && mech != TPSIP_CONNECTION_KEEPALIVE_AUTO)
-          g_warning ("keep-alive mechanism selection is ignored when interval is 0");
+          WARNING ("keep-alive mechanism selection is ignored when interval is 0");
       }
     else
       {
@@ -631,7 +631,7 @@ priv_handle_auth (TpsipConnection* self,
 
   if (realm == NULL)
     {
-      g_warning ("no realm presented for authentication");
+      WARNING ("no realm presented for authentication");
       return FALSE;
     }
 
@@ -699,7 +699,7 @@ priv_handle_auth (TpsipConnection* self,
 
   if (auth == NULL)
     {
-      g_warning ("authentication data are incomplete");
+      WARNING ("authentication data are incomplete");
       return FALSE;
     }
 

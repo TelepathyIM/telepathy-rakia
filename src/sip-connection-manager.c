@@ -376,7 +376,7 @@ priv_parse_keepalive (const gchar *str)
   if (strcmp (str, "off") == 0)
     return TPSIP_CONNECTION_KEEPALIVE_NONE;
 
-  g_warning ("unsupported keepalive-method value \"%s\", falling back to auto", str);
+  WARNING ("unsupported keepalive-method value \"%s\", falling back to auto", str);
   return TPSIP_CONNECTION_KEEPALIVE_AUTO;
 }
 

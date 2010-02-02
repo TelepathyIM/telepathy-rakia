@@ -859,7 +859,7 @@ tpsip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
         }
     }
   else
-    g_warning("SupportedCodecs called when no intersection is ongoing");
+    WARNING("SupportedCodecs called when no intersection is ongoing");
 
   tp_svc_media_stream_handler_return_from_supported_codecs (context);
 }
@@ -1001,20 +1001,20 @@ tpsip_media_stream_set_remote_media (TpsipMediaStream *stream,
 
   if (new_media->m_proto != sdp_proto_rtp)
     {
-      g_warning ("Stream %u: the remote protocol is not RTP/AVP", priv->id);
+      WARNING ("Stream %u: the remote protocol is not RTP/AVP", priv->id);
       return FALSE;
     }
 
   sdp_conn = sdp_media_connections (new_media);
   if (sdp_conn == NULL)
     {
-      g_warning ("Stream %u: no valid remote connections", priv->id);
+      WARNING ("Stream %u: no valid remote connections", priv->id);
       return FALSE;
     }
 
   if (new_media->m_rtpmaps == NULL)
     {
-      g_warning ("Stream %u: no remote codecs", priv->id);
+      WARNING ("Stream %u: no remote codecs", priv->id);
       return FALSE;
     }
 
@@ -1757,7 +1757,7 @@ priv_update_local_sdp(TpsipMediaStream *stream)
 
       if (ca_tports->len == 0)
         {
-          g_warning ("candidate '%s' lists no transports, skipping", candidate_id);
+          WARNING ("candidate '%s' lists no transports, skipping", candidate_id);
           continue;
         }
 

@@ -187,7 +187,7 @@ tpsip_conn_update_proxy_and_transport (TpsipConnection *conn)
           else if (g_ascii_strcasecmp (priv->transport, "udp") == 0)
             params = "transport=udp";
           else
-            g_warning ("unrecognized transport parameter value: %s", priv->transport);
+            WARNING ("unrecognized transport parameter value: %s", priv->transport);
         }
 
       nua_set_params (priv->sofia_nua,
@@ -406,7 +406,7 @@ priv_sanitize_keepalive_interval (TpsipConnectionPrivate *priv)
               : TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL;
       if (priv->keepalive_interval < minimum_interval)
         {
-          g_warning ("keepalive interval is too low, pushing to %u", minimum_interval);
+          WARNING ("keepalive interval is too low, pushing to %u", minimum_interval);
           priv->keepalive_interval = minimum_interval;
         }
     }
@@ -798,7 +798,7 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
 
       if (base_url == NULL || base_url->url_host == NULL)
         {
-          g_warning ("bare name given, but no account URL is set");
+          WARNING ("bare name given, but no account URL is set");
           goto error;
         }
 
@@ -968,7 +968,7 @@ heartbeat_wakeup (su_root_magic_t *foo,
 
   if ((wait->revents & (SU_WAIT_IN | SU_WAIT_HUP | SU_WAIT_ERR)) != SU_WAIT_IN)
     {
-      g_warning ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
+      WARNING ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
       tpsip_conn_heartbeat_shutdown (self);
       return 0;
     }
@@ -982,7 +982,7 @@ heartbeat_wakeup (su_root_magic_t *foo,
         (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT),
         0) < 0)
     {
-      g_warning ("iphb_wait failed");
+      WARNING ("iphb_wait failed");
       tpsip_conn_heartbeat_shutdown (self);
       return 0;
     }
@@ -1006,7 +1006,7 @@ tpsip_conn_heartbeat_init (TpsipConnection *self)
 
   if (priv->heartbeat == NULL)
     {
-      g_warning ("opening IP heartbeat failed: %s", strerror (errno));
+      WARNING ("opening IP heartbeat failed: %s", strerror (errno));
       return;
     }
 
@@ -1030,7 +1030,7 @@ tpsip_conn_heartbeat_init (TpsipConnection *self)
   if (iphb_wait (priv->heartbeat,
         0, (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT), 0) < 0)
     {
-      g_warning ("iphb_wait failed");
+      WARNING ("iphb_wait failed");
       tpsip_conn_heartbeat_shutdown (self);
     }
 
