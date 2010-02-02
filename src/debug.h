@@ -41,6 +41,7 @@ void tpsip_debug_set_flags (TpsipDebugFlags flags);
 gboolean tpsip_debug_flag_is_set (TpsipDebugFlags flag);
 void tpsip_debug (TpsipDebugFlags flag, const gchar *format, ...)
     G_GNUC_PRINTF (2, 3);
+void tpsip_debug_free (void);
 
 G_END_DECLS
 
@@ -60,6 +61,8 @@ G_END_DECLS
 #define DEBUG(format, ...)
 
 #endif /* DEBUG_FLAG */
+
+#define tpsip_debug_free() G_STMT_START { } G_STMT_END
 
 #endif /* ENABLE_DEBUG */
 
