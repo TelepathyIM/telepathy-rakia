@@ -666,9 +666,8 @@ tpsip_media_session_debug (TpsipMediaSession *session,
 
   va_end (list);
 
-  tpsip_debug (DEBUG_FLAG, "SIP media session [%-17s]: %s",
-      session_states[priv->state],
-      buf);
+  DEBUG ("SIP media session [%-17s]: %s",
+      session_states[priv->state], buf);
 }
 #endif /* ENABLE_DEBUG */
 

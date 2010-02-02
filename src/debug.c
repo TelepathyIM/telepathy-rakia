@@ -105,6 +105,7 @@ tpsip_debug_free (void)
 
 static void
 log_to_debug_sender (TpsipDebugFlags flag,
+                     GLogLevelFlags level,
                      const gchar *message)
 {
   TpDebugSender *dbg;
@@ -115,14 +116,15 @@ log_to_debug_sender (TpsipDebugFlags flag,
   g_get_current_time (&now);
 
   tp_debug_sender_add_message (dbg, &now, debug_flag_to_domain (flag),
-      G_LOG_LEVEL_DEBUG, message);
+      level, message);
 
   g_object_unref (dbg);
 }
 
-void tpsip_debug (TpsipDebugFlags flag,
-                  const gchar *format,
-                  ...)
+void tpsip_log (TpsipDebugFlags flag,
+                GLogLevelFlags level,
+                const gchar *format,
+                ...)
 {
   gchar *message;
   va_list args;
@@ -131,10 +133,10 @@ void tpsip_debug (TpsipDebugFlags flag,
   message = g_strdup_vprintf (format, args);
   va_end (args);
 
-  log_to_debug_sender (flag, message);
+  log_to_debug_sender (flag, level, message);
 
   if (flag & tpsip_debug_flags)
-    g_log (G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, "%s", message);
+    g_log (G_LOG_DOMAIN, level, "%s", message);
 
   g_free (message);
 }

@@ -39,8 +39,8 @@ typedef enum
 void tpsip_debug_set_flags_from_env ();
 void tpsip_debug_set_flags (TpsipDebugFlags flags);
 gboolean tpsip_debug_flag_is_set (TpsipDebugFlags flag);
-void tpsip_debug (TpsipDebugFlags flag, const gchar *format, ...)
-    G_GNUC_PRINTF (2, 3);
+void tpsip_log (TpsipDebugFlags flag, GLogLevelFlags level,
+    const gchar *format, ...) G_GNUC_PRINTF (3, 4);
 void tpsip_debug_free (void);
 
 G_END_DECLS
@@ -48,7 +48,8 @@ G_END_DECLS
 #ifdef DEBUG_FLAG
 
 #define DEBUG(format, ...) \
-  tpsip_debug(DEBUG_FLAG, "%s: " format, G_STRFUNC, ##__VA_ARGS__)
+  tpsip_log(DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "%s: " format, \
+      G_STRFUNC, ##__VA_ARGS__)
 
 /* #define DEBUGGING tpsip_debug_flag_is_set(DEBUG_FLAG) */
 
