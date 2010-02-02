@@ -488,7 +488,7 @@ tpsip_media_stream_codec_choice (TpSvcMediaStreamHandler *iface,
   /* Inform the connection manager of the current codec choice. 
    * -> note: not implemented by tp-gabble either (2006/May) */
 
-  g_debug ("%s: not implemented (ignoring)", G_STRFUNC);
+  DEBUG ("not implemented (ignoring)");
 
   tp_svc_media_stream_handler_return_from_codec_choice (context);
 }

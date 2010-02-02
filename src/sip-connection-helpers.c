@@ -266,7 +266,7 @@ priv_nua_get_outbound_options (nua_t* nua)
   if (outbound == NULL)
     return option_table;
 
-  g_debug ("%s: got outbound options %s", G_STRFUNC, outbound);
+  DEBUG ("got outbound options %s", outbound);
 
   options = g_strsplit_set (outbound, " ", 0);
 
@@ -338,7 +338,7 @@ priv_nua_set_outbound_options (nua_t* nua, GHashTable* option_table)
   g_assert (outbound != NULL);
 
   /* deliver the option string to the stack */
-  g_debug ("%s: setting outbound options %s", G_STRFUNC, outbound);
+  DEBUG ("setting outbound options %s", outbound);
   nua_set_params (nua, NUTAG_OUTBOUND(outbound), TAG_NULL());
 
   g_free (outbound);
@@ -506,7 +506,7 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
     tpsip_conn_set_stun_server_address (conn,
                                         inet_ntoa (ans->a_addr));
   else
-    g_debug ("Couldn't resolv STUN server address, ignoring.");
+    DEBUG ("Couldn't resolv STUN server address, ignoring.");
 
   sres_free_answers (priv->sofia_resolver, answers);
 }

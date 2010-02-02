@@ -286,7 +286,7 @@ tpsip_text_factory_new_channel (TpsipTextFactory *fac,
   object_path = g_strdup_printf ("%s/TextChannel%u",
       conn->object_path, handle);
 
-  g_debug ("%s: object path %s", G_STRFUNC, object_path);
+  DEBUG ("object path %s", object_path);
 
   chan = g_object_new (TPSIP_TYPE_TEXT_CHANNEL,
                        "connection", priv->conn,
