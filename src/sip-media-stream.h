@@ -22,6 +22,7 @@
 #define __TPSIP_MEDIA_STREAM_H__
 
 #include <glib-object.h>
+#include <telepathy-glib/dbus-properties-mixin.h>
 #include <telepathy-glib/enums.h>
 #include <sofia-sip/sdp.h>
 
@@ -32,6 +33,7 @@ typedef struct _TpsipMediaStreamClass TpsipMediaStreamClass;
 
 struct _TpsipMediaStreamClass {
     GObjectClass parent_class;
+    TpDBusPropertiesMixinClass dbus_props_class;
 };
 
 struct _TpsipMediaStream {
