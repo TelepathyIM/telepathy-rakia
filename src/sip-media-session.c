@@ -861,7 +861,7 @@ gboolean tpsip_media_session_request_streams (TpsipMediaSession *session,
     stream = tpsip_media_session_add_stream (session,
         media_type,
         TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
-        TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+        TRUE);
 
     if (stream == NULL)
       {
@@ -1573,7 +1573,7 @@ priv_update_remote_media (TpsipMediaSession *session, gboolean authoritative)
                         session,
                         media_type,
                         tpsip_media_stream_direction_from_remote_media (media),
-                        TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
+                        FALSE);
       else
         stream = g_ptr_array_index(priv->streams, i);
 
@@ -2044,27 +2044,31 @@ TpsipMediaStream*
 tpsip_media_session_add_stream (TpsipMediaSession *self,
                                 guint media_type,
                                 TpMediaStreamDirection direction,
-                                guint pending_send_flags)
+                                gboolean created_locally)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
-  gchar *object_path;
   TpsipMediaStream *stream = NULL;
-  guint stream_id;
 
   DEBUG ("enter");
 
   if (tpsip_media_session_supports_media_type (media_type)) {
+    guint stream_id;
+    gchar *object_path;
+    guint pending_send_flags;
 
     stream_id = priv->streams->len;
     object_path = g_strdup_printf ("%s/MediaStream%u",
                                    priv->object_path,
                                    stream_id);
+    pending_send_flags = created_locally
+        ? TP_MEDIA_STREAM_PENDING_REMOTE_SEND
+        : TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
+
+    if (!created_locally)
+      direction &= ~TP_MEDIA_STREAM_DIRECTION_SEND;
 
     if (tpsip_media_session_is_local_hold_ongoing (self))
       direction &= ~TP_MEDIA_STREAM_DIRECTION_RECEIVE;
-
-    if ((pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
-      direction &= ~TP_MEDIA_STREAM_DIRECTION_SEND;
 
     stream = g_object_new (TPSIP_TYPE_MEDIA_STREAM,
 			   "media-session", self,

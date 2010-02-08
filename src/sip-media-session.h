@@ -82,7 +82,7 @@ gboolean tpsip_media_session_set_remote_media (TpsipMediaSession *chan,
 TpsipMediaStream* tpsip_media_session_add_stream (TpsipMediaSession *self,
                                                   guint media_type,
                                                   TpMediaStreamDirection direction,
-                                                  guint pending_send_flags);
+                                                  gboolean created_locally);
 gboolean tpsip_media_session_request_streams (TpsipMediaSession *session,
 					    const GArray *media_types,
 					    GPtrArray *ret,

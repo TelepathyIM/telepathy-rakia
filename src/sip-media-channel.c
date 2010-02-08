@@ -987,13 +987,13 @@ tpsip_media_channel_create_initial_streams (TpsipMediaChannel *self)
     tpsip_media_session_add_stream (priv->session,
         TP_MEDIA_STREAM_TYPE_AUDIO,
         TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
-        TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+        TRUE);
 
   if (priv->initial_video)
     tpsip_media_session_add_stream (priv->session,
         TP_MEDIA_STREAM_TYPE_VIDEO,
         TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
-        TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+        TRUE);
 }
 
 /**
