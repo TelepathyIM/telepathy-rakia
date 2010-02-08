@@ -1433,6 +1433,18 @@ priv_local_media_changed (TpsipMediaSession *session)
       priv->pending_offer = TRUE;
       break;
     case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
+      /* Check if we are allowed to send re-INVITES */
+      {
+        gboolean immutable_streams = FALSE;
+        g_object_get (priv->channel,
+            "immutable-streams", &immutable_streams,
+            NULL);
+        if (immutable_streams) {
+          g_message ("sending of a local media update disabled by parameter 'immutable-streams'");
+          break;
+        }
+      }
+      /* Fall through to the next case */
     case TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING:
       if (priv->local_non_ready == 0)
         priv_session_invite (session, TRUE);
