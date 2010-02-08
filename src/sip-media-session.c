@@ -81,6 +81,7 @@ enum
   PROP_REMOTE_MAX_PTIME,
   PROP_RTCP_ENABLED,
   PROP_LOCAL_IP_ADDRESS,
+  PROP_STUN_SERVERS,
   LAST_PROPERTY
 };
 
@@ -242,6 +243,45 @@ static void tpsip_media_session_get_property (GObject    *object,
     case PROP_RTCP_ENABLED:
       g_value_set_boolean (value, priv->rtcp_enabled);
       break;
+    case PROP_STUN_SERVERS:
+      {
+        /* TODO: should be able to get all entries from the DNS lookup(s).
+         * At the moment, rawudp ignores all servers except the first one. */
+        GPtrArray *servers;
+        gchar *stun_server = NULL;
+        guint stun_port = TPSIP_DEFAULT_STUN_PORT;
+
+        g_return_if_fail (priv->channel != NULL);
+
+        g_object_get (priv->channel,
+            "stun-server", &stun_server,
+            "stun-port", &stun_port,
+            NULL);
+
+        servers = g_ptr_array_new ();
+
+        if (stun_server != NULL)
+          {
+            GValue addr = { 0 };
+            const GType addr_type = TP_STRUCT_TYPE_SOCKET_ADDRESS_IP;
+
+            g_value_init (&addr, addr_type);
+            g_value_take_boxed (&addr,
+                dbus_g_type_specialized_construct (addr_type));
+
+            dbus_g_type_struct_set (&addr,
+                0, stun_server,
+                1, (guint16) stun_port,
+                G_MAXUINT);
+
+            g_ptr_array_add (servers, g_value_get_boxed (&addr));
+
+            g_free (stun_server);
+          }
+
+        g_value_take_boxed (value, servers);
+      }
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -369,6 +409,12 @@ tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
       TRUE,
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_RTCP_ENABLED, param_spec);
+
+  param_spec = g_param_spec_boxed ("stun-servers", "STUN servers",
+      "Array of IP address-port pairs for available STUN servers",
+      TP_ARRAY_TYPE_SOCKET_ADDRESS_IP_LIST,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_STUN_SERVERS, param_spec);
 
   signals[SIG_STATE_CHANGED] =
     g_signal_new ("state-changed",
@@ -2077,6 +2123,7 @@ tpsip_media_session_add_stream (TpsipMediaSession *self,
 			   "id", stream_id,
                            "direction", direction,
                            "pending-send-flags", pending_send_flags,
+                           "created-locally", created_locally,
 			   NULL);
 
     g_free (object_path);

@@ -31,7 +31,10 @@
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/gtypes.h>
+#include <telepathy-glib/interfaces.h>
+#include <telepathy-glib/svc-generic.h>
 #include <telepathy-glib/svc-media-interfaces.h>
+#include <telepathy-glib/util.h>
 
 #include "config.h"
 
@@ -52,13 +55,16 @@
 
 
 static void stream_handler_iface_init (gpointer, gpointer);
+static void dbus_properties_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(TpsipMediaStream,
     tpsip_media_stream,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_MEDIA_STREAM_HANDLER,
-      stream_handler_iface_init)
-    )
+      stream_handler_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_DBUS_PROPERTIES,
+      dbus_properties_iface_init);
+  )
 
 /* signal enum */
 enum
@@ -86,8 +92,14 @@ enum
   PROP_DIRECTION,
   PROP_PENDING_SEND_FLAGS,
   PROP_HOLD_STATE,
+  PROP_CREATED_LOCALLY,
+  PROP_NAT_TRAVERSAL,
+  PROP_STUN_SERVERS,
+  PROP_RELAY_INFO,
   LAST_PROPERTY
 };
+
+static GPtrArray *tpsip_media_stream_relay_info_empty = NULL;
 
 /* private structure */
 typedef struct _TpsipMediaStreamPrivate TpsipMediaStreamPrivate;
@@ -102,6 +114,7 @@ struct _TpsipMediaStreamPrivate
   guint direction;                /* see gobj. prop. 'direction' */
   guint pending_send_flags;       /* see gobj. prop. 'pending-send-flags' */
   gboolean hold_state;            /* see gobj. prop. 'hold-state' */
+  gboolean created_locally;       /* see gobj. prop. 'created-locally' */
 
   gchar *stream_sdp;              /* SDP description of the stream */
 
@@ -214,9 +227,9 @@ tpsip_media_stream_constructed (GObject *obj)
 
 static void
 tpsip_media_stream_get_property (GObject    *object,
-			       guint       property_id,
-			       GValue     *value,
-			       GParamSpec *pspec)
+			         guint       property_id,
+			         GValue     *value,
+			         GParamSpec *pspec)
 {
   TpsipMediaStream *stream = TPSIP_MEDIA_STREAM (object);
   TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
@@ -247,6 +260,19 @@ tpsip_media_stream_get_property (GObject    *object,
     case PROP_HOLD_STATE:
       g_value_set_boolean (value, priv->hold_state);
       break;
+    case PROP_CREATED_LOCALLY:
+      g_value_set_boolean (value, priv->created_locally);
+      break;
+    case PROP_NAT_TRAVERSAL:
+      g_value_set_static_string (value, "none");
+      break;
+    case PROP_STUN_SERVERS:
+      g_return_if_fail (priv->session != NULL);
+      g_object_get_property (G_OBJECT (priv->session), "stun-servers", value);
+      break;
+    case PROP_RELAY_INFO:
+      g_value_set_static_boxed (value, tpsip_media_stream_relay_info_empty);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
@@ -254,9 +280,9 @@ tpsip_media_stream_get_property (GObject    *object,
 
 static void
 tpsip_media_stream_set_property (GObject      *object,
-			       guint         property_id,
-			       const GValue *value,
-			       GParamSpec   *pspec)
+			         guint         property_id,
+			         const GValue *value,
+			         GParamSpec   *pspec)
 {
   TpsipMediaStream *stream = TPSIP_MEDIA_STREAM (object);
   TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
@@ -288,6 +314,9 @@ tpsip_media_stream_set_property (GObject      *object,
     case PROP_HOLD_STATE:
       priv->hold_state = g_value_get_boolean (value);
       break;
+    case PROP_CREATED_LOCALLY:
+      priv->created_locally = g_value_get_boolean (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
@@ -313,7 +342,7 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
   object_class->dispose = tpsip_media_stream_dispose;
   object_class->finalize = tpsip_media_stream_finalize;
 
-  param_spec = g_param_spec_object ("media-session", "GabbleMediaSession object",
+  param_spec = g_param_spec_object ("media-session", "TpsipMediaSession object",
       "SIP media session object that owns this media stream object.",
       TPSIP_TYPE_MEDIA_SESSION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
@@ -373,6 +402,32 @@ tpsip_media_stream_class_init (TpsipMediaStreamClass *klass)
   g_object_class_install_property (object_class,
                                    PROP_HOLD_STATE,
                                    param_spec);
+
+  param_spec = g_param_spec_boolean ("created-locally", "Created locally?",
+      "True if this stream was created by the local user", FALSE,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_CREATED_LOCALLY,
+      param_spec);
+
+  param_spec = g_param_spec_string ("nat-traversal", "NAT traversal",
+      "NAT traversal mechanism for this stream", NULL,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_NAT_TRAVERSAL,
+      param_spec);
+
+  param_spec = g_param_spec_boxed ("stun-servers", "STUN servers",
+      "Array of IP address-port pairs for available STUN servers",
+      TP_ARRAY_TYPE_SOCKET_ADDRESS_IP_LIST,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_STUN_SERVERS, param_spec);
+
+  param_spec = g_param_spec_boxed ("relay-info", "Relay info",
+      "Array of mappings containing relay server information",
+      TP_ARRAY_TYPE_STRING_VARIANT_MAP_LIST,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_RELAY_INFO, param_spec);
+
+  tpsip_media_stream_relay_info_empty = g_ptr_array_new ();
 
   /* signals not exported by DBus interface */
   signals[SIG_READY] =
@@ -1903,5 +1958,113 @@ stream_handler_iface_init (gpointer g_iface, gpointer iface_data)
   IMPLEMENT(supported_codecs);
   IMPLEMENT(hold_state);
   IMPLEMENT(unhold_failure);
+#undef IMPLEMENT
+}
+
+static void
+tpsip_media_stream_props_get (TpSvcDBusProperties *iface,
+                               const gchar *interface_name,
+                               const gchar *property_name,
+                               DBusGMethodInvocation *context)
+{
+  TpsipMediaStream *self = TPSIP_MEDIA_STREAM (iface);
+  GValue value = { 0 };
+
+  if (!tp_strdiff (interface_name, TP_IFACE_MEDIA_STREAM_HANDLER))
+    {
+      if (!tp_strdiff (property_name, "RelayInfo"))
+        {
+          g_value_init (&value, TP_ARRAY_TYPE_STRING_VARIANT_MAP_LIST);
+          g_object_get_property ((GObject *) self, "relay-info", &value);
+        }
+      else if (!tp_strdiff (property_name, "STUNServers"))
+        {
+          g_value_init (&value, TP_ARRAY_TYPE_SOCKET_ADDRESS_IP_LIST);
+          g_object_get_property ((GObject *) self, "stun-servers", &value);
+        }
+      else if (!tp_strdiff (property_name, "NATTraversal"))
+        {
+          g_value_init (&value, G_TYPE_STRING);
+          g_object_get_property ((GObject *) self, "nat-traversal", &value);
+        }
+      else if (!tp_strdiff (property_name, "CreatedLocally"))
+        {
+          g_value_init (&value, G_TYPE_BOOLEAN);
+          g_object_get_property ((GObject *) self, "created-locally", &value);
+        }
+      else
+        {
+          GError not_implemented = { TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+              "Property not implemented" };
+
+          dbus_g_method_return_error (context, &not_implemented);
+          return;
+        }
+    }
+  else
+    {
+      GError not_implemented = { TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+          "Interface not implemented" };
+
+      dbus_g_method_return_error (context, &not_implemented);
+      return;
+    }
+
+  tp_svc_dbus_properties_return_from_get (context, &value);
+  g_value_unset (&value);
+}
+
+static void
+tpsip_media_stream_props_get_all (TpSvcDBusProperties *iface,
+                                   const gchar *interface_name,
+                                   DBusGMethodInvocation *context)
+{
+  TpsipMediaStream *self = TPSIP_MEDIA_STREAM (iface);
+
+  if (!tp_strdiff (interface_name, TP_IFACE_MEDIA_STREAM_HANDLER))
+    {
+      GValue *value;
+      GHashTable *values = g_hash_table_new_full (g_str_hash, g_str_equal,
+          NULL, (GDestroyNotify) tp_g_value_slice_free);
+
+      value = tp_g_value_slice_new (TP_ARRAY_TYPE_STRING_VARIANT_MAP_LIST);
+      g_object_get_property ((GObject *) self, "relay-info", value);
+      g_hash_table_insert (values, "RelayInfo", value);
+
+      value = tp_g_value_slice_new (TP_ARRAY_TYPE_SOCKET_ADDRESS_IP_LIST);
+      g_object_get_property ((GObject *) self, "stun-servers", value);
+      g_hash_table_insert (values, "STUNServers", value);
+
+      value = tp_g_value_slice_new (G_TYPE_STRING);
+      g_object_get_property ((GObject *) self, "nat-traversal", value);
+      g_hash_table_insert (values, "NATTraversal", value);
+
+      value = tp_g_value_slice_new (G_TYPE_BOOLEAN);
+      g_object_get_property ((GObject *) self, "created-locally", value);
+      g_hash_table_insert (values, "CreatedLocally", value);
+
+      tp_svc_dbus_properties_return_from_get_all (context, values);
+      g_hash_table_destroy (values);
+    }
+  else
+    {
+      GError not_implemented = { TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+          "Interface not implemented" };
+
+      dbus_g_method_return_error (context, &not_implemented);
+    }
+}
+
+static void
+dbus_properties_iface_init (gpointer g_iface,
+                            gpointer iface_data G_GNUC_UNUSED)
+{
+  TpSvcDBusPropertiesClass *cls = g_iface;
+
+#define IMPLEMENT(x) \
+    tp_svc_dbus_properties_implement_##x (cls, tpsip_media_stream_props_##x)
+  IMPLEMENT (get);
+  IMPLEMENT (get_all);
+  /* set not implemented in this class */
 #undef IMPLEMENT
 }
