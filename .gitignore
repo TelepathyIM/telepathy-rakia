@@ -36,6 +36,7 @@ src/*-enumtypes.[ch]
 /compile
 /config.guess*
 /config.h.in
+/config.h.in~
 /config.h
 /config.log
 /config.status
