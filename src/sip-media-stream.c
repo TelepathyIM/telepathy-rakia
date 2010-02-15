@@ -1,7 +1,7 @@
 /*
  * sip-media-stream.c - Source for TpsipMediaStream
  * Copyright (C) 2006 Collabora Ltd.
- * Copyright (C) 2006-2008 Nokia Corporation
+ * Copyright (C) 2006-2010 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
  *

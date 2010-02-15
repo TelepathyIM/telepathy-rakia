@@ -1,6 +1,6 @@
 /*
  * conn-aliasing.c - Aliasing interface implementation for TpsipConnection
- * Copyright (C) 2008 Nokia Corporation
+ * Copyright (C) 2008, 2009 Nokia Corporation
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
  *
  * This work is free software; you can redistribute it and/or

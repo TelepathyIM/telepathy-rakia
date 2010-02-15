@@ -1,7 +1,7 @@
 /*
  * sip-media-session.c - Source for TpsipMediaSession
  * Copyright (C) 2005 Collabora Ltd.
- * Copyright (C) 2005-2008 Nokia Corporation
+ * Copyright (C) 2005-2010 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
  *

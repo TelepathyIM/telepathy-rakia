@@ -1,7 +1,7 @@
 /*
  * sip-text-channel.c - Source for TpsipTextChannel
  * Copyright (C) 2005-2008 Collabora Ltd.
- * Copyright (C) 2005-2008 Nokia Corporation
+ * Copyright (C) 2005-2009 Nokia Corporation
  *   @author Martti Mela <first.surname@nokia.com>
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
  *

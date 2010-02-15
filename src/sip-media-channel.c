@@ -1,7 +1,7 @@
 /*
  * sip-media-channel.c - Source for TpsipMediaChannel
  * Copyright (C) 2005-2008 Collabora Ltd.
- * Copyright (C) 2005-2008 Nokia Corporation
+ * Copyright (C) 2005-2010 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
  *

@@ -1,6 +1,6 @@
 /*
  * sofia-decls.h - A header file to pull in Sofia APIs
- * Copyright (C) 2006-2008 Nokia Corporation
+ * Copyright (C) 2006-2009 Nokia Corporation
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
  *
  * This work is free software; you can redistribute it and/or

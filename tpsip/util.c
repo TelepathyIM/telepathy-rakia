@@ -1,6 +1,6 @@
 /*
  * util.c - implementation of Telepathy-SofiaSIP utilities
- * Copyright (C) 2009 Nokia Corporation
+ * Copyright (C) 2009, 2010 Nokia Corporation
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
  *
  * This work is free software; you can redistribute it and/or

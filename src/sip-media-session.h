@@ -1,7 +1,7 @@
 /*
  * sip-media-session.h - Header for TpsipMediaSession
  * Copyright (C) 2005 Collabora Ltd.
- * Copyright (C) 2005-2008 Nokia Corporation
+ * Copyright (C) 2005-2010 Nokia Corporation
  *
  * This work is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
