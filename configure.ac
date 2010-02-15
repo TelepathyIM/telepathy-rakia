@@ -2,9 +2,9 @@ AC_PREREQ([2.59])
 
 m4_define([THIS_PACKAGE],[telepathy-sofiasip])
 m4_define([VERSION_MAJOR],[0])
-m4_define([VERSION_MINOR],[5])
-m4_define([VERSION_MICRO],[19])
-m4_define([VERSION_NANO],[1])
+m4_define([VERSION_MINOR],[6])
+m4_define([VERSION_MICRO],[0])
+m4_define([VERSION_NANO],[0])
 
 m4_define([BASE_VERSION],[VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO])
 m4_define([THIS_VERSION],
