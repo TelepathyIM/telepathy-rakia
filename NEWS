@@ -1,3 +1,4 @@
+===========================
 NEWS for telepathy-sofiasip
 ===========================
 
@@ -6,7 +7,223 @@ recent at the top).
 
 See also ChangeLog.
 
-Changes in release: 0.x.y (2006-xx-yy)
+Changes in release 0.6.0 (2010-02-15)
+-------------------------------------
+
+- Supports the new StreamHandler interface method CodecsUpdated.
+- Revisited code controlling stream directionality and pending flags
+  (fd.o #26070).
+- Made critical warnings fatal again, after telepathy-glib stopped doing so.
+  (fd.o #26153).
+- Try to disable locally originated re-INVITES as much as possible
+  when 'immutable-streams' parameter is true (fd.o #26387).
+- Implemented the Debug interface (fd.o #26388).
+- Implemented the DBus properties of Media.StreamHandler (fd.o #26384).
+- Build fixes and improvements.
+- Support configure option --enable-silent-rules if using Automake >= 1.11
+- Implemented properties InitialAudio, InitialVideo, and ImmutableStreams.
+- Introduced the connection manager parameter 'immutable-streams' to
+  disable stream list changes mid-call, as well as hold.
+- Pass the ptime and maxptime attributes from remote SDP session and media
+  descriptions as codec parameters. Values from a=fmtp are also considered. 
+
+Changes in release 0.5.19 (2009-12-02)
 --------------------------------------
 
-- ...
+- Implemented proper codec parameter formatting for telephone/event
+  payloads, and the supporting infrastructure for more formats.
+  (fd.o bug #24615)
+- Ignore the trivial alias for self handle that is produced from the
+  SIP URI.
+- Implemented call state In_Progress.
+- Properly flag password parameters as secret, also in the .manager file
+  (fd.o bug #24561).
+- Autotools cleanups.
+- Normalize the alias for self handle, and properly format it into a
+  double-quoted string for the SIP From header.
+- Use heartbeat more carefully, with per-connection wakeups timed
+  in accordance with actual keepalive intervals.
+- Eliminate race conditions in hold/unhold code.
+
+Changes in release 0.5.18 (2009-08-27)
+--------------------------------------
+
+- Don't delay the final 200 response to incoming messages.
+- Use sips: scheme in URI normalization when TLS transport
+  is selected.
+- Treat 183 Session Progress response with setting the Ringing call state.
+
+Changes in release 0.5.17 (2009-07-25)
+--------------------------------------
+
+- Do not check an unwarranted handle assertion (fd.o bug #17751).
+- Optionally using iphb on Maemo as a trigger for keepalives.
+
+Changes in release 0.5.16 (2009-04-14)
+--------------------------------------
+
+- Updated to Telepathy specification 0.17.22:
+  always allow self handle to leave Group for call channels
+  (fd.o bug #20733). Correspondingly, bumped the libtelepathy-glib minimal
+  version to 0.7.27.
+- Emit MembersChanged with proper actor on call channels terminated locally.
+- Map the 404 response status to member removal reason NoAnswer
+  if the call peer has been contacted.
+- Don't destroy the media session object before closing the channel
+  on dispose.
+
+Changes in release 0.5.15 (2009-02-10)
+--------------------------------------
+
+- Use the error code Invalid_Handle for failed handle normalization,
+  as per recent revisions of telepathy-spec (fd.o bug #19612).
+- Ignore provisional responses to a MESSAGE.
+- Handle an incoming BYE with a proper media channel group change.
+- Restored the backwards compatible behavior of AddMembers on a media
+  channel (fd.o bug #19652).
+- Updated the coverage instrumentation support, with lcov reports,
+  taken from telepathy-gabble.
+- Fixed issues reported by Coverity static analysis checks.
+
+Changes in release 0.5.14 (2009-01-13)
+--------------------------------------
+
+- Bumped up the Sofia-SIP requirement to 1.12.10, to avoid a crasher bug
+  in earlier versions.
+- Zero-initialize the GValue for the alias pair.
+
+Changes in release 0.5.13 (2008-11-28)
+--------------------------------------
+
+- Fixed a few brown paper bag bugs with the new interfaces and properties
+  on the media channel.
+- Do advertise Requests interface as supported by the connection.
+
+Changes in release 0.5.12 (2008-11-26)
+--------------------------------------
+
+- Implemented Telepathy spec 0.17.15, compatible with 0.17.14.
+- Implemented the Requests interface on connections.
+  The factories have been switched to implement TpChannelManager. 
+
+Changes in release 0.5.11 (2008-10-30)
+--------------------------------------
+
+- Migrated the source repository to Git.
+- Updated to telepathy spec 0.17.13.
+- Improved handle normalization.
+- Implemented the Aliasing interface for connections, returning a
+  simplified rendering of remote SIP URIs. The alias for the self handle
+  is now settable and transfers to the display name in the From: header.
+- The signal MembersChanged in call channels now follows protocol events
+  more accurately.
+- Removed the hardcoded timeout for outgoing INVITE requests.
+- The final 200 response for an incoming MESSAGE now follows Telepathy
+  acknowledgement for the message.
+- A Text channel is reopened if closed by the client while still having
+  unacknowledged messages.
+- Depends on glib 2.16 or later.
+- Depends on libtelepathy-glib 0.7.17 or later.
+
+Changes in release 0.5.10 (2008-07-15)
+--------------------------------------
+
+- Implemented glare resolution in case of a 491 Request Pending response.
+- Implemented D-Bus properties for Channel and Group implementations.
+- Rewritten the parser for a:fmtp SDP attribute. Fixes fd.o bug #16405
+
+Changes in release 0.5.9 (2008-05-21)
+-------------------------------------
+
+- Avoid redundant pushes of remote codec lists to Telepathy.
+- Revamped test suite synced from Gabble.
+- Full support for RTCP stream components.
+- Use telepathy-glib 0.7.8 for Hold interface helpers
+- Make sure the call channel is always closed after a remote error
+  response is received and signalled as peer member removal.
+- Fixed a regression in handling newly requested streams during an ongoing
+  negotiation.
+- Fixed a race condition in updating pending send flags.
+
+Changes in release 0.5.8 (2008-05-02)
+-------------------------------------
+
+- Revamped behavior regarding Telepathy stream direction and pending send
+  flags, to conform better to the specification and Gabble implementation.
+- Bugfixes in hold implementation.
+- On a stream error, close only the stream rather than terminating the
+  whole session (sf.net bug #1944820).
+- Provide log divertion to a file given through the environment variable
+  TPSIP_LOGFILE (sf.net FR #1944067).
+
+Changes in release 0.5.7 (2008-04-09)
+-------------------------------------
+
+- Added tpsip/signals-marshal.list to distributed files.
+
+Changes in release 0.5.6 (2008-04-09)
+-------------------------------------
+
+- Reimplemented CallState and Hold interfaces as per Telepathy spec 0.17.3.1.
+- Use the new hold API in StreamHandler interface.
+- Test suite fixes to run in Maemo scratchbox.
+- Refactored NUA event handling to use detailed GObject signals.
+
+Changes in release 0.5.5 (2008-03-05)
+-------------------------------------
+
+- Fixed a brown paper bag regression with the default behavior of
+  'keepalive-interval'.
+- Autotools files cleaned up and modernized.
+- Updated to telepathy-glib type macros.
+- Implemented org.freedesktop.telepathy.Channel.Interface.Hold as of
+  telepathy-spec 0.17.1.1
+- Implemented org.freedesktop.telepathy.Channel.Interface.CallState as of
+  telepathy-spec 0.17.1.1
+- Implement the new behavior of RequestStreams and MembersChanged, as per
+  Telepathy spec 0.17.1.1
+- A few improvements in robustness.
+- Set the actor and reason in call channel group change notifications
+  regarding call invitations being sent or received.
+
+Changes in release 0.5.4 (2008-02-15)
+-------------------------------------
+
+- Treat empty string parameters as unset.
+- Added connection parameter 'loose-routing' to allow disabling
+  RFC 3261 compliant SIP routing headers for legacy behavior,
+  as implemented in the 0.4 branch and earlier.
+- Serialize codec intersections.
+
+Changes in release 0.5.3 (2008-02-06)
+-------------------------------------
+
+- More media session fixes and code cleanups.
+
+Changes in release 0.5.2 (2008-01-31)
+-------------------------------------
+
+- Removed an assertion on unexpected session state, as session
+  states in question can in fact occur.
+- Further offer-answer fortifications to prevent violations of
+  RFC 3264 due to concurrent locally requested changes.
+
+Changes in release 0.5.1 (2008-01-10)
+-------------------------------------
+
+- Changed behaviour of SOFIASIP_DEBUG and SOFIASIP_PERSIST to match recent
+  Gabble.
+- Fixed a parameter list corruption bug introduced in 0.5.0.
+- Session offer-answer fixes for cases when new streams are added
+  in the middle of an ongoing negotiation.
+
+Changes in release 0.5.0 (2008-01-03)
+-------------------------------------
+
+- Opened the new development branch.
+- Moved the executable to libexecdir.
+- Added a manpage for telepathy-sofiasip.
+- Use the initial route set as means to specify the outbound proxy.
+- Fixes for call channel flags (sf.net bug #1840543).
+- Added optional support for coverage instrumentation.
+- Postpone session state handling until local streams are ready.
