@@ -223,7 +223,7 @@ tpsip_conn_get_local_url (TpsipConnection *conn)
     }
 
   if (priv->local_ip_address == NULL)
-    url->url_host = "*";
+    url->url_host = "0";
   else
     url->url_host = priv->local_ip_address;
 
