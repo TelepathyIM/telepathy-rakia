@@ -7,6 +7,14 @@ recent at the top).
 
 See also ChangeLog.
 
+Changes in release 0.6.1 (2010-02-19)
+-------------------------------------
+
+The "people who stare at the ceiling" release.
+
+- Avoid using IPv6 addresses in self-referential URIs (fd.o #26654)
+- Provide a NEWS file with highlights of previous releases
+
 Changes in release 0.6.0 (2010-02-15)
 -------------------------------------
 
