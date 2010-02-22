@@ -141,6 +141,8 @@ struct _TpsipMediaChannelPrivate
   TpHandle handle;
   TpHandle initiator;
   GHashTable *call_states;
+  gchar *stun_server;
+  guint stun_port;
 
   gboolean initial_audio;
   gboolean initial_video;
@@ -483,6 +485,12 @@ tpsip_media_channel_get_property (GObject    *object,
     case PROP_IMMUTABLE_STREAMS:
       g_value_set_boolean (value, priv->immutable_streams);
       break;
+    case PROP_STUN_SERVER:
+      g_value_set_string (value, priv->stun_server);
+      break;
+    case PROP_STUN_PORT:
+      g_value_set_uint (value, priv->stun_port);
+      break;
     default:
       /* Some properties live in the mixin */
       {
@@ -507,6 +515,31 @@ tpsip_media_channel_get_property (GObject    *object,
 
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
+  }
+}
+
+static gboolean
+tpsip_media_channel_set_tp_property (TpsipMediaChannel *chan,
+                                     const GValue *value,
+                                     GParamSpec   *pspec)
+{
+  GObject *obj = (GObject *) chan;
+  const gchar *param_name = g_param_spec_get_name (pspec);
+  guint tp_property_id;
+
+  if (G_LIKELY (tp_properties_mixin_has_property (obj, param_name,
+                  &tp_property_id)))
+    {
+      tp_properties_mixin_change_value (obj, tp_property_id,
+          value, NULL);
+      tp_properties_mixin_change_flags (obj, tp_property_id,
+          TP_PROPERTY_FLAG_READ, 0, NULL);
+      return TRUE;
+    }
+  else {
+    WARNING("Telepathy property '%s' is not defined for media channels",
+            param_name);
+    return FALSE;
   }
 }
 
@@ -552,22 +585,20 @@ tpsip_media_channel_set_property (GObject     *object,
     case PROP_IMMUTABLE_STREAMS:
       priv->immutable_streams = g_value_get_boolean (value);
       break;
+    case PROP_STUN_SERVER:
+      priv->stun_server = g_value_dup_string (value);
+      /* Also expose as a legacy Telepathy property */
+      tpsip_media_channel_set_tp_property (chan, value, pspec);
+      break;
+    case PROP_STUN_PORT:
+      priv->stun_port = g_value_get_uint (value);
+      /* Also expose as a legacy Telepathy property */
+      tpsip_media_channel_set_tp_property (chan, value, pspec);
+      break;
     default:
       /* some properties live in the mixin */
-      {
-        const gchar *param_name = g_param_spec_get_name (pspec);
-        guint tp_property_id;
-
-        if (G_LIKELY (tp_properties_mixin_has_property (object, param_name,
-                        &tp_property_id)))
-          {
-            tp_properties_mixin_change_value (object, tp_property_id,
-                value, NULL);
-            tp_properties_mixin_change_flags (object, tp_property_id,
-                TP_PROPERTY_FLAG_READ, 0, NULL);
-            return;
-          }
-      }
+      if (tpsip_media_channel_set_tp_property (chan, value, pspec))
+        return;
 
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -612,6 +643,8 @@ tpsip_media_channel_finalize (GObject *object)
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   g_hash_table_destroy (priv->call_states);
+
+  g_free (priv->stun_server);
 
   g_free (priv->object_path);
 
