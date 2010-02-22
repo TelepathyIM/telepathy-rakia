@@ -536,11 +536,12 @@ tpsip_media_channel_set_tp_property (TpsipMediaChannel *chan,
           TP_PROPERTY_FLAG_READ, 0, NULL);
       return TRUE;
     }
-  else {
-    WARNING("Telepathy property '%s' is not defined for media channels",
-            param_name);
-    return FALSE;
-  }
+  else
+    {
+      WARNING("Telepathy property '%s' is not defined for media channels",
+              param_name);
+      return FALSE;
+    }
 }
 
 static void
