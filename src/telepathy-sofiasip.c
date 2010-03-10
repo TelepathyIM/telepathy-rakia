@@ -44,32 +44,15 @@ static void
 sofia_log_handler (void *logdata, const char *format, va_list args)
 {
   GString *buf = (GString *)logdata;
-  gsize pos;
-  gsize bytes_available;
-  gsize length_added;
-
   g_assert (buf != NULL);
 
   /* Append the formatted message at the end of the buffer */
-  pos = buf->len;
-  for (;;)
-    {
-      bytes_available = buf->allocated_len - pos;
-      length_added = g_vsnprintf (buf->str + pos,
-                                  bytes_available,
-                                  format, args);
-      if (length_added < bytes_available)
-        {
-          buf->len = pos + length_added;
-          g_assert (!buf->str[buf->len]);
-          break;
-        }
-      g_string_set_size (buf, pos + length_added);
-    }
+  g_string_append_vprintf (buf, format, args);
 
-  /* If we have a terminated line, log it */
+  /* If we have a terminated line, log it, stripping the newline */
   if (buf->str[buf->len - 1] == '\n')
     {
+      g_string_truncate (buf, buf->len - 1);
       tpsip_log (TPSIP_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG, "%s", buf->str);
       g_string_truncate (buf, 0);
     }

@@ -37,6 +37,7 @@ static const GDebugKey tpsip_debug_keys[] = {
   { "connection",    TPSIP_DEBUG_CONNECTION },
   { "im",            TPSIP_DEBUG_IM },
   { "events",        TPSIP_DEBUG_EVENTS },
+  { "sofia",         TPSIP_DEBUG_SOFIA },
 };
 
 void tpsip_debug_set_flags_from_env ()
