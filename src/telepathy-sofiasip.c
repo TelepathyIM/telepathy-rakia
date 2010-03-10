@@ -49,9 +49,10 @@ sofia_log_handler (void *logdata, const char *format, va_list args)
   /* Append the formatted message at the end of the buffer */
   g_string_append_vprintf (buf, format, args);
 
-  /* If we have a terminated line, log it */
+  /* If we have a terminated line, log it, stripping the newline */
   if (buf->str[buf->len - 1] == '\n')
     {
+      g_string_truncate (buf, buf->len - 1);
       tpsip_log (TPSIP_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG, "%s", buf->str);
       g_string_truncate (buf, 0);
     }
