@@ -130,6 +130,16 @@ static const TpPropertySignature media_channel_property_signatures[NUM_TP_PROPS]
     { "stun-port",              G_TYPE_UINT },
 };
 
+/* signals */
+enum
+{
+  SIG_INCOMING_CALL,
+  NUM_SIGNALS
+};
+
+static guint signals[NUM_SIGNALS] = { 0 };
+
+
 /* private structure */
 typedef struct _TpsipMediaChannelPrivate TpsipMediaChannelPrivate;
 
@@ -381,6 +391,15 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_IMMUTABLE_STREAMS,
       param_spec);
+
+  signals[SIG_INCOMING_CALL] =
+      g_signal_new ("incoming-call",
+                    G_OBJECT_CLASS_TYPE (klass),
+                    G_SIGNAL_RUN_LAST,
+                    0,
+                    NULL, NULL,
+                    g_cclosure_marshal_VOID__VOID,
+                    G_TYPE_NONE, 0);
 
   tp_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipMediaChannelClass, properties_class),
@@ -1266,6 +1285,34 @@ priv_nua_i_cancel_cb (TpsipMediaChannel *self,
   return TRUE;
 }
 
+static void
+priv_initial_media_properties_from_sdp (TpsipMediaChannel *self,
+                                        const sdp_session_t *sdp)
+{
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  const sdp_media_t *media;
+
+  for (media = sdp->sdp_media; media != NULL; media = media->m_next)
+    {
+      if (media->m_rejected || media->m_port == 0)
+        continue;
+
+      switch (media->m_type)
+        {
+        case sdp_media_audio:
+          priv->initial_audio = TRUE;
+          DEBUG("has initial audio");
+          break;
+        case sdp_media_video:
+          priv->initial_video = TRUE;
+          DEBUG("has initial video");
+          break;
+        default:
+          break;
+        }
+    }
+}
+
 static gboolean
 priv_nua_i_state_cb (TpsipMediaChannel *self,
                      const TpsipNuaEvent  *ev,
@@ -1305,6 +1352,11 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
 
   switch ((enum nua_callstate)ss_state)
     {
+    case nua_callstate_received:
+      if (r_sdp != NULL)
+        priv_initial_media_properties_from_sdp (self, r_sdp);
+      g_signal_emit (self, signals[SIG_INCOMING_CALL], 0);
+      break;
     case nua_callstate_proceeding:
       switch (status)
         {

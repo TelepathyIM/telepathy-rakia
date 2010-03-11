@@ -321,31 +321,12 @@ new_media_channel (TpsipMediaFactory *fac,
   return chan;
 }
 
-static guint
-initial_media_flags_from_sdp (const sdp_session_t *sdp)
+static void
+incoming_call_cb (TpsipMediaChannel *channel,
+                  TpsipMediaFactory *fac)
 {
-  const sdp_media_t *media;
-  guint flags = 0;
-
-  for (media = sdp->sdp_media; media != NULL; media = media->m_next)
-    {
-      if (media->m_rejected || media->m_port == 0)
-        continue;
-
-      switch (media->m_type)
-        {
-        case sdp_media_audio:
-          flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO;
-          break;
-        case sdp_media_video:
-          flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO;
-          break;
-        default:
-          break;
-        }
-    }
-
-  return flags;
+  tp_channel_manager_emit_new_channel (fac,
+      TP_EXPORTABLE_CHANNEL (channel), NULL);
 }
 
 static gboolean
@@ -358,8 +339,6 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
   TpHandleRepoIface *contact_repo;
   TpHandle handle;
   guint channel_flags = 0;
-  const sdp_session_t *sdp = NULL;
-  int offer_recv = 0;
 
   /* figure out a handle for the identity */
 
@@ -376,22 +355,16 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
   DEBUG("Got incoming invite from <%s>",
         tp_handle_inspect (contact_repo, handle));
 
-  tl_gets(tags,
-          NUTAG_OFFER_RECV_REF(offer_recv),
-          SOATAG_REMOTE_SDP_REF(sdp),
-          TAG_END());
-
-  if (offer_recv && sdp != NULL)
-    channel_flags = initial_media_flags_from_sdp (sdp);
-
   channel = new_media_channel (fac, handle, handle, channel_flags);
 
   tpsip_media_channel_receive_invite (channel, ev->nua_handle);
 
   tp_handle_unref (contact_repo, handle);
 
-  tp_channel_manager_emit_new_channel (fac,
-      TP_EXPORTABLE_CHANNEL (channel), NULL);
+  /* We delay emission of NewChannel(s) until we have the data on
+   * initial media */
+  g_signal_connect (channel, "incoming-call",
+      G_CALLBACK (incoming_call_cb), fac);
 
   return TRUE;
 }
