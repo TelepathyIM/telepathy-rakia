@@ -78,8 +78,8 @@ gboolean _tpsip_media_channel_add_member (GObject *iface,
 
 void tpsip_media_channel_create_initial_streams (TpsipMediaChannel *self);
 
-void tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
-                                         nua_handle_t *nh);
+void tpsip_media_channel_attach_to_nua_handle (TpsipMediaChannel *self,
+                                               nua_handle_t *nh);
 
 guint
 tpsip_media_channel_change_call_state (TpsipMediaChannel *self,

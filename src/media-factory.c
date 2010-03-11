@@ -357,14 +357,14 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
 
   channel = new_media_channel (fac, handle, handle, channel_flags);
 
-  tpsip_media_channel_receive_invite (channel, ev->nua_handle);
-
   tp_handle_unref (contact_repo, handle);
 
   /* We delay emission of NewChannel(s) until we have the data on
    * initial media */
   g_signal_connect (channel, "incoming-call",
       G_CALLBACK (incoming_call_cb), fac);
+
+  tpsip_media_channel_attach_to_nua_handle (channel, ev->nua_handle);
 
   return TRUE;
 }

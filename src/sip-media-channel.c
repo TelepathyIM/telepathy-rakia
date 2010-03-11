@@ -1049,13 +1049,15 @@ tpsip_media_channel_create_initial_streams (TpsipMediaChannel *self)
         TRUE);
 }
 
-/**
- * Handle an incoming INVITE, normally called just after the channel
- * has been created with initiator handle of the sender.
+/*
+ * Handles an incoming call, called shortly after the channel
+ * has been created with initiator handle of the sender, when remote SDP
+ * session data are reported by the NUA stack.
  */
-void
-tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
-                                    nua_handle_t *nh)
+static void
+tpsip_media_channel_handle_incoming_call (TpsipMediaChannel *self,
+                                          nua_handle_t *nh,
+                                          const sdp_session_t *sdp)
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpBaseConnection *conn = TP_BASE_CONNECTION (priv->conn);
@@ -1063,8 +1065,36 @@ tpsip_media_channel_receive_invite (TpsipMediaChannel *self,
   g_assert (priv->initiator != conn->self_handle);
   g_assert (priv->session == NULL);
 
-  /* Start the local stream-engine; once the local
-   * media are ready, reply with nua_respond() */
+  if (sdp != NULL)
+    {
+      /* Get the initial media properties from the session offer */
+      const sdp_media_t *media;
+  
+      for (media = sdp->sdp_media; media != NULL; media = media->m_next)
+        {
+          if (media->m_rejected || media->m_port == 0)
+            continue;
+  
+          switch (media->m_type)
+            {
+            case sdp_media_audio:
+              priv->initial_audio = TRUE;
+              DEBUG("has initial audio");
+              break;
+            case sdp_media_video:
+              priv->initial_video = TRUE;
+              DEBUG("has initial video");
+              break;
+            default:
+              break;
+            }
+        }
+    }
+
+  /* Tell the factory to emit NewChannel(s) */
+  g_signal_emit (self, signals[SIG_INCOMING_CALL], 0);
+
+  /* Offer the session handler to the client */
   priv_create_session (self, nh, priv->initiator);
 
   g_assert (priv->session != NULL);
@@ -1285,34 +1315,6 @@ priv_nua_i_cancel_cb (TpsipMediaChannel *self,
   return TRUE;
 }
 
-static void
-priv_initial_media_properties_from_sdp (TpsipMediaChannel *self,
-                                        const sdp_session_t *sdp)
-{
-  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
-  const sdp_media_t *media;
-
-  for (media = sdp->sdp_media; media != NULL; media = media->m_next)
-    {
-      if (media->m_rejected || media->m_port == 0)
-        continue;
-
-      switch (media->m_type)
-        {
-        case sdp_media_audio:
-          priv->initial_audio = TRUE;
-          DEBUG("has initial audio");
-          break;
-        case sdp_media_video:
-          priv->initial_video = TRUE;
-          DEBUG("has initial video");
-          break;
-        default:
-          break;
-        }
-    }
-}
-
 static gboolean
 priv_nua_i_state_cb (TpsipMediaChannel *self,
                      const TpsipNuaEvent  *ev,
@@ -1327,14 +1329,24 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
   gint status = ev->status;
   TpHandle peer;
 
-  g_return_val_if_fail (priv->session != NULL, FALSE);
-
   tl_gets(tags,
           NUTAG_CALLSTATE_REF(ss_state),
           NUTAG_OFFER_RECV_REF(offer_recv),
           NUTAG_ANSWER_RECV_REF(answer_recv),
           SOATAG_REMOTE_SDP_REF(r_sdp),
           TAG_END());
+
+  DEBUG("call with handle %p is %s", ev->nua_handle, nua_callstate_name (ss_state));
+
+  if (ss_state == nua_callstate_received)
+    {
+      /* We get the session data for initial media properties with this event;
+       * initialize the session before we can create any streams below.
+       */
+      tpsip_media_channel_handle_incoming_call (self, ev->nua_handle, r_sdp);
+    }
+
+  g_return_val_if_fail (priv->session != NULL, FALSE);
 
   if (r_sdp)
     {
@@ -1348,15 +1360,8 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
 
   peer = tpsip_media_session_get_peer (priv->session);
 
-  DEBUG("call with handle %p is %s", ev->nua_handle, nua_callstate_name (ss_state));
-
   switch ((enum nua_callstate)ss_state)
     {
-    case nua_callstate_received:
-      if (r_sdp != NULL)
-        priv_initial_media_properties_from_sdp (self, r_sdp);
-      g_signal_emit (self, signals[SIG_INCOMING_CALL], 0);
-      break;
     case nua_callstate_proceeding:
       switch (status)
         {
@@ -1548,8 +1553,9 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
     tp_intset_destroy (set);
 }
 
-static void
-priv_connect_nua_handlers (TpsipMediaChannel *self, nua_handle_t *nh)
+void
+tpsip_media_channel_attach_to_nua_handle (TpsipMediaChannel *self,
+                                          nua_handle_t *nh)
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
 
@@ -1603,9 +1609,6 @@ priv_create_session (TpsipMediaChannel *channel,
       TP_HANDLE_TYPE_CONTACT);
 
   g_assert (priv->session == NULL);
-
-  /* Bind the channel object to the handle to handle NUA events */
-  priv_connect_nua_handlers (channel, nh);
 
   object_path = g_strdup_printf ("%s/MediaSession%u", priv->object_path, peer);
 
@@ -1686,6 +1689,10 @@ priv_outbound_call (TpsipMediaChannel *channel,
 
       nh = tpsip_conn_create_request_handle (priv->conn, peer);
       priv_create_session (channel, nh, peer);
+
+      /* Bind the channel object to the handle to handle NUA events */
+      tpsip_media_channel_attach_to_nua_handle (channel, nh);
+
       nua_handle_unref (nh);
     }
   else
