@@ -325,6 +325,8 @@ static void
 incoming_call_cb (TpsipMediaChannel *channel,
                   TpsipMediaFactory *fac)
 {
+  g_signal_handlers_disconnect_by_func (channel,
+      G_CALLBACK (incoming_call_cb), fac);
   tp_channel_manager_emit_new_channel (fac,
       TP_EXPORTABLE_CHANNEL (channel), NULL);
 }
