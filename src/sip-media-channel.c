@@ -1338,7 +1338,7 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
 
   DEBUG("call with handle %p is %s", ev->nua_handle, nua_callstate_name (ss_state));
 
-  if (ss_state == nua_callstate_received)
+  if (ss_state == nua_callstate_received && priv->session == NULL)
     {
       /* We get the session data for initial media properties with this event;
        * initialize the session before we can create any streams below.
