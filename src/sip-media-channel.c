@@ -1353,6 +1353,9 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
   switch ((enum nua_callstate)ss_state)
     {
     case nua_callstate_received:
+      if (tpsip_media_session_get_state (priv->session)
+          != TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED)
+        break;
       if (r_sdp != NULL)
         priv_initial_media_properties_from_sdp (self, r_sdp);
       g_signal_emit (self, signals[SIG_INCOMING_CALL], 0);
