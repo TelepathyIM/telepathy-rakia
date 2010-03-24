@@ -773,7 +773,7 @@ tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
           if (base->status != TP_CONNECTION_STATUS_CONNECTING)
             return TRUE;
 
-          DEBUG("succesfully registered to the network");
+          DEBUG("successfully registered to the network");
           conn_status = TP_CONNECTION_STATUS_CONNECTED;
           reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
 
