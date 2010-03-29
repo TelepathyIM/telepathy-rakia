@@ -7,6 +7,17 @@ recent at the top).
 
 See also ChangeLog.
 
+Changes in release 0.6.2 (2010-03-17)
+-------------------------------------
+
+The "I can't hear you breathing nervously" release.
+
+- Only expose the legacy STUN properties when set to meaningful values.
+- Properly enable the debug category for Sofia-SIP log messages.
+- Fix a crash in Sofia logger (fd.o #26889).
+- Fixed a regression that leaked audio before the call was accepted.
+- On incoming call, emit the new channel with correct initial media properties.
+
 Changes in release 0.6.1 (2010-02-19)
 -------------------------------------
 

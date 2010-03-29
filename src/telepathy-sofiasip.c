@@ -43,6 +43,7 @@ construct_cm (void)
 static void
 sofia_log_handler (void *logdata, const char *format, va_list args)
 {
+#ifdef ENABLE_DEBUG
   GString *buf = (GString *)logdata;
   g_assert (buf != NULL);
 
@@ -56,6 +57,7 @@ sofia_log_handler (void *logdata, const char *format, va_list args)
       tpsip_log (TPSIP_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG, "%s", buf->str);
       g_string_truncate (buf, 0);
     }
+#endif
 }
 
 static gpointer
@@ -63,7 +65,11 @@ sofia_log_init ()
 {
   GString *buf;
 
+#ifdef ENABLE_DEBUG
   buf = g_string_sized_new (80);
+#else
+  buf = NULL;
+#endif
 
   su_log_redirect (NULL, sofia_log_handler, buf);
 
@@ -73,6 +79,7 @@ sofia_log_init ()
 static void
 sofia_log_finalize (gpointer logdata)
 {
+#ifdef ENABLE_DEBUG
   GString *buf = (GString *)logdata;
 
   if (buf->len != 0)
@@ -84,6 +91,7 @@ sofia_log_finalize (gpointer logdata)
     }
 
   g_string_free (buf, TRUE);
+#endif
 }
 
 int
@@ -99,12 +107,12 @@ main (int argc, char** argv)
 
 #ifdef ENABLE_DEBUG
   tpsip_debug_set_flags_from_env ();
+#endif
 
   if (g_getenv ("TPSIP_PERSIST") || g_getenv ("SOFIASIP_PERSIST"))
     {
       tp_debug_set_persistent (TRUE);
     }
-#endif
 
   tp_debug_divert_messages (g_getenv ("TPSIP_LOGFILE"));
 
