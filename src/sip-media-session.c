@@ -1342,8 +1342,9 @@ priv_finalize_hold (TpsipMediaSession *self)
           direction &= hold_mask;
           direction |= unhold_mask;
           tpsip_media_stream_set_direction (stream,
-                                            direction,
-                                            TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+              direction,
+              TP_MEDIA_STREAM_PENDING_REMOTE_SEND
+                  | TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
         }
     }
 }
