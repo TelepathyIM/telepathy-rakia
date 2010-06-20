@@ -1332,16 +1332,20 @@ tpsip_media_stream_apply_pending_direction (TpsipMediaStream *stream,
                                             guint pending_send_mask)
 {
   TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  guint flags;
+
 
   /* Don't apply pending send for new streams that haven't been negotiated */
   if (priv->remote_media == NULL)
     return;
 
-  if ((priv->pending_send_flags & pending_send_mask) != 0)
-    {
-      priv->pending_send_flags &= ~pending_send_mask;
+  /* Remember the flags that got changes and then clear the set */
+  flags = (priv->pending_send_flags & pending_send_mask);
+  priv->pending_send_flags &= ~pending_send_mask;
 
-      if ((priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
+  if (flags != 0)
+    {
+      if ((flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
         priv->direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
 
       DEBUG("set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
