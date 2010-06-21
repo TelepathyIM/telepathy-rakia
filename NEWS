@@ -7,6 +7,19 @@ recent at the top).
 
 See also ChangeLog.
 
+Changes in release 0.6.3 (2010-06-21)
+-------------------------------------
+
+The "my attorney suggests I do this" release.
+
+- Disable Sofia logging on --disable-debug configure flag.
+- Made the effect of environment variable TPSIP_PERSIST independent of
+  the debug build flag.
+- Prevent removal of local pending send by holding the call.
+- Fix the application of local pending send flag in an incoming call.
+- Fixed a walk-off-the-end crash in the debug support code.
+- Not building useless PIC object files any more.
+
 Changes in release 0.6.2 (2010-03-17)
 -------------------------------------
 
