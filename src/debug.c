@@ -80,7 +80,7 @@ debug_flag_to_domain (TpsipDebugFlags flag)
       flag_to_domains = g_hash_table_new_full (g_direct_hash, g_direct_equal,
           NULL, g_free);
 
-      for (i = 0; tpsip_debug_keys[i].value; i++)
+      for (i = 0; i < G_N_ELEMENTS(tpsip_debug_keys); i++)
         {
           GDebugKey key = (GDebugKey) tpsip_debug_keys[i];
           gchar *val;
