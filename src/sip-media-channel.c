@@ -1794,6 +1794,7 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
   TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
   TpIntSet *set = NULL;
   TpHandle self_handle;
+  gboolean rejected;
 
   self_handle = mixin->self_handle;
 
@@ -1814,6 +1815,9 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
       return FALSE;
     }
 
+  rejected = (handle == self_handle
+      && tp_handle_set_is_member (mixin->local_pending, handle));
+
   /* We have excluded all the problem cases.
    * Now we always want to remove both members on behalf of the local user */
   set = tp_intset_new ();
@@ -1827,8 +1831,7 @@ tpsip_media_channel_remove_with_reason (GObject *obj,
                                  self_handle, 0);
   tp_intset_destroy (set);
 
-  if (handle == self_handle
-      && tp_handle_set_is_member (mixin->local_pending, handle))
+  if (rejected)
     {
       /* The user has rejected the call */
 
