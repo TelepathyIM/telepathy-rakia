@@ -103,6 +103,8 @@ typedef struct _TpsipTextPendingMessage TpsipTextPendingMessage;
 struct _TpsipTextPendingMessage
 {
   nua_handle_t *nh;
+  gchar *token;
+  TpMessageSendingFlags flags;
 };
 
 typedef struct _TpsipTextChannelPrivate TpsipTextChannelPrivate;
@@ -133,6 +135,8 @@ static void tpsip_text_pending_free (TpsipTextPendingMessage *msg,
 {
   if (msg->nh)
     nua_handle_unref (msg->nh);
+
+  g_free (msg->token);
 
   g_slice_free (TpsipTextPendingMessage, msg);
 }
@@ -193,7 +197,8 @@ tpsip_text_channel_constructed (GObject *obj)
 
   tp_message_mixin_implement_sending (obj, tpsip_text_channel_send_message,
       G_N_ELEMENTS (types), types, 0,
-      TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_FAILURES,
+      TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_FAILURES |
+      TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_SUCCESSES,
       supported_content_types);
 
   bus = tp_get_bus();
@@ -701,8 +706,10 @@ tpsip_text_channel_send_message (GObject *object,
 
   msg = _tpsip_text_pending_new0 ();
   msg->nh = msg_nh;
+  msg->token = g_strdup_printf ("%u", priv->sent_id++);
+  msg->flags = flags;
 
-  tp_message_mixin_sent (object, message, flags, "", NULL);
+  tp_message_mixin_sent (object, message, flags, msg->token, NULL);
   g_queue_push_tail (priv->sending_messages, msg);
 
   DEBUG ("message queued for delivery");
@@ -712,6 +719,70 @@ fail:
   g_assert (error != NULL);
   tp_message_mixin_sent (object, message, 0, NULL, error);
   g_error_free (error);
+}
+
+static gchar *
+text_send_error_to_dbus_error (TpChannelTextSendError error)
+{
+  switch (error)
+    {
+      case TP_CHANNEL_TEXT_SEND_ERROR_OFFLINE:
+        return TP_ERROR_STR_OFFLINE;
+
+      case TP_CHANNEL_TEXT_SEND_ERROR_INVALID_CONTACT:
+        return TP_ERROR_STR_INVALID_HANDLE;
+
+      case TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED:
+        return TP_ERROR_STR_PERMISSION_DENIED;
+
+      case TP_CHANNEL_TEXT_SEND_ERROR_TOO_LONG:
+        return TP_ERROR_STR_INVALID_ARGUMENT;
+
+      case TP_CHANNEL_TEXT_SEND_ERROR_NOT_IMPLEMENTED:
+        return TP_ERROR_STR_NOT_IMPLEMENTED;
+
+      case TP_CHANNEL_TEXT_SEND_ERROR_UNKNOWN:
+      default:
+        return TP_ERROR_STR_INVALID_ARGUMENT;
+    }
+
+  return NULL;
+}
+
+static void
+delivery_report (TpsipTextChannel *self,
+    const gchar *token,
+    TpDeliveryStatus status,
+    TpChannelTextSendError send_error)
+{
+  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  TpBaseConnection *base_conn;
+  TpMessage *msg;
+
+  base_conn = (TpBaseConnection *) priv->conn;
+
+  msg = tp_message_new (base_conn, 1, 1);
+
+  tp_message_set_handle (msg, 0, "message-sender", TP_HANDLE_TYPE_CONTACT,
+      priv->handle);
+
+  tp_message_set_uint32 (msg, 0, "message-type",
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_DELIVERY_REPORT);
+
+  tp_message_set_string (msg, 0, "delivery-token", token);
+  tp_message_set_uint32 (msg, 0, "delivery-status", status);
+
+  if (status == TP_DELIVERY_STATUS_TEMPORARILY_FAILED ||
+      status == TP_DELIVERY_STATUS_PERMANENTLY_FAILED)
+    {
+      if (send_error != TP_CHANNEL_TEXT_SEND_ERROR_UNKNOWN)
+        tp_message_set_uint32 (msg, 0, "delivery-error", send_error);
+
+      tp_message_set_string (msg, 0, "delivery-dbus-error",
+          text_send_error_to_dbus_error (send_error));
+    }
+
+  tp_message_mixin_take_received((GObject *) self, msg);
 }
 
 static gboolean
@@ -749,6 +820,12 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
   if (ev->status >= 200 && ev->status < 300)
     {
       DEBUG ("message delivered");
+
+      if (msg->flags & TP_MESSAGE_SENDING_FLAG_REPORT_DELIVERY)
+        {
+          DEBUG ("Sending delivery report");
+          delivery_report (self, msg->token, TP_DELIVERY_STATUS_DELIVERED, 0);
+        }
     }
   else
     {
@@ -787,6 +864,9 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
         default:
           send_error = TP_CHANNEL_TEXT_SEND_ERROR_UNKNOWN;
       }
+
+      delivery_report (self, msg->token, TP_DELIVERY_STATUS_PERMANENTLY_FAILED,
+          send_error);
   }
 
   g_queue_remove(priv->sending_messages, msg);
