@@ -160,14 +160,16 @@ def test(q, bus, conn, sip):
 
     # Expect Channel_Text_Message_Flag_Resqued to be set
     pending_msgs = [message_with_resqued(msg) for msg in pending_msgs]
+    # The first message is the delivery report of the message we failed to
+    # send so we'll skip it.
 
     iface = dbus.Interface(requested_obj, TEXT_TYPE)
 
     pending_res = iface.ListPendingMessages(False)
-    assert pending_msgs == pending_res, (pending_msgs, unwrap(pending_res))
+    assert pending_msgs == pending_res[1:], (pending_msgs, unwrap(pending_res)[1:])
 
     pending_res = iface.ListPendingMessages(True)
-    assert pending_msgs == pending_res, (pending_msgs, unwrap(pending_res))
+    assert pending_msgs == pending_res[1:], (pending_msgs, unwrap(pending_res)[1:])
 
     # There should be no pending messages any more
     pending_res = iface.ListPendingMessages(False)
