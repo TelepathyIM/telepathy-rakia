@@ -24,6 +24,7 @@
 #include <glib-object.h>
 #include <telepathy-glib/dbus-properties-mixin.h>
 #include <telepathy-glib/handle.h>
+#include <telepathy-glib/message-mixin.h>
 
 #include <tpsip/sofia-decls.h>
 
@@ -40,6 +41,8 @@ struct _TpsipTextChannelClass {
 
 struct _TpsipTextChannel {
     GObject parent;
+
+    TpMessageMixin message_mixin;
 };
 
 GType tpsip_text_channel_get_type(void);

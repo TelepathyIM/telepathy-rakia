@@ -55,7 +55,6 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
                                      gpointer          foo);
 
 static void channel_iface_init (gpointer, gpointer);
-static void text_iface_init (gpointer, gpointer);
 static void destroyable_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (TpsipTextChannel, tpsip_text_channel, G_TYPE_OBJECT,
@@ -63,7 +62,10 @@ G_DEFINE_TYPE_WITH_CODE (TpsipTextChannel, tpsip_text_channel, G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_DBUS_PROPERTIES,
       tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
-    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_TEXT,
+      tp_message_mixin_text_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES,
+      tp_message_mixin_messages_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE,
       destroyable_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_EXPORTABLE_CHANNEL, NULL);
@@ -100,13 +102,6 @@ typedef struct _TpsipTextPendingMessage TpsipTextPendingMessage;
 
 struct _TpsipTextPendingMessage
 {
-  guint id;
-  time_t timestamp;
-  TpHandle sender;
-  TpChannelTextMessageType type;
-  guint flags;
-  gchar *text;
-
   nua_handle_t *nh;
 };
 
@@ -119,9 +114,7 @@ struct _TpsipTextChannelPrivate
   TpHandle handle;
   TpHandle initiator;
 
-  guint recv_id;
   guint sent_id;
-  GQueue  *pending_messages;
   GQueue  *sending_messages;
 
   gboolean closed;
@@ -138,11 +131,6 @@ struct _TpsipTextChannelPrivate
 static void tpsip_text_pending_free (TpsipTextPendingMessage *msg,
                                      TpHandleRepoIface *contact_handles)
 {
-  if (msg->sender)
-    tp_handle_unref (contact_handles, msg->sender);
-
-  g_free (msg->text);
-
   if (msg->nh)
     nua_handle_unref (msg->nh);
 
@@ -156,9 +144,12 @@ tpsip_text_channel_init (TpsipTextChannel *obj)
 
   DEBUG("enter");
 
-  priv->pending_messages = g_queue_new ();
   priv->sending_messages = g_queue_new ();
 }
+
+static void tpsip_text_channel_send_message (GObject *object,
+    TpMessage *message,
+    TpMessageSendingFlags flags);
 
 static void
 tpsip_text_channel_constructed (GObject *obj)
@@ -167,6 +158,13 @@ tpsip_text_channel_constructed (GObject *obj)
   TpBaseConnection *base_conn;
   TpHandleRepoIface *contact_handles;
   DBusGConnection *bus;
+  TpChannelTextMessageType types[] = {
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
+  };
+  const gchar * supported_content_types[] = {
+      "text/plain",
+      NULL
+  };
   GObjectClass *parent_object_class =
       G_OBJECT_CLASS (tpsip_text_channel_parent_class);
 
@@ -189,6 +187,14 @@ tpsip_text_channel_constructed (GObject *obj)
                     "nua-event::nua_r_message",
                     G_CALLBACK (tpsip_text_channel_nua_r_message_cb),
                     NULL);
+
+  tp_message_mixin_init (obj, G_STRUCT_OFFSET (TpsipTextChannel, message_mixin),
+      base_conn);
+
+  tp_message_mixin_implement_sending (obj, tpsip_text_channel_send_message,
+      G_N_ELEMENTS (types), types, 0,
+      TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_FAILURES,
+      supported_content_types);
 
   bus = tp_get_bus();
   dbus_g_connection_register_g_object(bus, priv->object_path, obj);
@@ -298,6 +304,8 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
       prop_interfaces;
   tp_dbus_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipTextChannelClass, dbus_props_class));
+
+  tp_message_mixin_init_dbus_properties (object_class);
 }
 
 static void
@@ -478,14 +486,6 @@ tpsip_text_channel_finalize(GObject *object)
   contact_handles = tp_base_connection_get_handles (
       (TpBaseConnection *)priv->conn, TP_HANDLE_TYPE_CONTACT);
 
-  /* XXX: could have responded to the requests with e.g. 480,
-   * but generating network traffic upon abnormal channel termination
-   * does not sound like a good idea */
-  DEBUG ("%u pending incoming messages",
-      g_queue_get_length (priv->pending_messages));
-  zap_pending_messages (priv->pending_messages, contact_handles);
-  g_queue_free (priv->pending_messages);
-
   DEBUG ("%u pending outgoing message requests",
       g_queue_get_length (priv->sending_messages));
   zap_pending_messages (priv->sending_messages, contact_handles);
@@ -493,13 +493,9 @@ tpsip_text_channel_finalize(GObject *object)
 
   g_free (priv->object_path);
 
-  G_OBJECT_CLASS (tpsip_text_channel_parent_class)->finalize (object);
-}
+  tp_message_mixin_finalize (object);
 
-static gint tpsip_pending_message_compare(gconstpointer msg, gconstpointer id)
-{
-  TpsipTextPendingMessage *message = (TpsipTextPendingMessage *)(msg);
-  return (message->id != GPOINTER_TO_UINT(id));
+  G_OBJECT_CLASS (tpsip_text_channel_parent_class)->finalize (object);
 }
 
 static gint tpsip_acknowledged_messages_compare(gconstpointer msg,
@@ -509,70 +505,6 @@ static gint tpsip_acknowledged_messages_compare(gconstpointer msg,
   nua_handle_t *nh = (nua_handle_t *) id;
   return (message->nh != nh);
 }
-
-/**
- * tpsip_text_channel_acknowledge_pending_messages
- *
- * Implements DBus method AcknowledgePendingMessages
- * on interface org.freedesktop.Telepathy.Channel.Type.Text
- */
-static void
-tpsip_text_channel_acknowledge_pending_messages(TpSvcChannelTypeText *iface,
-                                                const GArray *ids,
-                                                DBusGMethodInvocation *context)
-{
-  TpsipTextChannel *chan = TPSIP_TEXT_CHANNEL (iface);
-  TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(chan);
-  TpHandleRepoIface *contact_repo;
-  GList **nodes;
-  TpsipTextPendingMessage *msg;
-  guint i;
-
-  contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
-
-  nodes = g_new(GList *, ids->len);
-
-  for (i = 0; i < ids->len; i++)
-    {
-      guint id = g_array_index(ids, guint, i);
-
-      nodes[i] = g_queue_find_custom (priv->pending_messages,
-                                      GUINT_TO_POINTER (id),
-                                      tpsip_pending_message_compare);
-
-      if (nodes[i] == NULL)
-        {
-          GError *error = NULL;
-
-          DEBUG ("invalid message id %u", id);
-
-          g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
-              "invalid message id %u", id);
-
-          g_free(nodes);
-          dbus_g_method_return_error (context, error);
-          g_error_free (error);
-          return;
-        }
-    }
-
-  for (i = 0; i < ids->len; i++)
-    {
-      msg = (TpsipTextPendingMessage *) nodes[i]->data;
-
-      DEBUG("acknowledging message id %u", msg->id);
-
-      g_queue_remove (priv->pending_messages, msg);
-
-      tpsip_text_pending_free (msg, contact_repo);
-    }
-
-  g_free(nodes);
-
-  tp_svc_channel_type_text_return_from_acknowledge_pending_messages (context);
-}
-
 
 /**
  * tpsip_text_channel_close
@@ -593,24 +525,16 @@ tpsip_text_channel_close (TpSvcChannel *iface,
     }
   else
     {
-      if (g_queue_is_empty (priv->pending_messages))
+      if (!tp_message_mixin_has_pending_messages ((GObject *) self, NULL))
         {
           DEBUG ("actually closing, no pending messages");
           priv->closed = TRUE;
         }
       else
         {
-          GList *cur;
-
           DEBUG ("not really closing, there are pending messages left");
 
-          for (cur = g_queue_peek_head_link (priv->pending_messages);
-               cur != NULL;
-               cur = cur->next)
-            {
-              TpsipTextPendingMessage *msg = cur->data;
-              msg->flags |= TP_CHANNEL_TEXT_MESSAGE_FLAG_RESCUED;
-            }
+          tp_message_mixin_set_rescued ((GObject *) self);
 
           if (priv->initiator != priv->handle)
             {
@@ -647,8 +571,7 @@ tpsip_text_channel_destroy (TpSvcChannelInterfaceDestroyable *iface,
   contact_handles = tp_base_connection_get_handles (
       (TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
 
-  /* Make sure there are no pending messages for Close to get excited about */
-  zap_pending_messages (priv->pending_messages, contact_handles);
+  tp_message_mixin_clear ((GObject *) iface);
 
   /* Close() and Destroy() have the same signature, so we can safely
    * chain to the other function now */
@@ -709,140 +632,64 @@ tpsip_text_channel_get_interfaces(TpSvcChannel *iface,
       tpsip_text_channel_interfaces);
 }
 
-
-/**
- * tpsip_text_channel_get_message_types
- *
- * Implements DBus method GetMessageTypes
- * on interface org.freedesktop.Telepathy.Channel.Type.Text
- */
 static void
-tpsip_text_channel_get_message_types(TpSvcChannelTypeText *iface,
-                                   DBusGMethodInvocation *context)
+tpsip_text_channel_send_message (GObject *object,
+    TpMessage *message,
+    TpMessageSendingFlags flags)
 {
-  GArray *ret = g_array_sized_new (FALSE, FALSE, sizeof (guint), 1);
-  guint normal[1] = { TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL };
-
-  DEBUG("enter");
-  g_array_append_val (ret, normal);
-  tp_svc_channel_type_text_return_from_get_message_types (context, ret);
-  g_array_free (ret, TRUE);
-}
-
-static void
-tpsip_pending_message_list_add (GPtrArray *list, TpsipTextPendingMessage *msg)
-{
-  GValue val = { 0 };
-  GType message_type;
-
-  message_type = TP_STRUCT_TYPE_PENDING_TEXT_MESSAGE;
-  g_value_init (&val, message_type);
-  g_value_take_boxed (&val,
-                      dbus_g_type_specialized_construct (message_type));
-  dbus_g_type_struct_set (&val,
-                          0, msg->id,
-                          1, msg->timestamp,
-                          2, msg->sender,
-                          3, msg->type,
-                          4, msg->flags,
-                          5, msg->text,
-                          G_MAXUINT);
-
-   g_ptr_array_add (list, g_value_get_boxed (&val));
-}
-
-/**
- * tpsip_text_channel_list_pending_messages
- *
- * Implements DBus method ListPendingMessages
- * on interface org.freedesktop.Telepathy.Channel.Type.Text
- */
-static void
-tpsip_text_channel_list_pending_messages(TpSvcChannelTypeText *iface,
-                                       gboolean clear,
-                                       DBusGMethodInvocation *context)
-{
-  TpsipTextChannel *self = (TpsipTextChannel*) iface;
-  TpsipTextChannelPrivate *priv;
-  GPtrArray *messages;
-  GList *cur;
-  guint count;
-
-  g_assert (TPSIP_IS_TEXT_CHANNEL(self));
-  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
-
-  count = g_queue_get_length (priv->pending_messages);
-  messages = g_ptr_array_sized_new (count);
-
-  if (clear)
-    {
-      TpHandleRepoIface *contact_repo = tp_base_connection_get_handles (
-          (TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
-      while ((cur = g_queue_pop_head_link (priv->pending_messages)) != NULL)
-        {
-          TpsipTextPendingMessage * msg = (TpsipTextPendingMessage *) cur->data;
-          tpsip_pending_message_list_add (messages, msg);
-          tpsip_text_pending_free (msg, contact_repo);
-        }
-    }
-  else
-    {
-      for (cur = g_queue_peek_head_link(priv->pending_messages);
-           cur != NULL;
-           cur = cur->next)
-        tpsip_pending_message_list_add (messages,
-                                        (TpsipTextPendingMessage *) cur->data);
-    }
-
-  tp_svc_channel_type_text_return_from_list_pending_messages (context,
-      messages);
-
-  g_boxed_free (TP_ARRAY_TYPE_PENDING_TEXT_MESSAGE_LIST, messages);
-}
-
-
-/**
- * tpsip_text_channel_send
- *
- * Implements DBus method Send
- * on interface org.freedesktop.Telepathy.Channel.Type.Text
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-static void
-tpsip_text_channel_send(TpSvcChannelTypeText *iface,
-                        guint type,
-                        const gchar *text,
-                        DBusGMethodInvocation *context)
-{
-  TpsipTextChannel *self = TPSIP_TEXT_CHANNEL(iface);
+  TpsipTextChannel *self = TPSIP_TEXT_CHANNEL(object);
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
   TpsipTextPendingMessage *msg = NULL;
   nua_handle_t *msg_nh = NULL;
+  GError *error = NULL;
+  const GHashTable *part;
+  guint n_parts;
+  const gchar *content_type;
+  const gchar *text;
 
   DEBUG("enter");
 
-  if (priv->handle == 0)
-    {
-      GError invalid =  { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-          "Invalid recipient" };
+#define INVALID_ARGUMENT(msg, ...) \
+  G_STMT_START { \
+    DEBUG (msg , ## __VA_ARGS__); \
+    g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, \
+        msg , ## __VA_ARGS__); \
+    goto fail; \
+  } G_STMT_END
 
-      WARNING ("invalid recipient handle %d", priv->handle);
-      dbus_g_method_return_error (context, &invalid);
-      return;
+  part = tp_message_peek (message, 0);
+
+  if (tp_asv_lookup (part, "message-type") != NULL)
+    {
+      if (tp_asv_get_uint32 (part, "message-type", NULL) !=
+          TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL)
+        INVALID_ARGUMENT ("invalid message type");
     }
+
+  n_parts = tp_message_count_parts (message);
+
+  if (n_parts != 2)
+    INVALID_ARGUMENT ("message must contain exactly 1 part, not %u",
+        (n_parts - 1));
+
+  part = tp_message_peek (message, 1);
+  content_type = tp_asv_get_string (part, "content-type");
+  text = tp_asv_get_string (part, "content");
+
+  if (content_type == NULL || tp_strdiff (content_type, "text/plain"))
+    INVALID_ARGUMENT ("message must be text/plain");
+
+  if (text == NULL)
+    INVALID_ARGUMENT ("content must be a UTF-8 string");
+
+  /* Okay, it's valid. Let's send it. */
 
   msg_nh = tpsip_conn_create_request_handle (priv->conn, priv->handle);
   if (msg_nh == NULL)
     {
-      GError e = { TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-          "Request creation failed" };
-      dbus_g_method_return_error (context, &e);
-      return;
+      g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "Request creation failed");
+      goto fail;
     }
 
   tpsip_event_target_attach (msg_nh, (GObject *) self);
@@ -854,15 +701,17 @@ tpsip_text_channel_send(TpSvcChannelTypeText *iface,
 
   msg = _tpsip_text_pending_new0 ();
   msg->nh = msg_nh;
-  msg->text = g_strdup(text);
-  msg->type = type;
-  msg->timestamp = time(NULL);
 
+  tp_message_mixin_sent (object, message, flags, "", NULL);
   g_queue_push_tail (priv->sending_messages, msg);
 
-  DEBUG("message queued for delivery with timestamp %u", (guint)msg->timestamp);
+  DEBUG ("message queued for delivery");
+  return;
 
-  tp_svc_channel_type_text_return_from_send (context);
+fail:
+  g_assert (error != NULL);
+  tp_message_mixin_sent (object, message, 0, NULL, error);
+  g_error_free (error);
 }
 
 static gboolean
@@ -896,11 +745,10 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
 
   g_assert (msg != NULL);
 
+  /* FIXME: generate a delivery report */
   if (ev->status >= 200 && ev->status < 300)
     {
-      DEBUG("message with timestamp %u delivered", (guint)msg->timestamp);
-      tp_svc_channel_type_text_emit_sent (self,
-          msg->timestamp, msg->type, msg->text);
+      DEBUG ("message delivered");
     }
   else
     {
@@ -939,9 +787,6 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
         default:
           send_error = TP_CHANNEL_TEXT_SEND_ERROR_UNKNOWN;
       }
-
-    tp_svc_channel_type_text_emit_send_error (self,
-	send_error, msg->timestamp, msg->type, msg->text);
   }
 
   g_queue_remove(priv->sending_messages, msg);
@@ -961,30 +806,24 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
                                 gsize len)
 {
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (chan);
-  TpsipTextPendingMessage *msg;
-  TpHandleRepoIface *contact_repo;
+  TpMessage *msg;
+  TpBaseConnection *base_conn;
 
-  msg = _tpsip_text_pending_new0 ();
+  base_conn = (TpBaseConnection *) priv->conn;
+  msg = tp_message_new (base_conn, 2, 2);
 
-  msg->id = priv->recv_id++;
-  msg->timestamp = time(NULL);
-  msg->sender = sender;
-  msg->type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL;
-  msg->text = g_strndup (text, len);
+  DEBUG ("Received message from contact %u: %s", sender, text);
 
-  g_queue_push_tail(priv->pending_messages, msg);
+  /* Header */
+  tp_message_set_handle (msg, 0, "message-sender", TP_HANDLE_TYPE_CONTACT,
+      sender);
+  tp_message_set_uint64 (msg, 0, "message-received", time (NULL));
 
-  contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
+  /* Body */
+  tp_message_set_string (msg, 1, "content-type", "text/plain");
+  tp_message_set_string (msg, 1, "content", text);
 
-  tp_handle_ref (contact_repo, sender);
-
-  DEBUG("received message id %u, now %u pending",
-        msg->id, g_queue_get_length (priv->pending_messages));
-
-  tp_svc_channel_type_text_emit_received ((TpSvcChannelTypeText *)chan,
-      msg->id, msg->timestamp, msg->sender, msg->type,
-      0 /* flags */, msg->text);
+  tp_message_mixin_take_received (G_OBJECT (chan), msg);
 }
 
 static void
@@ -1010,19 +849,5 @@ channel_iface_init(gpointer g_iface, gpointer iface_data)
   IMPLEMENT(get_channel_type);
   IMPLEMENT(get_handle);
   IMPLEMENT(get_interfaces);
-#undef IMPLEMENT
-}
-
-static void
-text_iface_init (gpointer g_iface, gpointer iface_data)
-{
-  TpSvcChannelTypeTextClass *klass = (TpSvcChannelTypeTextClass *)g_iface;
-
-#define IMPLEMENT(x) tp_svc_channel_type_text_implement_##x (klass,\
-    tpsip_text_channel_##x)
-  IMPLEMENT(acknowledge_pending_messages);
-  IMPLEMENT(get_message_types);
-  IMPLEMENT(list_pending_messages);
-  IMPLEMENT(send);
 #undef IMPLEMENT
 }
