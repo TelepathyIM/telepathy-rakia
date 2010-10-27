@@ -83,8 +83,6 @@ def test(q, bus, conn, sip):
 
     ua_via = twisted.protocols.sip.parseViaHeader(event.headers['via'][0])
 
-    q.expect('dbus-signal', signal='Sent')
-
     conn.ReleaseHandles(1, [handle])
 
     url = twisted.protocols.sip.parseURL(self_uri)
