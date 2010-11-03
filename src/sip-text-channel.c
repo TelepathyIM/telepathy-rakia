@@ -891,6 +891,7 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
   TpBaseConnection *base_conn;
   sip_call_id_t *hdr_call_id;
   sip_cseq_t *hdr_cseq;
+  sip_date_t *hdr_date_sent;
 
   base_conn = (TpBaseConnection *) priv->conn;
   msg = tp_message_new (base_conn, 2, 2);
@@ -901,6 +902,13 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
   tp_message_set_handle (msg, 0, "message-sender", TP_HANDLE_TYPE_CONTACT,
       sender);
   tp_message_set_uint64 (msg, 0, "message-received", time (NULL));
+
+  hdr_date_sent = sip_date (sip);
+  if (hdr_date_sent != NULL)
+    {
+      tp_message_set_uint64 (msg, 0, "message-sent",
+          hdr_date_sent->d_time - SU_TIME_EPOCH);
+    }
 
   /* Create a message token out of globally unique SIP header values.
    * As MESSAGE requests can be sent within a dialog, we have to append
