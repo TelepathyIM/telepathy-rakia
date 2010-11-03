@@ -586,7 +586,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
           handle, handle, NULL);
 
   tpsip_text_channel_receive (channel,
-      ev->nua, handle, text, len);
+      sip, handle, text, len);
 
   tp_handle_unref (contact_repo, handle);
 

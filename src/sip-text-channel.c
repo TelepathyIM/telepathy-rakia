@@ -43,6 +43,7 @@
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
 
+#include <sofia-sip/sip_protos.h>
 #include <sofia-sip/sip_status.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_IM
@@ -880,7 +881,7 @@ tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,
 }
 
 void tpsip_text_channel_receive(TpsipTextChannel *chan,
-                                nua_t *nua,
+                                const sip_t *sip,
                                 TpHandle sender,
                                 const char *text,
                                 gsize len)
@@ -888,6 +889,8 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
   TpsipTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (chan);
   TpMessage *msg;
   TpBaseConnection *base_conn;
+  sip_call_id_t *hdr_call_id;
+  sip_cseq_t *hdr_cseq;
 
   base_conn = (TpBaseConnection *) priv->conn;
   msg = tp_message_new (base_conn, 2, 2);
@@ -898,6 +901,17 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
   tp_message_set_handle (msg, 0, "message-sender", TP_HANDLE_TYPE_CONTACT,
       sender);
   tp_message_set_uint64 (msg, 0, "message-received", time (NULL));
+
+  /* Create a message token out of globally unique SIP header values.
+   * As MESSAGE requests can be sent within a dialog, we have to append
+   * the Call-ID value with the sequence number in CSeq. */
+  hdr_call_id = sip_call_id (sip);
+  hdr_cseq = sip_cseq (sip);
+  if (hdr_call_id != NULL && hdr_cseq != NULL)
+    {
+      tp_message_set_string_printf(msg, 0, "message-token", "%s;cseq=%u",
+          hdr_call_id->i_id, (guint) hdr_cseq->cs_seq);
+    }
 
   /* Body */
   tp_message_set_string (msg, 1, "content-type", "text/plain");
