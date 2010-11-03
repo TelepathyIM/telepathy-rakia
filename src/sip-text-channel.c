@@ -917,7 +917,7 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
   hdr_cseq = sip_cseq (sip);
   if (hdr_call_id != NULL && hdr_cseq != NULL)
     {
-      tp_message_set_string_printf(msg, 0, "message-token", "%s;cseq=%u",
+      tp_message_set_string_printf (msg, 0, "message-token", "%s;cseq=%u",
           hdr_call_id->i_id, (guint) hdr_cseq->cs_seq);
     }
 
