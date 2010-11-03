@@ -901,12 +901,12 @@ void tpsip_text_channel_receive(TpsipTextChannel *chan,
   /* Header */
   tp_message_set_handle (msg, 0, "message-sender", TP_HANDLE_TYPE_CONTACT,
       sender);
-  tp_message_set_uint64 (msg, 0, "message-received", time (NULL));
+  tp_message_set_int64 (msg, 0, "message-received", time (NULL));
 
   hdr_date_sent = sip_date (sip);
   if (hdr_date_sent != NULL)
     {
-      tp_message_set_uint64 (msg, 0, "message-sent",
+      tp_message_set_int64 (msg, 0, "message-sent",
           hdr_date_sent->d_time - SU_TIME_EPOCH);
     }
 
