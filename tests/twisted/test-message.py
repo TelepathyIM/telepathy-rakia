@@ -6,6 +6,7 @@ from sofiatest import go, exec_test
 import twisted.protocols.sip
 
 import dbus
+import time
 import uuid
 
 # Test message channels
@@ -100,7 +101,10 @@ def test(q, bus, conn, sip):
 
     event = q.expect('dbus-signal', signal='MessageReceived')
     msg = event.args[0]
+    now = time.time()
     assert msg[0]['message-token'] == "%s;cseq=%u" % (call_id, cseq_num)
+    assert now - 10 < msg[0]['message-received'] < now + 10
+    assert now - 10 < msg[0]['message-sent'] < now + 10
     assert msg[1]['content-type'] == 'text/plain'
     assert msg[1]['content'] == 'Hi'
 
@@ -216,6 +220,7 @@ def send_message(sip, destVia, body,
         msg.addHeader('content-type', 'text/plain; charset=%s' % encoding)
     msg.addHeader('content-length', '%d' % len(msg.body))
     msg.addHeader('call-id', call_id or uuid.uuid4().hex)
+    msg.addHeader('date', time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime()))
     via = sip.getVia()
     via.branch = 'z9hG4bKXYZ'
     msg.addHeader('via', via.toString())
