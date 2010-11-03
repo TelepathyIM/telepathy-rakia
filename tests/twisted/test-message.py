@@ -85,9 +85,8 @@ def test(q, bus, conn, sip):
 
     conn.ReleaseHandles(1, [handle])
 
-    url = twisted.protocols.sip.parseURL(self_uri)
-    msg = twisted.protocols.sip.Request('MESSAGE', url)
-    send_message(sip, ua_via, 'Hi')
+    call_id = 'XYZ@localhost'
+    send_message(sip, ua_via, 'Hi', call_id=call_id)
 
     incoming_obj, handle = test_new_channel (q, bus, conn,
         target_uri=FROM_URL,
@@ -99,14 +98,17 @@ def test(q, bus, conn, sip):
     name = conn.InspectHandles(1, [handle])[0]
     assert name == FROM_URL
 
-    event = q.expect('dbus-signal', signal='Received')
-    assert event.args[5] == 'Hi'
+    event = q.expect('dbus-signal', signal='MessageReceived')
+    msg = event.args[0]
+    assert msg[0]['message-token'] == "%s;cseq=%u" % (call_id, cseq_num)
+    assert msg[1]['content-type'] == 'text/plain'
+    assert msg[1]['content'] == 'Hi'
 
     # FIXME: times out for some reason, the response is in fact sent;
     # race condition with the earlier wait for 'dbus-signal'?
     #event = q.expect('sip-response', code=200)
 
-    iface.AcknowledgePendingMessages([event.args[0]])
+    iface.AcknowledgePendingMessages([msg[0]['pending-message-id']])
 
     # Test conversion from an 8-bit encoding.
     # Due to limited set of encodings available in some environments,
@@ -197,7 +199,8 @@ def test(q, bus, conn, sip):
     q.expect('dbus-signal', signal='StatusChanged', args=[2,1])
 
 cseq_num = 1
-def send_message(sip, destVia, body, encoding=None, sender=FROM_URL):
+def send_message(sip, destVia, body,
+                 encoding=None, sender=FROM_URL, call_id=None):
     global cseq_num
     cseq_num += 1
     url = twisted.protocols.sip.parseURL('sip:testacc@127.0.0.1')
@@ -212,7 +215,7 @@ def send_message(sip, destVia, body, encoding=None, sender=FROM_URL):
     else:
         msg.addHeader('content-type', 'text/plain; charset=%s' % encoding)
     msg.addHeader('content-length', '%d' % len(msg.body))
-    msg.addHeader('call-id', uuid.uuid4().hex)
+    msg.addHeader('call-id', call_id or uuid.uuid4().hex)
     via = sip.getVia()
     via.branch = 'z9hG4bKXYZ'
     msg.addHeader('via', via.toString())
