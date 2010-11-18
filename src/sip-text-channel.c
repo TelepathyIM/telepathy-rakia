@@ -166,7 +166,7 @@ tpsip_text_channel_constructed (GObject *obj)
   TpsipTextChannelPrivate *priv;
   TpBaseConnection *base_conn;
   TpHandleRepoIface *contact_handles;
-  DBusGConnection *bus;
+  TpDBusDaemon *bus;
   GObjectClass *parent_object_class =
       G_OBJECT_CLASS (tpsip_text_channel_parent_class);
 
@@ -190,8 +190,8 @@ tpsip_text_channel_constructed (GObject *obj)
                     G_CALLBACK (tpsip_text_channel_nua_r_message_cb),
                     NULL);
 
-  bus = tp_get_bus();
-  dbus_g_connection_register_g_object(bus, priv->object_path, obj);
+  bus = tp_base_connection_get_dbus_daemon (base_conn);
+  tp_dbus_daemon_register_object (bus, priv->object_path, obj);
 }
 
 
