@@ -2135,6 +2135,7 @@ tpsip_media_session_add_stream (TpsipMediaSession *self,
       direction &= ~TP_MEDIA_STREAM_DIRECTION_RECEIVE;
 
     stream = g_object_new (TPSIP_TYPE_MEDIA_STREAM,
+                           "dbus-daemon", priv->dbus_daemon,
 			   "media-session", self,
 			   "media-type", media_type,
 			   "object-path", object_path,
