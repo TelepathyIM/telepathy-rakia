@@ -72,6 +72,7 @@ enum
 enum
 {
   PROP_MEDIA_CHANNEL = 1,
+  PROP_DBUS_DAEMON,
   PROP_OBJECT_PATH,
   PROP_NUA_OP,
   PROP_PEER,
@@ -122,6 +123,7 @@ typedef struct _TpsipMediaSessionPrivate TpsipMediaSessionPrivate;
 
 struct _TpsipMediaSessionPrivate
 {
+  TpDBusDaemon *dbus_daemon;
   TpsipMediaChannel *channel;             /* see gobj. prop. 'media-channel' */
   gchar *object_path;                     /* see gobj. prop. 'object-path' */
   nua_handle_t *nua_op;                   /* see gobj. prop. 'nua-handle' */
@@ -192,14 +194,13 @@ tpsip_media_session_constructor (GType type, guint n_props,
 {
   GObject *obj;
   TpsipMediaSessionPrivate *priv;
-  DBusGConnection *bus;
 
   obj = G_OBJECT_CLASS (tpsip_media_session_parent_class)->
            constructor (type, n_props, props);
   priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (TPSIP_MEDIA_SESSION (obj));
 
-  bus = tp_get_bus ();
-  dbus_g_connection_register_g_object (bus, priv->object_path, obj);
+  g_assert (TP_IS_DBUS_DAEMON (priv->dbus_daemon));
+  tp_dbus_daemon_register_object (priv->dbus_daemon, priv->object_path, obj);
 
   return obj;
 }
@@ -212,7 +213,11 @@ static void tpsip_media_session_get_property (GObject    *object,
   TpsipMediaSession *session = TPSIP_MEDIA_SESSION (object);
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  switch (property_id) {
+  switch (property_id)
+    {
+    case PROP_DBUS_DAEMON:
+      g_value_set_object (value, priv->dbus_daemon);
+      break;
     case PROP_MEDIA_CHANNEL:
       g_value_set_object (value, priv->channel);
       break;
@@ -296,7 +301,12 @@ static void tpsip_media_session_set_property (GObject      *object,
   TpsipMediaSession *session = TPSIP_MEDIA_SESSION (object);
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
 
-  switch (property_id) {
+  switch (property_id)
+    {
+    case PROP_DBUS_DAEMON:
+      g_assert (priv->dbus_daemon == NULL);       /* construct-only */
+      priv->dbus_daemon = g_value_dup_object (value);
+      break;
     case PROP_MEDIA_CHANNEL:
       priv->channel = TPSIP_MEDIA_CHANNEL (g_value_get_object (value));
       break;
@@ -342,6 +352,11 @@ tpsip_media_session_class_init (TpsipMediaSessionClass *klass)
 
   object_class->dispose = tpsip_media_session_dispose;
   object_class->finalize = tpsip_media_session_finalize;
+
+  param_spec = g_param_spec_object ("dbus-daemon", "TpDBusDaemon",
+      "Connection to D-Bus.", TP_TYPE_DBUS_DAEMON,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_DBUS_DAEMON, param_spec);
 
   param_spec = g_param_spec_object ("media-channel", "TpsipMediaChannel object",
       "SIP media channel object that owns this media session object"
@@ -441,6 +456,8 @@ tpsip_media_session_dispose (GObject *object)
 
   if (priv->glare_timer_id)
     g_source_remove (priv->glare_timer_id);
+
+  tp_clear_object (&priv->dbus_daemon);
 
   if (G_OBJECT_CLASS (tpsip_media_session_parent_class)->dispose)
     G_OBJECT_CLASS (tpsip_media_session_parent_class)->dispose (object);
