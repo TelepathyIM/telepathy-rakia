@@ -775,14 +775,11 @@ priv_lowercase_url_part (su_home_t *home, const char *src)
 #define TPSIP_RESERVED_CHARS_ALLOWED_IN_USERNAME "!*'()&=+$,;?/"
 
 gchar *
-tpsip_handle_normalize (TpHandleRepoIface *repo,
-                        const gchar *sipuri,
-                        gpointer context,
-                        GError **error)
+tpsip_normalize_contact (const gchar *sipuri,
+    const url_t *base_url,
+    const gchar *transport,
+    GError **error)
 {
-  TpsipConnection *conn = TPSIP_CONNECTION (context);
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
-  const url_t *base_url = priv->account_url;
   su_home_t home[1] = { SU_HOME_INIT(home) };
   url_t *url;
   gchar *retval = NULL;
@@ -827,8 +824,8 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
     {
       /* Set the scheme to SIP or SIPS accordingly to the connection's
        * transport preference */
-      if (priv->transport != NULL
-          && g_ascii_strcasecmp (priv->transport, "tls") == 0)
+      if (transport != NULL
+          && g_ascii_strcasecmp (transport, "tls") == 0)
         {
           url->url_type = url_sips;
           url->url_scheme = "sips";
@@ -877,6 +874,19 @@ error:
 
   su_home_deinit (home);
   return retval;
+}
+
+gchar *
+tpsip_handle_normalize (TpHandleRepoIface *repo,
+                        const gchar *sipuri,
+                        gpointer context,
+                        GError **error)
+{
+  TpsipConnection *conn = TPSIP_CONNECTION (context);
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+
+  return tpsip_normalize_contact (sipuri, priv->account_url, priv->transport,
+      error);
 }
 
 static GQuark
