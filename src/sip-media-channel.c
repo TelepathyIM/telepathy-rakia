@@ -1622,6 +1622,8 @@ priv_create_session (TpsipMediaChannel *channel,
                 NULL);
 
   session = g_object_new (TPSIP_TYPE_MEDIA_SESSION,
+                          "dbus-daemon",
+                              tp_base_connection_get_dbus_daemon (conn),
                           "media-channel", channel,
                           "object-path", object_path,
                           "nua-handle", nh,
