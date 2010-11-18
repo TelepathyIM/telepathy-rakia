@@ -80,6 +80,8 @@ GType tpsip_connection_get_type (void) G_GNUC_CONST;
 void tpsip_connection_connect_auth_handler (TpsipConnection *self,
                                             TpsipEventTarget *target);
 
+const gchar **tpsip_connection_get_implemented_interfaces (void);
+
 G_END_DECLS
 
 #endif /* #ifndef __TPSIP_CONNECTION_H__*/
