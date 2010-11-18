@@ -1,4 +1,5 @@
 TWISTED_TESTS = \
+	cm/protocol.py \
 	test-register.py \
 	test-register-fail.py \
 	test-handle-normalisation.py \
