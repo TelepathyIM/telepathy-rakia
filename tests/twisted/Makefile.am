@@ -28,6 +28,7 @@ check-twisted:
 
 EXTRA_DIST = \
 	$(TWISTED_TESTS) \
+	constants.py \
 	sofiatest.py \
 	servicetest.py
 
