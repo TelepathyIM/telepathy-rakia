@@ -1,5 +1,5 @@
 /*
- * write_mgr_file.c - utility to produce gabble.manager. Part of Gabble.
+ * write_mgr_file.c - utility to produce manager files. Derived from Gabble.
  * Copyright (C) 2006-2010 Collabora Ltd.
  * Copyright (C) 2006-2010 Nokia Corporation
  *
