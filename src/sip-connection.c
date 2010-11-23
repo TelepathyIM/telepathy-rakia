@@ -422,15 +422,22 @@ static void tpsip_connection_shut_down (TpBaseConnection *base);
 static gboolean tpsip_connection_start_connecting (TpBaseConnection *base,
     GError **error);
 
+static const gchar *interfaces_always_present[] = {
+    TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
+    TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
+    TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+    NULL };
+
+const gchar **
+tpsip_connection_get_implemented_interfaces (void)
+{
+  /* we don't have any conditionally-implemented interfaces */
+  return interfaces_always_present;
+}
+
 static void
 tpsip_connection_class_init (TpsipConnectionClass *klass)
 {
-  static const gchar *interfaces_always_present[] = {
-      TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
-      TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
-      TP_IFACE_CONNECTION_INTERFACE_ALIASING,
-      NULL };
-
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   TpBaseConnectionClass *base_class =
     (TpBaseConnectionClass *)klass;

@@ -66,6 +66,11 @@ gchar * tpsip_handle_normalize (TpHandleRepoIface *repo,
                                 gpointer context,
                                 GError **error);
 
+gchar *tpsip_normalize_contact (const gchar *sipuri,
+    const url_t *base_url,
+    const gchar *transport,
+    GError **error);
+
 const url_t* tpsip_conn_get_contact_url (TpsipConnection *conn,
                                          TpHandle handle);
 

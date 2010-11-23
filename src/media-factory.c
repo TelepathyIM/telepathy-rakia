@@ -451,15 +451,15 @@ static const gchar * const named_channel_allowed_properties[] = {
     NULL
 };
 
-/* not advertised in foreach_channel_class - can only be requested with
+/* not advertised in type_foreach_channel_class - can only be requested with
  * RequestChannel, not with CreateChannel/EnsureChannel */
 static const gchar * const anon_channel_allowed_properties[] = {
     NULL
 };
 
 static void
-tpsip_media_factory_foreach_channel_class (TpChannelManager *manager,
-    TpChannelManagerChannelClassFunc func,
+tpsip_media_factory_type_foreach_channel_class (GType type,
+    TpChannelManagerTypeChannelClassFunc func,
     gpointer user_data)
 {
   GHashTable *table = g_hash_table_new_full (g_str_hash, g_str_equal,
@@ -476,7 +476,7 @@ tpsip_media_factory_foreach_channel_class (TpChannelManager *manager,
       handle_type_value);
 
   g_value_set_uint (handle_type_value, TP_HANDLE_TYPE_CONTACT);
-  func (manager, table, named_channel_allowed_properties, user_data);
+  func (type, table, named_channel_allowed_properties, user_data);
 
   g_hash_table_destroy (table);
 }
@@ -688,7 +688,8 @@ channel_manager_iface_init (gpointer g_iface,
   TpChannelManagerIface *iface = g_iface;
 
   iface->foreach_channel = tpsip_media_factory_foreach_channel;
-  iface->foreach_channel_class = tpsip_media_factory_foreach_channel_class;
+  iface->type_foreach_channel_class =
+    tpsip_media_factory_type_foreach_channel_class;
   iface->request_channel = tpsip_media_factory_request_channel;
   iface->create_channel = tpsip_media_factory_create_channel;
   iface->ensure_channel = tpsip_media_factory_ensure_channel;
