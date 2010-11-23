@@ -7,6 +7,18 @@ recent at the top).
 
 See also ChangeLog.
 
+telepathy-sofiasip 0.7.0 (2010-11-23)
+-------------------------------------
+
+The "Fermentation Vat No. 78" release.
+
+- Opening the new development series.
+- Implemented o.fd.Tp.Ch.I.Messages (fd.o #29377).
+- Implemented o.fd.Tp.Protocol (fd.o #30538).
+- Uses TpDBusDaemon to export media streams (fd.o #31720).
+- Depends on telepathy-glib 0.12.0 now.
+- Improvements in session state and signalling.
+
 Changes in release 0.6.3 (2010-06-21)
 -------------------------------------
 
