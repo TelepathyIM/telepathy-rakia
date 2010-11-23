@@ -24,13 +24,6 @@ SUBDIRS = \
 	src \
 	tests
 
-dist-hook:
-	chmod u+w ${distdir}/ChangeLog
-	if test -d ${top_srcdir}/.git; then \
-		git --work-tree=${top_srcdir} log --stat > ${distdir}/ChangeLog || \
-		git --work-tree=${top_srcdir} log > ${distdir}/ChangeLog; \
-	fi
-
 include tools/lcov.am
 LCOV_CHECK_ARGS = CHECK_TWISTED_SLEEP=6
 
