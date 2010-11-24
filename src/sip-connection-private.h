@@ -27,6 +27,8 @@
 #include <tpsip/sofia-decls.h>
 #include <sofia-sip/sresolv.h>
 
+#include <telepathy-glib/simple-password-manager.h>
+
 #ifdef HAVE_LIBIPHB
 #include <libiphb.h>
 #endif
@@ -51,6 +53,7 @@ struct _TpsipConnectionPrivate
   gchar *registrar_realm;
 
   TpsipMediaFactory *media_factory;
+  TpSimplePasswordManager *password_manager;
 
   gchar *address;
   gchar *auth_user;

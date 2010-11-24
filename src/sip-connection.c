@@ -160,6 +160,10 @@ tpsip_connection_create_channel_managers (TpBaseConnection *conn)
         "connection", self, NULL);
   g_ptr_array_add (channel_managers, priv->media_factory);
 
+  priv->password_manager = tp_simple_password_manager_new (
+      conn);
+  g_ptr_array_add (channel_managers, priv->password_manager);
+
   return channel_managers;
 }
 
@@ -881,6 +885,38 @@ tpsip_connection_finalize (GObject *obj)
   G_OBJECT_CLASS (tpsip_connection_parent_class)->finalize (obj);
 }
 
+static void
+_password_manager_prompt_cb (GObject *source_object,
+                             GAsyncResult *result,
+                             gpointer user_data)
+{
+  TpsipConnection *self = user_data;
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  TpBaseConnection *base_conn = (TpBaseConnection *) self;
+  GError *error = NULL;
+  const GString *password;
+
+  password = tp_simple_password_manager_prompt_finish (
+      TP_SIMPLE_PASSWORD_MANAGER (source_object), result, &error);
+
+  if (error != NULL)
+    {
+      DEBUG ("Auth channel failed: %s", error->message);
+
+      tp_base_connection_change_status (base_conn,
+          TP_CONNECTION_STATUS_DISCONNECTED,
+          TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
+
+      g_error_free (error);
+      return;
+    }
+
+  g_free (priv->password);
+  priv->password = g_strdup (password->str);
+
+  nua_register (priv->register_op, TAG_NULL());
+}
+
 static gboolean
 tpsip_connection_start_connecting (TpBaseConnection *base,
                                    GError **error)
@@ -977,7 +1013,15 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
 
   tpsip_event_target_attach (priv->register_op, (GObject *) self);
 
-  nua_register (priv->register_op, TAG_NULL());
+  if (priv->password != NULL)
+    {
+      nua_register (priv->register_op, TAG_NULL());
+    }
+  else
+    {
+      tp_simple_password_manager_prompt_async (priv->password_manager,
+          _password_manager_prompt_cb, self);
+    }
 
   return TRUE;
 }
