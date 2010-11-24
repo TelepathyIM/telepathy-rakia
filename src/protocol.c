@@ -314,7 +314,7 @@ new_connection (TpBaseProtocol *protocol,
       if (tpsip_params[i].offset == PARAM_SET_SEPARATELY)
         {
           DEBUG ("Parameter %s is handled specially", tpsip_params[i].name);
-          break;
+          continue;
         }
 
       g_assert (tpsip_params[i].offset == PARAM_EASY);
