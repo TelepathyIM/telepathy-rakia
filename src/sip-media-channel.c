@@ -747,7 +747,14 @@ static void
 tpsip_media_channel_get_handle (TpSvcChannel *iface,
                               DBusGMethodInvocation *context)
 {
-  tp_svc_channel_return_from_get_handle (context, 0, 0);
+  TpsipMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  if (priv->handle != 0)
+    tp_svc_channel_return_from_get_handle (context, TP_HANDLE_TYPE_CONTACT,
+          priv->handle);
+  else
+    tp_svc_channel_return_from_get_handle (context, TP_HANDLE_TYPE_NONE, 0);
 }
 
 /**
