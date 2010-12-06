@@ -1039,6 +1039,11 @@ tpsip_media_channel_create_initial_streams (TpsipMediaChannel *self)
 
   g_assert (priv->initiator != priv->handle);
 
+  /* RequestChannel(None, 0) => channel is anonymous:
+   * caller uses RequestStreams to set the peer and start the call. */
+  if (priv->handle == 0)
+    return;
+
   priv_outbound_call (self, priv->handle);
 
   g_assert (priv->session != NULL);
