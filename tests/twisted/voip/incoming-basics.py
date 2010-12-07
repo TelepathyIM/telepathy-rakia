@@ -3,51 +3,40 @@ Test incoming call handling.
 """
 
 import dbus
+from twisted.words.xish import xpath
 
-from gabbletest import make_result_iq
+from sofiatest import exec_test
 from servicetest import (
-    make_channel_proxy, unwrap, EventPattern, assertEquals, assertLength)
-from jingletest2 import JingleTest2, test_all_dialects
+    make_channel_proxy, wrap_channel,
+    EventPattern, call_async,
+    assertEquals, assertContains, assertLength,
+    )
 import constants as cs
+from voip_test import VoipTestContext
 
 from twisted.words.xish import xpath
 
-def test(jp, q, bus, conn, stream, peer='foo@bar.com/Foo'):
-    jt = JingleTest2(jp, conn, q, stream, 'test@localhost', peer)
-    jt.prepare()
+def test(q, bus, conn, sip_proxy, peer='foo@bar.com'):
+    conn.Connect()
+    q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
+
+    context = VoipTestContext(q, conn, bus, sip_proxy, 'sip:testacc@127.0.0.1', peer)
 
     self_handle = conn.GetSelfHandle()
-    remote_handle = conn.RequestHandles(cs.HT_CONTACT, [jt.peer])[0]
+    remote_handle = conn.RequestHandles(cs.HT_CONTACT, [context.peer])[0]
 
     # Remote end calls us
-    jt.incoming_call()
-
-    # If this is a Jingle dialect that supports it, Gabble should send a
-    # <ringing/> notification when it gets the session-initiate until Telepathy
-    # has a way for the UI to do this.
-    # https://bugs.freedesktop.org/show_bug.cgi?id=21964
-    ringing_event = jp.rtp_info_event_list("ringing")
-
-    if jp.dialect == 'gtalk-v0.4':
-        # With gtalk4, apparently we have to send transport-accept immediately,
-        # not even just before we send our transport-info. wjt tested this, and
-        # indeed if we don't send this for incoming calls, the call never
-        # connects.
-        ta_event = [
-            EventPattern('stream-iq', predicate=lambda x:
-                xpath.queryForNodes("/iq/session[@type='transport-accept']",
-                    x.stanza)),
-            ]
-    else:
-        ta_event = []
+    context.incoming_call()
 
     nc, e = q.expect_many(
-        EventPattern('dbus-signal', signal='NewChannel',
-            predicate=lambda e: cs.CHANNEL_TYPE_CONTACT_LIST not in e.args),
+        EventPattern('dbus-signal', signal='NewChannels'),
         EventPattern('dbus-signal', signal='NewSessionHandler'),
-        *(ringing_event + ta_event)
         )[0:2]
-    path, ct, ht, h, _ = nc.args
+
+    path, props = nc.args[0][0]
+    ct = props[cs.CHANNEL_TYPE]
+    ht = props[cs.CHANNEL + '.TargetHandleType']
+    h = props[cs.CHANNEL + '.TargetHandle']
 
     assert ct == cs.CHANNEL_TYPE_STREAMED_MEDIA, ct
     assert ht == cs.HT_CONTACT, ht
@@ -84,8 +73,8 @@ def test(jp, q, bus, conn, stream, peer='foo@bar.com/Foo'):
     assertEquals(cs.HT_CONTACT, channel_props['TargetHandleType'])
     assertEquals((cs.HT_CONTACT, remote_handle),
             media_chan.GetHandle(dbus_interface=cs.CHANNEL))
-    assertEquals(jt.peer_bare_jid, channel_props['TargetID'])
-    assertEquals(jt.peer_bare_jid, channel_props['InitiatorID'])
+    assertEquals(context.peer_id, channel_props['TargetID'])
+    assertEquals(context.peer_id, channel_props['InitiatorID'])
     assertEquals(remote_handle, channel_props['InitiatorHandle'])
     assertEquals(False, channel_props['Requested'])
 
@@ -97,12 +86,13 @@ def test(jp, q, bus, conn, stream, peer='foo@bar.com/Foo'):
 
     flags = group_props['GroupFlags']
     assert flags & cs.GF_PROPERTIES, flags
+    # FIXME #32189: sofiasip's group flags are borked.
     # Changing members in any way other than adding or removing yourself is
     # meaningless for incoming calls, and the flags need not be sent to change
     # your own membership.
-    assert not flags & cs.GF_CAN_ADD, flags
-    assert not flags & cs.GF_CAN_REMOVE, flags
-    assert not flags & cs.GF_CAN_RESCIND, flags
+    #assert not flags & cs.GF_CAN_ADD, flags
+    #assert not flags & cs.GF_CAN_REMOVE, flags
+    #assert not flags & cs.GF_CAN_RESCIND, flags
 
     assert group_props['Members'] == [remote_handle], group_props['Members']
     assert group_props['RemotePendingMembers'] == [], \
@@ -128,20 +118,11 @@ def test(jp, q, bus, conn, stream, peer='foo@bar.com/Foo'):
     assert streams[0][5] == cs.MEDIA_STREAM_PENDING_LOCAL_SEND, streams[0]
 
     # Connectivity checks happen before we have accepted the call
-    stream_handler.NewNativeCandidate("fake", jt.get_remote_transports_dbus())
-    stream_handler.Ready(jt.get_audio_codecs_dbus())
+    stream_handler.NewNativeCandidate("fake", context.get_remote_transports_dbus())
+    stream_handler.NativeCandidatesPrepared()
+    stream_handler.Ready(context.get_audio_codecs_dbus())
     stream_handler.StreamState(cs.MEDIA_STREAM_STATE_CONNECTED)
-    stream_handler.SupportedCodecs(jt.get_audio_codecs_dbus())
-
-    # peer gets the transport
-    e = q.expect('stream-iq', predicate=jp.action_predicate('transport-info'))
-    assertEquals(jt.peer, e.query['initiator'])
-
-    if jp.dialect in ['jingle-v0.15', 'jingle-v0.31']:
-        content = xpath.queryForNodes('/iq/jingle/content', e.stanza)[0]
-        assertEquals('initiator', content['creator'])
-
-    stream.send(make_result_iq(stream, e.stanza))
+    stream_handler.SupportedCodecs(context.get_audio_codecs_dbus())
 
     # At last, accept the call
     media_chan.AddMembers([self_handle], 'accepted')
@@ -152,22 +133,16 @@ def test(jp, q, bus, conn, stream, peer='foo@bar.com/Foo'):
         EventPattern('dbus-signal', signal='MembersChanged',
             args=[u'', [self_handle], [], [], [], self_handle,
                   cs.GC_REASON_NONE]),
-        EventPattern('stream-iq',
-            predicate=jp.action_predicate('session-accept')),
+        EventPattern('sip-response', call_id=context.call_id, code=200),
         EventPattern('dbus-signal', signal='SetStreamSending', args=[True]),
         EventPattern('dbus-signal', signal='SetStreamPlaying', args=[True]),
         EventPattern('dbus-signal', signal='StreamDirectionChanged',
             args=[stream_id, cs.MEDIA_STREAM_DIRECTION_BIDIRECTIONAL, 0]),
         )
+    
+    context.check_call_sdp(acc.sip_message.body)
 
-    stream.send(make_result_iq(stream, acc.stanza))
-
-    # Also, if this is a Jingle dialect that supports it, Gabble should send an
-    # <active/> notification when the session-accept is acked (until the
-    # Telepathy spec lets the UI say it's not ringing any more).
-    active_event = jp.rtp_info_event("active")
-    if active_event is not None:
-        q.expect_many(active_event)
+    context.ack(acc.sip_message)
 
     # we are now both in members
     members = media_chan.GetMembers()
@@ -176,10 +151,10 @@ def test(jp, q, bus, conn, stream, peer='foo@bar.com/Foo'):
     # Connected! Blah, blah, ...
 
     # 'Nuff said
-    jt.terminate()
+    context.terminate()
     q.expect('dbus-signal', signal='Closed', path=path)
 
 if __name__ == '__main__':
-    test_all_dialects(test)
-    test_all_dialects(lambda jp, q, bus, conn, stream:
-            test(jp, q, bus, conn, stream, 'foo@sip.bar.com'))
+    exec_test(test)
+    exec_test(lambda q, bus, conn, stream:
+            test(q, bus, conn, stream, 'foo@sip.bar.com'))

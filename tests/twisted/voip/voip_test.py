@@ -1,5 +1,6 @@
 
 import dbus
+import uuid
 
 import twisted.protocols.sip
 
@@ -36,6 +37,7 @@ class VoipTestContext(object):
         self.peer = peer
         self.peer_id = "sip:" + peer
         self.sip_proxy = sip_proxy
+        self._cseq_id = 1
       
     def dbusify_codecs(self, codecs):
         dbussed_codecs = [ (id, name, 0, rate, 0, params )
@@ -120,6 +122,29 @@ class VoipTestContext(object):
         (ip, port, protocol, subtype, profile, preference, 
                 transport, username, password) = self.remote_transports[0]
         assert self._mline_template % locals() in sdp_string
+        
+    def send_message(self, message_type, body='', **additional_headers):
+        url = twisted.protocols.sip.parseURL('sip:testacc@127.0.0.1')
+        msg = twisted.protocols.sip.Request(message_type, url)
+        if body:
+            msg.body = body
+            msg.addHeader('content-length', '%d' % len(msg.body))
+        msg.addHeader('from', '<%s>;tag=XYZ' % self.peer_id)
+        msg.addHeader('to', '<sip:testacc@127.0.0.1>')
+        self._cseq_id += 1
+        additional_headers.setdefault('cseq', '%d %s' % (self._cseq_id, message_type))
+        for key, vals in additional_headers.items():
+            if not isinstance(vals, list):
+                vals = [vals]
+            k = key.replace('_', '-')
+            for v in vals:
+                msg.addHeader(k, v)
+        via = self.sip_proxy.getVia()
+        via.branch = 'z9hG4bKXYZ'
+        msg.addHeader('via', via.toString())
+        _expire, destination = self.sip_proxy.registry.users['testacc']
+        self.sip_proxy.sendMessage(destination, msg)
+        return msg
     
     def accept(self, invite_message):
         self.call_id = invite_message.headers['call-id'][0]
@@ -130,3 +155,16 @@ class VoipTestContext(object):
         response.addHeader('content-length', '%d' % len(response.body))
         self.sip_proxy.deliverResponse(response)
         return response
+    
+    def ack(self, ok_message):
+        cseq = '%s ACK' % ok_message.headers['cseq'][0].split()[0]
+        self.send_message('ACK', call_id=self.call_id, cseq=cseq)
+        
+    def incoming_call(self):
+        self.call_id = uuid.uuid4().hex
+        body = self.get_call_sdp()
+        return self.send_message('INVITE', body, content_type='application/sdp',
+                   supported='timer, 100rel', call_id=self.call_id)
+        
+    def terminate(self):
+        return self.send_message('BYE', call_id=self.call_id)
