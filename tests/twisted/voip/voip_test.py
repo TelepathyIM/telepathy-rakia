@@ -1,6 +1,8 @@
 
 import dbus
 
+import twisted.protocols.sip
+
 class VoipTestContext(object):
     # Default audio codecs for the remote end
     audio_codecs = [ ('GSM', 3, 8000, {}),
@@ -22,6 +24,9 @@ class VoipTestContext(object):
             0, # transport type = TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
             "username",
             "password" ) ]
+
+    _mline_template = 'm=audio %(port)s %(subtype)s/%(profile)s %(codec_ids)s'
+    _aline_template = 'a=rtpmap:%(codec_id)s %(name)s/%(rate)s'
 
     def __init__(self, q, conn, bus, sip_proxy, our_uri, peer):
         self.bus = bus
@@ -83,3 +88,45 @@ class VoipTestContext(object):
                     pref, transtype, user, pwd)
                 in enumerate(self.remote_transports) ],
             signature='(usqa{sv})')
+        
+    def get_call_sdp(self):
+        (ip, port, protocol, subtype, profile, preference, 
+                transport, username, password) = self.remote_transports[0]
+
+        codec_id_list = []
+        codec_list = []
+        for name, codec_id, rate, _misc in self.audio_codecs:
+            codec_list.append('a=rtpmap:%(codec_id)s %(name)s/%(rate)s' % locals()) 
+            codec_id_list.append(str(codec_id))
+        codec_ids = ' '.join(codec_id_list)
+        codecs = '\r\n'.join(codec_list)
+
+        sdp_string = ('v=0\r\n'
+            'o=- 7047265765596858314 2813734028456100815 IN IP4 %(ip)s\r\n'
+            's=-\r\n'
+            't=0 0\r\n'
+            'm=audio %(port)s RTP/AVP 3 8 0\r\n'
+            'c=IN IP4 %(ip)s\r\n'
+            '%(codecs)s\r\n') % locals()
+        return sdp_string
+
+    def check_call_sdp(self, sdp_string):
+        codec_id_list = []
+        for name, codec_id, rate, _misc in self.audio_codecs:
+            assert self._aline_template % locals() in sdp_string
+            codec_id_list.append(str(codec_id))
+        codec_ids = ' '.join(codec_id_list)
+
+        (ip, port, protocol, subtype, profile, preference, 
+                transport, username, password) = self.remote_transports[0]
+        assert self._mline_template % locals() in sdp_string
+    
+    def accept(self, invite_message):
+        self.call_id = invite_message.headers['call-id'][0]
+        response = self.sip_proxy.responseFromRequest(200, invite_message)
+        # Echo sofiasip's SDP back to it. It doesn't care.
+        response.addHeader('content-type', 'application/sdp')
+        response.body = invite_message.body
+        response.addHeader('content-length', '%d' % len(response.body))
+        self.sip_proxy.deliverResponse(response)
+        return response

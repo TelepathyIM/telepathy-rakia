@@ -33,15 +33,24 @@ class SipProxy(sip.RegisterProxy):
     def handle_request(self, message, addr):
         if message.method == 'REGISTER':
             return sip.RegisterProxy.handle_request(self, message, addr)
-        if message.method == 'MESSAGE':
-            self.event_func(servicetest.Event('sip-message',
+        elif message.method == 'OPTIONS':
+            # FIXME: work out why sofiasip keeps sending s:REGISTRATION PROBE
+            return
+        else:
+            headers = {}
+            for key, values in message.headers.items():
+                headers[key.replace('-', '_')] = values[0]
+            self.event_func(servicetest.Event('sip-%s' % message.method.lower(),
                 uri=str(message.uri), headers=message.headers, body=message.body,
-                sip_message=message))
+                sip_message=message, **headers))
 
     def handle_response(self, message, addr):
+        headers = {}
+        for key, values in message.headers.items():
+            headers[key.replace('-', '_')] = values[0]
         self.event_func(servicetest.Event('sip-response',
             code=message.code, headers=message.headers, body=message.body,
-            sip_message=message))
+            sip_message=message, **headers))
 
 def prepare_test(event_func, register_cb, params=None):
     actual_params = {

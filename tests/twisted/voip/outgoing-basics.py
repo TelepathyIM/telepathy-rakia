@@ -191,6 +191,7 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
     stream_handler = make_channel_proxy(conn, e.args[0], 'Media.StreamHandler')
 
     stream_handler.NewNativeCandidate("fake", context.get_remote_transports_dbus())
+    stream_handler.NativeCandidatesPrepared()
     stream_handler.Ready(context.get_audio_codecs_dbus())
     stream_handler.StreamState(cs.MEDIA_STREAM_STATE_CONNECTED)
 
@@ -199,43 +200,17 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
     assertEquals('none', sh_props['NATTraversal'])
     assertEquals(True, sh_props['CreatedLocally'])
 
-    return
     if variant == CREATE:
-        # When we actually send XML to the peer, they should pop up in remote
+        # When we actually send INVITE to the peer, they should pop up in remote
         # pending.
-        session_initiate, _ = q.expect_many(
-            EventPattern('stream-iq', iq_type='set', predicate=lambda e:
-                jp.match_jingle_action(e.query, 'session-initiate')),
+        invite_event, _ = q.expect_many(
+            EventPattern('sip-invite'),
             EventPattern('dbus-signal', signal='MembersChanged',
                 args=["", [], [], [], [remote_handle], self_handle,
                       cs.GC_REASON_INVITED]),
             )
     else:
-        forbidden = []
-
-        if peer.split('/', 1)[0] in (
-                'publish@foo.com', 'publish-subscribe@foo.com'):
-            forbidden = [EventPattern('stream-presence')]
-            q.forbid_events(forbidden)
-        else:
-            # we're calling someone not on our roster, so we'll send directed
-            # presence first
-            presence = q.expect('stream-presence')
-            assert (xpath.queryForNodes('/presence/c', presence.stanza)
-                    is not None)
-            assert (xpath.queryForNodes(
-                '/presence/x[@xmlns="vcard-temp:x:update"]', presence.stanza)
-                is not None)
-
-        session_initiate = q.expect('stream-iq',
-            predicate=jp.action_predicate('session-initiate'))
-
-        if forbidden:
-            q.unforbid_events(forbidden)
-
-    context.parse_session_initiate(session_initiate.query)
-    sip_proxy.send(jp.xml(jp.ResultIq('sip:testacc@127.0.0.1', session_initiate.stanza,
-        [])))
+        invite_event = q.expect('sip-invite')
 
     # Check the Group interface's properties again. Regardless of the call
     # requesting API in use, the state should be the same here:
@@ -245,19 +220,12 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
     assertEquals([], group_props['LocalPendingMembers'])
     assertEquals([remote_handle], group_props['RemotePendingMembers'])
 
-    if jp.dialect == 'gtalk-v0.4':
-        node = jp.SetIq(context.peer, context.our_uri, [
-            jp.Jingle(context.sid, context.peer, 'transport-accept', [
-                jp.TransportGoogleP2P() ]) ])
-        sip_proxy.send(jp.xml(node))
+    context.check_call_sdp(invite_event.sip_message.body)
+    context.accept(invite_event.sip_message)
 
-    # FIXME: expect transport-info, then if we're gtalk3, send
-    # candidates, and check that gabble resends transport-info as
-    # candidates
-    context.accept()
-
+    ack_cseq = "%s ACK" % invite_event.cseq.split()[0]
     q.expect_many(
-        EventPattern('stream-iq', iq_type='result'),
+        EventPattern('sip-ack', cseq=ack_cseq),
         # Call accepted
         EventPattern('dbus-signal', signal='MembersChanged',
             args=['', [remote_handle], [], [], [], remote_handle,
@@ -268,20 +236,11 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
 
     chan.Group.RemoveMembers([self_handle], 'closed')
 
-    # Make sure gabble sends proper terminate action
-    if jp.dialect.startswith('gtalk'):
-        terminate = EventPattern('stream-iq', predicate=lambda x:
-            xpath.queryForNodes("/iq/session[@type='terminate']",
-                x.stanza))
-    else:
-        terminate = EventPattern('stream-iq', predicate=lambda x:
-            xpath.queryForNodes("/iq/jingle[@action='session-terminate']",
-                x.stanza))
 
     mc_event, _, _ = q.expect_many(
         EventPattern('dbus-signal', signal='MembersChanged'),
         EventPattern('dbus-signal', signal='Close'),
-        terminate,
+        EventPattern('sip-bye', call_id=context.call_id),
         )
     # Check that we're the actor
     assertEquals(self_handle, mc_event.args[5])
