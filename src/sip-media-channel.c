@@ -1403,7 +1403,25 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
           TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK);
 
       if (status < 300)
-        tpsip_media_session_accept (priv->session);
+        {
+          TpIntSet *set;
+
+          set = tp_intset_new ();
+          tp_intset_add (set, peer);
+
+          tp_group_mixin_change_members ((GObject *) self,
+                                         "",
+                                         set,  /* add */
+                                         NULL, /* remove */
+                                         NULL,
+                                         NULL,
+                                         peer,
+                                         TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+
+          tp_intset_destroy (set);
+
+          tpsip_media_session_accept (priv->session);
+        }
       else if (status == 491)
         tpsip_media_session_resolve_glare (priv->session);
       else
