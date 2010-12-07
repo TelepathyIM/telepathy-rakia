@@ -9,6 +9,8 @@ from twisted.internet import reactor
 
 import os
 import sys
+import random
+
 import dbus
 import dbus.glib
 
@@ -46,7 +48,7 @@ def prepare_test(event_func, register_cb, params=None):
         'account': 'testacc@127.0.0.1',
         'password': 'testpwd',
         'proxy-host': '127.0.0.1',
-        'port': dbus.UInt16(9090),
+        'port': dbus.UInt16(random.randint(9090, 9999)),
         'local-ip-address': '127.0.0.1'
     }
 
@@ -114,8 +116,8 @@ def exec_test(fun, params=None, register_cb=default_register_cb, timeout=None):
             return '\x1b[32m%s\x1b[0m' % s
 
         patterns = {
-            'handled': green,
-            'not handled': red,
+            'handled,': green,
+            'not hand': red,
             }
 
         class Colourer:
@@ -124,8 +126,11 @@ def exec_test(fun, params=None, register_cb=default_register_cb, timeout=None):
                 self.patterns = patterns
 
             def write(self, s):
-                f = self.patterns.get(s, lambda x: x)
+                f = self.patterns.get(s[:len('handled,')], lambda x: x)
                 self.fh.write(f(s))
+            
+            def isatty(self):
+                return False
 
         sys.stdout = Colourer(sys.stdout, patterns)
 
