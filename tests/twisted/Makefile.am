@@ -2,6 +2,7 @@ TWISTED_TESTS = \
 	cm/protocol.py \
 	test-register.py \
 	test-register-fail.py \
+	test-register-sasl.py \
 	test-handle-normalisation.py \
 	test-message.py \
 	test-self-alias.py \

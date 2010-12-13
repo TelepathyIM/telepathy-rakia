@@ -13,5 +13,5 @@ def test(q, bus, conn, sip):
     return True
 
 if __name__ == '__main__':
-    exec_test(test)
+    exec_test(test, params={"password": None})
 

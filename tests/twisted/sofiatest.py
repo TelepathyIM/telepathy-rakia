@@ -20,6 +20,9 @@ class SipProxy(sip.RegisterProxy):
 
     def register(self, message, host, port):
         if hasattr(self, 'registrar_handler'):
+            self.event_func(servicetest.Event('sip-register',
+                uri=str(message.uri), headers=message.headers, body=message.body,
+                sip_message=message, host=host, port=port))
             if self.registrar_handler(message, host, port):
                 sip.RegisterProxy.register(self, message, host, port)
             else:
@@ -48,7 +51,11 @@ def prepare_test(event_func, register_cb, params=None):
     }
 
     if params is not None:
-        actual_params.update(params)
+        for k, v in params.items():
+            if v is None:
+                actual_params.pop(k, None)
+            else:
+                actual_params[k] = v
 
     bus = dbus.SessionBus()
     conn = servicetest.make_connection(bus, event_func,
