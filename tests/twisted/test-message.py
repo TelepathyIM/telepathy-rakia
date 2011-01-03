@@ -6,6 +6,7 @@ from sofiatest import go, exec_test
 import twisted.protocols.sip
 
 import dbus
+import email.utils
 import time
 import uuid
 
@@ -87,7 +88,7 @@ def test(q, bus, conn, sip):
     conn.ReleaseHandles(1, [handle])
 
     call_id = 'XYZ@localhost'
-    send_message(sip, ua_via, 'Hi', call_id=call_id)
+    send_message(sip, ua_via, 'Hi', call_id=call_id, time=1234567890)
 
     incoming_obj, handle = test_new_channel (q, bus, conn,
         target_uri=FROM_URL,
@@ -104,7 +105,7 @@ def test(q, bus, conn, sip):
     now = time.time()
     assert msg[0]['message-token'] == "%s;cseq=%u" % (call_id, cseq_num)
     assert now - 10 < msg[0]['message-received'] < now + 10
-    assert now - 10 < msg[0]['message-sent'] < now + 10
+    assert msg[0]['message-sent'] == 1234567890
     assert msg[1]['content-type'] == 'text/plain'
     assert msg[1]['content'] == 'Hi'
 
@@ -202,7 +203,7 @@ def test(q, bus, conn, sip):
 
 cseq_num = 1
 def send_message(sip, destVia, body,
-                 encoding=None, sender=FROM_URL, call_id=None):
+                 encoding=None, sender=FROM_URL, call_id=None, time=None):
     global cseq_num
     cseq_num += 1
     url = twisted.protocols.sip.parseURL('sip:testacc@127.0.0.1')
@@ -218,7 +219,8 @@ def send_message(sip, destVia, body,
         msg.addHeader('content-type', 'text/plain; charset=%s' % encoding)
     msg.addHeader('content-length', '%d' % len(msg.body))
     msg.addHeader('call-id', call_id or uuid.uuid4().hex)
-    msg.addHeader('date', time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime()))
+    if time is not None:
+        msg.addHeader('date', email.utils.formatdate(time, False, True))
     via = sip.getVia()
     via.branch = 'z9hG4bKXYZ'
     msg.addHeader('via', via.toString())
