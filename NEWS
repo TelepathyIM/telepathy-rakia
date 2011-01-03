@@ -7,6 +7,19 @@ recent at the top).
 
 See also ChangeLog.
 
+telepathy-sofiasip 0.7.1 (UNRELEASED)
+-------------------------------------
+
+- Added 'message-token' and 'message-sent' headers to incoming messages,
+  derived from SIP message headers.
+  NOTE: some existing clients logging messages, notably the one released
+  in Maemo 5, make unrealistically strict assumptions about the uniqueness of
+  'message-token' values. These logging implementations may exhibit problems
+  with handling collisions in token values if used with this or later versions
+  of Telpathy-SofiaSIP. Such collisions are unlikely, but possible if a
+  remote endpoint generating the SIP Call-ID headers does not use an algorithm
+  compliant with the SIP specification to provide sufficient uniqueness.
+
 telepathy-sofiasip 0.7.0 (2010-11-23)
 -------------------------------------
 
