@@ -189,7 +189,7 @@ tpsip_media_channel_constructed (GObject *obj)
   TpBaseConnection *conn = (TpBaseConnection *)(priv->conn);
   GObjectClass *parent_object_class =
       G_OBJECT_CLASS (tpsip_media_channel_parent_class);
-  DBusGConnection *bus;
+  TpDBusDaemon *bus;
   TpHandleRepoIface *contact_repo;
   TpIntSet *set;
 
@@ -203,10 +203,10 @@ tpsip_media_channel_constructed (GObject *obj)
     tp_handle_ref (contact_repo, priv->handle);
 
   /* register object on the bus */
-  bus = tp_get_bus ();
+  bus = tp_base_connection_get_dbus_daemon (conn);
 
   DEBUG("registering object to dbus path=%s", priv->object_path);
-  dbus_g_connection_register_g_object (bus, priv->object_path, obj);
+  tp_dbus_daemon_register_object (bus, priv->object_path, obj);
 
   /* initialize group mixin */
   tp_group_mixin_init (obj,
@@ -1622,6 +1622,8 @@ priv_create_session (TpsipMediaChannel *channel,
                 NULL);
 
   session = g_object_new (TPSIP_TYPE_MEDIA_SESSION,
+                          "dbus-daemon",
+                              tp_base_connection_get_dbus_daemon (conn),
                           "media-channel", channel,
                           "object-path", object_path,
                           "nua-handle", nh,

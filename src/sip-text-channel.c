@@ -162,7 +162,7 @@ tpsip_text_channel_constructed (GObject *obj)
   TpsipTextChannelPrivate *priv;
   TpBaseConnection *base_conn;
   TpHandleRepoIface *contact_handles;
-  DBusGConnection *bus;
+  TpDBusDaemon *bus;
   TpChannelTextMessageType types[] = {
       TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
   };
@@ -202,8 +202,8 @@ tpsip_text_channel_constructed (GObject *obj)
       TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_SUCCESSES,
       supported_content_types);
 
-  bus = tp_get_bus();
-  dbus_g_connection_register_g_object(bus, priv->object_path, obj);
+  bus = tp_base_connection_get_dbus_daemon (base_conn);
+  tp_dbus_daemon_register_object (bus, priv->object_path, obj);
 }
 
 

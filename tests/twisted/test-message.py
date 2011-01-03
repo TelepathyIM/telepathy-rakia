@@ -141,8 +141,7 @@ def test(q, bus, conn, sip):
 
     send_message(sip, ua_via, 'How are you doing now, old pal?',
                  sender=contact)
-    event = q.expect('dbus-signal', signal='Received')
-    assert tp_path_prefix + event.path == chan, (event.path, chan)
+    event = q.expect('dbus-signal', signal='Received', path=chan)
     assert event.args[5] == 'How are you doing now, old pal?'
     pending_msgs.append(tuple(event.args))
 
@@ -156,8 +155,7 @@ def test(q, bus, conn, sip):
     dbus.Interface(requested_obj, CHANNEL).Close()
     del requested_obj
 
-    event = q.expect('dbus-signal', signal='Closed')
-    assert tp_path_prefix + event.path == chan, (event.path, chan)
+    event = q.expect('dbus-signal', signal='Closed', path=chan)
 
     requested_obj, handle = test_new_channel (q, bus, conn,
         target_uri=contact,

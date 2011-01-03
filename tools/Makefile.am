@@ -17,7 +17,8 @@ EXTRA_DIST = \
     glib-signals-marshal-gen.py \
     identity.xsl \
     lcov.am \
-    libglibcodegen.py
+    libglibcodegen.py \
+    telepathy.am
 
 CLEANFILES = libglibcodegen.pyc libglibcodegen.pyo $(noinst_SCRIPTS)
 

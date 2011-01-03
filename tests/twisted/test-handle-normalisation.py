@@ -1,14 +1,16 @@
-from servicetest import unwrap, match
-from sofiatest import go
+from servicetest import assertEquals
+from sofiatest import exec_test
 
 import dbus
+import constants as cs
 
-@match('dbus-signal', signal='StatusChanged', args=[1, 1])
-def expect_connecting(event, data):
-    return True
+def test(q, bus, conn, sip):
+    conn.Connect()
+    q.expect('dbus-signal', signal='StatusChanged',
+            args=[cs.CONN_STATUS_CONNECTING, cs.CSR_REQUESTED])
+    q.expect('dbus-signal', signal='StatusChanged',
+            args=[cs.CONN_STATUS_CONNECTED, cs.CSR_REQUESTED])
 
-@match('dbus-signal', signal='StatusChanged', args=[0, 1])
-def expect_connected(event, data):
     tests = [ ('sip:test@localhost', 'sip:test@localhost'),
         ('test@localhost', 'sip:test@localhost'),
         ('test', 'sip:test@127.0.0.1'),
@@ -29,22 +31,15 @@ def expect_connected(event, data):
     orig = [ x[0] for x in tests ]
     expect = [ x[1] for x in tests ]
 
-    handles = data['conn_iface'].RequestHandles(1, orig)
-    names = data['conn_iface'].InspectHandles(1, handles)
+    handles = conn.RequestHandles(1, orig)
+    names = conn.InspectHandles(1, handles)
 
-    for a,b in zip(expect, map(lambda x: str(unwrap(x)), names)):
-        if a != b:
-            print a, b
-            raise Exception("test failed")
+    for a,b in zip(expect, names):
+        assertEquals(a, b)
 
-    data['conn_iface'].Disconnect()
-    return True
-
-@match('dbus-signal', signal='StatusChanged', args=[2, 1])
-def expect_disconnected(event, data):    
-    return True
+    conn.Disconnect()
+    q.expect('dbus-signal', signal='StatusChanged',
+            args=[cs.CONN_STATUS_DISCONNECTED, cs.CSR_REQUESTED])
 
 if __name__ == '__main__':
-    go()
-
-
+    exec_test(test)

@@ -160,6 +160,10 @@ tpsip_connection_create_channel_managers (TpBaseConnection *conn)
         "connection", self, NULL);
   g_ptr_array_add (channel_managers, priv->media_factory);
 
+  priv->password_manager = tp_simple_password_manager_new (
+      conn);
+  g_ptr_array_add (channel_managers, priv->password_manager);
+
   return channel_managers;
 }
 
@@ -422,15 +426,22 @@ static void tpsip_connection_shut_down (TpBaseConnection *base);
 static gboolean tpsip_connection_start_connecting (TpBaseConnection *base,
     GError **error);
 
+static const gchar *interfaces_always_present[] = {
+    TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
+    TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
+    TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+    NULL };
+
+const gchar **
+tpsip_connection_get_implemented_interfaces (void)
+{
+  /* we don't have any conditionally-implemented interfaces */
+  return interfaces_always_present;
+}
+
 static void
 tpsip_connection_class_init (TpsipConnectionClass *klass)
 {
-  static const gchar *interfaces_always_present[] = {
-      TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
-      TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
-      TP_IFACE_CONNECTION_INTERFACE_ALIASING,
-      NULL };
-
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   TpBaseConnectionClass *base_class =
     (TpBaseConnectionClass *)klass;
@@ -593,6 +604,54 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
       G_STRUCT_OFFSET (TpsipConnectionClass, contacts_class));
 }
 
+typedef struct {
+  TpsipConnection* self;
+  nua_handle_t *nh;
+  gchar *method;
+  gchar *realm;
+  gchar *user;
+} PrivHandleAuthData;
+
+static PrivHandleAuthData *
+priv_handle_auth_data_new (TpsipConnection* self,
+                           nua_handle_t *nh,
+                           const gchar *method,
+                           const gchar *realm,
+                           const gchar *user)
+{
+  PrivHandleAuthData *data = g_slice_new (PrivHandleAuthData);
+
+  data->self = g_object_ref (self);
+  data->nh = nua_handle_ref (nh);
+  data->method = g_strdup (method);
+  data->realm = g_strdup (realm);
+  data->user = g_strdup (user);
+
+  return data;
+}
+
+static void
+priv_handle_auth_data_free (PrivHandleAuthData *data)
+{
+  g_object_unref (data->self);
+  nua_handle_unref (data->nh);
+  g_free (data->method);
+  g_free (data->realm);
+  g_free (data->user);
+
+  g_slice_free (PrivHandleAuthData, data);
+}
+
+static void priv_password_manager_prompt_cb (GObject *source_object,
+                                             GAsyncResult *result,
+                                             gpointer user_data);
+static void priv_handle_auth_continue (TpsipConnection* self,
+                                       nua_handle_t *nh,
+                                       const gchar *method,
+                                       const gchar *realm,
+                                       const gchar *user,
+                                       const gchar *password);
+
 static gboolean
 priv_handle_auth (TpsipConnection* self,
                   int status,
@@ -607,7 +666,6 @@ priv_handle_auth (TpsipConnection* self,
   const char *realm = NULL;
   const char *user =  NULL;
   const char *password =  NULL;
-  gchar *auth = NULL;
 
   if (status != 401 && status != 407)
     return FALSE;
@@ -632,6 +690,12 @@ priv_handle_auth (TpsipConnection* self,
   if (realm == NULL)
     {
       WARNING ("no realm presented for authentication");
+      return FALSE;
+    }
+
+  if (method == NULL)
+    {
+      WARNING ("no method presented for authentication");
       return FALSE;
     }
 
@@ -668,6 +732,9 @@ priv_handle_auth (TpsipConnection* self,
         /* fall back to the main username */
         user = priv->auth_user;
       password = priv->extra_auth_password;
+      if (password == NULL)
+        /* note that this prevents asking the user for a password */
+        password = "";
 
       DEBUG("using the extra auth credentials");
     }
@@ -678,37 +745,101 @@ priv_handle_auth (TpsipConnection* self,
       if (sipfrom && sipfrom->a_url[0].url_user)
         /* or use the userpart in "From" header */
         user = sipfrom->a_url[0].url_user;
+      else
+        return FALSE;
     }
 
   if (password == NULL)
-    password = "";
+    {
+      PrivHandleAuthData *data = NULL;
+
+      DEBUG("asking the user for a password.");
+      data = priv_handle_auth_data_new (self, nh, method, realm,
+                                        user);
+      tp_simple_password_manager_prompt_async (priv->password_manager,
+          priv_password_manager_prompt_cb, data);
+      /* Promise that we'll handle it eventually, even if we end up just
+       * handling it with a blank password. */
+      return TRUE;
+    }
+
+  priv_handle_auth_continue (self, nh, method, realm,
+                             user, password);
+  return TRUE;
+}
+
+static void
+priv_password_manager_prompt_cb (GObject *source_object,
+                             GAsyncResult *result,
+                             gpointer user_data)
+{
+  PrivHandleAuthData *data = user_data;
+  GError *error = NULL;
+  const GString *password_string;
+  const gchar *password;
+
+  password_string = tp_simple_password_manager_prompt_finish (
+      TP_SIMPLE_PASSWORD_MANAGER (source_object), result, &error);
+
+  if (error != NULL)
+    {
+      /* we promised to handle the auth challenge in priv_handle_auth() by
+       * returning TRUE, so we need to handle it anyway, even if it means
+       * doing it with a blank password.
+       */
+      DEBUG ("Auth channel failed: %s. Using blank password.", error->message);
+
+      password = "";
+
+      g_error_free (error);
+    }
+  else
+    {
+      TpsipConnectionPrivate *priv =
+          TPSIP_CONNECTION_GET_PRIVATE (data->self);
+
+      password = password_string->str;
+      /* also save it for later. */
+      g_free (priv->password);
+      priv->password = g_strdup (password);
+    }
+
+  priv_handle_auth_continue (data->self, data->nh, data->method, data->realm,
+                             data->user, password);
+
+  priv_handle_auth_data_free (data);
+}
+
+static void
+priv_handle_auth_continue (TpsipConnection* self,
+    nua_handle_t *nh,
+    const gchar *method,
+    const gchar *realm,
+    const gchar *user,
+    const gchar *password)
+{
+  gchar *auth = NULL;
 
   /* step: if all info is available, create an authorization response */
   g_assert (realm != NULL);
-  if (user && method) {
-    if (realm[0] == '"')
-      auth = g_strdup_printf ("%s:%s:%s:%s",
-                              method, realm, user, password);
-    else
-      auth = g_strdup_printf ("%s:\"%s\":%s:%s",
-                              method, realm, user, password);
+  g_assert (method != NULL);
+  g_assert (user != NULL);
+  g_assert (password != NULL);
 
-    DEBUG("%s authenticating user='%s' realm=%s",
-          wa ? "server" : "proxy", user, realm);
-  }
+  if (realm[0] == '"')
+    auth = g_strdup_printf ("%s:%s:%s:%s",
+                            method, realm, user, password);
+  else
+    auth = g_strdup_printf ("%s:\"%s\":%s:%s",
+                            method, realm, user, password);
 
-  if (auth == NULL)
-    {
-      WARNING ("authentication data are incomplete");
-      return FALSE;
-    }
+  DEBUG ("%s-authenticating user='%s' realm=%s",
+         method, user, realm);
 
   /* step: authenticate */
   nua_authenticate(nh, NUTAG_AUTH(auth), TAG_END());
 
   g_free (auth);
-
-  return TRUE;
 }
 
 static gboolean

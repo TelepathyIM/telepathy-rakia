@@ -92,6 +92,8 @@ libtpsip_convenience_la_SOURCES = \
     debug.c \
     media-factory.h \
     media-factory.c \
+    protocol.h \
+    protocol.c \
     text-factory.h \
     text-factory.c \
     sip-connection-helpers.h \
