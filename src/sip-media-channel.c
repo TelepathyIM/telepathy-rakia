@@ -191,7 +191,7 @@ tpsip_media_channel_constructed (GObject *obj)
       G_OBJECT_CLASS (tpsip_media_channel_parent_class);
   TpDBusDaemon *bus;
   TpHandleRepoIface *contact_repo;
-  TpIntSet *set;
+  TpIntSet *add;
 
   if (parent_object_class->constructed != NULL)
     parent_object_class->constructed (obj);
@@ -219,12 +219,9 @@ tpsip_media_channel_constructed (GObject *obj)
   g_assert (priv->initiator != 0);
   tp_handle_ref (contact_repo, priv->initiator);
 
-  set = tp_intset_new ();
-  tp_intset_add (set, priv->initiator);
-
-  tp_group_mixin_change_members (obj, "", set, NULL, NULL, NULL, 0, 0);
-
-  tp_intset_destroy (set);
+  add = tp_intset_new_containing (priv->initiator);
+  tp_group_mixin_change_members (obj, "", add, NULL, NULL, NULL, 0, 0);
+  tp_intset_destroy (add);
 
   /* Allow member adding; also, we implement the 0.17.6 properties */
   tp_group_mixin_change_flags (obj,
@@ -1147,7 +1144,7 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
                                 const char* message)
 {
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
-  TpIntSet *set;
+  TpIntSet *remove;
   guint reason = TP_CHANNEL_GROUP_CHANGE_REASON_ERROR;
 
   switch (status)
@@ -1184,12 +1181,12 @@ tpsip_media_channel_peer_error (TpsipMediaChannel *self,
   if (message == NULL || !g_utf8_validate (message, -1, NULL))
     message = "";
 
-  set = tp_intset_new ();
-  tp_intset_add (set, peer);
-  tp_intset_add (set, mixin->self_handle);
+  remove = tp_intset_new ();
+  tp_intset_add (remove, peer);
+  tp_intset_add (remove, mixin->self_handle);
   tp_group_mixin_change_members ((GObject *)self, message,
-      NULL, set, NULL, NULL, peer, reason);
-  tp_intset_destroy (set);
+      NULL, remove, NULL, NULL, peer, reason);
+  tp_intset_destroy (remove);
 }
 
 guint
@@ -1233,26 +1230,21 @@ priv_nua_i_bye_cb (TpsipMediaChannel *self,
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
-  TpIntSet *set;
+  TpIntSet *remove;
   TpHandle peer;
 
   g_return_val_if_fail (priv->session != NULL, FALSE);
 
   peer = tpsip_media_session_get_peer (priv->session);
-  set = tp_intset_new ();
-  tp_intset_add (set, peer);
-  tp_intset_add (set, mixin->self_handle);
+  remove = tp_intset_new ();
+  tp_intset_add (remove, peer);
+  tp_intset_add (remove, mixin->self_handle);
 
-  tp_group_mixin_change_members ((GObject *) self,
-                                 "",
-                                 NULL, /* add */
-                                 set,  /* remove */
-                                 NULL,
-                                 NULL,
-                                 peer,
-                                 TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+  tp_group_mixin_change_members ((GObject *) self, "",
+     NULL, remove, NULL, NULL,
+     peer, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
-  tp_intset_destroy (set);
+  tp_intset_destroy (remove);
 
   return TRUE;
 }
@@ -1265,7 +1257,7 @@ priv_nua_i_cancel_cb (TpsipMediaChannel *self,
 {
   TpsipMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
-  TpIntSet *set;
+  TpIntSet *remove;
   TpHandle actor = 0;
   TpHandle peer;
   const sip_reason_t *reason;
@@ -1309,20 +1301,15 @@ priv_nua_i_cancel_cb (TpsipMediaChannel *self,
   if (message == NULL || !g_utf8_validate (message, -1, NULL))
     message = "";
 
-  set = tp_intset_new ();
-  tp_intset_add (set, peer);
-  tp_intset_add (set, mixin->self_handle);
+  remove = tp_intset_new ();
+  tp_intset_add (remove, peer);
+  tp_intset_add (remove, mixin->self_handle);
 
-  tp_group_mixin_change_members ((GObject *) self,
-                                 message,
-                                 NULL, /* add */
-                                 set,  /* remove */
-                                 NULL,
-                                 NULL,
-                                 actor,
-                                 TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+  tp_group_mixin_change_members ((GObject *) self, message,
+      NULL, remove, NULL, NULL,
+      actor, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
-  tp_intset_destroy (set);
+  tp_intset_destroy (remove);
 
   return TRUE;
 }
@@ -1404,21 +1391,18 @@ priv_nua_i_state_cb (TpsipMediaChannel *self,
 
       if (status < 300)
         {
-          TpIntSet *set;
-
-          set = tp_intset_new ();
-          tp_intset_add (set, peer);
+          TpIntSet *add = tp_intset_new_containing (peer);
 
           tp_group_mixin_change_members ((GObject *) self,
                                          "",
-                                         set,  /* add */
+                                         add,  /* add */
                                          NULL, /* remove */
                                          NULL,
                                          NULL,
                                          peer,
                                          TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
-          tp_intset_destroy (set);
+          tp_intset_destroy (add);
 
           tpsip_media_session_accept (priv->session);
         }
@@ -1475,12 +1459,10 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
   switch (state)
     {
     case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
-      set = tp_intset_new ();
-
       g_assert (priv->initiator == self_handle);
 
       /* add the peer to remote pending */
-      tp_intset_add (set, peer);
+      set = tp_intset_new_containing (peer);
       tp_group_mixin_change_members ((GObject *)channel,
                                      "",
                                      NULL,    /* add */
@@ -1498,10 +1480,8 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
       break;
 
     case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-      set = tp_intset_new ();
-
       /* add ourself to local pending */
-      tp_intset_add (set, self_handle);
+      set = tp_intset_new_containing (self_handle);
       tp_group_mixin_change_members ((GObject *) channel, "",
                                      NULL,          /* add */
                                      NULL,          /* remove */
@@ -1523,10 +1503,8 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
           if (!tp_handle_set_is_member (mixin->remote_pending, peer))
             break; /* no-op */
 
-          set = tp_intset_new ();
-
           /* the peer has promoted itself to members */
-          tp_intset_add (set, peer);
+          set = tp_intset_new_containing (peer);
           tp_group_mixin_change_members ((GObject *)channel, "",
                                          set,     /* add */
                                          NULL,    /* remove */
@@ -1539,10 +1517,8 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
           if (!tp_handle_set_is_member (mixin->local_pending, self_handle))
             break; /* no-op */
 
-          set = tp_intset_new ();
-
           /* promote ourselves to members */
-          tp_intset_add (set, self_handle);
+          set = tp_intset_new_containing (self_handle);
           tp_group_mixin_change_members ((GObject *)channel, "",
                                          set,     /* add */
                                          NULL,    /* remove */
@@ -1747,7 +1723,7 @@ _tpsip_media_channel_add_member (GObject *iface,
 
   if (priv->initiator == mixin->self_handle)
     {
-      TpIntSet *set;
+      TpIntSet *remote_pending;
 
       /* case a: an old-school outbound call
        * (we are the initiator, a new handle added with AddMembers) */
@@ -1757,17 +1733,16 @@ _tpsip_media_channel_add_member (GObject *iface,
       /* Backwards compatible behavior:
        * add the peer to remote pending without waiting for the actual request
        * to be sent */
-      set = tp_intset_new ();
-      tp_intset_add (set, handle);
+      remote_pending = tp_intset_new_containing (handle);
       tp_group_mixin_change_members (iface,
                                      "",
                                      NULL,    /* add */
                                      NULL,    /* remove */
                                      NULL,    /* local pending */
-                                     set,     /* remote pending */
+                                     remote_pending,     /* remote pending */
                                      mixin->self_handle,        /* actor */
                                      TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
-      tp_intset_destroy (set);
+      tp_intset_destroy (remote_pending);
 
       /* update flags: allow removal and rescinding, no more adding */
       tp_group_mixin_change_flags (iface,
