@@ -223,9 +223,13 @@ tpsip_media_channel_constructed (GObject *obj)
   tp_group_mixin_change_members (obj, "", add, NULL, NULL, NULL, 0, 0);
   tp_intset_destroy (add);
 
-  /* Allow member adding; also, we implement the 0.17.6 properties */
+  /* We start off with lots of flags, and then delete them as we work out what
+   * kind of channel we are, rather than trying to track what we need to
+   * add/remove over time. We should always have the right flags before we are
+   * advertised on the bus. */
   tp_group_mixin_change_flags (obj,
-      TP_CHANNEL_GROUP_FLAG_CAN_ADD | TP_CHANNEL_GROUP_FLAG_PROPERTIES, 0);
+      TP_CHANNEL_GROUP_FLAG_CAN_ADD | TP_CHANNEL_GROUP_FLAG_CAN_REMOVE |
+      TP_CHANNEL_GROUP_FLAG_CAN_RESCIND | TP_CHANNEL_GROUP_FLAG_PROPERTIES, 0);
 }
 
 static void tpsip_media_channel_dispose (GObject *object);
@@ -1472,9 +1476,8 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
                                      self_handle,        /* actor */
                                      TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
-      /* update flags: allow removal and rescinding, no more adding */
-      tp_group_mixin_change_flags ((GObject *)channel,
-          TP_CHANNEL_GROUP_FLAG_CAN_REMOVE | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND,
+      /* update flags: no more adding */
+      tp_group_mixin_change_flags ((GObject *)channel, 0,
           TP_CHANNEL_GROUP_FLAG_CAN_ADD);
 
       break;
@@ -1490,10 +1493,15 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
                                      priv->initiator, /* actor */
                                      TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
-      /* No adding more members to the incoming call, removing is OK */
-      tp_group_mixin_change_flags ((GObject *) channel,
-          TP_CHANNEL_GROUP_FLAG_CAN_REMOVE,
-          TP_CHANNEL_GROUP_FLAG_CAN_ADD);
+      /* No adding more members to the incoming call. Therefore also not
+       * possible to add anyone to remote-pending, so rescinding would make
+       * utterly no sense. We also disallow removing the remote peer if
+       * we are not the initiator, so disallow that too.
+       * Removing yourself to end the call is not represented by group flags.
+       */
+      tp_group_mixin_change_flags ((GObject *) channel, 0,
+          TP_CHANNEL_GROUP_FLAG_CAN_ADD | TP_CHANNEL_GROUP_FLAG_CAN_REMOVE |
+          TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
 
       break;
 
@@ -1527,11 +1535,12 @@ static void priv_session_state_changed_cb (TpsipMediaSession *session,
                                          self_handle, 0);
         }
 
-      /* update flags: allow removal, deny adding and rescinding */
-      tp_group_mixin_change_flags ((GObject *)channel,
-          TP_CHANNEL_GROUP_FLAG_CAN_REMOVE,
-          TP_CHANNEL_GROUP_FLAG_CAN_ADD
-          | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
+      /* update flags: deny adding and rescinding. Removing the remote peer is
+       * still allowed.
+       * Removing yourself to end the call is not represented by group flags.
+       */
+      tp_group_mixin_change_flags ((GObject *)channel, 0,
+          TP_CHANNEL_GROUP_FLAG_CAN_ADD | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND);
 
       break;
 
@@ -1744,9 +1753,9 @@ _tpsip_media_channel_add_member (GObject *iface,
                                      TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
       tp_intset_destroy (remote_pending);
 
-      /* update flags: allow removal and rescinding, no more adding */
-      tp_group_mixin_change_flags (iface,
-          TP_CHANNEL_GROUP_FLAG_CAN_REMOVE | TP_CHANNEL_GROUP_FLAG_CAN_RESCIND,
+      /* update flags: no more adding.
+       * Removal and rescinding are still allowed. */
+      tp_group_mixin_change_flags (iface, 0,
           TP_CHANNEL_GROUP_FLAG_CAN_ADD);
 
       return TRUE;

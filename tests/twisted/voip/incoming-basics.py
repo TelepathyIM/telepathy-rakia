@@ -86,13 +86,12 @@ def test(q, bus, conn, sip_proxy, peer='foo@bar.com'):
 
     flags = group_props['GroupFlags']
     assert flags & cs.GF_PROPERTIES, flags
-    # FIXME #32189: sofiasip's group flags are borked.
     # Changing members in any way other than adding or removing yourself is
     # meaningless for incoming calls, and the flags need not be sent to change
     # your own membership.
-    #assert not flags & cs.GF_CAN_ADD, flags
-    #assert not flags & cs.GF_CAN_REMOVE, flags
-    #assert not flags & cs.GF_CAN_RESCIND, flags
+    assert not flags & cs.GF_CAN_ADD, flags
+    assert not flags & cs.GF_CAN_REMOVE, flags
+    assert not flags & cs.GF_CAN_RESCIND, flags
 
     assert group_props['Members'] == [remote_handle], group_props['Members']
     assert group_props['RemotePendingMembers'] == [], \

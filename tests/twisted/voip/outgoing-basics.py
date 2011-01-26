@@ -147,15 +147,14 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
             # but we should be allowed to add the peer.
             chan.Group.AddMembers([remote_handle], 'I love backwards compat')
 
-    base_flags = cs.GF_PROPERTIES | cs.GF_MESSAGE_REMOVE \
-               | cs.GF_MESSAGE_REJECT | cs.GF_MESSAGE_RESCIND
+    base_flags = cs.GF_PROPERTIES | cs.GF_CAN_REMOVE | cs.GF_CAN_RESCIND
 
-    if variant == REQUEST_ANONYMOUS_AND_ADD or variant == REQUEST_ANONYMOUS:
+    if variant in [REQUEST_ANONYMOUS_AND_ADD, REQUEST_ANONYMOUS, CREATE]:
         expected_flags = base_flags | cs.GF_CAN_ADD
     else:
         expected_flags = base_flags
-    # FIXME: 32189: group flags are borked.
-    #assertEquals(expected_flags, group_props['GroupFlags'])
+
+    assertEquals(bin(expected_flags), bin(group_props['GroupFlags']))
     assertEquals({}, group_props['HandleOwners'])
 
     assertEquals([], chan.StreamedMedia.ListStreams())
