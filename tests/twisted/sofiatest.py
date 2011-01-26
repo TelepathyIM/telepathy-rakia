@@ -33,9 +33,9 @@ class SipProxy(sip.RegisterProxy):
     def handle_request(self, message, addr):
         if message.method == 'REGISTER':
             return sip.RegisterProxy.handle_request(self, message, addr)
-        elif message.method == 'OPTIONS':
-            # FIXME: work out why sofiasip keeps sending s:REGISTRATION PROBE
-            return
+        elif message.method == 'OPTIONS' and \
+                'REGISTRATION PROBE' == message.headers.get('subject','')[0]:
+            self.deliverResponse(self.responseFromRequest(200, message))
         else:
             headers = {}
             for key, values in message.headers.items():

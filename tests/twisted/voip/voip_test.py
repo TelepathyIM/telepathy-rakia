@@ -4,6 +4,8 @@ import uuid
 
 import twisted.protocols.sip
 
+from servicetest import assertContains
+
 class VoipTestContext(object):
     # Default audio codecs for the remote end
     audio_codecs = [ ('GSM', 3, 8000, {}),
@@ -115,7 +117,7 @@ class VoipTestContext(object):
     def check_call_sdp(self, sdp_string):
         codec_id_list = []
         for name, codec_id, rate, _misc in self.audio_codecs:
-            assert self._aline_template % locals() in sdp_string
+            assertContains (self._aline_template % locals(), sdp_string)
             codec_id_list.append(str(codec_id))
         codec_ids = ' '.join(codec_id_list)
 
