@@ -151,8 +151,10 @@ def test(q, bus, conn, sip_proxy, peer='foo@bar.com'):
     # Connected! Blah, blah, ...
 
     # 'Nuff said
-    context.terminate()
-    q.expect('dbus-signal', signal='Closed', path=path)
+    bye_msg = context.terminate()
+    
+    q.expect_many(EventPattern('dbus-signal', signal='Closed', path=path),
+                  EventPattern('sip-response', cseq=bye_msg.headers['cseq'][0]))
 
 if __name__ == '__main__':
     exec_test(test)

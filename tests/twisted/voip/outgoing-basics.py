@@ -237,13 +237,17 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
     chan.Group.RemoveMembers([self_handle], 'closed')
 
 
-    mc_event, _, _ = q.expect_many(
+    mc_event, _, bye_event = q.expect_many(
         EventPattern('dbus-signal', signal='MembersChanged'),
         EventPattern('dbus-signal', signal='Close'),
         EventPattern('sip-bye', call_id=context.call_id),
         )
     # Check that we're the actor
     assertEquals(self_handle, mc_event.args[5])
+    
+    # For completeness, reply to the BYE.
+    bye_response = sip_proxy.responseFromRequest(200, bye_event.sip_message)
+    sip_proxy.deliverResponse(bye_response)
 
 def rccs(q, bus, conn, stream):
     """
