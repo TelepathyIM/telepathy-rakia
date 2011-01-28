@@ -116,7 +116,7 @@ tpsip_quote_string (const gchar *src)
  * The string is to be freed with g_free().
  */
 gchar *
-tpsip_unquote_string (const gchar *src, gsize len)
+tpsip_unquote_string (const gchar *src, gssize len)
 {
   gchar *res;
   gchar *p;
