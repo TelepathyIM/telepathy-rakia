@@ -357,6 +357,13 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
   DEBUG("Got incoming invite from <%s>",
         tp_handle_inspect (contact_repo, handle));
 
+  if (handle == conn->self_handle)
+    {
+      DEBUG("cannot handle calls from self");
+      nua_respond (ev->nua_handle, 501, "Calls from self are not supported", TAG_END());
+      return TRUE;
+    }
+
   channel = new_media_channel (fac, handle, handle, channel_flags);
 
   tp_handle_unref (contact_repo, handle);
