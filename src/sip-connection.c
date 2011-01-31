@@ -61,16 +61,6 @@ G_DEFINE_TYPE_WITH_CODE (TpsipConnection, tpsip_connection,
     G_IMPLEMENT_INTERFACE (TPSIP_TYPE_CONNECTION_ALIASING, NULL);
 );
 
-#define ERROR_IF_NOT_CONNECTED_ASYNC(BASE, CONTEXT) \
-  if ((BASE)->status != TP_CONNECTION_STATUS_CONNECTED) \
-    { \
-      GError e = { TP_ERRORS, TP_ERROR_NOT_AVAILABLE, \
-          "Connection is disconnected" }; \
-      DEBUG ("rejected request as disconnected"); \
-      dbus_g_method_return_error ((CONTEXT), &e); \
-      return; \
-    }
-
 
 /* properties */
 enum
@@ -836,17 +826,6 @@ tpsip_connection_auth_cb (TpsipEventTarget *target,
                            ev->nua_handle,
                            ev->sip,
                            FALSE);
-}
-
-void
-tpsip_connection_connect_auth_handler (TpsipConnection *self,
-                                       TpsipEventTarget *target)
-{
-  g_signal_connect_object (target,
-                           "nua-event",
-                           G_CALLBACK (tpsip_connection_auth_cb),
-                           self,
-                           0);
 }
 
 static void

@@ -51,13 +51,6 @@ void tpsip_conn_resolv_stun_server (TpsipConnection *conn, const gchar *stun_hos
 void tpsip_conn_discover_stun_server (TpsipConnection *conn);
 
 /***********************************************************************
- * Functions for saving NUA events
- ***********************************************************************/
-
-void tpsip_conn_save_event (TpsipConnection *conn,
-                            nua_saved_event_t ret_saved [1]);
-
-/***********************************************************************
  * Heartbeat management for keepalives
  ***********************************************************************/
 

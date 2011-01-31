@@ -153,14 +153,6 @@ tpsip_conn_create_request_handle (TpsipConnection *conn,
 }
 
 void
-tpsip_conn_save_event (TpsipConnection *conn,
-                     nua_saved_event_t ret_saved [1])
-{
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
-  nua_save_event (priv->sofia_nua, ret_saved);
-}
-
-void
 tpsip_conn_update_proxy_and_transport (TpsipConnection *conn)
 {
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
