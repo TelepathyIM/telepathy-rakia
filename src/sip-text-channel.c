@@ -39,9 +39,7 @@
 #include <telepathy-glib/svc-generic.h>
 
 #include <tpsip/event-target.h>
-
-#include "sip-connection.h"
-#include "sip-connection-helpers.h"
+#include <tpsip/base-connection.h>
 
 #include <sofia-sip/sip_protos.h>
 #include <sofia-sip/sip_status.h>
@@ -112,7 +110,7 @@ typedef struct _TpsipTextChannelPrivate TpsipTextChannelPrivate;
 
 struct _TpsipTextChannelPrivate
 {
-  TpsipConnection *conn;
+  TpsipBaseConnection *conn;
   gchar *object_path;
   TpHandle handle;
   TpHandle initiator;
@@ -186,7 +184,7 @@ tpsip_text_channel_constructed (GObject *obj)
   g_assert (priv->initiator != 0);
   tp_handle_ref (contact_handles, priv->initiator);
 
-  tpsip_connection_connect_auth_handler (priv->conn, TPSIP_EVENT_TARGET (obj));
+  tpsip_base_connection_add_auth_handler (priv->conn, TPSIP_EVENT_TARGET (obj));
 
   g_signal_connect (obj,
                     "nua-event::nua_r_message",
@@ -271,7 +269,7 @@ tpsip_text_channel_class_init(TpsipTextChannelClass *klass)
 
   param_spec = g_param_spec_object("connection", "TpsipConnection object",
       "SIP connection object that owns this SIP media channel object.",
-      TPSIP_TYPE_CONNECTION,
+      TPSIP_TYPE_BASE_CONNECTION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 
@@ -690,7 +688,7 @@ tpsip_text_channel_send_message (GObject *object,
 
   /* Okay, it's valid. Let's send it. */
 
-  msg_nh = tpsip_conn_create_request_handle (priv->conn, priv->handle);
+  msg_nh = tpsip_base_connection_create_handle (priv->conn, priv->handle);
   if (msg_nh == NULL)
     {
       g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
