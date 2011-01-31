@@ -35,7 +35,6 @@
 
 struct _TpsipConnectionPrivate
 {
-  su_root_t *sofia_root;
   nua_t  *sofia_nua;
   su_home_t *sofia_home;
   nua_handle_t *register_op;

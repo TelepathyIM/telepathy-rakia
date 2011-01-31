@@ -39,6 +39,11 @@
 #define SU_TIMER_ARG_T   struct _TpsipConnection
 #define SU_WAKEUP_ARG_T  void
 
+#define TPSIP_DEFAULT_STUN_PORT 3478
+
+/* Maximum defer timeout for deferrable Sofia timers */
+#define TPSIP_DEFER_TIMEOUT 30
+
 #include <sofia-sip/nua.h>
 #include <sofia-sip/su.h>
 

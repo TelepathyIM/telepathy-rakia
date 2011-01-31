@@ -528,13 +528,17 @@ tpsip_conn_resolv_stun_server (TpsipConnection *conn, const gchar *stun_host)
       tpsip_conn_set_stun_server_address (conn, stun_host);
       return;
     }
-  
+
   if (NULL == priv->sofia_resolver)
     {
-      priv->sofia_resolver =
-        sres_resolver_create (priv->sofia_root, NULL, TAG_END());
+      su_root_t *root = NULL;
+
+      g_object_get (conn, "sofia-root", &root, NULL);
+
+      priv->sofia_resolver = sres_resolver_create (root, NULL, TAG_END());
+
+      g_return_if_fail (priv->sofia_resolver != NULL);
     }
-  g_return_if_fail (priv->sofia_resolver != NULL);
 
   DEBUG("creating a new resolver query for STUN host name %s", stun_host);
 
@@ -656,10 +660,13 @@ tpsip_conn_discover_stun_server (TpsipConnection *conn)
 
   if (NULL == priv->sofia_resolver)
     {
-      priv->sofia_resolver =
-        sres_resolver_create (priv->sofia_root, NULL, TAG_END());
+      su_root_t *root = NULL;
+
+      g_object_get (conn, "sofia-root", &root, NULL);
+
+      priv->sofia_resolver = sres_resolver_create (root, NULL, TAG_END());
+      g_return_if_fail (priv->sofia_resolver != NULL);
     }
-  g_return_if_fail (priv->sofia_resolver != NULL);
 
   DEBUG("creating a new STUN SRV query for domain %s", priv->account_url->url_host);
 
