@@ -26,6 +26,7 @@
 #include <dbus/dbus-glib.h>
 
 #include <tpsip/sofia-decls.h>
+#include <tpsip/handles.h>
 #include <sofia-sip/su_glib.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
