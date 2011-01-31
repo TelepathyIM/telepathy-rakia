@@ -1,7 +1,8 @@
 /*
- * conn-aliasing.c - Aliasing interface implementation for TpsipConnection
- * Copyright (C) 2008, 2009 Nokia Corporation
+ * connection-aliasing.c - Implementation for TpsipConnectionAliasing interface
+ * Copyright (C) 2008-2011 Nokia Corporation
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
+ *   @author Pekka Pessi <pekka.pessi@nokia.com>
  *
  * This work is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,7 +21,9 @@
 
 #include "config.h"
 
-#include "conn-aliasing.h"
+#include <tpsip/connection-aliasing.h>
+#include <tpsip/base-connection.h>
+#include <tpsip/handles.h>
 
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/gtypes.h>
@@ -33,7 +36,59 @@
 #include <string.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "debug.h"
+#include "src/debug.h"
+
+enum {
+  PROP_NONE,
+  PROP_ALIAS,
+};
+
+static void
+tpsip_connection_aliasing_base_init (gpointer klass)
+{
+  static gboolean initialized = FALSE;
+
+  if (!initialized)
+    {
+      initialized = TRUE;
+
+      g_object_interface_install_property (klass,
+          g_param_spec_string ("alias", "Alias",
+              "User's display name",
+              NULL,
+              G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+    }
+}
+
+GType
+tpsip_connection_aliasing_get_type (void)
+{
+  static GType type = 0;
+
+  if (G_UNLIKELY (type == 0))
+    {
+      static const GTypeInfo info = {
+        sizeof (TpsipConnectionAliasingInterface),
+        tpsip_connection_aliasing_base_init, /* base_init */
+        NULL, /* base_finalize */
+        NULL, /* class_init */
+        NULL, /* class_finalize */
+        NULL, /* class_data */
+        0,
+        0, /* n_preallocs */
+        NULL /* instance_init */
+      };
+
+      type = g_type_register_static (G_TYPE_INTERFACE,
+          "TpsipConnectionAliasingInterface", &info, 0);
+
+      g_type_interface_add_prerequisite (type, TPSIP_TYPE_BASE_CONNECTION);
+      g_type_interface_add_prerequisite (type,
+          TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING);
+    }
+
+  return type;
+}
 
 static void
 tpsip_connection_get_alias_flags (TpSvcConnectionInterfaceAliasing *iface,
@@ -320,15 +375,16 @@ tpsip_conn_aliasing_fill_contact_attributes (GObject *obj,
 }
 
 void
-tpsip_conn_aliasing_init (TpsipBaseConnection *base)
+tpsip_connection_aliasing_init (gpointer instance)
 {
-  tp_contacts_mixin_add_contact_attributes_iface (G_OBJECT (base),
+  tp_contacts_mixin_add_contact_attributes_iface (G_OBJECT (instance),
       TP_IFACE_CONNECTION_INTERFACE_ALIASING,
       tpsip_conn_aliasing_fill_contact_attributes);
 }
 
+
 void
-tpsip_conn_aliasing_iface_init (gpointer g_iface, gpointer iface_data)
+tpsip_connection_aliasing_svc_iface_init (gpointer g_iface, gpointer iface_data)
 {
   TpSvcConnectionInterfaceAliasingClass *klass =
     (TpSvcConnectionInterfaceAliasingClass *) g_iface;

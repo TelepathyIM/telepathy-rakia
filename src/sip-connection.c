@@ -37,12 +37,11 @@
 
 #include <tpsip/event-target.h>
 #include <tpsip/handles.h>
+#include <tpsip/connection-aliasing.h>
 
 #include "sip-connection.h"
 #include "media-factory.h"
 #include "text-factory.h"
-
-#include "conn-aliasing.h"
 
 #include "sip-connection-enumtypes.h"
 #include "sip-connection-helpers.h"
@@ -58,7 +57,8 @@ G_DEFINE_TYPE_WITH_CODE (TpsipConnection, tpsip_connection,
     G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_DBUS_PROPERTIES,
         tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING,
-        tpsip_conn_aliasing_iface_init);
+        tpsip_connection_aliasing_svc_iface_init);
+    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_CONNECTION_ALIASING, NULL);
 );
 
 #define ERROR_IF_NOT_CONNECTED_ASYNC(BASE, CONTEXT) \
@@ -168,7 +168,7 @@ tpsip_connection_init (TpsipConnection *self)
 
   priv->sofia_home = su_home_new(sizeof (su_home_t));
 
-  tpsip_conn_aliasing_init (TPSIP_BASE_CONNECTION (self));
+  tpsip_connection_aliasing_init (self);
 }
 
 static void
@@ -483,11 +483,7 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_PASSWORD);
 
-  param_spec = g_param_spec_string ("alias", "Alias",
-      "User's display name",
-      NULL,
-      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-  INST_PROP(PROP_ALIAS);
+  g_object_class_override_property (object_class, PROP_ALIAS, "alias");
 
   param_spec = g_param_spec_string ("transport", "Transport protocol",
       "Preferred transport protocol (auto, udp, tcp)",

@@ -17,6 +17,7 @@ tpsip_includedir = $(includedir)/telepathy-sofiasip-0.7/tpsip
 
 tpsip_include_HEADERS = \
 	base-connection.h \
+	connection-aliasing.h
 	sofia-decls.h \
 	codec-param-formats.h \
 	event-target.h \
@@ -30,6 +31,7 @@ BUILT_SOURCES = \
 libtpsip_la_SOURCES = \
 	base-connection.c \
 	base-connection-sofia.c \
+	connection-aliasing.c \
 	codec-param-formats.c \
 	event-target.c \
 	handles.c \
