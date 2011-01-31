@@ -22,6 +22,11 @@ def test(q, bus, conn, sip_proxy, peer='foo@bar.com'):
     self_handle = conn.GetSelfHandle()
     remote_handle = conn.RequestHandles(cs.HT_CONTACT, [context.peer])[0]
 
+    # Try making a call to ourself. StreamedMedia should refuse this because
+    # the API doesn't support it.
+    context.incoming_call_from_self()
+    q.expect('sip-response', code=501)
+    
     # Remote end calls us
     context.incoming_call()
 

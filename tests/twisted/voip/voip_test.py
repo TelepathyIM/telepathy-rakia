@@ -125,14 +125,15 @@ class VoipTestContext(object):
                 transport, username, password) = self.remote_transports[0]
         assert self._mline_template % locals() in sdp_string
         
-    def send_message(self, message_type, body='', **additional_headers):
+    def send_message(self, message_type, body='', to_=None, from_=None, 
+                     **additional_headers):
         url = twisted.protocols.sip.parseURL('sip:testacc@127.0.0.1')
         msg = twisted.protocols.sip.Request(message_type, url)
         if body:
             msg.body = body
             msg.addHeader('content-length', '%d' % len(msg.body))
-        msg.addHeader('from', '<%s>;tag=XYZ' % self.peer_id)
-        msg.addHeader('to', '<sip:testacc@127.0.0.1>')
+        msg.addHeader('from', from_ or '<%s>;tag=XYZ' % self.peer_id)
+        msg.addHeader('to', to_ or '<sip:testacc@127.0.0.1>')
         self._cseq_id += 1
         additional_headers.setdefault('cseq', '%d %s' % (self._cseq_id, message_type))
         for key, vals in additional_headers.items():
@@ -167,6 +168,13 @@ class VoipTestContext(object):
         body = self.get_call_sdp()
         return self.send_message('INVITE', body, content_type='application/sdp',
                    supported='timer, 100rel', call_id=self.call_id)
+        
+    def incoming_call_from_self(self):
+        self.call_id = uuid.uuid4().hex
+        body = self.get_call_sdp()
+        return self.send_message('INVITE', body, content_type='application/sdp',
+                   supported='timer, 100rel', call_id=self.call_id, 
+                   from_='<sip:testacc@127.0.0.1>')
         
     def terminate(self):
         return self.send_message('BYE', call_id=self.call_id)
