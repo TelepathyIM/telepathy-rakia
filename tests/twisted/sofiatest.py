@@ -9,6 +9,8 @@ from twisted.internet import reactor
 
 import os
 import sys
+import random
+
 import dbus
 import dbus.glib
 
@@ -31,22 +33,31 @@ class SipProxy(sip.RegisterProxy):
     def handle_request(self, message, addr):
         if message.method == 'REGISTER':
             return sip.RegisterProxy.handle_request(self, message, addr)
-        if message.method == 'MESSAGE':
-            self.event_func(servicetest.Event('sip-message',
+        elif message.method == 'OPTIONS' and \
+                'REGISTRATION PROBE' == message.headers.get('subject','')[0]:
+            self.deliverResponse(self.responseFromRequest(200, message))
+        else:
+            headers = {}
+            for key, values in message.headers.items():
+                headers[key.replace('-', '_')] = values[0]
+            self.event_func(servicetest.Event('sip-%s' % message.method.lower(),
                 uri=str(message.uri), headers=message.headers, body=message.body,
-                sip_message=message))
+                sip_message=message, **headers))
 
     def handle_response(self, message, addr):
+        headers = {}
+        for key, values in message.headers.items():
+            headers[key.replace('-', '_')] = values[0]
         self.event_func(servicetest.Event('sip-response',
             code=message.code, headers=message.headers, body=message.body,
-            sip_message=message))
+            sip_message=message, **headers))
 
 def prepare_test(event_func, register_cb, params=None):
     actual_params = {
         'account': 'testacc@127.0.0.1',
         'password': 'testpwd',
         'proxy-host': '127.0.0.1',
-        'port': dbus.UInt16(9090),
+        'port': dbus.UInt16(random.randint(9090, 9999)),
         'local-ip-address': '127.0.0.1'
     }
 
@@ -114,8 +125,8 @@ def exec_test(fun, params=None, register_cb=default_register_cb, timeout=None):
             return '\x1b[32m%s\x1b[0m' % s
 
         patterns = {
-            'handled': green,
-            'not handled': red,
+            'handled,': green,
+            'not hand': red,
             }
 
         class Colourer:
@@ -124,8 +135,11 @@ def exec_test(fun, params=None, register_cb=default_register_cb, timeout=None):
                 self.patterns = patterns
 
             def write(self, s):
-                f = self.patterns.get(s, lambda x: x)
+                f = self.patterns.get(s[:len('handled,')], lambda x: x)
                 self.fh.write(f(s))
+            
+            def isatty(self):
+                return False
 
         sys.stdout = Colourer(sys.stdout, patterns)
 

@@ -1,3 +1,5 @@
+NULL = 
+
 TWISTED_TESTS = \
 	cm/protocol.py \
 	test-register.py \
@@ -6,7 +8,10 @@ TWISTED_TESTS = \
 	test-handle-normalisation.py \
 	test-message.py \
 	test-self-alias.py \
-	text/initiate-requestotron.py
+	text/initiate-requestotron.py \
+	voip/incoming-basics.py \
+	voip/outgoing-basics.py \
+	$(NULL)
 
 TESTS =
 
