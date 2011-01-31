@@ -46,7 +46,6 @@
 #include "sip-connection-enumtypes.h"
 #include "sip-connection-helpers.h"
 #include "sip-connection-private.h"
-#include "sip-connection-sofia.h"
 
 #include <sofia-sip/msg_header.h>
 
@@ -1051,8 +1050,8 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
 
   /* step: create stack instance */
   priv->sofia_nua = nua_create (root,
-      tpsip_connection_sofia_callback,
-      self,
+      tpsip_base_connection_sofia_callback,
+      TPSIP_BASE_CONNECTION (self),
       SOATAG_AF(SOA_AF_IP4_IP6),
       SIPTAG_FROM_STR(sip_address),
       NUTAG_URL(local_url),

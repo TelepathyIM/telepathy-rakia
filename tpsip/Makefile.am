@@ -29,6 +29,7 @@ BUILT_SOURCES = \
 
 libtpsip_la_SOURCES = \
 	base-connection.c \
+	base-connection-sofia.c \
 	codec-param-formats.c \
 	event-target.c \
 	handles.c \

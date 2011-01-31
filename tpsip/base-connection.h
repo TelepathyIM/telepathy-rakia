@@ -26,6 +26,7 @@
 #include <telepathy-glib/base-connection.h>
 #include <telepathy-glib/contacts-mixin.h>
 
+#include <tpsip/sofia-decls.h>
 #include <tpsip/event-target.h>
 
 G_BEGIN_DECLS
@@ -77,6 +78,14 @@ void tpsip_base_connection_add_auth_handler (TpsipBaseConnection *self,
     TpsipEventTarget *target);
 void tpsip_base_connection_save_event (TpsipBaseConnection *self,
     nua_saved_event_t ret_saved [1]);
+
+/** Callback for events delivered by the SIP stack. */
+void tpsip_base_connection_sofia_callback (nua_event_t event,
+    int status, char const *phrase,
+    nua_t *nua, TpsipBaseConnection *conn,
+    nua_handle_t *nh, TpsipEventTarget *target,
+    sip_t const *sip,
+    tagi_t tags[]);
 
 G_END_DECLS
 
