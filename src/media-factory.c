@@ -28,7 +28,7 @@
 
 #include "sip-media-channel.h"
 #include <tpsip/base-connection.h>
-#include "sip-connection-helpers.h"
+#include <tpsip/handles.h>
 
 #include <sofia-sip/sip_status.h>
 
@@ -337,15 +337,12 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
                        TpsipMediaFactory   *fac)
 {
   TpsipMediaChannel *channel;
-  TpHandleRepoIface *contact_repo;
   TpHandle handle;
   guint channel_flags = 0;
 
   /* figure out a handle for the identity */
 
-  contact_repo = tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT);
-
-  handle = tpsip_handle_parse_from (contact_repo, ev->sip);
+  handle = tpsip_handle_by_requestor (conn, ev->sip);
   if (!handle)
     {
       MESSAGE ("incoming INVITE with invalid sender information");
@@ -354,7 +351,7 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
     }
 
   DEBUG("Got incoming invite from <%s>",
-        tp_handle_inspect (contact_repo, handle));
+        tpsip_handle_inspect (conn, handle));
 
   if (handle == conn->self_handle)
     {
@@ -365,7 +362,7 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
 
   channel = new_media_channel (fac, handle, handle, channel_flags);
 
-  tp_handle_unref (contact_repo, handle);
+  tpsip_handle_unref (conn, handle);
 
   /* We delay emission of NewChannel(s) until we have the data on
    * initial media */
