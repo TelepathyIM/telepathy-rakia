@@ -20,6 +20,7 @@ tpsip_include_HEADERS = \
 	sofia-decls.h \
 	codec-param-formats.h \
 	event-target.h \
+	handles.h \
 	util.h
 
 BUILT_SOURCES = \
@@ -30,6 +31,7 @@ libtpsip_la_SOURCES = \
 	base-connection.c \
 	codec-param-formats.c \
 	event-target.c \
+	handles.c \
 	util.c
 
 nodist_libtpsip_la_SOURCES = \
