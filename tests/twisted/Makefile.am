@@ -30,7 +30,8 @@ check-twisted:
 		--sleep=$(CHECK_TWISTED_SLEEP) \
 		-- $(MAKE) check-TESTS \
 		TESTS="$(TWISTED_TESTS)" \
-		TESTS_ENVIRONMENT="$(TESTS_ENVIRONMENT) $(PYTHON)"
+		TESTS_ENVIRONMENT="$(TESTS_ENVIRONMENT) $(PYTHON)" 2>&1 | \
+		fgrep -v -e DeprecationWarning -e DigestAuthorizer
 
 EXTRA_DIST = \
 	$(TWISTED_TESTS) \
