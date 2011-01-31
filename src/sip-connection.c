@@ -36,6 +36,7 @@
 #include <telepathy-glib/svc-generic.h>
 
 #include <tpsip/event-target.h>
+#include <tpsip/handles.h>
 
 #include "sip-connection.h"
 #include "media-factory.h"
@@ -1038,7 +1039,7 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
 
   DEBUG("self_handle = %d, sip_address = %s", base->self_handle, sip_address);
 
-  priv->account_url = tpsip_conn_get_contact_url (self, base->self_handle);
+  priv->account_url = tpsip_handle_inspect_uri (base, base->self_handle);
   if (priv->account_url == NULL)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
