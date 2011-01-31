@@ -8,6 +8,8 @@ from servicetest import tp_name_prefix
 import dbus
 
 TEXT_TYPE = tp_name_prefix + '.Channel.Type.Text'
+ALIASING_INTERFACE = tp_name_prefix + '.Connection.Interface.Aliasing'
+CONTACTS_INTERFACE = tp_name_prefix + '.Connection.Interface.Contacts'
 
 def test(q, bus, conn, sip_proxy):
     conn.Connect()
@@ -23,6 +25,14 @@ def test(q, bus, conn, sip_proxy):
         args=[[(self_handle, u'foo@bar.baz')]])
 
     handle = conn.RequestHandles(1, ['sip:user@somewhere.com'])[0]
+
+    assert ALIASING_INTERFACE in \
+        conn.Properties.Get(CONTACTS_INTERFACE, "ContactAttributeInterfaces")
+    attrs = conn.Contacts.GetContactAttributes([self_handle, handle],
+	[ALIASING_INTERFACE], False)
+    assert ALIASING_INTERFACE + "/alias" in attrs[self_handle]
+    assert attrs[self_handle][ALIASING_INTERFACE + "/alias"] == u'foo@bar.baz'
+
     conn.RequestChannel(TEXT_TYPE, 1, handle, True)
 
     event = q.expect('dbus-signal', signal='NewChannel')
