@@ -4,7 +4,6 @@ of RequestChannel.
 """
 
 import dbus
-from twisted.words.xish import xpath
 
 from sofiatest import exec_test
 from servicetest import (

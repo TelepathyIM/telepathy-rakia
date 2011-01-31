@@ -3,7 +3,6 @@ Test incoming call handling.
 """
 
 import dbus
-from twisted.words.xish import xpath
 
 from sofiatest import exec_test
 from servicetest import (
@@ -13,8 +12,6 @@ from servicetest import (
     )
 import constants as cs
 from voip_test import VoipTestContext
-
-from twisted.words.xish import xpath
 
 def test(q, bus, conn, sip_proxy, peer='foo@bar.com'):
     conn.Connect()
