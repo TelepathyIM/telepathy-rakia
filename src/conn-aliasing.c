@@ -18,14 +18,17 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "config.h"
+
 #include "conn-aliasing.h"
 
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/gtypes.h>
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
+#include <telepathy-glib/contacts-mixin.h>
 
-#include "sip-connection-helpers.h"
+#include "tpsip/handles.h"
 
 #include <string.h>
 
@@ -46,7 +49,7 @@ tpsip_connection_get_alias_flags (TpSvcConnectionInterfaceAliasing *iface,
 }
 
 static gchar *
-conn_get_default_alias (TpsipConnection *self,
+conn_get_default_alias (TpBaseConnection *base,
                         TpHandleRepoIface *contact_handles,
                         TpHandle handle)
 {
@@ -55,7 +58,7 @@ conn_get_default_alias (TpsipConnection *self,
 
   /* TODO: create our custom handle repo to be able to get the URL off it.
    * Then we can reuse the contact_handles parameter */
-  url = tpsip_conn_get_contact_url (self, handle);
+  url = tpsip_handle_inspect_uri (base, handle);
 
   switch (url->url_type)
     {
@@ -79,21 +82,20 @@ conn_get_default_alias (TpsipConnection *self,
 }
 
 static gchar *
-conn_get_alias (TpsipConnection *self,
+conn_get_alias (TpBaseConnection *base,
                 TpHandleRepoIface *contact_handles,
                 TpHandle handle)
 {
-  TpBaseConnection *base = (TpBaseConnection *) self;
   gchar *alias = NULL;
 
   if (handle == base->self_handle)
     {
       /* Get our user-settable alias from the connection property */
-      g_object_get (self, "alias", &alias, NULL);
+      g_object_get (base, "alias", &alias, NULL);
     }
 
   if (alias == NULL)
-    alias = conn_get_default_alias (self, contact_handles, handle);
+    alias = conn_get_default_alias (base, contact_handles, handle);
 
   g_assert (alias != NULL);
   DEBUG("handle %u got alias %s", handle, alias);
@@ -106,8 +108,7 @@ tpsip_connection_request_aliases (TpSvcConnectionInterfaceAliasing *iface,
                                   const GArray *contacts,
                                   DBusGMethodInvocation *context)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (iface);
-  TpBaseConnection *base = (TpBaseConnection *) self;
+  TpBaseConnection *base = TP_BASE_CONNECTION (iface);
   TpHandleRepoIface *contact_handles;
   GArray *aliases;
   gchar **res;
@@ -135,7 +136,7 @@ tpsip_connection_request_aliases (TpSvcConnectionInterfaceAliasing *iface,
 
       handle = g_array_index (contacts, TpHandle, i);
 
-      alias = conn_get_alias (self, contact_handles, handle);
+      alias = conn_get_alias (base, contact_handles, handle);
 
       g_array_append_val (aliases, alias);
     }
@@ -153,8 +154,7 @@ tpsip_connection_get_aliases (TpSvcConnectionInterfaceAliasing *iface,
                               const GArray *contacts,
                               DBusGMethodInvocation *context)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (iface);
-  TpBaseConnection *base = (TpBaseConnection *) self;
+  TpBaseConnection *base = TP_BASE_CONNECTION (iface);
   TpHandleRepoIface *contact_handles;
   GHashTable *result;
   GError *error = NULL;
@@ -182,7 +182,7 @@ tpsip_connection_get_aliases (TpSvcConnectionInterfaceAliasing *iface,
 
       handle = g_array_index (contacts, TpHandle, i);
 
-      alias = conn_get_alias (self, contact_handles, handle);
+      alias = conn_get_alias (base, contact_handles, handle);
 
       g_hash_table_insert (result, GUINT_TO_POINTER (handle), alias);
     }
@@ -194,9 +194,8 @@ tpsip_connection_get_aliases (TpSvcConnectionInterfaceAliasing *iface,
 }
 
 static void
-emit_self_alias_change (TpsipConnection *self, const gchar *alias)
+emit_self_alias_change (TpBaseConnection *base, const gchar *alias)
 {
-  TpBaseConnection *base = (TpBaseConnection *) self;
   GPtrArray *change_data;
   GValue change_pair = { 0, };
 
@@ -210,7 +209,7 @@ emit_self_alias_change (TpsipConnection *self, const gchar *alias)
   change_data = g_ptr_array_sized_new (1);
   g_ptr_array_add (change_data, g_value_get_boxed (&change_pair));
 
-  tp_svc_connection_interface_aliasing_emit_aliases_changed (self, change_data);
+  tp_svc_connection_interface_aliasing_emit_aliases_changed (base, change_data);
 
   g_ptr_array_free (change_data, TRUE);
   g_value_unset (&change_pair);
@@ -246,8 +245,7 @@ tpsip_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
                               GHashTable *aliases,
                               DBusGMethodInvocation *context)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (iface);
-  TpBaseConnection *base = (TpBaseConnection *) self;
+  TpBaseConnection *base = TP_BASE_CONNECTION (iface);
   TpHandleRepoIface *contact_handles;
   const gchar *alias;
   gchar *default_alias;
@@ -271,21 +269,21 @@ tpsip_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
 
   contact_handles = tp_base_connection_get_handles (base,
       TP_HANDLE_TYPE_CONTACT);
-  default_alias = conn_get_default_alias (self,
+  default_alias = conn_get_default_alias (base,
       contact_handles, base->self_handle);
 
   if (strcmp (alias, default_alias) == 0)
     {
       DEBUG("using default alias for self");
-      g_object_set (self, "alias", NULL, NULL);
+      g_object_set (base, "alias", NULL, NULL);
     }
   else
     {
       DEBUG("setting alias for self: %s", alias);
-      g_object_set (self, "alias", alias, NULL);
+      g_object_set (base, "alias", alias, NULL);
     }
 
-  emit_self_alias_change (self, alias);
+  emit_self_alias_change (base, alias);
 
   g_free (default_alias);
   g_free (to_free);
@@ -297,8 +295,7 @@ static void
 tpsip_conn_aliasing_fill_contact_attributes (GObject *obj,
     const GArray *contacts, GHashTable *attributes_hash)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (obj);
-  TpBaseConnection *base = (TpBaseConnection *) self;
+  TpBaseConnection *base = TP_BASE_CONNECTION (obj);
   TpHandleRepoIface *contact_handles;
   guint i;
 
@@ -315,7 +312,7 @@ tpsip_conn_aliasing_fill_contact_attributes (GObject *obj,
       val = tp_g_value_slice_new (G_TYPE_STRING);
 
       g_value_take_string (val,
-          conn_get_alias (self, contact_handles, handle));
+          conn_get_alias (base, contact_handles, handle));
 
       tp_contacts_mixin_set_contact_attribute (attributes_hash, handle,
           TP_IFACE_CONNECTION_INTERFACE_ALIASING "/alias", val);
@@ -323,9 +320,9 @@ tpsip_conn_aliasing_fill_contact_attributes (GObject *obj,
 }
 
 void
-tpsip_conn_aliasing_init (TpsipConnection *conn)
+tpsip_conn_aliasing_init (TpsipBaseConnection *base)
 {
-  tp_contacts_mixin_add_contact_attributes_iface (G_OBJECT (conn),
+  tp_contacts_mixin_add_contact_attributes_iface (G_OBJECT (base),
       TP_IFACE_CONNECTION_INTERFACE_ALIASING,
       tpsip_conn_aliasing_fill_contact_attributes);
 }

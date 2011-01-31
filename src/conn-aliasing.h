@@ -21,11 +21,11 @@
 #ifndef __TPSIP_CONN_ALIASING_H__
 #define __TPSIP_CONN_ALIASING_H__
 
-#include "sip-connection.h"
+#include <tpsip/base-connection.h>
 
 G_BEGIN_DECLS
 
-void tpsip_conn_aliasing_init (TpsipConnection *conn);
+void tpsip_conn_aliasing_init (TpsipBaseConnection *conn);
 void tpsip_conn_aliasing_iface_init (gpointer g_iface, gpointer iface_data);
 
 G_END_DECLS

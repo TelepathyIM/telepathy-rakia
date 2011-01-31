@@ -168,7 +168,7 @@ tpsip_connection_init (TpsipConnection *self)
 
   priv->sofia_home = su_home_new(sizeof (su_home_t));
 
-  tpsip_conn_aliasing_init (self);
+  tpsip_conn_aliasing_init (TPSIP_BASE_CONNECTION (self));
 }
 
 static void
