@@ -38,10 +38,11 @@
 
 #include "config.h"
 
+#include <tpsip/base-connection.h>
+
 #include "sip-media-session.h"
 #include "sip-media-channel.h"
 #include "sip-media-stream.h"
-#include "sip-connection-helpers.h"
 #include "signals-marshal.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_MEDIA
@@ -1022,7 +1023,7 @@ static void
 priv_save_event (TpsipMediaSession *self)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
-  TpsipConnection *conn = NULL;
+  TpsipBaseConnection *conn = NULL;
 
   priv_zap_event (self);
 
@@ -1030,7 +1031,7 @@ priv_save_event (TpsipMediaSession *self)
 
   g_return_if_fail (conn != NULL);
 
-  tpsip_conn_save_event (conn, priv->saved_event);
+  tpsip_base_connection_save_event (conn, priv->saved_event);
 
   g_object_unref (conn);
 
