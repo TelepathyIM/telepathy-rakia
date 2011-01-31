@@ -28,7 +28,7 @@
 
 #include "sip-text-channel.h"
 #include "tpsip/base-connection.h"
-#include "sip-connection-helpers.h"
+#include "tpsip/handles.h"
 
 #include <sofia-sip/msg_header.h>
 #include <sofia-sip/sip_tag.h>
@@ -464,7 +464,6 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
                         TpsipTextFactory    *fac)
 {
   TpsipTextChannel *channel;
-  TpHandleRepoIface *contact_repo;
   TpHandle handle;
   const sip_t *sip = ev->sip;
   const char *text = "";
@@ -557,10 +556,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
         }
     }
 
-  contact_repo = tp_base_connection_get_handles (
-      conn, TP_HANDLE_TYPE_CONTACT);
-
-  handle = tpsip_handle_parse_from (contact_repo, sip);
+  handle = tpsip_handle_by_requestor (conn, sip);
 
   if (!handle)
     {
@@ -578,7 +574,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
                TAG_END());
 
   DEBUG("Got incoming message from <%s>",
-        tp_handle_inspect (contact_repo, handle));
+        tpsip_handle_inspect (conn, handle));
 
   channel = tpsip_text_factory_lookup_channel (fac, handle);
 
@@ -589,7 +585,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
   tpsip_text_channel_receive (channel,
       sip, handle, text, len);
 
-  tp_handle_unref (contact_repo, handle);
+  tpsip_handle_unref (conn, handle);
 
 end:
   g_free (allocated_text);
