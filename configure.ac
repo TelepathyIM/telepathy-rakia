@@ -123,7 +123,7 @@ AM_PATH_PYTHON([2.3],[],
 
 dnl Check for twisted python for tests
 AC_MSG_CHECKING([for TwistedPython with SIP protocol support])
-if $PYTHON -c "import twisted.protocols.sip, twisted.internet.reactor, twisted.words.xish" >/dev/null 2>&1; then
+if $PYTHON -c "import twisted.protocols.sip, twisted.internet.reactor" >/dev/null 2>&1; then
   AC_MSG_RESULT([yes])
   AM_CONDITIONAL([WANT_TWISTED_TESTS], true)
 else
