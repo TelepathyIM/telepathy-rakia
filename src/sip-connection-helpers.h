@@ -58,26 +58,6 @@ void tpsip_conn_save_event (TpsipConnection *conn,
                             nua_saved_event_t ret_saved [1]);
 
 /***********************************************************************
- * SIP URI helpers
- ***********************************************************************/
-
-gchar * tpsip_handle_normalize (TpHandleRepoIface *repo,
-                                const gchar *sipuri,
-                                gpointer context,
-                                GError **error);
-
-gchar *tpsip_normalize_contact (const gchar *sipuri,
-    const url_t *base_url,
-    const gchar *transport,
-    GError **error);
-
-const url_t* tpsip_conn_get_contact_url (TpsipConnection *conn,
-                                         TpHandle handle);
-
-TpHandle tpsip_handle_parse_from (TpHandleRepoIface *contact_repo,
-                                  const sip_t *sip);
-
-/***********************************************************************
  * Heartbeat management for keepalives
  ***********************************************************************/
 

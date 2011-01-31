@@ -31,6 +31,7 @@
 #include <telepathy-glib/svc-connection.h>
 
 #include <tpsip/util.h>
+#include <tpsip/handles.h>
 
 #include "sip-connection-helpers.h"
 
@@ -63,7 +64,7 @@ priv_sip_to_url_make (TpsipConnection *conn,
 {
   const url_t *url;
 
-  url = tpsip_conn_get_contact_url (conn, contact);
+  url = tpsip_handle_inspect_uri (TP_BASE_CONNECTION (conn), contact);
   return sip_to_create (home, (const url_string_t *) url);
 }
 
@@ -692,78 +693,6 @@ tpsip_handle_normalize (TpHandleRepoIface *repo,
 
   return tpsip_normalize_contact (sipuri, priv->account_url, priv->transport,
       error);
-}
-
-static GQuark
-tpsip_handle_url_quark ()
-{
-  static GQuark quark = 0;
-
-  if (G_UNLIKELY (quark == 0))
-    quark = g_quark_from_static_string ("tpsip-handle-url");
-
-  return quark;
-}
-
-const url_t*
-tpsip_conn_get_contact_url (TpsipConnection *self,
-                            TpHandle handle)
-{
-  TpBaseConnection *base = (TpBaseConnection *) self;
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
-  TpHandleRepoIface *contact_handles;
-  GQuark url_quark;
-  url_t *url;
-  GError *error;
-
-  contact_handles = tp_base_connection_get_handles (base,
-      TP_HANDLE_TYPE_CONTACT);
-
-  if (!tp_handle_is_valid (contact_handles, handle, &error))
-    {
-      DEBUG("invalid handle %u: %s", handle, error->message);
-      g_error_free (error);
-      return NULL;
-    }
-
-  url_quark = tpsip_handle_url_quark ();
-
-  url = tp_handle_get_qdata (contact_handles, handle, url_quark);
-
-  if (url == NULL)
-    {
-      url = url_make (priv->sofia_home,
-          tp_handle_inspect (contact_handles, handle));
-
-      tp_handle_set_qdata (contact_handles, handle, url_quark, url, NULL);
-    }
-
-  return url;
-}
-
-TpHandle
-tpsip_handle_parse_from (TpHandleRepoIface *contact_repo,
-                         const sip_t *sip)
-{
-  TpHandle handle = 0;
-  gchar *url_str;
-
-  g_return_val_if_fail (sip != NULL, 0);
-
-  if (sip->sip_from)
-    {
-      su_home_t tmphome[1] = { SU_HOME_INIT(tmphome) };
-
-      url_str = url_as_string (tmphome, sip->sip_from->a_url);
-
-      handle = tp_handle_ensure (contact_repo, url_str, NULL, NULL);
-
-      /* TODO: set qdata for the display name */
-
-      su_home_deinit (tmphome);
-    }
-
-  return handle;
 }
 
 #ifdef HAVE_LIBIPHB
