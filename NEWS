@@ -7,6 +7,14 @@ recent at the top).
 
 See also ChangeLog.
 
+Changes in release 0.6.6 (2011-02-01)
+-------------------------------------
+
+The "Multiple Personality Communications Disorder" release.
+
+- Reject incoming calls from the same URI as the local user, rather than
+  crashing apologetically (fd.o #33716).
+
 Changes in release 0.6.5 (2011-01-29)
 -------------------------------------
 
