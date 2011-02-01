@@ -7,11 +7,15 @@ recent at the top).
 
 See also ChangeLog.
 
-telepathy-sofiasip 0.7.1 (UNRELEASED)
+telepathy-sofiasip 0.7.1 (2011-02-01)
 -------------------------------------
 
+The "cross country" release.
+
+New features:
+
 - Added 'message-token' and 'message-sent' headers to incoming messages,
-  derived from SIP message headers.
+  derived from SIP message headers (fd.o #32607).
   NOTE: some existing clients logging messages, notably the one released
   in Maemo 5, make unrealistically strict assumptions about the uniqueness of
   'message-token' values. These logging implementations may exhibit problems
@@ -19,6 +23,22 @@ telepathy-sofiasip 0.7.1 (UNRELEASED)
   of Telpathy-SofiaSIP. Such collisions are unlikely, but possible if a
   remote endpoint generating the SIP Call-ID headers does not use an algorithm
   compliant with the SIP specification to provide sufficient uniqueness.
+- Authentication channels implemented as a simple password challenge. 
+
+Bugfixes:
+
+- Reject incoming calls from the same URI as the local user, rather than
+  crashing apologetically (fd.o #33716).
+
+Other enhancements:
+
+- Test suite pulled up to Gabble standards.
+- Tests for basic StreamedMedia call cases (fd.o #32085)
+- Changed the type of the size parameter to gssize in tpsip_unquote_string().
+
+Dependencies:
+
+- telepathy-glib >= 0.13.9
 
 telepathy-sofiasip 0.7.0 (2010-11-23)
 -------------------------------------
