@@ -11,7 +11,6 @@ TWISTED_TESTS = \
 	text/initiate-requestotron.py \
 	voip/incoming-basics.py \
 	voip/outgoing-basics.py \
-	voip/voip_test.py \
 	$(NULL)
 
 TESTS =
@@ -37,7 +36,8 @@ EXTRA_DIST = \
 	$(TWISTED_TESTS) \
 	constants.py \
 	sofiatest.py \
-	servicetest.py
+	servicetest.py \
+	voip/voip_test.py
 
 CLEANFILES = sofiasip-[1-9]*.log *.pyc */*.pyc
 
