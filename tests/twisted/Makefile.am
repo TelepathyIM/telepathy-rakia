@@ -11,6 +11,7 @@ TWISTED_TESTS = \
 	text/initiate-requestotron.py \
 	voip/incoming-basics.py \
 	voip/outgoing-basics.py \
+	voip/voip_test.py \
 	$(NULL)
 
 TESTS =
