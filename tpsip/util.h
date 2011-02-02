@@ -31,6 +31,8 @@ gchar * tpsip_unquote_string (const gchar *src, gssize len);
 
 void tpsip_string_append_quoted (GString *buf, const gchar *text);
 
+gchar const *tpsip_version_string ();
+
 G_END_DECLS
 
 #endif /* !TPSIP_UTIL_H_ */

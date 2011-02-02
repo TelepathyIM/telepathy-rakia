@@ -18,10 +18,17 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "config.h"
+
 #include "util.h"
 
 #include <string.h>
 
+gchar const *
+tpsip_version_string (void)
+{
+  return "Telepathy-SofiaSIP/" TELEPATHY_SIP_VERSION;
+}
 
 static const guchar escape_table[256] =
   { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1,
