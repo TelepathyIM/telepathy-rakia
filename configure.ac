@@ -4,7 +4,7 @@ m4_define([THIS_PACKAGE],[telepathy-sofiasip])
 m4_define([VERSION_MAJOR],[0])
 m4_define([VERSION_MINOR],[7])
 m4_define([VERSION_MICRO],[1])
-m4_define([VERSION_NANO],[0])
+m4_define([VERSION_NANO],[1])
 
 m4_define([BASE_VERSION],[VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO])
 m4_define([THIS_VERSION],
