@@ -19,8 +19,6 @@
 
 #include "config.h"
 
-#ifdef ENABLE_DEBUG
-
 #include <stdarg.h>
 
 #include <glib.h>
@@ -28,7 +26,7 @@
 #include <telepathy-glib/debug.h>
 #include <telepathy-glib/debug-sender.h>
 
-#include "debug.h"
+#include "tpsip/debug.h"
 
 static TpsipDebugFlags tpsip_debug_flags = 0;
 
@@ -85,7 +83,7 @@ debug_flag_to_domain (TpsipDebugFlags flag)
           GDebugKey key = (GDebugKey) tpsip_debug_keys[i];
           gchar *val;
 
-          val = g_strdup_printf ("%s/%s", G_LOG_DOMAIN, key.key);
+          val = g_strdup_printf ("%s/%s", "tpsip", key.key);
           g_hash_table_insert (flag_to_domains,
               GUINT_TO_POINTER (key.value), val);
         }
@@ -141,5 +139,3 @@ void tpsip_log (TpsipDebugFlags flag,
 
   g_free (message);
 }
-
-#endif /* ENABLE_DEBUG */

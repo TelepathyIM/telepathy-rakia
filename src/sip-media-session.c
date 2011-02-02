@@ -46,7 +46,7 @@
 #include "signals-marshal.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_MEDIA
-#include "debug.h"
+#include "tpsip/debug.h"
 
 /* The timeout for outstanding re-INVITE transactions in seconds.
  * Chosen to match the allowed cancellation timeout for proxies

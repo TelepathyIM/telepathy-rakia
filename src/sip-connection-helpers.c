@@ -42,7 +42,7 @@
 #include "sip-connection-private.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "debug.h"
+#include "tpsip/debug.h"
 
 /* Default keepalive timeout in seconds,
  * a value obtained from Sofia-SIP documentation */

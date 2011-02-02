@@ -45,7 +45,7 @@
 #include <sofia-sip/sip_status.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_IM
-#include "debug.h"
+#include "tpsip/debug.h"
 
 static gboolean
 tpsip_text_channel_nua_r_message_cb (TpsipTextChannel *self,

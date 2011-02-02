@@ -26,7 +26,7 @@
 #include <sofia-sip/sip_header.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "src/debug.h"
+#include "tpsip/debug.h"
 
 static GQuark
 tpsip_handle_url_quark ()

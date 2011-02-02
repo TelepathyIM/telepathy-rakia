@@ -35,7 +35,7 @@
 #include <sofia-sip/sip_status.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_IM
-#include "debug.h"
+#include "tpsip/debug.h"
 
 
 static void channel_manager_iface_init (gpointer g_iface, gpointer iface_data);

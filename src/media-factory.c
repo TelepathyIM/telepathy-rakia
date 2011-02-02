@@ -33,7 +33,7 @@
 #include <sofia-sip/sip_status.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "debug.h"
+#include "tpsip/debug.h"
 
 typedef enum {
   TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO = 1 << 0,

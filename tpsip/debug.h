@@ -20,10 +20,6 @@
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
 
-#include "config.h"
-
-#ifdef ENABLE_DEBUG
-
 #include <glib.h>
 
 G_BEGIN_DECLS
@@ -60,20 +56,12 @@ G_END_DECLS
 
 /* #define DEBUGGING tpsip_debug_flag_is_set(DEBUG_FLAG) */
 
-#endif /* DEBUG_FLAG */
-
-#else /* ENABLE_DEBUG */
-
-#ifdef DEBUG_FLAG
+#else /* DEBUG_FLAG */
 
 #define DEBUG(format, ...)
 #define WARNING(format, ...)
 #define MESSAGE(format, ...)
 
 #endif /* DEBUG_FLAG */
-
-#define tpsip_debug_free() G_STMT_START { } G_STMT_END
-
-#endif /* ENABLE_DEBUG */
 
 #endif /* __DEBUG_H__ */

@@ -26,7 +26,7 @@
 #include <sofia-sip/su_tag_io.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_EVENTS
-#include "src/debug.h"
+#include "tpsip/debug.h"
 
 static void
 priv_r_shutdown(int status,

@@ -36,7 +36,7 @@
 #include <string.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "src/debug.h"
+#include "tpsip/debug.h"
 
 enum {
   PROP_NONE,

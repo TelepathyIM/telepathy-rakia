@@ -48,7 +48,7 @@
 #include "signals-marshal.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_MEDIA
-#include "debug.h"
+#include "tpsip/debug.h"
 
 
 #define same_boolean(old, new) ((!(old)) == (!(new)))

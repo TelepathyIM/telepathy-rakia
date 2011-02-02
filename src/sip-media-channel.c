@@ -38,7 +38,7 @@
 #include <tpsip/event-target.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_MEDIA
-#include "debug.h"
+#include "tpsip/debug.h"
 
 #include <tpsip/base-connection.h>
 

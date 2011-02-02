@@ -43,7 +43,7 @@
 #include "sip-connection.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "debug.h"
+#include "tpsip/debug.h"
 
 
 G_DEFINE_TYPE(TpsipConnectionManager, tpsip_connection_manager,

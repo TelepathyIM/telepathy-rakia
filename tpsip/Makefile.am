@@ -22,6 +22,7 @@ tpsip_include_HEADERS = \
 	codec-param-formats.h \
 	event-target.h \
 	handles.h \
+	debug.h \
 	util.h
 
 BUILT_SOURCES = \
@@ -35,6 +36,7 @@ libtpsip_la_SOURCES = \
 	codec-param-formats.c \
 	event-target.c \
 	handles.c \
+	debug.c \
 	util.c
 
 nodist_libtpsip_la_SOURCES = \

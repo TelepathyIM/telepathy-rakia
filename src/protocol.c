@@ -30,7 +30,7 @@
 #include <sofia-sip/su_glib.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "debug.h"
+#include "tpsip/debug.h"
 #include "media-factory.h"
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"

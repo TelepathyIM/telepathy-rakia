@@ -50,7 +50,7 @@
 #include <sofia-sip/msg_header.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "debug.h"
+#include "tpsip/debug.h"
 
 G_DEFINE_TYPE_WITH_CODE (TpsipConnection, tpsip_connection,
     TPSIP_TYPE_BASE_CONNECTION,
