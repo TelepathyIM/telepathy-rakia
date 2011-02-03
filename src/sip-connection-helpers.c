@@ -735,6 +735,7 @@ tpsip_conn_heartbeat_init (TpsipConnection *self)
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
   int wait_id;
   int reference_interval = 0;
+  su_root_t *root = NULL;
 
   g_assert (priv->heartbeat == NULL);
 
@@ -755,7 +756,9 @@ tpsip_conn_heartbeat_init (TpsipConnection *self)
     tpsip_log (DEBUG_FLAG, G_LOG_LEVEL_CRITICAL,
         "could not create a wait object");
 
-  wait_id = su_root_register (priv->sofia_root,
+  g_object_get (self, "sofia-root", &root, NULL);
+
+  wait_id = su_root_register (root,
       priv->heartbeat_wait, heartbeat_wakeup, self, 0);
 
   g_return_if_fail (wait_id > 0);
@@ -779,11 +782,14 @@ tpsip_conn_heartbeat_shutdown (TpsipConnection *self)
 {
 #ifdef HAVE_LIBIPHB
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  su_root_t *root = NULL;
 
   if (priv->heartbeat_wait_id == 0)
     return;
 
-  su_root_deregister (priv->sofia_root, priv->heartbeat_wait_id);
+  g_object_get (self, "sofia-root", &root, NULL);
+
+  su_root_deregister (root, priv->heartbeat_wait_id);
   priv->heartbeat_wait_id = 0;
 
   su_wait_destroy (priv->heartbeat_wait);
