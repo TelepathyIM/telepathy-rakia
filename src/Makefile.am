@@ -88,8 +88,6 @@ libtpsip_convenience_la_SOURCES = \
     media-factory.c \
     protocol.h \
     protocol.c \
-    text-factory.h \
-    text-factory.c \
     sip-connection-helpers.h \
     sip-connection-helpers.c \
     sip-connection-private.h

@@ -23,6 +23,7 @@ tpsip_include_HEADERS = \
 	event-target.h \
 	handles.h \
 	debug.h \
+	text-manager.h \
 	util.h
 
 BUILT_SOURCES = \
@@ -39,6 +40,7 @@ libtpsip_la_SOURCES = \
 	debug.c \
 	text-channel.h \
 	text-channel.c \
+	text-manager.c \
 	util.c
 
 nodist_libtpsip_la_SOURCES = \

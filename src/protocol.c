@@ -27,6 +27,7 @@
 
 #include <tpsip/sofia-decls.h>
 #include <tpsip/handles.h>
+#include <tpsip/text-manager.h>
 #include <sofia-sip/su_glib.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
@@ -34,7 +35,6 @@
 #include "media-factory.h"
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
-#include "text-factory.h"
 
 #define PROTOCOL_NAME "sip"
 #define ICON_NAME "im-" PROTOCOL_NAME
@@ -417,7 +417,7 @@ get_connection_details (TpBaseProtocol *self,
   if (channel_managers != NULL)
     {
       GType types[] = {
-          TPSIP_TYPE_TEXT_FACTORY,
+          TPSIP_TYPE_TEXT_MANAGER,
           TPSIP_TYPE_MEDIA_FACTORY,
           G_TYPE_INVALID };
 

@@ -38,10 +38,10 @@
 #include <tpsip/event-target.h>
 #include <tpsip/handles.h>
 #include <tpsip/connection-aliasing.h>
+#include <tpsip/text-manager.h>
 
 #include "sip-connection.h"
 #include "media-factory.h"
-#include "text-factory.h"
 
 #include "sip-connection-enumtypes.h"
 #include "sip-connection-helpers.h"
@@ -137,7 +137,7 @@ tpsip_connection_create_channel_managers (TpBaseConnection *conn)
   GPtrArray *channel_managers = g_ptr_array_sized_new (2);
 
   g_ptr_array_add (channel_managers,
-      g_object_new (TPSIP_TYPE_TEXT_FACTORY,
+      g_object_new (TPSIP_TYPE_TEXT_MANAGER,
         "connection", self, NULL));
 
   priv->media_factory = g_object_new (TPSIP_TYPE_MEDIA_FACTORY,
