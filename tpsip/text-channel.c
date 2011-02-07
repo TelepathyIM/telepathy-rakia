@@ -23,7 +23,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "sip-text-channel.h"
+#include "config.h"
+
+#include "tpsip/text-channel.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -38,8 +40,8 @@
 #include <telepathy-glib/svc-channel.h>
 #include <telepathy-glib/svc-generic.h>
 
-#include <tpsip/event-target.h>
-#include <tpsip/base-connection.h>
+#include "tpsip/event-target.h"
+#include "tpsip/base-connection.h"
 
 #include <sofia-sip/sip_protos.h>
 #include <sofia-sip/sip_status.h>

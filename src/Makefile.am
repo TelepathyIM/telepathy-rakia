@@ -74,8 +74,6 @@ BUILT_SOURCES = \
 		sip-connection-enumtypes.c
 
 libtpsip_convenience_la_SOURCES = \
-    sip-text-channel.h \
-    sip-text-channel.c \
     sip-media-channel.h \
     sip-media-channel.c \
     sip-media-session.h \

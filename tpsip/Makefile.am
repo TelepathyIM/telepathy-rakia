@@ -37,6 +37,8 @@ libtpsip_la_SOURCES = \
 	event-target.c \
 	handles.c \
 	debug.c \
+	text-channel.h \
+	text-channel.c \
 	util.c
 
 nodist_libtpsip_la_SOURCES = \
