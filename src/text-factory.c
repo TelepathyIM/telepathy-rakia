@@ -27,8 +27,8 @@
 #include <telepathy-glib/interfaces.h>
 
 #include "sip-text-channel.h"
-#include "sip-connection.h"
-#include "sip-connection-helpers.h"
+#include "tpsip/base-connection.h"
+#include "tpsip/handles.h"
 
 #include <sofia-sip/msg_header.h>
 #include <sofia-sip/sip_tag.h>
@@ -39,7 +39,7 @@
 
 
 static void channel_manager_iface_init (gpointer g_iface, gpointer iface_data);
-static void connection_status_changed_cb (TpsipConnection *conn,
+static void connection_status_changed_cb (TpBaseConnection *conn,
     guint status, guint reason, TpsipTextFactory *self);
 static void tpsip_text_factory_close_all (TpsipTextFactory *self);
 
@@ -57,7 +57,7 @@ enum
 typedef struct _TpsipTextFactoryPrivate TpsipTextFactoryPrivate;
 struct _TpsipTextFactoryPrivate
 {
-  TpsipConnection *conn;
+  TpBaseConnection *conn;
   /* guint handle => TpsipTextChannel *channel */
   GHashTable *channels;
 
@@ -144,7 +144,7 @@ tpsip_text_factory_set_property (GObject *object,
 
   switch (property_id) {
     case PROP_CONNECTION:
-      priv->conn = g_value_get_object (value);
+      priv->conn = TP_BASE_CONNECTION (g_value_get_object (value));
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -165,9 +165,10 @@ tpsip_text_factory_class_init (TpsipTextFactoryClass *klass)
   object_class->set_property = tpsip_text_factory_set_property;
   object_class->dispose = tpsip_text_factory_dispose;
 
-  param_spec = g_param_spec_object ("connection", "TpsipConnection object",
+  param_spec = g_param_spec_object ("connection",
+      "TpsipBaseConnection object",
       "SIP connection that owns this text channel factory",
-      TPSIP_TYPE_CONNECTION,
+      TPSIP_TYPE_BASE_CONNECTION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 }
@@ -281,7 +282,7 @@ tpsip_text_factory_new_channel (TpsipTextFactory *fac,
   GSList *request_tokens;
 
   priv = TPSIP_TEXT_FACTORY_GET_PRIVATE (fac);
-  conn = (TpBaseConnection *)(priv->conn);
+  conn = priv->conn;
 
   object_path = g_strdup_printf ("%s/TextChannel%u",
       conn->object_path, handle);
@@ -463,7 +464,6 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
                         TpsipTextFactory    *fac)
 {
   TpsipTextChannel *channel;
-  TpHandleRepoIface *contact_repo;
   TpHandle handle;
   const sip_t *sip = ev->sip;
   const char *text = "";
@@ -556,10 +556,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
         }
     }
 
-  contact_repo = tp_base_connection_get_handles (
-      conn, TP_HANDLE_TYPE_CONTACT);
-
-  handle = tpsip_handle_parse_from (contact_repo, sip);
+  handle = tpsip_handle_by_requestor (conn, sip);
 
   if (!handle)
     {
@@ -577,7 +574,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
                TAG_END());
 
   DEBUG("Got incoming message from <%s>",
-        tp_handle_inspect (contact_repo, handle));
+        tpsip_handle_inspect (conn, handle));
 
   channel = tpsip_text_factory_lookup_channel (fac, handle);
 
@@ -588,7 +585,7 @@ tpsip_nua_i_message_cb (TpBaseConnection    *conn,
   tpsip_text_channel_receive (channel,
       sip, handle, text, len);
 
-  tp_handle_unref (contact_repo, handle);
+  tpsip_handle_unref (conn, handle);
 
 end:
   g_free (allocated_text);
@@ -597,7 +594,7 @@ end:
 }
 
 static void
-connection_status_changed_cb (TpsipConnection *conn,
+connection_status_changed_cb (TpBaseConnection *conn,
                               guint status,
                               guint reason,
                               TpsipTextFactory *self)
@@ -608,7 +605,7 @@ connection_status_changed_cb (TpsipConnection *conn,
     {
     case TP_CONNECTION_STATUS_CONNECTING:
 
-      priv->message_received_id = g_signal_connect (priv->conn,
+      priv->message_received_id = g_signal_connect (conn,
           "nua-event::nua_i_message",
           G_CALLBACK (tpsip_nua_i_message_cb),
           self);

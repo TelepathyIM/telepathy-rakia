@@ -39,8 +39,9 @@
 
 #define DEBUG_FLAG TPSIP_DEBUG_MEDIA
 #include "debug.h"
-#include "sip-connection.h"
-#include "sip-connection-helpers.h"
+
+#include <tpsip/base-connection.h>
+
 #include "sip-media-session.h"
 
 #define TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK \
@@ -145,7 +146,7 @@ typedef struct _TpsipMediaChannelPrivate TpsipMediaChannelPrivate;
 
 struct _TpsipMediaChannelPrivate
 {
-  TpsipConnection *conn;
+  TpsipBaseConnection *conn;
   TpsipMediaSession *session;
   gchar *object_path;
   TpHandle handle;
@@ -322,7 +323,7 @@ tpsip_media_channel_class_init (TpsipMediaChannelClass *klass)
 
   param_spec = g_param_spec_object ("connection", "TpsipConnection object",
       "SIP connection object that owns this SIP media channel object.",
-      TPSIP_TYPE_CONNECTION,
+      TPSIP_TYPE_BASE_CONNECTION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 
@@ -580,7 +581,7 @@ tpsip_media_channel_set_property (GObject     *object,
        * meaningfully changable on this channel, so we do nothing */
       break;
     case PROP_CONNECTION:
-      priv->conn = TPSIP_CONNECTION (g_value_dup_object (value));
+      priv->conn = g_value_dup_object (value);
       break;
     case PROP_OBJECT_PATH:
       g_free (priv->object_path);
@@ -1578,7 +1579,7 @@ tpsip_media_channel_attach_to_nua_handle (TpsipMediaChannel *self,
 
   /* have the connection handle authentication, before all other
    * response callbacks */
-  tpsip_connection_connect_auth_handler (priv->conn, TPSIP_EVENT_TARGET (self));
+  tpsip_base_connection_add_auth_handler (priv->conn, TPSIP_EVENT_TARGET (self));
 
   g_signal_connect (self,
                     "nua-event::nua_i_invite",
@@ -1704,7 +1705,7 @@ priv_outbound_call (TpsipMediaChannel *channel,
     {
       DEBUG("making outbound call - setting peer handle to %u", peer);
 
-      nh = tpsip_conn_create_request_handle (priv->conn, peer);
+      nh = tpsip_base_connection_create_handle (priv->conn, peer);
       priv_create_session (channel, nh, peer);
 
       /* Bind the channel object to the handle to handle NUA events */

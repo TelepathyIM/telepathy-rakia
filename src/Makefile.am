@@ -86,8 +86,6 @@ libtpsip_convenience_la_SOURCES = \
     sip-connection.c \
     sip-connection-manager.h \
     sip-connection-manager.c \
-    conn-aliasing.h \
-    conn-aliasing.c \
     debug.h \
     debug.c \
     media-factory.h \
@@ -98,9 +96,7 @@ libtpsip_convenience_la_SOURCES = \
     text-factory.c \
     sip-connection-helpers.h \
     sip-connection-helpers.c \
-    sip-connection-private.h \
-    sip-connection-sofia.h \
-    sip-connection-sofia.c
+    sip-connection-private.h
 
 nodist_libtpsip_convenience_la_SOURCES = \
     $(BUILT_SOURCES)

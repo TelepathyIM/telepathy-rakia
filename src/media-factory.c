@@ -27,8 +27,8 @@
 #include <telepathy-glib/interfaces.h>
 
 #include "sip-media-channel.h"
-#include "sip-connection.h"
-#include "sip-connection-helpers.h"
+#include <tpsip/base-connection.h>
+#include <tpsip/handles.h>
 
 #include <sofia-sip/sip_status.h>
 
@@ -61,7 +61,7 @@ typedef struct _TpsipMediaFactoryPrivate TpsipMediaFactoryPrivate;
 struct _TpsipMediaFactoryPrivate
 {
   /* unreferenced (since it owns this factory) */
-  TpsipConnection *conn;
+  TpBaseConnection *conn;
   /* array of referenced (TpsipMediaChannel *) */
   GPtrArray *channels;
   /* for unique channel object paths, currently always increments */
@@ -181,9 +181,10 @@ tpsip_media_factory_class_init (TpsipMediaFactoryClass *klass)
   object_class->dispose = tpsip_media_factory_dispose;
   object_class->finalize = tpsip_media_factory_finalize;
 
-  param_spec = g_param_spec_object ("connection", "TpsipConnection object",
+  param_spec = g_param_spec_object ("connection",
+      "TpsipBaseConnection object",
       "SIP connection that owns this media channel factory",
-      TPSIP_TYPE_CONNECTION,
+      TPSIP_TYPE_BASE_CONNECTION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 
@@ -265,7 +266,6 @@ new_media_channel (TpsipMediaFactory *fac,
 {
   TpsipMediaFactoryPrivate *priv;
   TpsipMediaChannel *chan = NULL;
-  TpBaseConnection *conn;
   gchar *object_path;
   const gchar *nat_traversal = "none";
   gboolean initial_audio;
@@ -275,9 +275,8 @@ new_media_channel (TpsipMediaFactory *fac,
   g_assert (initiator != 0);
 
   priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
-  conn = (TpBaseConnection *)priv->conn;
 
-  object_path = g_strdup_printf ("%s/MediaChannel%u", conn->object_path,
+  object_path = g_strdup_printf ("%s/MediaChannel%u", priv->conn->object_path,
       priv->channel_index++);
 
   DEBUG("channel object path %s", object_path);
@@ -285,7 +284,7 @@ new_media_channel (TpsipMediaFactory *fac,
   initial_audio = ((flags & TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO) != 0);
   initial_video = ((flags & TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO) != 0);
 
-  g_object_get (conn,
+  g_object_get (priv->conn,
       "immutable-streams", &immutable_streams,
       NULL);
 
@@ -338,15 +337,12 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
                        TpsipMediaFactory   *fac)
 {
   TpsipMediaChannel *channel;
-  TpHandleRepoIface *contact_repo;
   TpHandle handle;
   guint channel_flags = 0;
 
   /* figure out a handle for the identity */
 
-  contact_repo = tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT);
-
-  handle = tpsip_handle_parse_from (contact_repo, ev->sip);
+  handle = tpsip_handle_by_requestor (conn, ev->sip);
   if (!handle)
     {
       MESSAGE ("incoming INVITE with invalid sender information");
@@ -355,7 +351,7 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
     }
 
   DEBUG("Got incoming invite from <%s>",
-        tp_handle_inspect (contact_repo, handle));
+        tpsip_handle_inspect (conn, handle));
 
   if (handle == conn->self_handle)
     {
@@ -366,7 +362,7 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
 
   channel = new_media_channel (fac, handle, handle, channel_flags);
 
-  tp_handle_unref (contact_repo, handle);
+  tpsip_handle_unref (conn, handle);
 
   /* We delay emission of NewChannel(s) until we have the data on
    * initial media */
@@ -379,7 +375,7 @@ tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
 }
 
 static void
-connection_status_changed_cb (TpsipConnection *conn,
+connection_status_changed_cb (TpsipBaseConnection *conn,
                               guint status,
                               guint reason,
                               TpsipMediaFactory *self)

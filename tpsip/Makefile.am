@@ -13,12 +13,15 @@ AM_CPPFLAGS = @GLIB_CFLAGS@ @TELEPATHY_GLIB_CFLAGS@ @SOFIA_SIP_UA_CFLAGS@ \
 
 AM_CFLAGS = $(ERROR_CFLAGS) $(COVERAGE_CFLAGS)
 
-tpsip_includedir = $(includedir)/telepathy-sofiasip-0.6/tpsip
+tpsip_includedir = $(includedir)/telepathy-sofiasip-0.7/tpsip
 
 tpsip_include_HEADERS = \
+	base-connection.h \
+	connection-aliasing.h
 	sofia-decls.h \
 	codec-param-formats.h \
 	event-target.h \
+	handles.h \
 	util.h
 
 BUILT_SOURCES = \
@@ -26,8 +29,12 @@ BUILT_SOURCES = \
 	signals-marshal.c
 
 libtpsip_la_SOURCES = \
+	base-connection.c \
+	base-connection-sofia.c \
+	connection-aliasing.c \
 	codec-param-formats.c \
 	event-target.c \
+	handles.c \
 	util.c
 
 nodist_libtpsip_la_SOURCES = \

@@ -36,46 +36,30 @@
 #include <telepathy-glib/svc-generic.h>
 
 #include <tpsip/event-target.h>
+#include <tpsip/handles.h>
+#include <tpsip/connection-aliasing.h>
 
 #include "sip-connection.h"
 #include "media-factory.h"
 #include "text-factory.h"
 
-#include "conn-aliasing.h"
-
 #include "sip-connection-enumtypes.h"
 #include "sip-connection-helpers.h"
 #include "sip-connection-private.h"
-#include "sip-connection-sofia.h"
 
 #include <sofia-sip/msg_header.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
 
-static void event_target_iface_init (gpointer, gpointer);
-static void conn_iface_init (gpointer, gpointer);
-
-G_DEFINE_TYPE_WITH_CODE(TpsipConnection, tpsip_connection,
-    TP_TYPE_BASE_CONNECTION,
-    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, event_target_iface_init);
+G_DEFINE_TYPE_WITH_CODE (TpsipConnection, tpsip_connection,
+    TPSIP_TYPE_BASE_CONNECTION,
     G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_DBUS_PROPERTIES,
         tp_dbus_properties_mixin_iface_init);
-    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS,
-        tp_contacts_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING,
-        tpsip_conn_aliasing_iface_init);
-    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION, conn_iface_init))
-
-#define ERROR_IF_NOT_CONNECTED_ASYNC(BASE, CONTEXT) \
-  if ((BASE)->status != TP_CONNECTION_STATUS_CONNECTED) \
-    { \
-      GError e = { TP_ERRORS, TP_ERROR_NOT_AVAILABLE, \
-          "Connection is disconnected" }; \
-      DEBUG ("rejected request as disconnected"); \
-      dbus_g_method_return_error ((CONTEXT), &e); \
-      return; \
-    }
+        tpsip_connection_aliasing_svc_iface_init);
+    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_CONNECTION_ALIASING, NULL);
+);
 
 
 /* properties */
@@ -102,7 +86,7 @@ enum
   PROP_LOCAL_PORT,         /**< Local port for SIP (normally not needed, chosen by stack) */
   PROP_EXTRA_AUTH_USER,	   /**< User name to use for extra authentication challenges */
   PROP_EXTRA_AUTH_PASSWORD,/**< Password to use for extra authentication challenges */
-  PROP_SOFIA_ROOT,         /**< Event root pointer from the Sofia-SIP stack */
+  PROP_SOFIA_NUA,          /**< Base class accessing nua_t */
   LAST_PROPERTY
 };
 
@@ -174,12 +158,7 @@ tpsip_connection_init (TpsipConnection *self)
 
   priv->sofia_home = su_home_new(sizeof (su_home_t));
 
-  tp_contacts_mixin_init ((GObject *) self,
-      G_STRUCT_OFFSET (TpsipConnection, contacts));
-
-  tp_base_connection_register_with_contacts_mixin ((TpBaseConnection *) self);
-
-  tpsip_conn_aliasing_init (self);
+  tpsip_connection_aliasing_init (self);
 }
 
 static void
@@ -307,10 +286,6 @@ tpsip_connection_set_property (GObject      *object,
     priv->extra_auth_password =  g_value_dup_string (value);
     break;
   }
-  case PROP_SOFIA_ROOT: {
-    priv->sofia_root = g_value_get_pointer (value);
-    break;
-  }
   default:
     /* We don't have any other property... */
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object,property_id,pspec);
@@ -396,8 +371,8 @@ tpsip_connection_get_property (GObject      *object,
     g_value_set_uint (value, priv->local_port);
     break;
   }
-  case PROP_SOFIA_ROOT: {
-    g_value_set_pointer (value, priv->sofia_root);
+  case PROP_SOFIA_NUA: {
+    g_value_set_pointer (value, priv->sofia_nua);
     break;
   }
   default:
@@ -439,15 +414,23 @@ tpsip_connection_get_implemented_interfaces (void)
   return interfaces_always_present;
 }
 
+static nua_handle_t *tpsip_connection_create_nua_handle (TpsipBaseConnection *,
+    TpHandle);
+static void tpsip_connection_add_auth_handler (TpsipBaseConnection *,
+    TpsipEventTarget *);
+
 static void
 tpsip_connection_class_init (TpsipConnectionClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
-  TpBaseConnectionClass *base_class =
-    (TpBaseConnectionClass *)klass;
+  TpBaseConnectionClass *base_class = TP_BASE_CONNECTION_CLASS (klass);
+  TpsipBaseConnectionClass *sip_class = TPSIP_BASE_CONNECTION_CLASS (klass);
   GParamSpec *param_spec;
 
   /* Implement pure-virtual methods */
+  sip_class->create_handle = tpsip_connection_create_nua_handle;
+  sip_class->add_auth_handler = tpsip_connection_add_auth_handler;
+
   base_class->create_handle_repos = tpsip_create_handle_repos;
   base_class->get_unique_connection_name = tpsip_connection_unique_name;
   base_class->create_channel_managers =
@@ -469,10 +452,7 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
 #define INST_PROP(x) \
   g_object_class_install_property (object_class,  x, param_spec)
 
-  param_spec = g_param_spec_pointer ("sofia-root", "Sofia root",
-      "Event root from Sofia-SIP stack",
-      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-  INST_PROP(PROP_SOFIA_ROOT);
+  g_object_class_override_property (object_class, PROP_SOFIA_NUA, "sofia-nua");
 
   param_spec = g_param_spec_string ("address", "SIP address",
       "SIP AoR URI",
@@ -493,11 +473,7 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_PASSWORD);
 
-  param_spec = g_param_spec_string ("alias", "Alias",
-      "User's display name",
-      NULL,
-      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-  INST_PROP(PROP_ALIAS);
+  g_object_class_override_property (object_class, PROP_ALIAS, "alias");
 
   param_spec = g_param_spec_string ("transport", "Transport protocol",
       "Preferred transport protocol (auto, udp, tcp)",
@@ -599,9 +575,6 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
 
   tp_dbus_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (TpsipConnectionClass, properties_class));
-
-  tp_contacts_mixin_class_init (object_class,
-      G_STRUCT_OFFSET (TpsipConnectionClass, contacts_class));
 }
 
 typedef struct {
@@ -855,15 +828,21 @@ tpsip_connection_auth_cb (TpsipEventTarget *target,
                            FALSE);
 }
 
-void
-tpsip_connection_connect_auth_handler (TpsipConnection *self,
-                                       TpsipEventTarget *target)
+static void
+tpsip_connection_add_auth_handler (TpsipBaseConnection *self,
+                                   TpsipEventTarget *target)
 {
   g_signal_connect_object (target,
                            "nua-event",
                            G_CALLBACK (tpsip_connection_auth_cb),
                            self,
                            0);
+}
+
+static nua_handle_t *
+tpsip_connection_create_nua_handle (TpsipBaseConnection *base, TpHandle handle)
+{
+  return tpsip_conn_create_request_handle (TPSIP_CONNECTION (base), handle);
 }
 
 static gboolean
@@ -1014,11 +993,13 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
   TpHandleRepoIface *contact_repo;
   const gchar *sip_address;
   const url_t *local_url;
+  su_root_t *root = NULL;
 
   g_assert (base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
 
   /* the construct parameters will be non-empty */
-  g_assert (priv->sofia_root != NULL);
+  g_object_get (self, "sofia-root", &root, NULL);
+  g_assert (root != NULL);
   g_return_val_if_fail (priv->address != NULL, FALSE);
 
   contact_repo = tp_base_connection_get_handles (base, TP_HANDLE_TYPE_CONTACT);
@@ -1033,7 +1014,7 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
 
   DEBUG("self_handle = %d, sip_address = %s", base->self_handle, sip_address);
 
-  priv->account_url = tpsip_conn_get_contact_url (self, base->self_handle);
+  priv->account_url = tpsip_handle_inspect_uri (base, base->self_handle);
   if (priv->account_url == NULL)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
@@ -1044,9 +1025,9 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
   local_url = tpsip_conn_get_local_url (self);
 
   /* step: create stack instance */
-  priv->sofia_nua = nua_create (priv->sofia_root,
-      tpsip_connection_sofia_callback,
-      self,
+  priv->sofia_nua = nua_create (root,
+      tpsip_base_connection_sofia_callback,
+      TPSIP_BASE_CONNECTION (self),
       SOATAG_AF(SOA_AF_IP4_IP6),
       SIPTAG_FROM_STR(sip_address),
       NUTAG_URL(local_url),
@@ -1130,14 +1111,4 @@ tpsip_connection_disconnected (TpBaseConnection *base)
       nua_handle_unref (priv->register_op);
       priv->register_op = NULL;
     }
-}
-
-static void
-conn_iface_init(gpointer g_iface, gpointer iface_data)
-{
-}
-
-static void
-event_target_iface_init (gpointer g_iface, gpointer iface_data)
-{
 }

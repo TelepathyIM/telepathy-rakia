@@ -20,12 +20,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "sip-connection-sofia.h"
+#include "config.h"
 
+#include <tpsip/base-connection.h>
 #include <sofia-sip/su_tag_io.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_EVENTS
-#include "debug.h"
+#include "src/debug.h"
 
 static void
 priv_r_shutdown(int status,
@@ -104,15 +105,15 @@ priv_r_get_params (int status,
  * See libsofia-sip-ua/nua/nua.h documentation.
  */
 void
-tpsip_connection_sofia_callback (nua_event_t event,
-                                 int status,
-                                 char const *phrase,
-                                 nua_t *nua,
-                                 TpsipConnection *conn,
-                                 nua_handle_t *nh,
-                                 TpsipEventTarget *target,
-                                 sip_t const *sip,
-                                 tagi_t tags[])
+tpsip_base_connection_sofia_callback (nua_event_t event,
+                                      int status,
+                                      char const *phrase,
+                                      nua_t *nua,
+                                      TpsipBaseConnection *conn,
+                                      nua_handle_t *nh,
+                                      TpsipEventTarget *target,
+                                      sip_t const *sip,
+                                      tagi_t tags[])
 {
   DEBUG("event %s: %03d %s",
         nua_event_name (event), status, phrase);

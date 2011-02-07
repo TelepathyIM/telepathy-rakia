@@ -33,11 +33,16 @@
  *       pointing to an event target object attached to this handle.
  */
 
-#define NUA_MAGIC_T      struct _TpsipConnection
+#define NUA_MAGIC_T      struct _TpsipBaseConnection
 #define NUA_HMAGIC_T     struct _TpsipEventTarget
 #define SU_ROOT_MAGIC_T  struct _TpsipConnectionManager
-#define SU_TIMER_ARG_T   struct _TpsipConnection
+#define SU_TIMER_ARG_T   struct _TpsipBaseConnection
 #define SU_WAKEUP_ARG_T  void
+
+#define TPSIP_DEFAULT_STUN_PORT 3478
+
+/* Maximum defer timeout for deferrable Sofia timers */
+#define TPSIP_DEFER_TIMEOUT 30
 
 #include <sofia-sip/nua.h>
 #include <sofia-sip/su.h>

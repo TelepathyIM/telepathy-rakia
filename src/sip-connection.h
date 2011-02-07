@@ -23,19 +23,10 @@
 
 #include <glib-object.h>
 
-#include <telepathy-glib/base-connection.h>
-#include <telepathy-glib/contacts-mixin.h>
+#include <tpsip/base-connection.h>
 #include <telepathy-glib/dbus-properties-mixin.h>
 
-#include <tpsip/event-target.h>
-
-
 G_BEGIN_DECLS
-
-#define TPSIP_DEFAULT_STUN_PORT 3478
-
-/* Maximum defer timeout for deferrable Sofia timers */
-#define TPSIP_DEFER_TIMEOUT 30
 
 typedef enum
 {
@@ -51,14 +42,12 @@ typedef struct _TpsipConnectionClass TpsipConnectionClass;
 typedef struct _TpsipConnectionPrivate TpsipConnectionPrivate;
 
 struct _TpsipConnectionClass {
-    TpBaseConnectionClass parent_class;
+    TpsipBaseConnectionClass parent_class;
     TpDBusPropertiesMixinClass properties_class;
-    TpContactsMixinClass contacts_class;
 };
 
 struct _TpsipConnection {
-    TpBaseConnection parent;
-    TpContactsMixin contacts;
+    TpsipBaseConnection parent;
 };
 
 /* TYPE MACROS */
