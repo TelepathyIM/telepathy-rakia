@@ -70,8 +70,6 @@ libtpsip_convenience_la_SOURCES = \
     sip-connection.c \
     sip-connection-manager.h \
     sip-connection-manager.c \
-    media-factory.h \
-    media-factory.c \
     protocol.h \
     protocol.c \
     sip-connection-helpers.h \

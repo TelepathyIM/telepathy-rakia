@@ -27,12 +27,12 @@
 
 #include <tpsip/sofia-decls.h>
 #include <tpsip/handles.h>
+#include <tpsip/media-manager.h>
 #include <tpsip/text-manager.h>
 #include <sofia-sip/su_glib.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "tpsip/debug.h"
-#include "media-factory.h"
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
 
@@ -418,7 +418,7 @@ get_connection_details (TpBaseProtocol *self,
     {
       GType types[] = {
           TPSIP_TYPE_TEXT_MANAGER,
-          TPSIP_TYPE_MEDIA_FACTORY,
+          TPSIP_TYPE_MEDIA_MANAGER,
           G_TYPE_INVALID };
 
       *channel_managers = g_memdup (types, sizeof(types));

@@ -38,10 +38,10 @@
 #include <tpsip/event-target.h>
 #include <tpsip/handles.h>
 #include <tpsip/connection-aliasing.h>
+#include <tpsip/media-manager.h>
 #include <tpsip/text-manager.h>
 
 #include "sip-connection.h"
-#include "media-factory.h"
 
 #include "sip-connection-enumtypes.h"
 #include "sip-connection-helpers.h"
@@ -140,9 +140,9 @@ tpsip_connection_create_channel_managers (TpBaseConnection *conn)
       g_object_new (TPSIP_TYPE_TEXT_MANAGER,
         "connection", self, NULL));
 
-  priv->media_factory = g_object_new (TPSIP_TYPE_MEDIA_FACTORY,
+  priv->media_manager = g_object_new (TPSIP_TYPE_MEDIA_MANAGER,
         "connection", self, NULL);
-  g_ptr_array_add (channel_managers, priv->media_factory);
+  g_ptr_array_add (channel_managers, priv->media_manager);
 
   priv->password_manager = tp_simple_password_manager_new (
       conn);
@@ -942,7 +942,7 @@ tpsip_connection_dispose (GObject *object)
 
   /* the base class owns channel factories/managers,
    * here we just nullify the references */
-  priv->media_factory = NULL;
+  priv->media_manager = NULL;
 
   if (G_OBJECT_CLASS (tpsip_connection_parent_class)->dispose)
     G_OBJECT_CLASS (tpsip_connection_parent_class)->dispose (object);

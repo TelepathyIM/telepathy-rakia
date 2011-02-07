@@ -23,6 +23,7 @@ tpsip_include_HEADERS = \
 	event-target.h \
 	handles.h \
 	debug.h \
+	media-manager.h \
 	text-manager.h \
 	util.h
 
@@ -40,6 +41,7 @@ libtpsip_la_SOURCES = \
 	debug.c \
 	media-channel.h \
 	media-channel.c \
+	media-manager.c \
 	media-session.h \
 	media-session.c \
 	media-stream.h \

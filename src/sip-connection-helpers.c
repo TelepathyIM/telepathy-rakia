@@ -459,8 +459,8 @@ static void
 tpsip_conn_set_stun_server_address (TpsipConnection *conn, const gchar *address)
 {
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
-  g_return_if_fail (priv->media_factory != NULL);
-  g_object_set (priv->media_factory,
+  g_return_if_fail (priv->media_manager != NULL);
+  g_object_set (priv->media_manager,
                 "stun-server", address,
                 "stun-port", priv->stun_port,
                 NULL);

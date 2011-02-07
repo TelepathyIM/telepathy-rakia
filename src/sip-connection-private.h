@@ -21,9 +21,9 @@
 #ifndef __TPSIP_CONNECTION_PRIVATE_H__
 #define __TPSIP_CONNECTION_PRIVATE_H__
 
-#include <config.h>
-#include "media-factory.h"
+#include "config.h"
 
+#include <tpsip/media-manager.h>
 #include <tpsip/sofia-decls.h>
 #include <sofia-sip/sresolv.h>
 
@@ -51,7 +51,7 @@ struct _TpsipConnectionPrivate
 
   gchar *registrar_realm;
 
-  TpsipMediaFactory *media_factory;
+  TpsipMediaManager *media_manager;
   TpSimplePasswordManager *password_manager;
 
   gchar *address;

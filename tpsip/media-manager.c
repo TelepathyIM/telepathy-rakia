@@ -1,5 +1,5 @@
 /*
- * media-factory.c - Media channel factory for SIP connection manager
+ * media-manager.c - Media channel manager for SIP connection manager
  * Copyright (C) 2007-2008 Collabora Ltd.
  * Copyright (C) 2007-2010 Nokia Corporation
  *
@@ -18,7 +18,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "media-factory.h"
+#include "config.h"
+
+#include "tpsip/media-manager.h"
 
 #include <string.h>
 
@@ -27,8 +29,8 @@
 #include <telepathy-glib/interfaces.h>
 
 #include "tpsip/media-channel.h"
-#include <tpsip/base-connection.h>
-#include <tpsip/handles.h>
+#include "tpsip/base-connection.h"
+#include "tpsip/handles.h"
 
 #include <sofia-sip/sip_status.h>
 
@@ -41,10 +43,10 @@ typedef enum {
 } TpsipMediaChannelCreationFlags;
 
 static void channel_manager_iface_init (gpointer, gpointer);
-static void tpsip_media_factory_constructed (GObject *object);
-static void tpsip_media_factory_close_all (TpsipMediaFactory *fac);
+static void tpsip_media_manager_constructed (GObject *object);
+static void tpsip_media_manager_close_all (TpsipMediaManager *fac);
 
-G_DEFINE_TYPE_WITH_CODE (TpsipMediaFactory, tpsip_media_factory,
+G_DEFINE_TYPE_WITH_CODE (TpsipMediaManager, tpsip_media_manager,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_MANAGER,
         channel_manager_iface_init))
@@ -57,10 +59,10 @@ enum
   LAST_PROPERTY
 };
 
-typedef struct _TpsipMediaFactoryPrivate TpsipMediaFactoryPrivate;
-struct _TpsipMediaFactoryPrivate
+typedef struct _TpsipMediaManagerPrivate TpsipMediaManagerPrivate;
+struct _TpsipMediaManagerPrivate
 {
-  /* unreferenced (since it owns this factory) */
+  /* unreferenced (since it owns this manager) */
   TpBaseConnection *conn;
   /* array of referenced (TpsipMediaChannel *) */
   GPtrArray *channels;
@@ -76,12 +78,12 @@ struct _TpsipMediaFactoryPrivate
   gboolean dispose_has_run;
 };
 
-#define TPSIP_MEDIA_FACTORY_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_FACTORY, TpsipMediaFactoryPrivate))
+#define TPSIP_MEDIA_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_MANAGER, TpsipMediaManagerPrivate))
 
 static void
-tpsip_media_factory_init (TpsipMediaFactory *fac)
+tpsip_media_manager_init (TpsipMediaManager *fac)
 {
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   priv->conn = NULL;
   priv->channels = g_ptr_array_sized_new (1);
@@ -90,40 +92,40 @@ tpsip_media_factory_init (TpsipMediaFactory *fac)
 }
 
 static void
-tpsip_media_factory_dispose (GObject *object)
+tpsip_media_manager_dispose (GObject *object)
 {
-  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (object);
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaManager *fac = TPSIP_MEDIA_MANAGER (object);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   if (priv->dispose_has_run)
     return;
 
   priv->dispose_has_run = TRUE;
 
-  tpsip_media_factory_close_all (fac);
+  tpsip_media_manager_close_all (fac);
   g_assert (priv->channels == NULL);
 
-  if (G_OBJECT_CLASS (tpsip_media_factory_parent_class)->dispose)
-    G_OBJECT_CLASS (tpsip_media_factory_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (tpsip_media_manager_parent_class)->dispose)
+    G_OBJECT_CLASS (tpsip_media_manager_parent_class)->dispose (object);
 }
 
 static void
-tpsip_media_factory_finalize (GObject *object)
+tpsip_media_manager_finalize (GObject *object)
 {
-  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (object);
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaManager *fac = TPSIP_MEDIA_MANAGER (object);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   g_free (priv->stun_server);
 }
 
 static void
-tpsip_media_factory_get_property (GObject *object,
+tpsip_media_manager_get_property (GObject *object,
                                guint property_id,
                                GValue *value,
                                GParamSpec *pspec)
 {
-  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (object);
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaManager *fac = TPSIP_MEDIA_MANAGER (object);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -142,13 +144,13 @@ tpsip_media_factory_get_property (GObject *object,
 }
 
 static void
-tpsip_media_factory_set_property (GObject *object,
+tpsip_media_manager_set_property (GObject *object,
                                guint property_id,
                                const GValue *value,
                                GParamSpec *pspec)
 {
-  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (object);
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaManager *fac = TPSIP_MEDIA_MANAGER (object);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -168,22 +170,22 @@ tpsip_media_factory_set_property (GObject *object,
 }
 
 static void
-tpsip_media_factory_class_init (TpsipMediaFactoryClass *klass)
+tpsip_media_manager_class_init (TpsipMediaManagerClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GParamSpec *param_spec;
 
-  g_type_class_add_private (klass, sizeof (TpsipMediaFactoryPrivate));
+  g_type_class_add_private (klass, sizeof (TpsipMediaManagerPrivate));
 
-  object_class->constructed = tpsip_media_factory_constructed;
-  object_class->get_property = tpsip_media_factory_get_property;
-  object_class->set_property = tpsip_media_factory_set_property;
-  object_class->dispose = tpsip_media_factory_dispose;
-  object_class->finalize = tpsip_media_factory_finalize;
+  object_class->constructed = tpsip_media_manager_constructed;
+  object_class->get_property = tpsip_media_manager_get_property;
+  object_class->set_property = tpsip_media_manager_set_property;
+  object_class->dispose = tpsip_media_manager_dispose;
+  object_class->finalize = tpsip_media_manager_finalize;
 
   param_spec = g_param_spec_object ("connection",
       "TpsipBaseConnection object",
-      "SIP connection that owns this media channel factory",
+      "SIP connection that owns this media channel manager",
       TPSIP_TYPE_BASE_CONNECTION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
@@ -203,9 +205,9 @@ tpsip_media_factory_class_init (TpsipMediaFactoryClass *klass)
 }
 
 static void
-tpsip_media_factory_close_all (TpsipMediaFactory *fac)
+tpsip_media_manager_close_all (TpsipMediaManager *fac)
 {
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   if (priv->status_changed_id != 0)
     {
@@ -235,13 +237,13 @@ tpsip_media_factory_close_all (TpsipMediaFactory *fac)
 /**
  * media_channel_closed_cb:
  * Signal callback for when a media channel is closed. Removes the references
- * that #TpsipMediaFactory holds to them.
+ * that #TpsipMediaManager holds to them.
  */
 static void
 media_channel_closed_cb (TpsipMediaChannel *chan, gpointer user_data)
 {
-  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (user_data);
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaManager *fac = TPSIP_MEDIA_MANAGER (user_data);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   tp_channel_manager_emit_channel_closed_for_object (fac,
       TP_EXPORTABLE_CHANNEL (chan));
@@ -259,12 +261,12 @@ media_channel_closed_cb (TpsipMediaChannel *chan, gpointer user_data)
  * Creates a new empty TpsipMediaChannel.
  */
 static TpsipMediaChannel *
-new_media_channel (TpsipMediaFactory *fac,
+new_media_channel (TpsipMediaManager *fac,
                    TpHandle initiator,
                    TpHandle maybe_peer,
                    TpsipMediaChannelCreationFlags flags)
 {
-  TpsipMediaFactoryPrivate *priv;
+  TpsipMediaManagerPrivate *priv;
   TpsipMediaChannel *chan = NULL;
   gchar *object_path;
   const gchar *nat_traversal = "none";
@@ -274,7 +276,7 @@ new_media_channel (TpsipMediaFactory *fac,
 
   g_assert (initiator != 0);
 
-  priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   object_path = g_strdup_printf ("%s/MediaChannel%u", priv->conn->object_path,
       priv->channel_index++);
@@ -322,7 +324,7 @@ new_media_channel (TpsipMediaFactory *fac,
 
 static void
 incoming_call_cb (TpsipMediaChannel *channel,
-                  TpsipMediaFactory *fac)
+                  TpsipMediaManager *fac)
 {
   g_signal_handlers_disconnect_by_func (channel,
       G_CALLBACK (incoming_call_cb), fac);
@@ -334,7 +336,7 @@ static gboolean
 tpsip_nua_i_invite_cb (TpBaseConnection    *conn,
                        const TpsipNuaEvent *ev,
                        tagi_t               tags[],
-                       TpsipMediaFactory   *fac)
+                       TpsipMediaManager   *fac)
 {
   TpsipMediaChannel *channel;
   TpHandle handle;
@@ -378,9 +380,9 @@ static void
 connection_status_changed_cb (TpsipBaseConnection *conn,
                               guint status,
                               guint reason,
-                              TpsipMediaFactory *self)
+                              TpsipMediaManager *self)
 {
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (self);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (self);
 
   switch (status)
     {
@@ -393,7 +395,7 @@ connection_status_changed_cb (TpsipBaseConnection *conn,
       break;
     case TP_CONNECTION_STATUS_DISCONNECTED:
 
-      tpsip_media_factory_close_all (self);
+      tpsip_media_manager_close_all (self);
 
       if (priv->invite_received_id != 0)
         {
@@ -408,12 +410,12 @@ connection_status_changed_cb (TpsipBaseConnection *conn,
 }
 
 static void
-tpsip_media_factory_constructed (GObject *object)
+tpsip_media_manager_constructed (GObject *object)
 {
-  TpsipMediaFactory *self = TPSIP_MEDIA_FACTORY (object);
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (self);
+  TpsipMediaManager *self = TPSIP_MEDIA_MANAGER (object);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (self);
   GObjectClass *parent_object_class =
-      G_OBJECT_CLASS (tpsip_media_factory_parent_class);
+      G_OBJECT_CLASS (tpsip_media_manager_parent_class);
 
   if (parent_object_class->constructed != NULL)
     parent_object_class->constructed (object);
@@ -423,12 +425,12 @@ tpsip_media_factory_constructed (GObject *object)
 }
 
 static void
-tpsip_media_factory_foreach_channel (TpChannelManager *manager,
+tpsip_media_manager_foreach_channel (TpChannelManager *manager,
                                      TpExportableChannelFunc foreach,
                                      gpointer user_data)
 {
-  TpsipMediaFactory *fac = TPSIP_MEDIA_FACTORY (manager);
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (fac);
+  TpsipMediaManager *fac = TPSIP_MEDIA_MANAGER (manager);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
   guint i;
 
   for (i = 0; i < priv->channels->len; i++)
@@ -461,7 +463,7 @@ static const gchar * const anon_channel_allowed_properties[] = {
 };
 
 static void
-tpsip_media_factory_type_foreach_channel_class (GType type,
+tpsip_media_manager_type_foreach_channel_class (GType type,
     TpChannelManagerTypeChannelClassFunc func,
     gpointer user_data)
 {
@@ -492,13 +494,13 @@ typedef enum
 } RequestMethod;
 
 static gboolean
-tpsip_media_factory_requestotron (TpChannelManager *manager,
+tpsip_media_manager_requestotron (TpChannelManager *manager,
                                   gpointer request_token,
                                   GHashTable *request_properties,
                                   RequestMethod method)
 {
-  TpsipMediaFactory *self = TPSIP_MEDIA_FACTORY (manager);
-  TpsipMediaFactoryPrivate *priv = TPSIP_MEDIA_FACTORY_GET_PRIVATE (self);
+  TpsipMediaManager *self = TPSIP_MEDIA_MANAGER (manager);
+  TpsipMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (self);
   TpBaseConnection *conn = (TpBaseConnection *) priv->conn;
   TpHandleType handle_type;
   TpHandle handle;
@@ -658,29 +660,29 @@ error:
 }
 
 static gboolean
-tpsip_media_factory_request_channel (TpChannelManager *manager,
+tpsip_media_manager_request_channel (TpChannelManager *manager,
                                      gpointer request_token,
                                      GHashTable *request_properties)
 {
-  return tpsip_media_factory_requestotron (manager, request_token,
+  return tpsip_media_manager_requestotron (manager, request_token,
       request_properties, METHOD_REQUEST);
 }
 
 static gboolean
-tpsip_media_factory_create_channel (TpChannelManager *manager,
+tpsip_media_manager_create_channel (TpChannelManager *manager,
                                     gpointer request_token,
                                     GHashTable *request_properties)
 {
-  return tpsip_media_factory_requestotron (manager, request_token,
+  return tpsip_media_manager_requestotron (manager, request_token,
       request_properties, METHOD_CREATE);
 }
 
 static gboolean
-tpsip_media_factory_ensure_channel (TpChannelManager *manager,
+tpsip_media_manager_ensure_channel (TpChannelManager *manager,
                                     gpointer request_token,
                                     GHashTable *request_properties)
 {
-  return tpsip_media_factory_requestotron (manager, request_token,
+  return tpsip_media_manager_requestotron (manager, request_token,
       request_properties, METHOD_ENSURE);
 }
 
@@ -690,10 +692,10 @@ channel_manager_iface_init (gpointer g_iface,
 {
   TpChannelManagerIface *iface = g_iface;
 
-  iface->foreach_channel = tpsip_media_factory_foreach_channel;
+  iface->foreach_channel = tpsip_media_manager_foreach_channel;
   iface->type_foreach_channel_class =
-    tpsip_media_factory_type_foreach_channel_class;
-  iface->request_channel = tpsip_media_factory_request_channel;
-  iface->create_channel = tpsip_media_factory_create_channel;
-  iface->ensure_channel = tpsip_media_factory_ensure_channel;
+    tpsip_media_manager_type_foreach_channel_class;
+  iface->request_channel = tpsip_media_manager_request_channel;
+  iface->create_channel = tpsip_media_manager_create_channel;
+  iface->ensure_channel = tpsip_media_manager_ensure_channel;
 }
