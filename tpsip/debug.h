@@ -40,6 +40,9 @@ void tpsip_log (TpsipDebugFlags flag, GLogLevelFlags level,
     const gchar *format, ...) G_GNUC_PRINTF (3, 4);
 void tpsip_debug_free (void);
 
+gpointer tpsip_sofia_log_init ();
+void tpsip_sofia_log_finalize (gpointer logdata);
+
 G_END_DECLS
 
 #ifdef DEBUG_FLAG

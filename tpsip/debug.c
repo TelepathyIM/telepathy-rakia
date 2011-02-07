@@ -28,6 +28,8 @@
 
 #include "tpsip/debug.h"
 
+#include <sofia-sip/su_log.h>
+
 static TpsipDebugFlags tpsip_debug_flags = 0;
 
 static const GDebugKey tpsip_debug_keys[] = {
@@ -138,4 +140,58 @@ void tpsip_log (TpsipDebugFlags flag,
     g_log (G_LOG_DOMAIN, level, "%s", message);
 
   g_free (message);
+}
+
+static void
+tpsip_sofia_log_handler (void *logdata, const char *format, va_list args)
+{
+#ifdef ENABLE_DEBUG
+  GString *buf = (GString *)logdata;
+  g_assert (buf != NULL);
+
+  /* Append the formatted message at the end of the buffer */
+  g_string_append_vprintf (buf, format, args);
+
+  /* If we have a terminated line, log it, stripping the newline */
+  if (buf->str[buf->len - 1] == '\n')
+    {
+      g_string_truncate (buf, buf->len - 1);
+      tpsip_log (TPSIP_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG, "%s", buf->str);
+      g_string_truncate (buf, 0);
+    }
+#endif
+}
+
+gpointer
+tpsip_sofia_log_init ()
+{
+  GString *buf;
+
+#ifdef ENABLE_DEBUG
+  buf = g_string_sized_new (80);
+#else
+  buf = NULL;
+#endif
+
+  su_log_redirect (NULL, tpsip_sofia_log_handler, buf);
+
+  return buf;
+}
+
+void
+tpsip_sofia_log_finalize (gpointer logdata)
+{
+#ifdef ENABLE_DEBUG
+  GString *buf = (GString *)logdata;
+
+  if (buf->len != 0)
+    {
+      /* Don't use tpsip_log here because the CM has already been finalized, so
+       * out TpDebugSender will have too. It isn't crucial, anyway. */
+      g_debug ("%s", buf->str);
+      g_message ("last Sofia log message was not newline-terminated");
+    }
+
+  g_string_free (buf, TRUE);
+#endif
 }
