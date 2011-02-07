@@ -21,7 +21,7 @@
 #ifndef __TPSIP_MEDIA_SESSION_H__
 #define __TPSIP_MEDIA_SESSION_H__
 
-#include "sip-media-stream.h"
+#include <tpsip/media-stream.h>
 
 #include <glib-object.h>
 #include <telepathy-glib/handle.h>

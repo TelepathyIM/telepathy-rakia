@@ -23,6 +23,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "config.h"
+#include "tpsip/media-stream.h"
+
 #include <dbus/dbus-glib.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,8 +43,7 @@
 
 #include <tpsip/codec-param-formats.h>
 
-#include "sip-media-stream.h"
-#include "sip-media-session.h"
+#include "tpsip/media-session.h"
 
 #include <sofia-sip/msg_parser.h>
 

@@ -38,6 +38,12 @@ libtpsip_la_SOURCES = \
 	event-target.c \
 	handles.c \
 	debug.c \
+	media-channel.h \
+	media-channel.c \
+	media-session.h \
+	media-session.c \
+	media-stream.h \
+	media-stream.c \
 	text-channel.h \
 	text-channel.c \
 	text-manager.c \

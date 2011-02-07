@@ -36,12 +36,6 @@ noinst_LTLIBRARIES = libtpsip-convenience.la
 # ----------------------------------------------------------------------
 # Rules for building the targets
 
-signals-marshal.c: ${srcdir}/signals-marshal.list
-	glib-genmarshal --body --prefix=_tpsip_marshal $< >$@ || rm -f $@
-
-signals-marshal.h: ${srcdir}/signals-marshal.list
-	glib-genmarshal --header --prefix=_tpsip_marshal $< >$@ || rm -f $@
-
 # rules for makeing the glib enum objects
 %-enumtypes.h: %.h
 	glib-mkenums \
@@ -68,18 +62,10 @@ sofiasip.manager: write-mgr-file
 	fi
 
 BUILT_SOURCES = \
-		signals-marshal.h \
-		signals-marshal.c \
 		sip-connection-enumtypes.h \
 		sip-connection-enumtypes.c
 
 libtpsip_convenience_la_SOURCES = \
-    sip-media-channel.h \
-    sip-media-channel.c \
-    sip-media-session.h \
-    sip-media-session.c \
-    sip-media-stream.h \
-    sip-media-stream.c \
     sip-connection.h \
     sip-connection.c \
     sip-connection-manager.h \

@@ -23,7 +23,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "sip-media-channel.h"
+#include "config.h"
+
+#include "tpsip/media-channel.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -40,9 +42,8 @@
 #define DEBUG_FLAG TPSIP_DEBUG_MEDIA
 #include "tpsip/debug.h"
 
+#include <tpsip/media-session.h>
 #include <tpsip/base-connection.h>
-
-#include "sip-media-session.h"
 
 #define TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK \
     (TP_CHANNEL_CALL_STATE_RINGING | \

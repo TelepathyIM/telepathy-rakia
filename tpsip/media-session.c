@@ -23,6 +23,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "config.h"
+
+#include "tpsip/media-session.h"
+
 #include <dbus/dbus-glib.h>
 #include <stdlib.h>
 #include <time.h>
@@ -40,9 +44,9 @@
 
 #include <tpsip/base-connection.h>
 
-#include "sip-media-session.h"
-#include "sip-media-channel.h"
-#include "sip-media-stream.h"
+#include "tpsip/media-channel.h"
+#include "tpsip/media-stream.h"
+
 #include "signals-marshal.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_MEDIA

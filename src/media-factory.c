@@ -26,7 +26,7 @@
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/interfaces.h>
 
-#include "sip-media-channel.h"
+#include "tpsip/media-channel.h"
 #include <tpsip/base-connection.h>
 #include <tpsip/handles.h>
 
