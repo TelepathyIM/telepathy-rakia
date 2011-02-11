@@ -96,8 +96,6 @@ write_mgr_file_LDADD = libtpsip-convenience.la $(ALL_LIBS)
 # ----------------------------------------------------------------------
 # Install and distribution rules
 
-EXTRA_DIST = signals-marshal.list
-
 # Correctly clean the generated headers, but keep the xml description
 CLEANFILES = $(BUILT_SOURCES) $(manager_DATA)
 CLEANFILES += *.gcda *.gcno
