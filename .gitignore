@@ -15,8 +15,8 @@ tests/twisted/tools/tmp-session-bus.conf
 signals-marshal.[ch]
 src/*-enumtypes.[ch]
 
-# Distribution tarballs
-/telepathy-sofiasip-*.tar.gz*
+# Distribution tarballs and distcheck trees.
+/telepathy-sofiasip-*
 
 # Output files and build directories
 .deps
@@ -56,6 +56,8 @@ Makefile
 # The autoinstalled GNU autotools boilerplate
 /INSTALL
 
-# Eclipse project files
+# Eclipse project files and editor cruft
 /.*project
 /.settings
+.*.swp
+*~
