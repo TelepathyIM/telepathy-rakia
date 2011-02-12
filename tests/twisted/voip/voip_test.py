@@ -152,7 +152,7 @@ class VoipTestContext(object):
     def accept(self, invite_message):
         self.call_id = invite_message.headers['call-id'][0]
         response = self.sip_proxy.responseFromRequest(200, invite_message)
-        # Echo sofiasip's SDP back to it. It doesn't care.
+        # Echo rakia's SDP back to it. It doesn't care.
         response.addHeader('content-type', 'application/sdp')
         response.body = invite_message.body
         response.addHeader('content-length', '%d' % len(response.body))

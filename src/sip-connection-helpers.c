@@ -1,5 +1,5 @@
 /*
- * sip-connection-helpers.c - Helper routines used by TpsipConnection
+ * sip-connection-helpers.c - Helper routines used by RakiaConnection
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2006-2009 Nokia Corporation
  *
@@ -30,8 +30,8 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
 
-#include <tpsip/util.h>
-#include <tpsip/handles.h>
+#include <rakia/util.h>
+#include <rakia/handles.h>
 
 #include "sip-connection-helpers.h"
 
@@ -42,7 +42,7 @@
 #include "sip-connection-private.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "tpsip/debug.h"
+#include "rakia/debug.h"
 
 /* Default keepalive timeout in seconds,
  * a value obtained from Sofia-SIP documentation */
@@ -58,21 +58,21 @@
 #define TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER 50
 
 static sip_to_t *
-priv_sip_to_url_make (TpsipConnection *conn,
+priv_sip_to_url_make (RakiaConnection *conn,
                       su_home_t *home,
                       TpHandle contact)
 {
   const url_t *url;
 
-  url = tpsip_handle_inspect_uri (TP_BASE_CONNECTION (conn), contact);
+  url = rakia_handle_inspect_uri (TP_BASE_CONNECTION (conn), contact);
   return sip_to_create (home, (const url_string_t *) url);
 }
 
 static sip_from_t *
-priv_sip_from_url_make (TpsipConnection *conn,
+priv_sip_from_url_make (RakiaConnection *conn,
                         su_home_t *home)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   sip_from_t *from;
   gchar *alias = NULL;
 
@@ -89,7 +89,7 @@ priv_sip_from_url_make (TpsipConnection *conn,
       /* Make the alias into a quoted string, escaping all characters
        * that cannot go verbatim into a quoted string */
 
-      alias_quoted = tpsip_quote_string (alias);
+      alias_quoted = rakia_quote_string (alias);
 
       g_free (alias);
 
@@ -103,10 +103,10 @@ priv_sip_from_url_make (TpsipConnection *conn,
 
 
 nua_handle_t *
-tpsip_conn_create_register_handle (TpsipConnection *conn,
+rakia_conn_create_register_handle (RakiaConnection *conn,
                                  TpHandle contact)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   nua_handle_t *result = NULL;
   su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
   sip_to_t *to;
@@ -125,10 +125,10 @@ tpsip_conn_create_register_handle (TpsipConnection *conn,
 }
 
 nua_handle_t *
-tpsip_conn_create_request_handle (TpsipConnection *conn,
+rakia_conn_create_request_handle (RakiaConnection *conn,
                                   TpHandle contact)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   nua_handle_t *result = NULL;
   su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
   sip_from_t *from;
@@ -153,9 +153,9 @@ tpsip_conn_create_request_handle (TpsipConnection *conn,
 }
 
 void
-tpsip_conn_update_proxy_and_transport (TpsipConnection *conn)
+rakia_conn_update_proxy_and_transport (RakiaConnection *conn)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
 
   if (priv->proxy_url != NULL)
     {
@@ -195,9 +195,9 @@ tpsip_conn_update_proxy_and_transport (TpsipConnection *conn)
 }
 
 const url_t *
-tpsip_conn_get_local_url (TpsipConnection *conn)
+rakia_conn_get_local_url (RakiaConnection *conn)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   url_t *url;
 
   url = url_make (priv->sofia_home, "sip:*:*");
@@ -338,9 +338,9 @@ priv_nua_set_outbound_options (nua_t* nua, GHashTable* option_table)
 }
 
 void
-tpsip_conn_update_nua_outbound (TpsipConnection *conn)
+rakia_conn_update_nua_outbound (RakiaConnection *conn)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   GHashTable *option_table;
 
   g_return_if_fail (priv->sofia_nua != NULL);
@@ -388,7 +388,7 @@ tpsip_conn_update_nua_outbound (TpsipConnection *conn)
 }
 
 static void
-priv_sanitize_keepalive_interval (TpsipConnectionPrivate *priv)
+priv_sanitize_keepalive_interval (RakiaConnectionPrivate *priv)
 {
   guint minimum_interval;
   if (priv->keepalive_interval != 0)
@@ -406,9 +406,9 @@ priv_sanitize_keepalive_interval (TpsipConnectionPrivate *priv)
 }
 
 void
-tpsip_conn_update_nua_keepalive_interval (TpsipConnection *conn)
+rakia_conn_update_nua_keepalive_interval (RakiaConnection *conn)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   long keepalive_interval;
 
   if (!priv->keepalive_interval_specified)
@@ -432,9 +432,9 @@ tpsip_conn_update_nua_keepalive_interval (TpsipConnection *conn)
 }
 
 void
-tpsip_conn_update_nua_contact_features (TpsipConnection *conn)
+rakia_conn_update_nua_contact_features (RakiaConnection *conn)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   char *contact_features;
   guint timeout;
 
@@ -456,9 +456,9 @@ tpsip_conn_update_nua_contact_features (TpsipConnection *conn)
 }
 
 static void
-tpsip_conn_set_stun_server_address (TpsipConnection *conn, const gchar *address)
+rakia_conn_set_stun_server_address (RakiaConnection *conn, const gchar *address)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   g_return_if_fail (priv->media_manager != NULL);
   g_object_set (priv->media_manager,
                 "stun-server", address,
@@ -469,8 +469,8 @@ tpsip_conn_set_stun_server_address (TpsipConnection *conn, const gchar *address)
 static void
 priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **answers)
 {
-  TpsipConnection *conn = TPSIP_CONNECTION (ctx);
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnection *conn = TPSIP_CONNECTION (ctx);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   sres_a_record_t *ans = NULL;
 
   if (NULL != answers)
@@ -496,7 +496,7 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
     }
 
   if (NULL != ans)
-    tpsip_conn_set_stun_server_address (conn,
+    rakia_conn_set_stun_server_address (conn,
                                         inet_ntoa (ans->a_addr));
   else
     DEBUG ("Couldn't resolv STUN server address, ignoring.");
@@ -505,20 +505,20 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
 }
 
 void
-tpsip_conn_resolv_stun_server (TpsipConnection *conn, const gchar *stun_host)
+rakia_conn_resolv_stun_server (RakiaConnection *conn, const gchar *stun_host)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   struct in_addr test_addr;
 
   if (stun_host == NULL)
     {
-      tpsip_conn_set_stun_server_address (conn, NULL);
+      rakia_conn_set_stun_server_address (conn, NULL);
       return;
     }
 
   if (inet_aton (stun_host, &test_addr))
     {
-      tpsip_conn_set_stun_server_address (conn, stun_host);
+      rakia_conn_set_stun_server_address (conn, stun_host);
       return;
     }
 
@@ -547,8 +547,8 @@ priv_stun_discover_cb (sres_context_t *ctx,
                        sres_query_t *query,
                        sres_record_t **answers)
 {
-  TpsipConnection *conn = TPSIP_CONNECTION (ctx);
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnection *conn = TPSIP_CONNECTION (ctx);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   sres_srv_record_t *sel = NULL;
   int n_sel_items = 0;
   int i;
@@ -633,16 +633,16 @@ priv_stun_discover_cb (sres_context_t *ctx,
       DEBUG ("discovery got STUN server %s:%u",
              sel->srv_target, sel->srv_port);
       priv->stun_port = sel->srv_port;
-      tpsip_conn_resolv_stun_server (conn, sel->srv_target);
+      rakia_conn_resolv_stun_server (conn, sel->srv_target);
     }
 
   sres_free_answers (priv->sofia_resolver, answers);
 }
 
 void
-tpsip_conn_discover_stun_server (TpsipConnection *conn)
+rakia_conn_discover_stun_server (RakiaConnection *conn)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   char *srv_domain;
 
   if ((NULL == priv->account_url) || (NULL == priv->account_url->url_host))
@@ -675,15 +675,15 @@ tpsip_conn_discover_stun_server (TpsipConnection *conn)
 }
 
 gchar *
-tpsip_handle_normalize (TpHandleRepoIface *repo,
+rakia_handle_normalize (TpHandleRepoIface *repo,
                         const gchar *sipuri,
                         gpointer context,
                         GError **error)
 {
-  TpsipConnection *conn = TPSIP_CONNECTION (context);
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnection *conn = TPSIP_CONNECTION (context);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
 
-  return tpsip_normalize_contact (sipuri, priv->account_url, priv->transport,
+  return rakia_normalize_contact (sipuri, priv->account_url, priv->transport,
       error);
 }
 
@@ -694,8 +694,8 @@ heartbeat_wakeup (su_root_magic_t *foo,
                   su_wait_t *wait,
                   void *user_data)
 {
-  TpsipConnection *self = (TpsipConnection *) user_data;
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnection *self = (RakiaConnection *) user_data;
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
   gint keepalive_earliest; 
 
   DEBUG("tick");
@@ -705,7 +705,7 @@ heartbeat_wakeup (su_root_magic_t *foo,
   if ((wait->revents & (SU_WAIT_IN | SU_WAIT_HUP | SU_WAIT_ERR)) != SU_WAIT_IN)
     {
       WARNING ("heartbeat descriptor invalidated prematurely with event mask %hd", wait->revents);
-      tpsip_conn_heartbeat_shutdown (self);
+      rakia_conn_heartbeat_shutdown (self);
       return 0;
     }
 
@@ -719,7 +719,7 @@ heartbeat_wakeup (su_root_magic_t *foo,
         0) < 0)
     {
       WARNING ("iphb_wait failed");
-      tpsip_conn_heartbeat_shutdown (self);
+      rakia_conn_heartbeat_shutdown (self);
       return 0;
     }
 
@@ -729,10 +729,10 @@ heartbeat_wakeup (su_root_magic_t *foo,
 #endif /* HAVE_LIBIPHB */
 
 void
-tpsip_conn_heartbeat_init (TpsipConnection *self)
+rakia_conn_heartbeat_init (RakiaConnection *self)
 {
 #ifdef HAVE_LIBIPHB
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
   int wait_id;
   int reference_interval = 0;
   su_root_t *root = NULL;
@@ -753,7 +753,7 @@ tpsip_conn_heartbeat_init (TpsipConnection *self)
   if (su_wait_create (priv->heartbeat_wait,
                       iphb_get_fd (priv->heartbeat),
                       SU_WAIT_IN) != 0)
-    tpsip_log (DEBUG_FLAG, G_LOG_LEVEL_CRITICAL,
+    rakia_log (DEBUG_FLAG, G_LOG_LEVEL_CRITICAL,
         "could not create a wait object");
 
   g_object_get (self, "sofia-root", &root, NULL);
@@ -771,17 +771,17 @@ tpsip_conn_heartbeat_init (TpsipConnection *self)
         0, (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT), 0) < 0)
     {
       WARNING ("iphb_wait failed");
-      tpsip_conn_heartbeat_shutdown (self);
+      rakia_conn_heartbeat_shutdown (self);
     }
 
 #endif /* HAVE_LIBIPHB */
 }
 
 void
-tpsip_conn_heartbeat_shutdown (TpsipConnection *self)
+rakia_conn_heartbeat_shutdown (RakiaConnection *self)
 {
 #ifdef HAVE_LIBIPHB
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
   su_root_t *root = NULL;
 
   if (priv->heartbeat_wait_id == 0)

@@ -1,5 +1,5 @@
 /*
- * sip-connection.c - Source for TpsipConnection
+ * sip-connection.c - Source for RakiaConnection
  * Copyright (C) 2005-2007 Collabora Ltd.
  * Copyright (C) 2005-2009 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
@@ -35,11 +35,11 @@
 #include <telepathy-glib/svc-connection.h>
 #include <telepathy-glib/svc-generic.h>
 
-#include <tpsip/event-target.h>
-#include <tpsip/handles.h>
-#include <tpsip/connection-aliasing.h>
-#include <tpsip/media-manager.h>
-#include <tpsip/text-manager.h>
+#include <rakia/event-target.h>
+#include <rakia/handles.h>
+#include <rakia/connection-aliasing.h>
+#include <rakia/media-manager.h>
+#include <rakia/text-manager.h>
 
 #include "sip-connection.h"
 
@@ -50,14 +50,14 @@
 #include <sofia-sip/msg_header.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "tpsip/debug.h"
+#include "rakia/debug.h"
 
-G_DEFINE_TYPE_WITH_CODE (TpsipConnection, tpsip_connection,
+G_DEFINE_TYPE_WITH_CODE (RakiaConnection, rakia_connection,
     TPSIP_TYPE_BASE_CONNECTION,
     G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_DBUS_PROPERTIES,
         tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING,
-        tpsip_connection_aliasing_svc_iface_init);
+        rakia_connection_aliasing_svc_iface_init);
     G_IMPLEMENT_INTERFACE (TPSIP_TYPE_CONNECTION_ALIASING, NULL);
 );
 
@@ -74,7 +74,7 @@ enum
   PROP_PROXY,            /**< outbound SIP proxy (SIP URI) */
   PROP_REGISTRAR,        /**< SIP registrar (SIP URI) */
   PROP_LOOSE_ROUTING,       /**< enable loose routing behavior */
-  PROP_KEEPALIVE_MECHANISM, /**< keepalive mechanism as defined by TpsipConnectionKeepaliveMechanism */
+  PROP_KEEPALIVE_MECHANISM, /**< keepalive mechanism as defined by RakiaConnectionKeepaliveMechanism */
   PROP_KEEPALIVE_INTERVAL, /**< keepalive interval in seconds */
   PROP_DISCOVER_BINDING,   /**< enable discovery of public binding */
   PROP_DISCOVER_STUN,      /**< Discover STUN server name using DNS SRV lookup */
@@ -118,22 +118,22 @@ priv_url_from_string_value (su_home_t *home, const GValue *value)
 }
 
 static void
-tpsip_create_handle_repos (TpBaseConnection *conn,
+rakia_create_handle_repos (TpBaseConnection *conn,
                            TpHandleRepoIface *repos[NUM_TP_HANDLE_TYPES])
 {
   repos[TP_HANDLE_TYPE_CONTACT] =
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,
           "handle-type", TP_HANDLE_TYPE_CONTACT,
-          "normalize-function", tpsip_handle_normalize,
+          "normalize-function", rakia_handle_normalize,
           "default-normalize-context", conn,
           NULL);
 }
 
 static GPtrArray *
-tpsip_connection_create_channel_managers (TpBaseConnection *conn)
+rakia_connection_create_channel_managers (TpBaseConnection *conn)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (conn);
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnection *self = TPSIP_CONNECTION (conn);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
   GPtrArray *channel_managers = g_ptr_array_sized_new (2);
 
   g_ptr_array_add (channel_managers,
@@ -152,23 +152,23 @@ tpsip_connection_create_channel_managers (TpBaseConnection *conn)
 }
 
 static void
-tpsip_connection_init (TpsipConnection *self)
+rakia_connection_init (RakiaConnection *self)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   priv->sofia_home = su_home_new(sizeof (su_home_t));
 
-  tpsip_connection_aliasing_init (self);
+  rakia_connection_aliasing_init (self);
 }
 
 static void
-tpsip_connection_set_property (GObject      *object,
+rakia_connection_set_property (GObject      *object,
                                guint         property_id,
                                const GValue *value,
                                GParamSpec   *pspec)
 {
-  TpsipConnection *self = (TpsipConnection*) object;
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnection *self = (RakiaConnection*) object;
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   switch (property_id) {
   case PROP_ADDRESS: {
@@ -213,7 +213,7 @@ tpsip_connection_set_property (GObject      *object,
     break;
   }
   case PROP_KEEPALIVE_MECHANISM: {
-    TpsipConnectionKeepaliveMechanism mech = g_value_get_enum (value);
+    RakiaConnectionKeepaliveMechanism mech = g_value_get_enum (value);
     if (priv->keepalive_interval_specified && priv->keepalive_interval == 0)
       {
         if (mech != TPSIP_CONNECTION_KEEPALIVE_NONE
@@ -225,8 +225,8 @@ tpsip_connection_set_property (GObject      *object,
         priv->keepalive_mechanism = mech;
         if (priv->sofia_nua != NULL)
           {
-            tpsip_conn_update_nua_outbound (self);
-            tpsip_conn_update_nua_keepalive_interval (self);
+            rakia_conn_update_nua_outbound (self);
+            rakia_conn_update_nua_keepalive_interval (self);
           }
       }
     break;
@@ -238,18 +238,18 @@ tpsip_connection_set_property (GObject      *object,
       {
         priv->keepalive_mechanism = TPSIP_CONNECTION_KEEPALIVE_NONE;
         if (priv->sofia_nua != NULL)
-          tpsip_conn_update_nua_outbound (self);
+          rakia_conn_update_nua_outbound (self);
       }
     if (priv->sofia_nua)
       {
-        tpsip_conn_update_nua_keepalive_interval(self);
+        rakia_conn_update_nua_keepalive_interval(self);
       }
     break;
   }
   case PROP_DISCOVER_BINDING: {
     priv->discover_binding = g_value_get_boolean (value);
     if (priv->sofia_nua)
-      tpsip_conn_update_nua_outbound (self);
+      rakia_conn_update_nua_outbound (self);
     break;
   }
   case PROP_DISCOVER_STUN:
@@ -294,13 +294,13 @@ tpsip_connection_set_property (GObject      *object,
 }
 
 static void
-tpsip_connection_get_property (GObject      *object,
+rakia_connection_get_property (GObject      *object,
                              guint         property_id,
                              GValue       *value,
                              GParamSpec   *pspec)
 {
-  TpsipConnection *self = (TpsipConnection *) object;
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnection *self = (RakiaConnection *) object;
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   switch (property_id) {
   case PROP_ADDRESS: {
@@ -382,23 +382,23 @@ tpsip_connection_get_property (GObject      *object,
   }
 }
 
-static void tpsip_connection_dispose (GObject *object);
-static void tpsip_connection_finalize (GObject *object);
+static void rakia_connection_dispose (GObject *object);
+static void rakia_connection_finalize (GObject *object);
 
 static gchar *
-tpsip_connection_unique_name (TpBaseConnection *base)
+rakia_connection_unique_name (TpBaseConnection *base)
 {
-  TpsipConnection *conn = TPSIP_CONNECTION (base);
-  TpsipConnectionPrivate *priv;
+  RakiaConnection *conn = TPSIP_CONNECTION (base);
+  RakiaConnectionPrivate *priv;
 
   g_assert (TPSIP_IS_CONNECTION (conn));
   priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   return g_strdup (priv->address);
 }
 
-static void tpsip_connection_disconnected (TpBaseConnection *base);
-static void tpsip_connection_shut_down (TpBaseConnection *base);
-static gboolean tpsip_connection_start_connecting (TpBaseConnection *base,
+static void rakia_connection_disconnected (TpBaseConnection *base);
+static void rakia_connection_shut_down (TpBaseConnection *base);
+static gboolean rakia_connection_start_connecting (TpBaseConnection *base,
     GError **error);
 
 static const gchar *interfaces_always_present[] = {
@@ -408,46 +408,46 @@ static const gchar *interfaces_always_present[] = {
     NULL };
 
 const gchar **
-tpsip_connection_get_implemented_interfaces (void)
+rakia_connection_get_implemented_interfaces (void)
 {
   /* we don't have any conditionally-implemented interfaces */
   return interfaces_always_present;
 }
 
-static nua_handle_t *tpsip_connection_create_nua_handle (TpsipBaseConnection *,
+static nua_handle_t *rakia_connection_create_nua_handle (RakiaBaseConnection *,
     TpHandle);
-static void tpsip_connection_add_auth_handler (TpsipBaseConnection *,
-    TpsipEventTarget *);
+static void rakia_connection_add_auth_handler (RakiaBaseConnection *,
+    RakiaEventTarget *);
 
 static void
-tpsip_connection_class_init (TpsipConnectionClass *klass)
+rakia_connection_class_init (RakiaConnectionClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   TpBaseConnectionClass *base_class = TP_BASE_CONNECTION_CLASS (klass);
-  TpsipBaseConnectionClass *sip_class = TPSIP_BASE_CONNECTION_CLASS (klass);
+  RakiaBaseConnectionClass *sip_class = TPSIP_BASE_CONNECTION_CLASS (klass);
   GParamSpec *param_spec;
 
   /* Implement pure-virtual methods */
-  sip_class->create_handle = tpsip_connection_create_nua_handle;
-  sip_class->add_auth_handler = tpsip_connection_add_auth_handler;
+  sip_class->create_handle = rakia_connection_create_nua_handle;
+  sip_class->add_auth_handler = rakia_connection_add_auth_handler;
 
-  base_class->create_handle_repos = tpsip_create_handle_repos;
-  base_class->get_unique_connection_name = tpsip_connection_unique_name;
+  base_class->create_handle_repos = rakia_create_handle_repos;
+  base_class->get_unique_connection_name = rakia_connection_unique_name;
   base_class->create_channel_managers =
-      tpsip_connection_create_channel_managers;
+      rakia_connection_create_channel_managers;
   base_class->create_channel_factories = NULL;
-  base_class->disconnected = tpsip_connection_disconnected;
-  base_class->start_connecting = tpsip_connection_start_connecting;
-  base_class->shut_down = tpsip_connection_shut_down;
+  base_class->disconnected = rakia_connection_disconnected;
+  base_class->start_connecting = rakia_connection_start_connecting;
+  base_class->shut_down = rakia_connection_shut_down;
   base_class->interfaces_always_present = interfaces_always_present;
 
-  g_type_class_add_private (klass, sizeof (TpsipConnectionPrivate));
+  g_type_class_add_private (klass, sizeof (RakiaConnectionPrivate));
 
-  object_class->dispose = tpsip_connection_dispose;
-  object_class->finalize = tpsip_connection_finalize;
+  object_class->dispose = rakia_connection_dispose;
+  object_class->finalize = rakia_connection_finalize;
 
-  object_class->set_property = tpsip_connection_set_property;
-  object_class->get_property = tpsip_connection_get_property;
+  object_class->set_property = rakia_connection_set_property;
+  object_class->get_property = rakia_connection_get_property;
 
 #define INST_PROP(x) \
   g_object_class_install_property (object_class,  x, param_spec)
@@ -501,7 +501,7 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
 
   param_spec = g_param_spec_enum ("keepalive-mechanism", "Keepalive mechanism",
       "Keepalive mechanism for SIP registration",
-      tpsip_connection_keepalive_mechanism_get_type (),
+      rakia_connection_keepalive_mechanism_get_type (),
       TPSIP_CONNECTION_KEEPALIVE_AUTO, /*default value*/
       G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_KEEPALIVE_MECHANISM);
@@ -574,11 +574,11 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
 #undef INST_PROP
 
   tp_dbus_properties_mixin_class_init (object_class,
-      G_STRUCT_OFFSET (TpsipConnectionClass, properties_class));
+      G_STRUCT_OFFSET (RakiaConnectionClass, properties_class));
 }
 
 typedef struct {
-  TpsipConnection* self;
+  RakiaConnection* self;
   nua_handle_t *nh;
   gchar *method;
   gchar *realm;
@@ -586,7 +586,7 @@ typedef struct {
 } PrivHandleAuthData;
 
 static PrivHandleAuthData *
-priv_handle_auth_data_new (TpsipConnection* self,
+priv_handle_auth_data_new (RakiaConnection* self,
                            nua_handle_t *nh,
                            const gchar *method,
                            const gchar *realm,
@@ -618,7 +618,7 @@ priv_handle_auth_data_free (PrivHandleAuthData *data)
 static void priv_password_manager_prompt_cb (GObject *source_object,
                                              GAsyncResult *result,
                                              gpointer user_data);
-static void priv_handle_auth_continue (TpsipConnection* self,
+static void priv_handle_auth_continue (RakiaConnection* self,
                                        nua_handle_t *nh,
                                        const gchar *method,
                                        const gchar *realm,
@@ -626,13 +626,13 @@ static void priv_handle_auth_continue (TpsipConnection* self,
                                        const gchar *password);
 
 static gboolean
-priv_handle_auth (TpsipConnection* self,
+priv_handle_auth (RakiaConnection* self,
                   int status,
                   nua_handle_t *nh,
                   const sip_t *sip,
                   gboolean home_realm)
 {
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
   sip_www_authenticate_t const *wa;
   sip_proxy_authenticate_t const *pa;
   const char *method = NULL;
@@ -768,7 +768,7 @@ priv_password_manager_prompt_cb (GObject *source_object,
     }
   else
     {
-      TpsipConnectionPrivate *priv =
+      RakiaConnectionPrivate *priv =
           TPSIP_CONNECTION_GET_PRIVATE (data->self);
 
       password = password_string->str;
@@ -784,7 +784,7 @@ priv_password_manager_prompt_cb (GObject *source_object,
 }
 
 static void
-priv_handle_auth_continue (TpsipConnection* self,
+priv_handle_auth_continue (RakiaConnection* self,
     nua_handle_t *nh,
     const gchar *method,
     const gchar *realm,
@@ -816,10 +816,10 @@ priv_handle_auth_continue (TpsipConnection* self,
 }
 
 static gboolean
-tpsip_connection_auth_cb (TpsipEventTarget *target,
-                          const TpsipNuaEvent *ev,
+rakia_connection_auth_cb (RakiaEventTarget *target,
+                          const RakiaNuaEvent *ev,
                           tagi_t            tags[],
-                          TpsipConnection  *self)
+                          RakiaConnection  *self)
 {
   return priv_handle_auth (self,
                            ev->status,
@@ -829,25 +829,25 @@ tpsip_connection_auth_cb (TpsipEventTarget *target,
 }
 
 static void
-tpsip_connection_add_auth_handler (TpsipBaseConnection *self,
-                                   TpsipEventTarget *target)
+rakia_connection_add_auth_handler (RakiaBaseConnection *self,
+                                   RakiaEventTarget *target)
 {
   g_signal_connect_object (target,
                            "nua-event",
-                           G_CALLBACK (tpsip_connection_auth_cb),
+                           G_CALLBACK (rakia_connection_auth_cb),
                            self,
                            0);
 }
 
 static nua_handle_t *
-tpsip_connection_create_nua_handle (TpsipBaseConnection *base, TpHandle handle)
+rakia_connection_create_nua_handle (RakiaBaseConnection *base, TpHandle handle)
 {
-  return tpsip_conn_create_request_handle (TPSIP_CONNECTION (base), handle);
+  return rakia_conn_create_request_handle (TPSIP_CONNECTION (base), handle);
 }
 
 static gboolean
-tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
-                                    const TpsipNuaEvent *ev,
+rakia_connection_nua_r_register_cb (RakiaConnection     *self,
+                                    const RakiaNuaEvent *ev,
                                     tagi_t               tags[],
                                     gpointer             foo)
 {
@@ -887,7 +887,7 @@ tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
           conn_status = TP_CONNECTION_STATUS_CONNECTED;
           reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
 
-          tpsip_conn_heartbeat_init (self);
+          rakia_conn_heartbeat_init (self);
         }
     }
 
@@ -897,10 +897,10 @@ tpsip_connection_nua_r_register_cb (TpsipConnection     *self,
 }
 
 static void
-tpsip_connection_shut_down (TpBaseConnection *base)
+rakia_connection_shut_down (TpBaseConnection *base)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (base);
-  TpsipConnectionPrivate *priv;
+  RakiaConnection *self = TPSIP_CONNECTION (base);
+  RakiaConnectionPrivate *priv;
 
   DEBUG ("enter");
 
@@ -909,7 +909,7 @@ tpsip_connection_shut_down (TpBaseConnection *base)
   /* We disposed of the REGISTER handle in the disconnected method */
   g_assert (priv->register_op == NULL);
 
-  tpsip_conn_heartbeat_shutdown (self);
+  rakia_conn_heartbeat_shutdown (self);
 
   if (priv->sofia_nua != NULL)
     nua_shutdown (priv->sofia_nua);
@@ -920,11 +920,11 @@ tpsip_connection_shut_down (TpBaseConnection *base)
 }
 
 void
-tpsip_connection_dispose (GObject *object)
+rakia_connection_dispose (GObject *object)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (object);
+  RakiaConnection *self = TPSIP_CONNECTION (object);
   TpBaseConnection *base = (TpBaseConnection *)self;
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   if (priv->dispose_has_run)
     return;
@@ -933,7 +933,7 @@ tpsip_connection_dispose (GObject *object)
 
   /* release any references held by the object here */
 
-  DEBUG("disposing of TpsipConnection %p", self);
+  DEBUG("disposing of RakiaConnection %p", self);
 
   /* the base class is responsible for unreffing the self handle when we
    * disconnect */
@@ -944,15 +944,15 @@ tpsip_connection_dispose (GObject *object)
    * here we just nullify the references */
   priv->media_manager = NULL;
 
-  if (G_OBJECT_CLASS (tpsip_connection_parent_class)->dispose)
-    G_OBJECT_CLASS (tpsip_connection_parent_class)->dispose (object);
+  if (G_OBJECT_CLASS (rakia_connection_parent_class)->dispose)
+    G_OBJECT_CLASS (rakia_connection_parent_class)->dispose (object);
 }
 
 void
-tpsip_connection_finalize (GObject *obj)
+rakia_connection_finalize (GObject *obj)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (obj);
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnection *self = TPSIP_CONNECTION (obj);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
 
   /* free any data held directly by the object here */
 
@@ -981,15 +981,15 @@ tpsip_connection_finalize (GObject *obj)
 
   tp_contacts_mixin_finalize (obj);
 
-  G_OBJECT_CLASS (tpsip_connection_parent_class)->finalize (obj);
+  G_OBJECT_CLASS (rakia_connection_parent_class)->finalize (obj);
 }
 
 static gboolean
-tpsip_connection_start_connecting (TpBaseConnection *base,
+rakia_connection_start_connecting (TpBaseConnection *base,
                                    GError **error)
 {
-  TpsipConnection *self = TPSIP_CONNECTION (base);
-  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnection *self = TPSIP_CONNECTION (base);
+  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
   TpHandleRepoIface *contact_repo;
   const gchar *sip_address;
   const url_t *local_url;
@@ -1014,7 +1014,7 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
 
   DEBUG("self_handle = %d, sip_address = %s", base->self_handle, sip_address);
 
-  priv->account_url = tpsip_handle_inspect_uri (base, base->self_handle);
+  priv->account_url = rakia_handle_inspect_uri (base, base->self_handle);
   if (priv->account_url == NULL)
     {
       g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
@@ -1022,11 +1022,11 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
       return FALSE;
     }
 
-  local_url = tpsip_conn_get_local_url (self);
+  local_url = rakia_conn_get_local_url (self);
 
   /* step: create stack instance */
   priv->sofia_nua = nua_create (root,
-      tpsip_base_connection_sofia_callback,
+      rakia_base_connection_sofia_callback,
       TPSIP_BASE_CONNECTION (self),
       SOATAG_AF(SOA_AF_IP4_IP6),
       SIPTAG_FROM_STR(sip_address),
@@ -1050,15 +1050,15 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
     }
 
   /* Set configuration-dependent tags */
-  tpsip_conn_update_proxy_and_transport (self);
-  tpsip_conn_update_nua_outbound (self);
-  tpsip_conn_update_nua_keepalive_interval (self);
-  tpsip_conn_update_nua_contact_features (self);
+  rakia_conn_update_proxy_and_transport (self);
+  rakia_conn_update_nua_outbound (self);
+  rakia_conn_update_nua_keepalive_interval (self);
+  rakia_conn_update_nua_contact_features (self);
 
   if (priv->stun_host != NULL)
-    tpsip_conn_resolv_stun_server (self, priv->stun_host);
+    rakia_conn_resolv_stun_server (self, priv->stun_host);
   else if (priv->discover_stun)
-    tpsip_conn_discover_stun_server (self);
+    rakia_conn_discover_stun_server (self);
 
   DEBUG("initialized a Sofia-SIP NUA at address %p", priv->sofia_nua);
 
@@ -1068,10 +1068,10 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
 
   g_signal_connect (self,
                     "nua-event::nua_r_register",
-                    G_CALLBACK (tpsip_connection_nua_r_register_cb),
+                    G_CALLBACK (rakia_connection_nua_r_register_cb),
                     NULL);
 
-  priv->register_op = tpsip_conn_create_register_handle (self,
+  priv->register_op = rakia_conn_create_register_handle (self,
                                                          base->self_handle);
   if (priv->register_op == NULL)
     {
@@ -1080,7 +1080,7 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
       return FALSE;
     }
 
-  tpsip_event_target_attach (priv->register_op, (GObject *) self);
+  rakia_event_target_attach (priv->register_op, (GObject *) self);
 
   nua_register (priv->register_op, TAG_NULL());
 
@@ -1089,15 +1089,15 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
 
 
 /**
- * tpsip_connection_disconnected
+ * rakia_connection_disconnected
  *
  * Called after the connection becomes disconnected.
  */
 static void
-tpsip_connection_disconnected (TpBaseConnection *base)
+rakia_connection_disconnected (TpBaseConnection *base)
 {
-  TpsipConnection *obj = TPSIP_CONNECTION (base);
-  TpsipConnectionPrivate *priv;
+  RakiaConnection *obj = TPSIP_CONNECTION (base);
+  RakiaConnectionPrivate *priv;
 
   priv = TPSIP_CONNECTION_GET_PRIVATE (obj);
 

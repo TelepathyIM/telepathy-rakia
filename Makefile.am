@@ -1,5 +1,5 @@
 #
-# Makefile.am for telepathy-sofiasip/src
+# Makefile.am for telepathy-rakia/src
 #
 # Copyright (C) 2006,2008 Nokia Corporation
 # Contact: Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
@@ -16,8 +16,8 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = \
 	tools \
-	tpsip \
-	tpsip-extensions \
+	rakia \
+	extensions \
 	data \
 	docs \
 	m4 \

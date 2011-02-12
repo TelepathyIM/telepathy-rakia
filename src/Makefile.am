@@ -1,5 +1,5 @@
 #
-# Makefile.am for telepathy-sofiasip/src
+# Makefile.am for telepathy-rakia/src
 #
 # Copyright (C) 2006-2009 Nokia Corporation
 # Contact: Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
@@ -17,7 +17,7 @@ managerdir = $(datadir)/telepathy/managers
 AM_CPPFLAGS = $(DBUS_CFLAGS) $(GLIB_CFLAGS) $(SOFIA_SIP_UA_CFLAGS) \
 	$(TELEPATHY_GLIB_CFLAGS) $(IPHB_CFLAGS) \
 	-I$(top_builddir) -I$(top_srcdir) \
-	-DG_LOG_DOMAIN=\"tpsip\"
+	-DG_LOG_DOMAIN=\"rakia\"
 AM_CFLAGS = $(ERROR_CFLAGS) $(COVERAGE_CFLAGS)
 ALL_LIBS = $(DBUS_LIBS) $(GLIB_LIBS) $(SOFIA_SIP_UA_LIBS) \
 	$(TELEPATHY_GLIB_LIBS) $(IPHB_LIBS)
@@ -25,10 +25,10 @@ ALL_LIBS = $(DBUS_LIBS) $(GLIB_LIBS) $(SOFIA_SIP_UA_LIBS) \
 # ----------------------------------------------------------------------
 # Build targets
 
-libexec_PROGRAMS = telepathy-sofiasip
-manager_DATA = sofiasip.manager
+libexec_PROGRAMS = telepathy-rakia
+manager_DATA = rakia.manager
 noinst_PROGRAMS = write-mgr-file
-noinst_LTLIBRARIES = libtpsip-convenience.la
+noinst_LTLIBRARIES = librakia-convenience.la
 
 # ----------------------------------------------------------------------
 # Tests
@@ -54,7 +54,7 @@ noinst_LTLIBRARIES = libtpsip-convenience.la
 	--vtail "      { 0, NULL, NULL }\n    };\n    etype = g_@type@_register_static (\"@EnumName@\", values);\n  }\n  return etype;\n}\n" \
 	$< > $@ || rm -f $@
 
-sofiasip.manager: write-mgr-file
+rakia.manager: write-mgr-file
 	if ./write-mgr-file > $@.tmp; then \
 		mv -f $@.tmp $@;\
 	else \
@@ -65,7 +65,7 @@ BUILT_SOURCES = \
 		sip-connection-enumtypes.h \
 		sip-connection-enumtypes.c
 
-libtpsip_convenience_la_SOURCES = \
+librakia_convenience_la_SOURCES = \
     sip-connection.h \
     sip-connection.c \
     sip-connection-manager.h \
@@ -76,22 +76,22 @@ libtpsip_convenience_la_SOURCES = \
     sip-connection-helpers.c \
     sip-connection-private.h
 
-nodist_libtpsip_convenience_la_SOURCES = \
+nodist_librakia_convenience_la_SOURCES = \
     $(BUILT_SOURCES)
 
-libtpsip_convenience_la_LIBADD = \
-    $(top_builddir)/tpsip/libtpsip.la \
-    $(top_builddir)/tpsip-extensions/libtpsip-extensions.la
+librakia_convenience_la_LIBADD = \
+    $(top_builddir)/rakia/librakia.la \
+    $(top_builddir)/extensions/librakia-extensions.la
 
-telepathy_sofiasip_SOURCES = \
-    telepathy-sofiasip.c 
+telepathy_rakia_SOURCES = \
+    telepathy-rakia.c 
 
-telepathy_sofiasip_LDADD = libtpsip-convenience.la $(ALL_LIBS)
+telepathy_rakia_LDADD = librakia-convenience.la $(ALL_LIBS)
 
 write_mgr_file_SOURCES = \
     write-mgr-file.c 
 
-write_mgr_file_LDADD = libtpsip-convenience.la $(ALL_LIBS)
+write_mgr_file_LDADD = librakia-convenience.la $(ALL_LIBS)
 
 # ----------------------------------------------------------------------
 # Install and distribution rules

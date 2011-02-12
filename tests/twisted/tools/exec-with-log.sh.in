@@ -5,12 +5,12 @@ cd "@abs_top_builddir@/tests/twisted/tools"
 export TPSIP_DEBUG=all
 export TPORT_LOG=1
 ulimit -c unlimited
-exec > sofiasip-testing.log 2>&1
+exec > rakia-testing.log 2>&1
 
-if test -n "$SOFIASIP_TEST_VALGRIND"; then
+if test -n "$RAKIA_TEST_VALGRIND"; then
 	export G_DEBUG=gc-friendly
 	export G_SLICE=always-malloc
-	SOFIASIP_WRAPPER="valgrind --leak-check=full"
+	RAKIA_WRAPPER="valgrind --leak-check=full"
 fi
 
-exec $SOFIASIP_WRAPPER @abs_top_builddir@/src/telepathy-sofiasip
+exec $RAKIA_WRAPPER @abs_top_builddir@/src/telepathy-rakia

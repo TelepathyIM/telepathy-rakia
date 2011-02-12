@@ -1,5 +1,5 @@
 /*
- * tp_test.c - telepathy-sofiasip test utility (modified from
+ * tp_test.c - telepathy-rakia test utility (modified from
  * libtelepathy's proto.c)
  *
  * Copyright (C) 2005-2006 Nokia Corporation.
@@ -45,9 +45,9 @@
 /*
  * Test connection manager and account
  */
-#define CONNMGR_NAME "sofiasip"
-#define CONNMGR_BUS "org.freedesktop.Telepathy.ConnectionManager.sofiasip"
-#define CONNMGR_PATH "/org/freedesktop/Telepathy/ConnectionManager/sofiasip"
+#define CONNMGR_NAME "rakia"
+#define CONNMGR_BUS "org.freedesktop.Telepathy.ConnectionManager.rakia"
+#define CONNMGR_PATH "/org/freedesktop/Telepathy/ConnectionManager/rakia"
 #define PROTOCOL "sip"
 
 enum {

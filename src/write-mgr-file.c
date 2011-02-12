@@ -336,10 +336,10 @@ main (void)
   dbus_g_type_specialized_init ();
 
   protocols = g_slist_prepend (protocols,
-    tpsip_protocol_new (NULL));
+    rakia_protocol_new (NULL));
 
-  s = mgr_file_contents (TP_CM_BUS_NAME_BASE "sofiasip",
-      TP_CM_OBJECT_PATH_BASE "sofiasip",
+  s = mgr_file_contents (TP_CM_BUS_NAME_BASE "rakia",
+      TP_CM_OBJECT_PATH_BASE "rakia",
       protocols, &error);
 
   g_object_unref (protocols->data);

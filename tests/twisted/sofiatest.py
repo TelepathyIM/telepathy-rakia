@@ -70,7 +70,7 @@ def prepare_test(event_func, register_cb, params=None):
 
     bus = dbus.SessionBus()
     conn = servicetest.make_connection(bus, event_func,
-        'sofiasip', 'sip', actual_params)
+        'rakia', 'sip', actual_params)
 
     port = int(actual_params['port'])
     sip = SipProxy(host=actual_params['proxy-host'], port=port)

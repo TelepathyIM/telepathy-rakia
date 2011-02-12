@@ -1,5 +1,5 @@
 /*
- * sip-connection-private.h - Private structures for TpsipConnection
+ * sip-connection-private.h - Private structures for RakiaConnection
  * Copyright (C) 2005-2007 Collabora Ltd.
  * Copyright (C) 2005-2009 Nokia Corporation
  *
@@ -23,8 +23,8 @@
 
 #include "config.h"
 
-#include <tpsip/media-manager.h>
-#include <tpsip/sofia-decls.h>
+#include <rakia/media-manager.h>
+#include <rakia/sofia-decls.h>
 #include <sofia-sip/sresolv.h>
 
 #include <telepathy-glib/simple-password-manager.h>
@@ -33,7 +33,7 @@
 #include <libiphb.h>
 #endif
 
-struct _TpsipConnectionPrivate
+struct _RakiaConnectionPrivate
 {
   nua_t  *sofia_nua;
   su_home_t *sofia_home;
@@ -51,7 +51,7 @@ struct _TpsipConnectionPrivate
 
   gchar *registrar_realm;
 
-  TpsipMediaManager *media_manager;
+  RakiaMediaManager *media_manager;
   TpSimplePasswordManager *password_manager;
 
   gchar *address;
@@ -59,7 +59,7 @@ struct _TpsipConnectionPrivate
   gchar *password;
   gchar *alias;
   gchar *transport;
-  TpsipConnectionKeepaliveMechanism keepalive_mechanism;
+  RakiaConnectionKeepaliveMechanism keepalive_mechanism;
   guint keepalive_interval;
   gboolean discover_stun;
   gchar *stun_host;
@@ -79,6 +79,6 @@ struct _TpsipConnectionPrivate
 
 /* #define TPSIP_PROTOCOL_STRING               "sip" */
 
-#define TPSIP_CONNECTION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_CONNECTION, TpsipConnectionPrivate))
+#define TPSIP_CONNECTION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_CONNECTION, RakiaConnectionPrivate))
 
 #endif /*__TPSIP_CONNECTION_PRIVATE_H__*/

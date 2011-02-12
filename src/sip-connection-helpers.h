@@ -1,5 +1,5 @@
 /*
- * sip-connection-helpers.h - Helper routines used by TpsipConnection
+ * sip-connection-helpers.h - Helper routines used by RakiaConnection
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005-2009 Nokia Corporation
  *
@@ -24,7 +24,7 @@
 #include <glib.h>
 
 #include "sip-connection.h"
-#include <tpsip/sofia-decls.h>
+#include <rakia/sofia-decls.h>
 
 G_BEGIN_DECLS
 
@@ -32,30 +32,30 @@ G_BEGIN_DECLS
  * Functions for accessing Sofia-SIP interface handles
  ***********************************************************************/
 
-nua_handle_t *tpsip_conn_create_register_handle (TpsipConnection *conn,
+nua_handle_t *rakia_conn_create_register_handle (RakiaConnection *conn,
     TpHandle contact);
-nua_handle_t *tpsip_conn_create_request_handle (TpsipConnection *conn,
+nua_handle_t *rakia_conn_create_request_handle (RakiaConnection *conn,
     TpHandle contact);
 
 /***********************************************************************
  * Functions for managing NUA outbound/keepalive parameters and STUN settings
  ***********************************************************************/
 
-const url_t * tpsip_conn_get_local_url (TpsipConnection *conn);
-void tpsip_conn_update_proxy_and_transport (TpsipConnection *conn);
-void tpsip_conn_update_nua_outbound (TpsipConnection *conn);
-void tpsip_conn_update_nua_keepalive_interval (TpsipConnection *conn);
-void tpsip_conn_update_nua_contact_features (TpsipConnection *conn);
-void tpsip_conn_update_stun_server (TpsipConnection *conn);
-void tpsip_conn_resolv_stun_server (TpsipConnection *conn, const gchar *stun_host);
-void tpsip_conn_discover_stun_server (TpsipConnection *conn);
+const url_t * rakia_conn_get_local_url (RakiaConnection *conn);
+void rakia_conn_update_proxy_and_transport (RakiaConnection *conn);
+void rakia_conn_update_nua_outbound (RakiaConnection *conn);
+void rakia_conn_update_nua_keepalive_interval (RakiaConnection *conn);
+void rakia_conn_update_nua_contact_features (RakiaConnection *conn);
+void rakia_conn_update_stun_server (RakiaConnection *conn);
+void rakia_conn_resolv_stun_server (RakiaConnection *conn, const gchar *stun_host);
+void rakia_conn_discover_stun_server (RakiaConnection *conn);
 
 /***********************************************************************
  * Heartbeat management for keepalives
  ***********************************************************************/
 
-void tpsip_conn_heartbeat_init (TpsipConnection *self);
-void tpsip_conn_heartbeat_shutdown (TpsipConnection *self);
+void rakia_conn_heartbeat_init (RakiaConnection *self);
+void rakia_conn_heartbeat_shutdown (RakiaConnection *self);
 
 G_END_DECLS
 

@@ -1,5 +1,5 @@
 /*
- * sip-connection.h - Header for TpsipConnection
+ * sip-connection.h - Header for RakiaConnection
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005-2009 Nokia Corporation
  *
@@ -23,7 +23,7 @@
 
 #include <glib-object.h>
 
-#include <tpsip/base-connection.h>
+#include <rakia/base-connection.h>
 #include <telepathy-glib/dbus-properties-mixin.h>
 
 G_BEGIN_DECLS
@@ -35,41 +35,41 @@ typedef enum
   TPSIP_CONNECTION_KEEPALIVE_REGISTER,	/** Maintain registration with REGISTER requests */
   TPSIP_CONNECTION_KEEPALIVE_OPTIONS,	/** Maintain registration with OPTIONS requests */
   TPSIP_CONNECTION_KEEPALIVE_STUN,	/** Maintain registration with STUN as described in IETF draft-sip-outbound */
-} TpsipConnectionKeepaliveMechanism;
+} RakiaConnectionKeepaliveMechanism;
 
-typedef struct _TpsipConnection TpsipConnection;
-typedef struct _TpsipConnectionClass TpsipConnectionClass;
-typedef struct _TpsipConnectionPrivate TpsipConnectionPrivate;
+typedef struct _RakiaConnection RakiaConnection;
+typedef struct _RakiaConnectionClass RakiaConnectionClass;
+typedef struct _RakiaConnectionPrivate RakiaConnectionPrivate;
 
-struct _TpsipConnectionClass {
-    TpsipBaseConnectionClass parent_class;
+struct _RakiaConnectionClass {
+    RakiaBaseConnectionClass parent_class;
     TpDBusPropertiesMixinClass properties_class;
 };
 
-struct _TpsipConnection {
-    TpsipBaseConnection parent;
+struct _RakiaConnection {
+    RakiaBaseConnection parent;
 };
 
 /* TYPE MACROS */
 #define TPSIP_TYPE_CONNECTION \
-  (tpsip_connection_get_type())
+  (rakia_connection_get_type())
 #define TPSIP_CONNECTION(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_CONNECTION, TpsipConnection))
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_CONNECTION, RakiaConnection))
 #define TPSIP_CONNECTION_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_CONNECTION, TpsipConnectionClass))
+  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_CONNECTION, RakiaConnectionClass))
 #define TPSIP_IS_CONNECTION(obj) \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_CONNECTION))
 #define TPSIP_IS_CONNECTION_CLASS(klass) \
   (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_CONNECTION))
 #define TPSIP_CONNECTION_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_CONNECTION, TpsipConnectionClass))
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_CONNECTION, RakiaConnectionClass))
 
-GType tpsip_connection_get_type (void) G_GNUC_CONST;
+GType rakia_connection_get_type (void) G_GNUC_CONST;
 
-void tpsip_connection_connect_auth_handler (TpsipConnection *self,
-                                            TpsipEventTarget *target);
+void rakia_connection_connect_auth_handler (RakiaConnection *self,
+                                            RakiaEventTarget *target);
 
-const gchar **tpsip_connection_get_implemented_interfaces (void);
+const gchar **rakia_connection_get_implemented_interfaces (void);
 
 G_END_DECLS
 

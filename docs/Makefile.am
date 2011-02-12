@@ -9,7 +9,7 @@ AUTOMAKE_OPTIONS = 1.6
 # of using the various options.
 
 # The name of the module, e.g. 'glib'.
-DOC_MODULE=telepathy-sofiasip
+DOC_MODULE=telepathy-rakia
 
 # The top-level SGML file. You can change this if you want to.
 DOC_MAIN_SGML_FILE=$(DOC_MODULE)-docs.sgml
@@ -79,9 +79,9 @@ GTKDOC_LIBS=
 EXTRA_DIST =
 
 # Man page
-man_MANS = telepathy-sofiasip.8
+man_MANS = telepathy-rakia.8
 CLEANFILES = $(man_MANS)
-EXTRA_DIST += telepathy-sofiasip.8.in
+EXTRA_DIST += telepathy-rakia.8.in
 
 %.8: %.8.in Makefile
 	sed -e 's,[@]libexecdir[@],@libexecdir@,' < $< > $@

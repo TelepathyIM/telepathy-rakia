@@ -1,5 +1,5 @@
 /*
- * sip-connection-manager.c - Source for TpsipConnectionManager
+ * sip-connection-manager.c - Source for RakiaConnectionManager
  * Copyright (C) 2005-2007 Collabora Ltd.
  * Copyright (C) 2005-2009 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
@@ -35,7 +35,7 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/svc-connection-manager.h>
 
-#include <tpsip/sofia-decls.h>
+#include <rakia/sofia-decls.h>
 #include <sofia-sip/su_glib.h>
 
 #include "protocol.h"
@@ -43,13 +43,13 @@
 #include "sip-connection.h"
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "tpsip/debug.h"
+#include "rakia/debug.h"
 
 
-G_DEFINE_TYPE(TpsipConnectionManager, tpsip_connection_manager,
+G_DEFINE_TYPE(RakiaConnectionManager, rakia_connection_manager,
     TP_TYPE_BASE_CONNECTION_MANAGER)
 
-struct _TpsipConnectionManagerPrivate
+struct _RakiaConnectionManagerPrivate
 {
   su_root_t *sofia_root;
   TpDebugSender *debug_sender;
@@ -58,10 +58,10 @@ struct _TpsipConnectionManagerPrivate
 #define TPSIP_CONNECTION_MANAGER_GET_PRIVATE(obj) ((obj)->priv)
 
 static void
-tpsip_connection_manager_init (TpsipConnectionManager *obj)
+rakia_connection_manager_init (RakiaConnectionManager *obj)
 {
-  TpsipConnectionManagerPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (obj,
-        TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManagerPrivate);
+  RakiaConnectionManagerPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (obj,
+        TPSIP_TYPE_CONNECTION_MANAGER, RakiaConnectionManagerPrivate);
   GSource *source;
 
   obj->priv = priv;
@@ -80,44 +80,44 @@ tpsip_connection_manager_init (TpsipConnectionManager *obj)
 }
 
 static void
-tpsip_connection_manager_constructed (GObject *object)
+rakia_connection_manager_constructed (GObject *object)
 {
-  TpsipConnectionManager *self = TPSIP_CONNECTION_MANAGER (object);
+  RakiaConnectionManager *self = TPSIP_CONNECTION_MANAGER (object);
   TpBaseConnectionManager *base = (TpBaseConnectionManager *) self;
   void (*constructed) (GObject *) =
-      ((GObjectClass *) tpsip_connection_manager_parent_class)->constructed;
+      ((GObjectClass *) rakia_connection_manager_parent_class)->constructed;
   TpBaseProtocol *protocol;
 
   if (constructed != NULL)
     constructed (object);
 
-  protocol = tpsip_protocol_new (self->priv->sofia_root);
+  protocol = rakia_protocol_new (self->priv->sofia_root);
   tp_base_connection_manager_add_protocol (base, protocol);
   g_object_unref (protocol);
 }
 
-static void tpsip_connection_manager_finalize (GObject *object);
+static void rakia_connection_manager_finalize (GObject *object);
 
 static void
-tpsip_connection_manager_class_init (TpsipConnectionManagerClass *klass)
+rakia_connection_manager_class_init (RakiaConnectionManagerClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   TpBaseConnectionManagerClass *base_class = 
     (TpBaseConnectionManagerClass *)klass;
 
-  g_type_class_add_private (klass, sizeof (TpsipConnectionManagerPrivate));
+  g_type_class_add_private (klass, sizeof (RakiaConnectionManagerPrivate));
 
-  object_class->constructed = tpsip_connection_manager_constructed;
-  object_class->finalize = tpsip_connection_manager_finalize;
+  object_class->constructed = rakia_connection_manager_constructed;
+  object_class->finalize = rakia_connection_manager_finalize;
 
-  base_class->cm_dbus_name = "sofiasip";
+  base_class->cm_dbus_name = "rakia";
 }
 
 void
-tpsip_connection_manager_finalize (GObject *object)
+rakia_connection_manager_finalize (GObject *object)
 {
-  TpsipConnectionManager *self = TPSIP_CONNECTION_MANAGER (object);
-  TpsipConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
+  RakiaConnectionManager *self = TPSIP_CONNECTION_MANAGER (object);
+  RakiaConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
   GSource *source;
 
   source = su_root_gsource(priv->sofia_root);
@@ -130,7 +130,7 @@ tpsip_connection_manager_finalize (GObject *object)
       priv->debug_sender = NULL;
     }
 
-  tpsip_debug_free ();
+  rakia_debug_free ();
 
-  G_OBJECT_CLASS (tpsip_connection_manager_parent_class)->finalize (object);
+  G_OBJECT_CLASS (rakia_connection_manager_parent_class)->finalize (object);
 }

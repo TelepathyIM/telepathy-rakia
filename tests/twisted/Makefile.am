@@ -24,7 +24,7 @@ CHECK_TWISTED_SLEEP=0
 
 check-twisted:
 	$(MAKE) -C tools
-	rm -f tools/sofiasip-testing.log
+	rm -f tools/rakia-testing.log
 	sh $(srcdir)/tools/with-session-bus.sh \
 		--config-file=tools/tmp-session-bus.conf \
 		--sleep=$(CHECK_TWISTED_SLEEP) \
@@ -40,7 +40,7 @@ EXTRA_DIST = \
 	servicetest.py \
 	voip/voip_test.py
 
-CLEANFILES = sofiasip-[1-9]*.log *.pyc */*.pyc
+CLEANFILES = rakia-[1-9]*.log *.pyc */*.pyc
 
 check_misc_sources = $(TESTS)
 

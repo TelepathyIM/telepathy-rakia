@@ -1,5 +1,5 @@
 /*
- * protocol.h - header for TpsipProtocol
+ * protocol.h - header for RakiaProtocol
  * Copyright (C) 2007-2010 Collabora Ltd.
  *
  * This library is free software; you can redistribute it and/or
@@ -23,52 +23,52 @@
 #include <glib-object.h>
 #include <telepathy-glib/base-protocol.h>
 
-#include <tpsip/sofia-decls.h>
+#include <rakia/sofia-decls.h>
 #include <sofia-sip/su_glib.h>
 
 G_BEGIN_DECLS
 
-typedef struct _TpsipProtocol TpsipProtocol;
-typedef struct _TpsipProtocolPrivate TpsipProtocolPrivate;
-typedef struct _TpsipProtocolClass TpsipProtocolClass;
-typedef struct _TpsipProtocolClassPrivate TpsipProtocolClassPrivate;
+typedef struct _RakiaProtocol RakiaProtocol;
+typedef struct _RakiaProtocolPrivate RakiaProtocolPrivate;
+typedef struct _RakiaProtocolClass RakiaProtocolClass;
+typedef struct _RakiaProtocolClassPrivate RakiaProtocolClassPrivate;
 
-struct _TpsipProtocolClass {
+struct _RakiaProtocolClass {
     TpBaseProtocolClass parent_class;
 
-    TpsipProtocolClassPrivate *priv;
+    RakiaProtocolClassPrivate *priv;
 };
 
-struct _TpsipProtocol {
+struct _RakiaProtocol {
     TpBaseProtocol parent;
 
-    TpsipProtocolPrivate *priv;
+    RakiaProtocolPrivate *priv;
 };
 
-GType tpsip_protocol_get_type (void);
+GType rakia_protocol_get_type (void);
 
 #define TPSIP_TYPE_PROTOCOL \
-    (tpsip_protocol_get_type ())
+    (rakia_protocol_get_type ())
 #define TPSIP_PROTOCOL(obj) \
     (G_TYPE_CHECK_INSTANCE_CAST ((obj), \
         TPSIP_TYPE_PROTOCOL, \
-        TpsipProtocol))
+        RakiaProtocol))
 #define TPSIP_PROTOCOL_CLASS(klass) \
     (G_TYPE_CHECK_CLASS_CAST ((klass), \
         TPSIP_TYPE_PROTOCOL, \
-        TpsipProtocolClass))
+        RakiaProtocolClass))
 #define TPSIP_IS_PROTOCOL_CLASS(klass) \
     (G_TYPE_CHECK_CLASS_TYPE ((klass), \
         TPSIP_TYPE_PROTOCOL))
 #define TPSIP_PROTOCOL_GET_CLASS(klass) \
     (G_TYPE_INSTANCE_GET_CLASS ((obj), \
         TPSIP_TYPE_PROTOCOL, \
-        TpsipProtocolClass))
+        RakiaProtocolClass))
 
-gchar *tpsip_protocol_normalize_contact (const gchar *id,
+gchar *rakia_protocol_normalize_contact (const gchar *id,
     GError **error);
 
-TpBaseProtocol *tpsip_protocol_new (su_root_t *sofia_root);
+TpBaseProtocol *rakia_protocol_new (su_root_t *sofia_root);
 
 G_END_DECLS
 

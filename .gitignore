@@ -1,14 +1,14 @@
 # Build targets
-src/sofiasip.manager
-src/telepathy-sofiasip
+src/rakia.manager
+src/telepathy-rakia
 src/write-mgr-file
-tpsip-extensions/_gen
-tpsip-extensions/extensions.html
-data/org.freedesktop.Telepathy.ConnectionManager.sofiasip.service
-docs/telepathy-sofiasip.8
+extensions/_gen
+extensions/extensions.html
+data/org.freedesktop.Telepathy.ConnectionManager.rakia.service
+docs/telepathy-rakia.8
 tests/twisted/tools/exec-with-log.sh
-tests/twisted/tools/org.freedesktop.Telepathy.ConnectionManager.sofiasip.service
-tests/twisted/tools/sofiasip-testing.log
+tests/twisted/tools/org.freedesktop.Telepathy.ConnectionManager.rakia.service
+tests/twisted/tools/rakia-testing.log
 tests/twisted/tools/tmp-session-bus.conf
 
 # Built source files
@@ -16,7 +16,7 @@ signals-marshal.[ch]
 src/*-enumtypes.[ch]
 
 # Distribution tarballs and distcheck trees.
-/telepathy-sofiasip-*
+/telepathy-rakia-*
 
 # Output files and build directories
 .deps

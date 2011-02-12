@@ -1,5 +1,5 @@
 """
-Test tpsip's o.fd.T.Protocol implementation
+Test rakia's o.fd.T.Protocol implementation
 """
 
 import dbus
@@ -9,8 +9,8 @@ from sofiatest import exec_test
 import constants as cs
 
 def test(q, bus, conn, sip):
-    cm = bus.get_object(cs.CM + '.sofiasip',
-        tp_path_prefix + '/ConnectionManager/sofiasip')
+    cm = bus.get_object(cs.CM + '.rakia',
+        tp_path_prefix + '/ConnectionManager/rakia')
     cm_iface = dbus.Interface(cm, cs.CM)
     cm_prop_iface = dbus.Interface(cm, cs.PROPERTIES_IFACE)
 

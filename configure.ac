@@ -1,6 +1,6 @@
 AC_PREREQ([2.59])
 
-m4_define([THIS_PACKAGE],[telepathy-sofiasip])
+m4_define([THIS_PACKAGE],[telepathy-rakia])
 m4_define([VERSION_MAJOR],[0])
 m4_define([VERSION_MINOR],[7])
 m4_define([VERSION_MICRO],[1])
@@ -133,8 +133,8 @@ fi
 
 AC_CONFIG_FILES([
   Makefile
-  tpsip/Makefile
-  tpsip-extensions/Makefile
+  rakia/Makefile
+  extensions/Makefile
   src/Makefile
   m4/Makefile
   data/Makefile

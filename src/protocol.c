@@ -1,5 +1,5 @@
 /*
- * protocol.c - source for TpsipProtocol
+ * protocol.c - source for RakiaProtocol
  * Copyright (C) 2007-2010 Collabora Ltd.
  *
  * This library is free software; you can redistribute it and/or
@@ -25,14 +25,14 @@
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-glib.h>
 
-#include <tpsip/sofia-decls.h>
-#include <tpsip/handles.h>
-#include <tpsip/media-manager.h>
-#include <tpsip/text-manager.h>
+#include <rakia/sofia-decls.h>
+#include <rakia/handles.h>
+#include <rakia/media-manager.h>
+#include <rakia/text-manager.h>
 #include <sofia-sip/su_glib.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
-#include "tpsip/debug.h"
+#include "rakia/debug.h"
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
 
@@ -41,15 +41,15 @@
 #define VCARD_FIELD_NAME "x-" PROTOCOL_NAME
 #define ENGLISH_NAME "SIP"
 
-G_DEFINE_TYPE (TpsipProtocol,
-    tpsip_protocol,
+G_DEFINE_TYPE (RakiaProtocol,
+    rakia_protocol,
     TP_TYPE_BASE_PROTOCOL)
 
 enum {
     PROP_SOFIA_ROOT = 1,
 };
 
-struct _TpsipProtocolPrivate
+struct _RakiaProtocolPrivate
 {
   su_root_t *sofia_root;
 };
@@ -61,7 +61,7 @@ enum {
     PARAM_SET_SEPARATELY
 };
 
-static TpCMParamSpec tpsip_params[] = {
+static TpCMParamSpec rakia_params[] = {
     /* Account (a sip: URI)
      *
      * FIXME: validate account SIP URI properly, using appropriate RFCs */
@@ -150,19 +150,19 @@ static TpCMParamSpec tpsip_params[] = {
 };
 
 static void
-tpsip_protocol_init (TpsipProtocol *self)
+rakia_protocol_init (RakiaProtocol *self)
 {
   self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, TPSIP_TYPE_PROTOCOL,
-      TpsipProtocolPrivate);
+      RakiaProtocolPrivate);
 }
 
 static const TpCMParamSpec *
 get_parameters (TpBaseProtocol *self G_GNUC_UNUSED)
 {
-  return tpsip_params;
+  return rakia_params;
 }
 
-static TpsipConnectionKeepaliveMechanism
+static RakiaConnectionKeepaliveMechanism
 priv_parse_keepalive (const gchar *str)
 {
   if (str == NULL || strcmp (str, "auto") == 0)
@@ -267,15 +267,15 @@ new_connection (TpBaseProtocol *protocol,
                 GHashTable *params,
                 GError **error)
 {
-  TpsipProtocol *self = TPSIP_PROTOCOL (protocol);
-  TpsipConnection *conn;
+  RakiaProtocol *self = TPSIP_PROTOCOL (protocol);
+  RakiaConnection *conn;
   guint i;
   const gchar *account;
   const gchar *transport;
   const gchar *proxy_host;
   guint16 port;
   gchar *proxy;
-  TpsipConnectionKeepaliveMechanism keepalive_mechanism;
+  RakiaConnectionKeepaliveMechanism keepalive_mechanism;
 
   account = tp_asv_get_string (params, "account");
   transport = tp_asv_get_string (params, "transport");
@@ -310,26 +310,26 @@ new_connection (TpBaseProtocol *protocol,
         "transport", transport,
         NULL);
 
-  for (i = 0; tpsip_params[i].name != NULL; i++)
+  for (i = 0; rakia_params[i].name != NULL; i++)
     {
-      if (tpsip_params[i].offset == PARAM_SET_SEPARATELY)
+      if (rakia_params[i].offset == PARAM_SET_SEPARATELY)
         {
-          DEBUG ("Parameter %s is handled specially", tpsip_params[i].name);
+          DEBUG ("Parameter %s is handled specially", rakia_params[i].name);
           continue;
         }
 
-      g_assert (tpsip_params[i].offset == PARAM_EASY);
+      g_assert (rakia_params[i].offset == PARAM_EASY);
 
-      switch (tpsip_params[i].gtype)
+      switch (rakia_params[i].gtype)
         {
           case G_TYPE_STRING:
               {
                 const gchar *s = tp_asv_get_string (params,
-                    tpsip_params[i].name);
+                    rakia_params[i].name);
 
                 if (!tp_str_empty (s))
                   g_object_set (conn,
-                      tpsip_params[i].name, s,
+                      rakia_params[i].name, s,
                       NULL);
               }
             break;
@@ -338,11 +338,11 @@ new_connection (TpBaseProtocol *protocol,
               {
                 gboolean valid = FALSE;
                 guint u = tp_asv_get_uint32 (params,
-                    tpsip_params[i].name, &valid);
+                    rakia_params[i].name, &valid);
 
                 if (valid)
                   g_object_set (conn,
-                      tpsip_params[i].name, u,
+                      rakia_params[i].name, u,
                       NULL);
               }
             break;
@@ -350,12 +350,12 @@ new_connection (TpBaseProtocol *protocol,
           case G_TYPE_BOOLEAN:
               {
                 gboolean valid = FALSE;
-                gboolean b = tp_asv_get_boolean (params, tpsip_params[i].name,
+                gboolean b = tp_asv_get_boolean (params, rakia_params[i].name,
                     &valid);
 
                 if (valid)
                   g_object_set (conn,
-                      tpsip_params[i].name, b,
+                      rakia_params[i].name, b,
                       NULL);
               }
             break;
@@ -380,7 +380,7 @@ normalize_contact (TpBaseProtocol *self G_GNUC_UNUSED,
                    const gchar *contact,
                    GError **error)
 {
-  return tpsip_normalize_contact (contact, NULL, NULL, error);
+  return rakia_normalize_contact (contact, NULL, NULL, error);
 }
 
 static gchar *
@@ -411,7 +411,7 @@ get_connection_details (TpBaseProtocol *self,
   if (connection_interfaces != NULL)
     {
       *connection_interfaces = g_strdupv (
-          (GStrv) tpsip_connection_get_implemented_interfaces ());
+          (GStrv) rakia_connection_get_implemented_interfaces ());
     }
 
   if (channel_managers != NULL)
@@ -452,12 +452,12 @@ dup_authentication_types (TpBaseProtocol *base)
 }
 
 static void
-tpsip_protocol_get_property (GObject *object,
+rakia_protocol_get_property (GObject *object,
     guint property_id,
     GValue *value,
     GParamSpec *pspec)
 {
-  TpsipProtocol *self = TPSIP_PROTOCOL (object);
+  RakiaProtocol *self = TPSIP_PROTOCOL (object);
 
   switch (property_id)
     {
@@ -472,12 +472,12 @@ tpsip_protocol_get_property (GObject *object,
 }
 
 static void
-tpsip_protocol_set_property (GObject *object,
+rakia_protocol_set_property (GObject *object,
     guint property_id,
     const GValue *value,
     GParamSpec *pspec)
 {
-  TpsipProtocol *self = TPSIP_PROTOCOL (object);
+  RakiaProtocol *self = TPSIP_PROTOCOL (object);
 
   switch (property_id)
     {
@@ -492,13 +492,13 @@ tpsip_protocol_set_property (GObject *object,
 }
 
 static void
-tpsip_protocol_class_init (TpsipProtocolClass *klass)
+rakia_protocol_class_init (RakiaProtocolClass *klass)
 {
   TpBaseProtocolClass *base_class = (TpBaseProtocolClass *) klass;
   GObjectClass *object_class = (GObjectClass *) klass;
   GParamSpec *param_spec;
 
-  g_type_class_add_private (klass, sizeof (TpsipProtocolPrivate));
+  g_type_class_add_private (klass, sizeof (RakiaProtocolPrivate));
 
   base_class->get_parameters = get_parameters;
   base_class->new_connection = new_connection;
@@ -508,8 +508,8 @@ tpsip_protocol_class_init (TpsipProtocolClass *klass)
   base_class->get_connection_details = get_connection_details;
   base_class->dup_authentication_types = dup_authentication_types;
 
-  object_class->get_property = tpsip_protocol_get_property;
-  object_class->set_property = tpsip_protocol_set_property;
+  object_class->get_property = rakia_protocol_get_property;
+  object_class->set_property = rakia_protocol_set_property;
 
   param_spec = g_param_spec_pointer ("sofia-root", "Sofia-SIP root",
       "the root object for Sofia-SIP",
@@ -519,7 +519,7 @@ tpsip_protocol_class_init (TpsipProtocolClass *klass)
 }
 
 TpBaseProtocol *
-tpsip_protocol_new (su_root_t *sofia_root)
+rakia_protocol_new (su_root_t *sofia_root)
 {
   return g_object_new (TPSIP_TYPE_PROTOCOL,
       "name", PROTOCOL_NAME,

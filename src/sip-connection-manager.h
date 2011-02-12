@@ -1,5 +1,5 @@
 /*
- * sip-connection-manager.h - Header for TpsipConnectionManager
+ * sip-connection-manager.h - Header for RakiaConnectionManager
  * Copyright (C) 2005 Collabora Ltd.
  * Copyright (C) 2005-2008 Nokia Corporation
  *
@@ -27,36 +27,36 @@
 
 G_BEGIN_DECLS
 
-typedef struct _TpsipConnectionManager TpsipConnectionManager;
-typedef struct _TpsipConnectionManagerClass TpsipConnectionManagerClass;
-typedef struct _TpsipConnectionManagerPrivate TpsipConnectionManagerPrivate;
+typedef struct _RakiaConnectionManager RakiaConnectionManager;
+typedef struct _RakiaConnectionManagerClass RakiaConnectionManagerClass;
+typedef struct _RakiaConnectionManagerPrivate RakiaConnectionManagerPrivate;
 
-struct _TpsipConnectionManagerClass {
+struct _RakiaConnectionManagerClass {
     TpBaseConnectionManagerClass parent_class;
 };
 
-struct _TpsipConnectionManager {
+struct _RakiaConnectionManager {
     TpBaseConnectionManager parent;
-    TpsipConnectionManagerPrivate *priv;
+    RakiaConnectionManagerPrivate *priv;
 };
 
-GType tpsip_connection_manager_get_type(void);
+GType rakia_connection_manager_get_type(void);
 
 /* TYPE MACROS */
 #define TPSIP_TYPE_CONNECTION_MANAGER \
-  (tpsip_connection_manager_get_type())
+  (rakia_connection_manager_get_type())
 #define TPSIP_CONNECTION_MANAGER(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManager))
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_CONNECTION_MANAGER, RakiaConnectionManager))
 #define TPSIP_CONNECTION_MANAGER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManagerClass))
+  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_CONNECTION_MANAGER, RakiaConnectionManagerClass))
 #define TPSIP_IS_CONNECTION_MANAGER(obj) \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_CONNECTION_MANAGER))
 #define TPSIP_IS_CONNECTION_MANAGER_CLASS(klass) \
   (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_CONNECTION_MANAGER))
 #define TPSIP_CONNECTION_MANAGER_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_CONNECTION_MANAGER, TpsipConnectionManagerClass))
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_CONNECTION_MANAGER, RakiaConnectionManagerClass))
 
-extern const TpCMProtocolSpec tpsip_protocols[];
+extern const TpCMProtocolSpec rakia_protocols[];
 
 G_END_DECLS
 
