@@ -113,13 +113,14 @@ static TpCMParamSpec rakia_params[] = {
     { "keepalive-interval", DBUS_TYPE_UINT32_AS_STRING, G_TYPE_UINT,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(0), PARAM_EASY },
 
-    /* Use SRV DNS lookup to discover STUN server */
+    /* Use SRV DNS lookup to discover STUN server
+     * (defaults to true unless stun-server is set) */
     { "discover-stun", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
-      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE), PARAM_EASY },
+      0, NULL, PARAM_SET_SEPARATELY },
 
     /* STUN server */
     { "stun-server", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL,
-      PARAM_EASY },
+      PARAM_SET_SEPARATELY },
 
     /* STUN port */
     { "stun-port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT,
@@ -274,6 +275,9 @@ new_connection (TpBaseProtocol *protocol,
   const gchar *transport;
   const gchar *proxy_host;
   guint16 port;
+  gboolean discover_stun;
+  gboolean discover_stun_valid;
+  const gchar *stun_server;
   gchar *proxy;
   RakiaConnectionKeepaliveMechanism keepalive_mechanism;
 
@@ -309,6 +313,18 @@ new_connection (TpBaseProtocol *protocol,
     g_object_set (conn,
         "transport", transport,
         NULL);
+
+  discover_stun = tp_asv_get_boolean (params, "discover-stun",
+      &discover_stun_valid);
+  stun_server = tp_asv_get_string (params, "stun-server");
+
+  if (!discover_stun_valid && stun_server == NULL)
+    discover_stun = TRUE;
+
+  g_object_set (conn,
+      "discover-stun", discover_stun,
+      "stun-server", stun_server,
+      NULL);
 
   for (i = 0; rakia_params[i].name != NULL; i++)
     {

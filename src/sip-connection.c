@@ -1055,10 +1055,10 @@ rakia_connection_start_connecting (TpBaseConnection *base,
   rakia_conn_update_nua_keepalive_interval (self);
   rakia_conn_update_nua_contact_features (self);
 
-  if (priv->stun_host != NULL)
-    rakia_conn_resolv_stun_server (self, priv->stun_host);
-  else if (priv->discover_stun)
+  if (priv->discover_stun)
     rakia_conn_discover_stun_server (self);
+  else if (priv->stun_host != NULL)
+    rakia_conn_resolv_stun_server (self, priv->stun_host);
 
   DEBUG("initialized a Sofia-SIP NUA at address %p", priv->sofia_nua);
 
