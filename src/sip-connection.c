@@ -943,10 +943,10 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
   tpsip_conn_update_nua_keepalive_interval (self);
   tpsip_conn_update_nua_contact_features (self);
 
-  if (priv->stun_host != NULL)
-    tpsip_conn_resolv_stun_server (self, priv->stun_host);
-  else if (priv->discover_stun)
+  if (priv->discover_stun)
     tpsip_conn_discover_stun_server (self);
+  else if (priv->stun_host != NULL)
+    tpsip_conn_resolv_stun_server (self, priv->stun_host);
 
   DEBUG("initialized a Sofia-SIP NUA at address %p", priv->sofia_nua);
 

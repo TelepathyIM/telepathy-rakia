@@ -171,9 +171,10 @@ static const TpCMParamSpec tpsip_params[] = {
     { "keepalive-interval", DBUS_TYPE_UINT32_AS_STRING, G_TYPE_UINT,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(0),
       G_STRUCT_OFFSET (TpsipConnParams, keepalive_interval) },
-    /* Use SRV DNS lookup to discover STUN server */
+    /* Use SRV DNS lookup to discover STUN server
+     * (defaults to true unless stun-server is set) */
     { "discover-stun", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
-      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(TRUE),
+      0, NULL,
       G_STRUCT_OFFSET (TpsipConnParams, discover_stun) },
     /* STUN server */
     { "stun-server", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
@@ -417,6 +418,7 @@ tpsip_connection_manager_new_connection (TpBaseConnectionManager *base,
   TpsipConnParams *params = (TpsipConnParams *)parsed_params;
   gchar *proxy = NULL;
   TpsipConnectionKeepaliveMechanism keepalive_mechanism;
+  gboolean have_stun_server;
 
   if (strcmp (proto, "sip")) {
     g_set_error (error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
@@ -493,14 +495,39 @@ tpsip_connection_manager_new_connection (TpBaseConnectionManager *base,
   SET_PROPERTY_IF_PARAM_SET ("discover-binding", TPSIP_CONN_PARAM_DISCOVER_BINDING,
       params->discover_binding);
 
-  SET_PROPERTY_IF_PARAM_SET ("discover-stun", TPSIP_CONN_PARAM_DISCOVER_STUN,
-      params->discover_stun);
+  have_stun_server = tp_intset_is_member (params_present,
+      TPSIP_CONN_PARAM_STUN_SERVER);
+  if (tp_intset_is_member (params_present, TPSIP_CONN_PARAM_DISCOVER_STUN))
+    {
+      /* 'discover-stun' given, if false regard the STUN server */
+      g_object_set (connection, "discover-stun", params->discover_stun, NULL);
 
-  SET_PROPERTY_IF_PARAM_SET ("stun-server", TPSIP_CONN_PARAM_STUN_SERVER,
-      params->stun_server);
+      if (!params->discover_stun && have_stun_server)
+        {
+          g_object_set (connection,
+              "stun-server", params->stun_server,
+              NULL);
+        }
+    }
+  else if (have_stun_server)
+    {
+      /* 'discover-stun' not specified, STUN server given -> no discovery */
+      g_object_set (connection,
+          "discover-stun", FALSE,
+          "stun-server", params->stun_server,
+          NULL);
+    }
+  else
+    {
+      /* 'discover-stun' not specified, no STUN server -> default to true */
+      g_object_set (connection, "discover-stun", TRUE, NULL);
+    }
 
-  SET_PROPERTY_IF_PARAM_SET ("stun-port", TPSIP_CONN_PARAM_STUN_PORT,
-      params->stun_port);
+  if (have_stun_server)
+    {
+      SET_PROPERTY_IF_PARAM_SET ("stun-port", TPSIP_CONN_PARAM_STUN_PORT,
+          params->stun_port);
+    }
 
   SET_PROPERTY_IF_PARAM_SET ("immutable-streams", TPSIP_CONN_PARAM_IMMUTABLE_STREAMS,
       params->immutable_streams);
