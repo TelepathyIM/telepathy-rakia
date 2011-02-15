@@ -644,6 +644,7 @@ void
 rakia_conn_discover_stun_server (RakiaConnection *conn)
 {
   RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  const char *url_host;
   char *srv_domain;
   struct in_addr test_addr;
 
