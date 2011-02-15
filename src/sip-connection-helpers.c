@@ -516,6 +516,7 @@ rakia_conn_resolv_stun_server (RakiaConnection *conn, const gchar *stun_host)
       return;
     }
 
+  /* FIXME: support IPv6 as well */
   if (inet_aton (stun_host, &test_addr))
     {
       rakia_conn_set_stun_server_address (conn, stun_host);
@@ -644,10 +645,22 @@ rakia_conn_discover_stun_server (RakiaConnection *conn)
 {
   RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
   char *srv_domain;
+  struct in_addr test_addr;
 
-  if ((NULL == priv->account_url) || (NULL == priv->account_url->url_host))
+  g_return_if_fail (priv->account_url != NULL);
+
+  url_host = priv->account_url->url_host;
+
+  if (url_host == NULL)
     {
       DEBUG("unknown domain, not making STUN SRV lookup");
+      return;
+    }
+
+  /* FIXME: support IPv6 as well */
+  if (inet_aton (url_host, &test_addr))
+    {
+      DEBUG("AOR URI has IP address, not making STUN SRV lookup");
       return;
     }
 
@@ -661,9 +674,9 @@ rakia_conn_discover_stun_server (RakiaConnection *conn)
       g_return_if_fail (priv->sofia_resolver != NULL);
     }
 
-  DEBUG("creating a new STUN SRV query for domain %s", priv->account_url->url_host);
+  DEBUG("creating a new STUN SRV query for domain %s", url_host);
 
-  srv_domain = g_strdup_printf ("_stun._udp.%s", priv->account_url->url_host);
+  srv_domain = g_strdup_printf ("_stun._udp.%s", url_host);
 
   sres_query (priv->sofia_resolver,
               priv_stun_discover_cb,
