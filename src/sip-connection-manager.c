@@ -110,7 +110,7 @@ rakia_connection_manager_class_init (RakiaConnectionManagerClass *klass)
   object_class->constructed = rakia_connection_manager_constructed;
   object_class->finalize = rakia_connection_manager_finalize;
 
-  base_class->cm_dbus_name = "rakia";
+  base_class->cm_dbus_name = "sofiasip";
 }
 
 void

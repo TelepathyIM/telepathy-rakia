@@ -338,8 +338,8 @@ main (void)
   protocols = g_slist_prepend (protocols,
     rakia_protocol_new (NULL));
 
-  s = mgr_file_contents (TP_CM_BUS_NAME_BASE "rakia",
-      TP_CM_OBJECT_PATH_BASE "rakia",
+  s = mgr_file_contents (TP_CM_BUS_NAME_BASE "sofiasip",
+      TP_CM_OBJECT_PATH_BASE "sofiasip",
       protocols, &error);
 
   g_object_unref (protocols->data);

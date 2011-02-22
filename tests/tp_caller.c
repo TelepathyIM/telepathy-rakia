@@ -45,9 +45,9 @@
 /*
  * Test connection manager and account
  */
-#define CONNMGR_NAME "rakia"
-#define CONNMGR_BUS "org.freedesktop.Telepathy.ConnectionManager.rakia"
-#define CONNMGR_PATH "/org/freedesktop/Telepathy/ConnectionManager/rakia"
+#define CONNMGR_NAME "sofiasip"
+#define CONNMGR_BUS "org.freedesktop.Telepathy.ConnectionManager.sofiasip"
+#define CONNMGR_PATH "/org/freedesktop/Telepathy/ConnectionManager/sofiasip"
 #define PROTOCOL "sip"
 
 enum {

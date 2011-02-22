@@ -12,8 +12,8 @@ org.freedesktop.Telepathy.ConnectionManager.%.service: %.service.in
 	sed -e "s|[@]abs_top_builddir[@]|@abs_top_builddir@|g" $< > $@
 
 # D-Bus service file for testing
-service_in_files = rakia.service.in
-service_files = org.freedesktop.Telepathy.ConnectionManager.rakia.service
+service_in_files = sofasip.service.in
+service_files = org.freedesktop.Telepathy.ConnectionManager.sofiasip.service
 
 # D-Bus config file for testing
 conf_in_files = tmp-session-bus.conf.in
