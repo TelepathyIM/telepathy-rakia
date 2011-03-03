@@ -17,7 +17,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "config.h"
+#include "debug.h"
 
 #include <stdarg.h>
 
@@ -26,9 +26,9 @@
 #include <telepathy-glib/debug.h>
 #include <telepathy-glib/debug-sender.h>
 
-#include "rakia/debug.h"
-
 #include <sofia-sip/su_log.h>
+
+#include "config.h"
 
 static RakiaDebugFlags rakia_debug_flags = 0;
 
@@ -105,39 +105,25 @@ rakia_debug_free (void)
   flag_to_domains = NULL;
 }
 
-static void
-log_to_debug_sender (RakiaDebugFlags flag,
-                     GLogLevelFlags level,
-                     const gchar *message)
-{
-  TpDebugSender *dbg;
-  GTimeVal now;
-
-  dbg = tp_debug_sender_dup ();
-
-  g_get_current_time (&now);
-
-  tp_debug_sender_add_message (dbg, &now, debug_flag_to_domain (flag),
-      level, message);
-
-  g_object_unref (dbg);
-}
-
 void rakia_log (RakiaDebugFlags flag,
                 GLogLevelFlags level,
                 const gchar *format,
                 ...)
 {
-  gchar *message;
+  TpDebugSender *dbg;
+  gchar *message = NULL;
   va_list args;
 
+  dbg = tp_debug_sender_dup ();
+
   va_start (args, format);
-  message = g_strdup_vprintf (format, args);
+  tp_debug_sender_add_message_vprintf (dbg, NULL, &message,
+      debug_flag_to_domain (flag), level, format, args);
   va_end (args);
 
-  log_to_debug_sender (flag, level, message);
+  g_object_unref (dbg);
 
-  if (flag & rakia_debug_flags)
+  if (level > G_LOG_LEVEL_DEBUG || (flag & rakia_debug_flags) != 0)
     g_log (G_LOG_DOMAIN, level, "%s", message);
 
   g_free (message);
