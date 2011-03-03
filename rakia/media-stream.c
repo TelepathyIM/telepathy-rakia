@@ -572,13 +572,12 @@ rakia_media_stream_finalize (GObject *object)
  */
 static void
 rakia_media_stream_codec_choice (TpSvcMediaStreamHandler *iface,
-                               guint codec_id,
-                               DBusGMethodInvocation *context)
+                                 guint codec_id,
+                                 DBusGMethodInvocation *context)
 {
-  /* Inform the connection manager of the current codec choice. 
-   * -> note: not implemented by tp-gabble either (2006/May) */
+  /* Inform the connection manager of the current codec choice. */
 
-  DEBUG ("not implemented (ignoring)");
+  DEBUG ("stream engine has chosen codec %u (incoming packets received?)", codec_id);
 
   tp_svc_media_stream_handler_return_from_codec_choice (context);
 }

@@ -499,7 +499,7 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
     rakia_conn_set_stun_server_address (conn,
                                         inet_ntoa (ans->a_addr));
   else
-    DEBUG ("Couldn't resolv STUN server address, ignoring.");
+    MESSAGE ("could not resolve STUN server address, ignoring");
 
   sres_free_answers (priv->sofia_resolver, answers);
 }
