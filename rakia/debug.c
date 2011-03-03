@@ -38,6 +38,7 @@ static const GDebugKey rakia_debug_keys[] = {
   { "im",            TPSIP_DEBUG_IM },
   { "events",        TPSIP_DEBUG_EVENTS },
   { "sofia",         TPSIP_DEBUG_SOFIA },
+  { "utilities",     TPSIP_DEBUG_UTILITIES },
 };
 
 void rakia_debug_set_flags_from_env ()

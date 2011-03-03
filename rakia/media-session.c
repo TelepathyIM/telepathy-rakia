@@ -1509,7 +1509,7 @@ priv_local_media_changed (RakiaMediaSession *session)
             "immutable-streams", &immutable_streams,
             NULL);
         if (immutable_streams) {
-          g_message ("sending of a local media update disabled by parameter 'immutable-streams'");
+          MESSAGE ("sending of a local media update disabled by parameter 'immutable-streams'");
           break;
         }
       }

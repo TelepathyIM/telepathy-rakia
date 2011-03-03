@@ -21,6 +21,9 @@
 #include "event-target.h"
 #include "signals-marshal.h"
 
+#define DEBUG_FLAG TPSIP_DEBUG_EVENTS
+#include "debug.h"
+
 /* Define to the highest known nua_event_e enumeration member */
 #define TPSIP_NUA_EVENT_LAST nua_i_register
 
@@ -224,11 +227,11 @@ rakia_late_nua_event_cb (RakiaEventTargetGone *self,
                          tagi_t                tags[],
                          gpointer              foo)
 {
-  g_message ("%s received for the retired handle %p: %03d %s",
-             nua_event_name (event->nua_event),
-             event->nua_handle,
-             event->status,
-             event->text);
+  DEBUG ("%s received for the retired handle %p: %03d %s",
+      nua_event_name (event->nua_event),
+      event->nua_handle,
+      event->status,
+      event->text);
   return TRUE;
 }
 

@@ -31,6 +31,7 @@ typedef enum
   TPSIP_DEBUG_IM            = 1 << 2,
   TPSIP_DEBUG_EVENTS        = 1 << 3,
   TPSIP_DEBUG_SOFIA         = 1 << 4,
+  TPSIP_DEBUG_UTILITIES     = 1 << 5,
 } RakiaDebugFlags;
 
 void rakia_debug_set_flags_from_env ();

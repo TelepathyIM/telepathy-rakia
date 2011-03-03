@@ -22,7 +22,10 @@
 
 #include <string.h>
 
-#include <rakia/util.h>
+#include "util.h"
+
+#define DEBUG_FLAG TPSIP_DEBUG_UTILITIES
+#include "debug.h"
 
 /* Regexps for the name and the value parts of the parameter syntax */
 #define FMTP_TOKEN_PARAM "[-A-Za-z0-9!#$%&'*+.^_`{|}~]+"
@@ -235,7 +238,7 @@ rakia_codec_param_parse_generic (const gchar *fmtp, GHashTable *out)
   g_match_info_free (match);
 
   if (fmtp[pos])
-    g_message ("failed to parse part of format parameters"
+    MESSAGE ("failed to parse part of format parameters"
                " as an attribute-value list: %s", &fmtp[pos]);
 }
 
