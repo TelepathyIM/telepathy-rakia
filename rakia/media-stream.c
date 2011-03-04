@@ -56,6 +56,24 @@
 #define same_boolean(old, new) ((!(old)) == (!(new)))
 
 
+#ifdef ENABLE_DEBUG
+
+#define STREAM_DEBUG(stream, format, ...) \
+  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "stream %u: " format, \
+      (stream)->priv->id,##__VA_ARGS__)
+
+#define STREAM_MESSAGE(stream, format, ...) \
+  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_MESSAGE, "stream %u: " format, \
+      (stream)->priv->id,##__VA_ARGS__)
+
+#else
+
+#define STREAM_DEBUG
+#define STREAM_MESSAGE
+
+#endif
+
+
 static void stream_handler_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(RakiaMediaStream,
@@ -104,8 +122,6 @@ enum
 static GPtrArray *rakia_media_stream_relay_info_empty = NULL;
 
 /* private structure */
-typedef struct _RakiaMediaStreamPrivate RakiaMediaStreamPrivate;
-
 struct _RakiaMediaStreamPrivate
 {
   TpDBusDaemon *dbus_daemon;
@@ -145,7 +161,7 @@ struct _RakiaMediaStreamPrivate
   gboolean dispose_has_run;
 };
 
-#define TPSIP_MEDIA_STREAM_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_STREAM, RakiaMediaStreamPrivate))
+#define TPSIP_MEDIA_STREAM_GET_PRIVATE(stream) ((stream)->priv)
 
 static void push_remote_codecs (RakiaMediaStream *stream);
 static void push_remote_candidates (RakiaMediaStream *stream);
@@ -155,21 +171,6 @@ static void priv_update_sending (RakiaMediaStream *stream,
 static void priv_update_local_sdp(RakiaMediaStream *stream);
 static void priv_generate_sdp (RakiaMediaStream *stream);
 
-#if 0
-#ifdef ENABLE_DEBUG
-static const char *debug_tp_protocols[] = {
-  "TP_MEDIA_STREAM_PROTO_UDP (0)",
-  "TP_MEDIA_STREAM_PROTO_TCP (1)"
-};
-
-static const char *debug_tp_transports[] = {
-  "TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL (0)",
-  "TP_MEDIA_STREAM_TRANSPORT_TYPE_DERIVED (1)",
-  "TP_MEDIA_STREAM_TRANSPORT_TYPE_RELAY (2)"
-};
-#endif /* ENABLE_DEBUG */
-#endif /* 0 */
-
 /***********************************************************************
  * Set: Gobject interface
  ***********************************************************************/
@@ -177,7 +178,11 @@ static const char *debug_tp_transports[] = {
 static void
 rakia_media_stream_init (RakiaMediaStream *self)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStreamPrivate *priv = 
+      G_TYPE_INSTANCE_GET_PRIVATE ((self),
+          TPSIP_TYPE_MEDIA_STREAM, RakiaMediaStreamPrivate);
+
+  self->priv = priv;
 
   priv->playing = FALSE;
   priv->sending = FALSE;
@@ -575,9 +580,11 @@ rakia_media_stream_codec_choice (TpSvcMediaStreamHandler *iface,
                                  guint codec_id,
                                  DBusGMethodInvocation *context)
 {
+  RakiaMediaStream *self = TPSIP_MEDIA_STREAM (iface);
+
   /* Inform the connection manager of the current codec choice. */
 
-  DEBUG ("stream engine has chosen codec %u (incoming packets received?)", codec_id);
+  STREAM_DEBUG (self, "stream engine has chosen codec %u (incoming packets received?)", codec_id);
 
   tp_svc_media_stream_handler_return_from_codec_choice (context);
 }
@@ -594,9 +601,11 @@ rakia_media_stream_error (TpSvcMediaStreamHandler *iface,
                           const gchar *message,
                           DBusGMethodInvocation *context)
 {
-  DEBUG("StreamHandler.Error called: %u %s", errno, message);
+  RakiaMediaStream *self = TPSIP_MEDIA_STREAM (iface);
 
-  rakia_media_stream_close (TPSIP_MEDIA_STREAM (iface));
+  STREAM_DEBUG (self, "StreamHandler.Error called: %u %s", errno, message);
+
+  rakia_media_stream_close (self);
 
   tp_svc_media_stream_handler_return_from_error (context);
 }
@@ -645,12 +654,10 @@ rakia_media_stream_new_active_candidate_pair (TpSvcMediaStreamHandler *iface,
                                             const gchar *remote_candidate_id,
                                             DBusGMethodInvocation *context)
 {
-  RakiaMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
-  RakiaMediaStreamPrivate *priv;
+  RakiaMediaStream *self = TPSIP_MEDIA_STREAM (iface);
+  RakiaMediaStreamPrivate *priv = self->priv;
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
-
-  DEBUG("stream engine reported new active candidate pair %s-%s",
+  STREAM_DEBUG (self, "stream engine reported new active candidate pair %s-%s",
         native_candidate_id, remote_candidate_id);
 
   if (priv->remote_candidate_id == NULL
@@ -678,9 +685,9 @@ rakia_media_stream_new_active_candidate_pair (TpSvcMediaStreamHandler *iface,
  */
 static void
 rakia_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
-                                       const gchar *candidate_id,
-                                       const GPtrArray *transports,
-                                       DBusGMethodInvocation *context)
+                                         const gchar *candidate_id,
+                                         const GPtrArray *transports,
+                                         DBusGMethodInvocation *context)
 {
   RakiaMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
   RakiaMediaStreamPrivate *priv;
@@ -710,7 +717,7 @@ rakia_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   if (tr_goodness > 0)
     {
-      DEBUG("native candidate '%s' is rated as preferable", candidate_id);
+      STREAM_DEBUG (obj, "native candidate '%s' is rated as preferable", candidate_id);
       g_free (priv->native_candidate_id);
       priv->native_candidate_id = g_strdup (candidate_id);
 
@@ -732,7 +739,7 @@ rakia_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   g_ptr_array_add (candidates, g_value_get_boxed (&candidate));
 
-  SESSION_DEBUG(priv->session, "put native candidate '%s' from stream-engine into cache", candidate_id);
+  STREAM_DEBUG(obj, "put native candidate '%s' into cache", candidate_id);
 
   tp_svc_media_stream_handler_return_from_new_native_candidate (context);
 }
@@ -744,8 +751,8 @@ priv_set_local_codecs (RakiaMediaStream *self,
   RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
   GValue val = { 0, };
 
-  SESSION_DEBUG(priv->session, "putting list of %d locally supported "
-                "codecs from stream-engine into cache", codecs->len);
+  STREAM_DEBUG(self, "putting list of %d locally supported codecs into cache",
+      codecs->len);
   g_value_init (&val, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST);
   g_value_set_static_boxed (&val, codecs);
   g_value_copy (&val, &priv->native_codecs);
@@ -769,7 +776,7 @@ rakia_media_stream_codecs_updated (TpSvcMediaStreamHandler *iface,
           "CodecsUpdated may not be called before codecs have been provided "
           "with SetLocalCodecs or Ready" };
 
-      SESSION_DEBUG(priv->session,
+      STREAM_DEBUG (self,
           "CodecsUpdated called before SetLocalCodecs or Ready");
 
       dbus_g_method_return_error (context, &e);
@@ -778,7 +785,7 @@ rakia_media_stream_codecs_updated (TpSvcMediaStreamHandler *iface,
     {
       GValue val = { 0, };
 
-      SESSION_DEBUG(priv->session, "putting list of %d locally supported "
+      STREAM_DEBUG (self, "putting list of %d locally supported "
           "codecs from CodecsUpdated into cache", codecs->len);
       g_value_init (&val, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST);
       g_value_set_static_boxed (&val, codecs);
@@ -892,7 +899,7 @@ rakia_media_stream_stream_state (TpSvcMediaStreamHandler *iface,
 
   if (priv->state != state)
     {
-      DEBUG("changing stream state from %u to %u", priv->state, state);
+      STREAM_DEBUG (obj, "stream state change %u -> %u", priv->state, state);
       priv->state = state;
       g_signal_emit (obj, signals[SIG_STATE_CHANGED], 0, state);
     }
@@ -908,8 +915,8 @@ rakia_media_stream_stream_state (TpSvcMediaStreamHandler *iface,
  */
 static void
 rakia_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
-                                   const GPtrArray *codecs,
-                                   DBusGMethodInvocation *context)
+                                     const GPtrArray *codecs,
+                                     DBusGMethodInvocation *context)
 {
   /* purpose: "Inform the connection manager of the supported codecs for this session.
    *          This is called after the connection manager has emitted SetRemoteCodecs
@@ -924,8 +931,9 @@ rakia_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
   RakiaMediaStreamPrivate *priv;
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
 
-  DEBUG("got codec intersection containing %u codecs from stream-engine",
-        codecs->len);
+  STREAM_DEBUG (self,
+      "got codec intersection containing %u codecs from stream-engine",
+      codecs->len);
 
   /* Uncomment the line below if there's need to limit the local codec list
    * with the intersection for later SDP negotiations.
@@ -1084,26 +1092,26 @@ rakia_media_stream_set_remote_media (RakiaMediaStream *stream,
 
   if (new_media->m_rejected || new_media->m_port == 0)
     {
-      DEBUG("the stream is rejected remotely");
+      STREAM_DEBUG (stream, "the stream is rejected remotely");
       return FALSE;
     }
 
   if (new_media->m_proto != sdp_proto_rtp)
     {
-      WARNING ("Stream %u: the remote protocol is not RTP/AVP", priv->id);
+      STREAM_MESSAGE (stream, "the remote protocol is not RTP/AVP");
       return FALSE;
     }
 
   sdp_conn = sdp_media_connections (new_media);
   if (sdp_conn == NULL)
     {
-      WARNING ("Stream %u: no valid remote connections", priv->id);
+      STREAM_MESSAGE (stream, "no valid remote connections");
       return FALSE;
     }
 
   if (new_media->m_rtpmaps == NULL)
     {
-      WARNING ("Stream %u: no remote codecs", priv->id);
+      STREAM_MESSAGE (stream, "no remote codecs");
       return FALSE;
     }
 
@@ -1116,7 +1124,7 @@ rakia_media_stream_set_remote_media (RakiaMediaStream *stream,
 
   if (sdp_media_cmp (old_media, new_media) == 0)
     {
-      DEBUG("no media changes detected for the stream");
+      STREAM_DEBUG (stream, "no media changes detected for the stream");
       return TRUE;
     }
 
@@ -1214,7 +1222,7 @@ void rakia_media_stream_set_playing (RakiaMediaStream *stream, gboolean playing)
   if (same_boolean (priv->playing, playing))
     return;
 
-  DEBUG("set playing to %s", playing? "TRUE" : "FALSE");
+  STREAM_DEBUG (stream, "set playing to %s", playing? "TRUE" : "FALSE");
 
   priv->playing = playing;
 
@@ -1236,7 +1244,7 @@ rakia_media_stream_set_sending (RakiaMediaStream *stream, gboolean sending)
   if (same_boolean(priv->sending, sending))
     return;
 
-  DEBUG("set sending to %s", sending? "TRUE" : "FALSE");
+  STREAM_DEBUG (stream, "set sending to %s", sending? "TRUE" : "FALSE");
 
   priv->sending = sending;
 
@@ -1319,7 +1327,7 @@ rakia_media_stream_set_direction (RakiaMediaStream *stream,
   priv->direction = direction;
   priv->pending_send_flags = pending_send_flags;
 
-  DEBUG("set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
+  STREAM_DEBUG (stream, "set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
 
   g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
                  priv->direction, priv->pending_send_flags);
@@ -1362,7 +1370,7 @@ rakia_media_stream_apply_pending_direction (RakiaMediaStream *stream,
       if ((flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
         priv->direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
 
-      DEBUG("set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
+      STREAM_DEBUG (stream, "set direction %u, pending send flags %u", priv->direction, priv->pending_send_flags);
 
       g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
                      priv->direction, priv->pending_send_flags);
@@ -1371,7 +1379,7 @@ rakia_media_stream_apply_pending_direction (RakiaMediaStream *stream,
   if ((pending_send_mask & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0)
     {
       priv->pending_remote_receive = FALSE;
-      DEBUG("remote end ready to receive");
+      STREAM_DEBUG (stream, "remote end ready to receive");
     }
 
   /* Always check to enable sending because the session could become accepted */
@@ -1470,13 +1478,13 @@ static void push_remote_codecs (RakiaMediaStream *stream)
   sdpmedia = priv->remote_media; 
   if (sdpmedia == NULL)
     {
-      DEBUG("remote media description is not received yet");
+      STREAM_DEBUG (stream, "remote media description is not received yet");
       return;
     }
 
   if (!priv->ready_received)
     {
-      DEBUG("the stream engine is not ready, SetRemoteCodecs is pending");
+      STREAM_DEBUG (stream, "the stream engine is not ready, SetRemoteCodecs is pending");
       priv->push_remote_codecs_pending = TRUE;
       return;
     }
@@ -1554,8 +1562,8 @@ static void push_remote_codecs (RakiaMediaStream *stream)
   g_free (ptime);
   g_free (max_ptime);
 
-  SESSION_DEBUG(priv->session, "passing %d remote codecs to stream engine",
-                codecs->len);
+  STREAM_DEBUG(stream, "emitting %d remote codecs to the handler",
+      codecs->len);
 
   tp_svc_media_stream_handler_emit_set_remote_codecs (
         (TpSvcMediaStreamHandler *)stream, codecs);
@@ -1587,13 +1595,13 @@ static void push_remote_candidates (RakiaMediaStream *stream)
   media = priv->remote_media; 
   if (media == NULL)
     {
-      DEBUG("remote media description is not received yet");
+      STREAM_DEBUG (stream, "remote media description is not received yet");
       return;
     }
 
   if (!priv->ready_received)
     {
-      DEBUG("the stream engine is not ready, SetRemoteCandidateList is pending");
+      STREAM_DEBUG (stream, "the stream engine is not ready, SetRemoteCandidateList is pending");
       priv->push_remote_cands_pending = TRUE;
       return;
     }
@@ -1625,7 +1633,7 @@ static void push_remote_candidates (RakiaMediaStream *stream)
                           /* 9, "", */
                           G_MAXUINT);
 
-  DEBUG("remote RTP address=<%s>, port=<%u>", sdp_conn->c_address, port);
+  STREAM_DEBUG (stream, "remote RTP address=<%s>, port=<%u>", sdp_conn->c_address, port);
   g_ptr_array_add (transports, g_value_get_boxed (&transport));
 
   if (!rakia_sdp_rtcp_bandwidth_throttled (media->m_bandwidths))
@@ -1675,7 +1683,7 @@ static void push_remote_candidates (RakiaMediaStream *stream)
                                   /* 9, "", */
                                   G_MAXUINT);
 
-          DEBUG("remote RTCP address=<%s>, port=<%u>", rtcp_address, rtcp_port);
+          STREAM_DEBUG (stream, "remote RTCP address=<%s>, port=<%u>", rtcp_address, rtcp_port);
           g_ptr_array_add (transports, g_value_get_boxed (&transport_rtcp));
         }
     }
@@ -1697,7 +1705,7 @@ static void push_remote_candidates (RakiaMediaStream *stream)
   candidates = dbus_g_type_specialized_construct (candidates_type);
   g_ptr_array_add (candidates, g_value_get_boxed (&candidate));
 
-  DEBUG("emitting SetRemoteCandidateList with %s", candidate_id);
+  STREAM_DEBUG (stream, "emitting SetRemoteCandidateList with %s", candidate_id);
 
   tp_svc_media_stream_handler_emit_set_remote_candidate_list (
           (TpSvcMediaStreamHandler *)stream, candidates);
@@ -1719,7 +1727,7 @@ push_active_candidate_pair (RakiaMediaStream *stream)
       && priv->native_candidate_id != NULL
       && priv->remote_candidate_id != NULL)
     {
-      DEBUG("emitting SetActiveCandidatePair for %s-%s",
+      STREAM_DEBUG (stream, "emitting SetActiveCandidatePair for %s-%s",
             priv->native_candidate_id, priv->remote_candidate_id);
       tp_svc_media_stream_handler_emit_set_active_candidate_pair (
                 stream, priv->native_candidate_id, priv->remote_candidate_id);
