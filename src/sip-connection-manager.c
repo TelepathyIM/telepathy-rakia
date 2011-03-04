@@ -31,7 +31,6 @@
 
 #include <dbus/dbus-protocol.h>
 
-#include <telepathy-glib/debug-sender.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/svc-connection-manager.h>
 
@@ -52,7 +51,6 @@ G_DEFINE_TYPE(RakiaConnectionManager, rakia_connection_manager,
 struct _RakiaConnectionManagerPrivate
 {
   su_root_t *sofia_root;
-  TpDebugSender *debug_sender;
 };
 
 #define TPSIP_CONNECTION_MANAGER_GET_PRIVATE(obj) ((obj)->priv)
@@ -70,9 +68,6 @@ rakia_connection_manager_init (RakiaConnectionManager *obj)
   su_root_threading(priv->sofia_root, 0);
   source = su_root_gsource(priv->sofia_root);
   g_source_attach(source, NULL);
-
-  priv->debug_sender = tp_debug_sender_dup ();
-  g_log_set_default_handler (tp_debug_sender_log_handler, G_LOG_DOMAIN);
 
 #ifdef HAVE_LIBIPHB
   su_root_set_max_defer (priv->sofia_root, TPSIP_DEFER_TIMEOUT * 1000L);
@@ -123,14 +118,6 @@ rakia_connection_manager_finalize (GObject *object)
   source = su_root_gsource(priv->sofia_root);
   g_source_destroy(source);
   su_root_destroy(priv->sofia_root);
-
-  if (priv->debug_sender != NULL)
-    {
-      g_object_unref (priv->debug_sender);
-      priv->debug_sender = NULL;
-    }
-
-  rakia_debug_free ();
 
   G_OBJECT_CLASS (rakia_connection_manager_parent_class)->finalize (object);
 }

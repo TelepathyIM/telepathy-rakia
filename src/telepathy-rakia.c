@@ -31,6 +31,10 @@
 #include "sip-connection-manager.h"
 #include <telepathy-glib/run.h>
 #include <telepathy-glib/debug.h>
+#include <telepathy-glib/debug-sender.h>
+
+#include <rakia/sofia-decls.h>
+#include <sofia-sip/su_log.h>
 
 static TpBaseConnectionManager *
 construct_cm (void)
@@ -44,7 +48,7 @@ int
 main (int argc, char** argv)
 {
   int status;
-  gpointer logdata;
+  TpDebugSender *debug_sender;
   guint fatal_mask;
 
   fatal_mask = g_log_set_always_fatal (G_LOG_FATAL_MASK);
@@ -62,12 +66,17 @@ main (int argc, char** argv)
 
   tp_debug_divert_messages (g_getenv ("TPSIP_LOGFILE"));
 
-  logdata = rakia_sofia_log_init ();
+  debug_sender = tp_debug_sender_dup ();
+  g_log_set_default_handler (tp_debug_sender_log_handler, G_LOG_DOMAIN);
+
+  su_log_redirect (NULL, rakia_sofia_log_handler, NULL);
 
   status = tp_run_connection_manager ("telepathy-rakia", VERSION,
                                       construct_cm, argc, argv);
 
-  rakia_sofia_log_finalize (logdata);
+  rakia_debug_free ();
+
+  g_object_unref (debug_sender);
 
   return status;
 }
