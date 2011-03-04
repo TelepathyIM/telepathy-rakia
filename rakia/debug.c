@@ -116,21 +116,27 @@ void rakia_log (RakiaDebugFlags flag,
 {
   TpDebugSender *dbg;
   gchar *message = NULL;
+  gchar **message_out;
   va_list args;
+
+  message_out =
+      (level > G_LOG_LEVEL_DEBUG || (flag & rakia_debug_flags) != 0)?
+      &message : NULL;
 
   dbg = tp_debug_sender_dup ();
 
   va_start (args, format);
-  tp_debug_sender_add_message_vprintf (dbg, NULL, &message,
+  tp_debug_sender_add_message_vprintf (dbg, NULL, message_out,
       debug_flag_to_domain (flag), level, format, args);
   va_end (args);
 
   g_object_unref (dbg);
 
-  if (level > G_LOG_LEVEL_DEBUG || (flag & rakia_debug_flags) != 0)
-    g_log (G_LOG_DOMAIN, level, "%s", message);
-
-  g_free (message);
+  if (message_out != NULL)
+    {
+      g_log (G_LOG_DOMAIN, level, "%s", message);
+      g_free (message);
+    }
 }
 
 void
