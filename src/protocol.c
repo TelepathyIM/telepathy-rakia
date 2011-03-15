@@ -111,7 +111,7 @@ static TpCMParamSpec rakia_params[] = {
 
     /* Keep-alive interval */
     { "keepalive-interval", DBUS_TYPE_UINT32_AS_STRING, G_TYPE_UINT,
-      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(0), PARAM_EASY },
+      0, NULL, PARAM_EASY },
 
     /* Use SRV DNS lookup to discover STUN server for media NAT traversal
      * (defaults to true unless stun-server is set) */

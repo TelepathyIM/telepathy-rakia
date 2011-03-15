@@ -510,7 +510,7 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
       "Interval between keepalive probes in seconds "
       "(0 = disabled, unset = use a default interval)",
       0, G_MAXUINT32, 0,
-      G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_KEEPALIVE_INTERVAL);
 
   param_spec = g_param_spec_boolean ("discover-binding",
