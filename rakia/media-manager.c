@@ -34,12 +34,12 @@
 
 #include <sofia-sip/sip_status.h>
 
-#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
+#define DEBUG_FLAG RAKIA_DEBUG_CONNECTION
 #include "rakia/debug.h"
 
 typedef enum {
-  TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO = 1 << 0,
-  TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO = 1 << 1,
+  RAKIA_MEDIA_CHANNEL_CREATE_WITH_AUDIO = 1 << 0,
+  RAKIA_MEDIA_CHANNEL_CREATE_WITH_VIDEO = 1 << 1,
 } RakiaMediaChannelCreationFlags;
 
 static void channel_manager_iface_init (gpointer, gpointer);
@@ -78,12 +78,12 @@ struct _RakiaMediaManagerPrivate
   gboolean dispose_has_run;
 };
 
-#define TPSIP_MEDIA_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_MANAGER, RakiaMediaManagerPrivate))
+#define RAKIA_MEDIA_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_MEDIA_MANAGER, RakiaMediaManagerPrivate))
 
 static void
 rakia_media_manager_init (RakiaMediaManager *fac)
 {
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   priv->conn = NULL;
   priv->channels = g_ptr_array_sized_new (1);
@@ -94,8 +94,8 @@ rakia_media_manager_init (RakiaMediaManager *fac)
 static void
 rakia_media_manager_dispose (GObject *object)
 {
-  RakiaMediaManager *fac = TPSIP_MEDIA_MANAGER (object);
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
+  RakiaMediaManager *fac = RAKIA_MEDIA_MANAGER (object);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   if (priv->dispose_has_run)
     return;
@@ -112,8 +112,8 @@ rakia_media_manager_dispose (GObject *object)
 static void
 rakia_media_manager_finalize (GObject *object)
 {
-  RakiaMediaManager *fac = TPSIP_MEDIA_MANAGER (object);
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
+  RakiaMediaManager *fac = RAKIA_MEDIA_MANAGER (object);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   g_free (priv->stun_server);
 }
@@ -124,8 +124,8 @@ rakia_media_manager_get_property (GObject *object,
                                GValue *value,
                                GParamSpec *pspec)
 {
-  RakiaMediaManager *fac = TPSIP_MEDIA_MANAGER (object);
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
+  RakiaMediaManager *fac = RAKIA_MEDIA_MANAGER (object);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -149,8 +149,8 @@ rakia_media_manager_set_property (GObject *object,
                                const GValue *value,
                                GParamSpec *pspec)
 {
-  RakiaMediaManager *fac = TPSIP_MEDIA_MANAGER (object);
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
+  RakiaMediaManager *fac = RAKIA_MEDIA_MANAGER (object);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -186,7 +186,7 @@ rakia_media_manager_class_init (RakiaMediaManagerClass *klass)
   param_spec = g_param_spec_object ("connection",
       "RakiaBaseConnection object",
       "SIP connection that owns this media channel manager",
-      TPSIP_TYPE_BASE_CONNECTION,
+      RAKIA_TYPE_BASE_CONNECTION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 
@@ -199,7 +199,7 @@ rakia_media_manager_class_init (RakiaMediaManagerClass *klass)
   param_spec = g_param_spec_uint ("stun-port", "STUN port",
       "STUN port.",
       0, G_MAXUINT16,
-      TPSIP_DEFAULT_STUN_PORT,
+      RAKIA_DEFAULT_STUN_PORT,
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_STUN_PORT, param_spec);
 }
@@ -207,7 +207,7 @@ rakia_media_manager_class_init (RakiaMediaManagerClass *klass)
 static void
 rakia_media_manager_close_all (RakiaMediaManager *fac)
 {
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   if (priv->status_changed_id != 0)
     {
@@ -242,8 +242,8 @@ rakia_media_manager_close_all (RakiaMediaManager *fac)
 static void
 media_channel_closed_cb (RakiaMediaChannel *chan, gpointer user_data)
 {
-  RakiaMediaManager *fac = TPSIP_MEDIA_MANAGER (user_data);
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
+  RakiaMediaManager *fac = RAKIA_MEDIA_MANAGER (user_data);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   tp_channel_manager_emit_channel_closed_for_object (fac,
       TP_EXPORTABLE_CHANNEL (chan));
@@ -276,15 +276,15 @@ new_media_channel (RakiaMediaManager *fac,
 
   g_assert (initiator != 0);
 
-  priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
+  priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
   object_path = g_strdup_printf ("%s/MediaChannel%u", priv->conn->object_path,
       priv->channel_index++);
 
   DEBUG("channel object path %s", object_path);
 
-  initial_audio = ((flags & TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO) != 0);
-  initial_video = ((flags & TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO) != 0);
+  initial_audio = ((flags & RAKIA_MEDIA_CHANNEL_CREATE_WITH_AUDIO) != 0);
+  initial_video = ((flags & RAKIA_MEDIA_CHANNEL_CREATE_WITH_VIDEO) != 0);
 
   g_object_get (priv->conn,
       "immutable-streams", &immutable_streams,
@@ -295,7 +295,7 @@ new_media_channel (RakiaMediaManager *fac,
       nat_traversal = "stun";
     }
 
-  chan = g_object_new (TPSIP_TYPE_MEDIA_CHANNEL,
+  chan = g_object_new (RAKIA_TYPE_MEDIA_CHANNEL,
                        "connection", priv->conn,
                        "object-path", object_path,
                        "handle", maybe_peer,
@@ -382,7 +382,7 @@ connection_status_changed_cb (RakiaBaseConnection *conn,
                               guint reason,
                               RakiaMediaManager *self)
 {
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (self);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (self);
 
   switch (status)
     {
@@ -412,8 +412,8 @@ connection_status_changed_cb (RakiaBaseConnection *conn,
 static void
 rakia_media_manager_constructed (GObject *object)
 {
-  RakiaMediaManager *self = TPSIP_MEDIA_MANAGER (object);
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (self);
+  RakiaMediaManager *self = RAKIA_MEDIA_MANAGER (object);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (self);
   GObjectClass *parent_object_class =
       G_OBJECT_CLASS (rakia_media_manager_parent_class);
 
@@ -429,8 +429,8 @@ rakia_media_manager_foreach_channel (TpChannelManager *manager,
                                      TpExportableChannelFunc foreach,
                                      gpointer user_data)
 {
-  RakiaMediaManager *fac = TPSIP_MEDIA_MANAGER (manager);
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (fac);
+  RakiaMediaManager *fac = RAKIA_MEDIA_MANAGER (manager);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
   guint i;
 
   for (i = 0; i < priv->channels->len; i++)
@@ -499,8 +499,8 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
                                   GHashTable *request_properties,
                                   RequestMethod method)
 {
-  RakiaMediaManager *self = TPSIP_MEDIA_MANAGER (manager);
-  RakiaMediaManagerPrivate *priv = TPSIP_MEDIA_MANAGER_GET_PRIVATE (self);
+  RakiaMediaManager *self = RAKIA_MEDIA_MANAGER (manager);
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (self);
   TpBaseConnection *conn = (TpBaseConnection *) priv->conn;
   TpHandleType handle_type;
   TpHandle handle;
@@ -615,11 +615,11 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
 
       if (tp_asv_get_boolean (request_properties,
             TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio", NULL))
-        chan_flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_AUDIO;
+        chan_flags |= RAKIA_MEDIA_CHANNEL_CREATE_WITH_AUDIO;
 
       if (tp_asv_get_boolean (request_properties,
             TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo", NULL))
-        chan_flags |= TPSIP_MEDIA_CHANNEL_CREATE_WITH_VIDEO;
+        chan_flags |= RAKIA_MEDIA_CHANNEL_CREATE_WITH_VIDEO;
 
       channel = new_media_channel (self, conn->self_handle, handle, chan_flags);
 

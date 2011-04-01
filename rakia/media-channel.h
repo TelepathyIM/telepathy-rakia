@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __TPSIP_MEDIA_CHANNEL_H__
-#define __TPSIP_MEDIA_CHANNEL_H__
+#ifndef __RAKIA_MEDIA_CHANNEL_H__
+#define __RAKIA_MEDIA_CHANNEL_H__
 
 #include <glib-object.h>
 #include <sofia-sip/sdp.h>
@@ -52,18 +52,18 @@ struct _RakiaMediaChannel {
 GType rakia_media_channel_get_type(void);
 
 /* TYPE MACROS */
-#define TPSIP_TYPE_MEDIA_CHANNEL \
+#define RAKIA_TYPE_MEDIA_CHANNEL \
   (rakia_media_channel_get_type())
-#define TPSIP_MEDIA_CHANNEL(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_MEDIA_CHANNEL, RakiaMediaChannel))
-#define TPSIP_MEDIA_CHANNEL_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_MEDIA_CHANNEL, RakiaMediaChannelClass))
-#define TPSIP_IS_MEDIA_CHANNEL(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_MEDIA_CHANNEL))
-#define TPSIP_IS_MEDIA_CHANNEL_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_MEDIA_CHANNEL))
-#define TPSIP_MEDIA_CHANNEL_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_MEDIA_CHANNEL, RakiaMediaChannelClass))
+#define RAKIA_MEDIA_CHANNEL(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), RAKIA_TYPE_MEDIA_CHANNEL, RakiaMediaChannel))
+#define RAKIA_MEDIA_CHANNEL_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), RAKIA_TYPE_MEDIA_CHANNEL, RakiaMediaChannelClass))
+#define RAKIA_IS_MEDIA_CHANNEL(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), RAKIA_TYPE_MEDIA_CHANNEL))
+#define RAKIA_IS_MEDIA_CHANNEL_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), RAKIA_TYPE_MEDIA_CHANNEL))
+#define RAKIA_MEDIA_CHANNEL_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), RAKIA_TYPE_MEDIA_CHANNEL, RakiaMediaChannelClass))
 
 /***********************************************************************
  * Additional declarations (not based on generated templates)
@@ -89,4 +89,4 @@ rakia_media_channel_change_call_state (RakiaMediaChannel *self,
 
 G_END_DECLS
 
-#endif /* #ifndef __TPSIP_MEDIA_CHANNEL_H__*/
+#endif /* #ifndef __RAKIA_MEDIA_CHANNEL_H__*/

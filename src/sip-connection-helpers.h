@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __TPSIP_CONNECTION_HELPERS_H__
-#define __TPSIP_CONNECTION_HELPERS_H__
+#ifndef __RAKIA_CONNECTION_HELPERS_H__
+#define __RAKIA_CONNECTION_HELPERS_H__
 
 #include <glib.h>
 
@@ -59,4 +59,4 @@ void rakia_conn_heartbeat_shutdown (RakiaConnection *self);
 
 G_END_DECLS
 
-#endif /* #ifndef __TPSIP_CONNECTION_HELPERS_H__*/
+#endif /* #ifndef __RAKIA_CONNECTION_HELPERS_H__*/

@@ -26,11 +26,11 @@ G_BEGIN_DECLS
 
 typedef enum
 {
-  TPSIP_DEBUG_CONNECTION    = 1 << 0,
-  TPSIP_DEBUG_MEDIA         = 1 << 1,
-  TPSIP_DEBUG_IM            = 1 << 2,
-  TPSIP_DEBUG_EVENTS        = 1 << 3,
-  TPSIP_DEBUG_SOFIA         = 1 << 4,
+  RAKIA_DEBUG_CONNECTION    = 1 << 0,
+  RAKIA_DEBUG_MEDIA         = 1 << 1,
+  RAKIA_DEBUG_IM            = 1 << 2,
+  RAKIA_DEBUG_EVENTS        = 1 << 3,
+  RAKIA_DEBUG_SOFIA         = 1 << 4,
 } RakiaDebugFlags;
 
 void rakia_debug_set_flags_from_env ();

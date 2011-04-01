@@ -22,10 +22,10 @@
 #include "signals-marshal.h"
 
 /* Define to the highest known nua_event_e enumeration member */
-#define TPSIP_NUA_EVENT_LAST nua_i_register
+#define RAKIA_NUA_EVENT_LAST nua_i_register
 
 /* Mapping of the event enumeration to signal detail quarks */
-static GQuark event_quarks[TPSIP_NUA_EVENT_LAST + 1] = {0};
+static GQuark event_quarks[RAKIA_NUA_EVENT_LAST + 1] = {0};
 
 /* Signals */
 enum {
@@ -70,7 +70,7 @@ rakia_event_target_base_init (gpointer klass)
             G_TYPE_POINTER,
             G_TYPE_POINTER);
 
-      for (i = 0; i <= TPSIP_NUA_EVENT_LAST; i++)
+      for (i = 0; i <= RAKIA_NUA_EVENT_LAST; i++)
         event_quarks[i] =
             g_quark_from_static_string (nua_event_name ((nua_event_t) i));
     }
@@ -136,7 +136,7 @@ rakia_event_target_attach (nua_handle_t *nh, GObject *obj)
 {
   g_assert (nh != NULL);
 
-  nua_handle_bind (nh, TPSIP_EVENT_TARGET (obj));
+  nua_handle_bind (nh, RAKIA_EVENT_TARGET (obj));
   nua_handle_ref (nh);
 
   g_object_weak_ref (obj, _rakia_event_target_finalized, nh);
@@ -184,11 +184,11 @@ rakia_event_target_emit_nua_event (gpointer             instance,
   gint nua_event;
   GQuark detail;
 
-  g_assert (TPSIP_IS_EVENT_TARGET (instance));
+  g_assert (RAKIA_IS_EVENT_TARGET (instance));
 
   nua_event = ev->nua_event;
 
-  detail = G_LIKELY (nua_event >= 0 && nua_event <= TPSIP_NUA_EVENT_LAST)
+  detail = G_LIKELY (nua_event >= 0 && nua_event <= RAKIA_NUA_EVENT_LAST)
            ? event_quarks[nua_event]
            : g_quark_from_static_string (nua_event_name (nua_event));
 
@@ -239,7 +239,7 @@ rakia_event_target_gone_iface_init (gpointer g_iface, gpointer iface_data)
 
 G_DEFINE_TYPE_WITH_CODE (RakiaEventTargetGone, rakia_event_target_gone,
     G_TYPE_OBJECT,
-    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, rakia_event_target_gone_iface_init))
+    G_IMPLEMENT_INTERFACE (RAKIA_TYPE_EVENT_TARGET, rakia_event_target_gone_iface_init))
 
 static void
 rakia_event_target_gone_class_init (RakiaEventTargetGoneClass *klass)
@@ -267,5 +267,5 @@ rakia_event_target_gone_instance ()
 
   g_once (&init_gone_once, _rakia_event_target_gone_new_instance, NULL);
 
-  return TPSIP_EVENT_TARGET (init_gone_once.retval);
+  return RAKIA_EVENT_TARGET (init_gone_once.retval);
 }

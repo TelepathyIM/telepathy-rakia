@@ -46,7 +46,7 @@
 #include <sofia-sip/sip_protos.h>
 #include <sofia-sip/sip_status.h>
 
-#define DEBUG_FLAG TPSIP_DEBUG_IM
+#define DEBUG_FLAG RAKIA_DEBUG_IM
 #include "rakia/debug.h"
 
 static gboolean
@@ -59,7 +59,7 @@ static void channel_iface_init (gpointer, gpointer);
 static void destroyable_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (RakiaTextChannel, rakia_text_channel, G_TYPE_OBJECT,
-    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, NULL);
+    G_IMPLEMENT_INTERFACE (RAKIA_TYPE_EVENT_TARGET, NULL);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_DBUS_PROPERTIES,
       tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
@@ -129,7 +129,7 @@ struct _RakiaTextChannelPrivate
 #define _rakia_text_pending_new0() \
 	(g_slice_new0(RakiaTextPendingMessage))
 
-#define TPSIP_TEXT_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_TEXT_CHANNEL, RakiaTextChannelPrivate))
+#define RAKIA_TEXT_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_TEXT_CHANNEL, RakiaTextChannelPrivate))
 
 static void rakia_text_pending_free (RakiaTextPendingMessage *msg,
                                      TpHandleRepoIface *contact_handles)
@@ -145,7 +145,7 @@ static void rakia_text_pending_free (RakiaTextPendingMessage *msg,
 static void
 rakia_text_channel_init (RakiaTextChannel *obj)
 {
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (obj);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (obj);
 
   DEBUG("enter");
 
@@ -176,7 +176,7 @@ rakia_text_channel_constructed (GObject *obj)
   if (parent_object_class->constructed != NULL)
     parent_object_class->constructed (obj);
 
-  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(TPSIP_TEXT_CHANNEL(obj));
+  priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE(RAKIA_TEXT_CHANNEL(obj));
   base_conn = (TpBaseConnection *) priv->conn;
   contact_handles = tp_base_connection_get_handles (base_conn,
       TP_HANDLE_TYPE_CONTACT);
@@ -186,7 +186,7 @@ rakia_text_channel_constructed (GObject *obj)
   g_assert (priv->initiator != 0);
   tp_handle_ref (contact_handles, priv->initiator);
 
-  rakia_base_connection_add_auth_handler (priv->conn, TPSIP_EVENT_TARGET (obj));
+  rakia_base_connection_add_auth_handler (priv->conn, RAKIA_EVENT_TARGET (obj));
 
   g_signal_connect (obj,
                     "nua-event::nua_r_message",
@@ -271,7 +271,7 @@ rakia_text_channel_class_init(RakiaTextChannelClass *klass)
 
   param_spec = g_param_spec_object("connection", "RakiaConnection object",
       "SIP connection object that owns this SIP media channel object.",
-      TPSIP_TYPE_BASE_CONNECTION,
+      RAKIA_TYPE_BASE_CONNECTION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 
@@ -320,8 +320,8 @@ rakia_text_channel_get_property(GObject *object,
 				GValue *value,
 				GParamSpec *pspec)
 {
-  RakiaTextChannel *chan = TPSIP_TEXT_CHANNEL(object);
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(chan);
+  RakiaTextChannel *chan = RAKIA_TEXT_CHANNEL(object);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE(chan);
   TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
 
   switch (property_id)
@@ -411,8 +411,8 @@ rakia_text_channel_set_property(GObject *object,
 			        const GValue *value,
 			        GParamSpec *pspec)
 {
-  RakiaTextChannel *chan = TPSIP_TEXT_CHANNEL (object);
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (chan);
+  RakiaTextChannel *chan = RAKIA_TEXT_CHANNEL (object);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (chan);
 
   switch (property_id)
     {
@@ -450,8 +450,8 @@ rakia_text_channel_set_property(GObject *object,
 static void
 rakia_text_channel_dispose(GObject *object)
 {
-  RakiaTextChannel *self = TPSIP_TEXT_CHANNEL (object);
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  RakiaTextChannel *self = RAKIA_TEXT_CHANNEL (object);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *contact_handles;
 
   if (priv->dispose_has_run)
@@ -489,8 +489,8 @@ zap_pending_messages (GQueue *pending_messages,
 static void
 rakia_text_channel_finalize(GObject *object)
 {
-  RakiaTextChannel *self = TPSIP_TEXT_CHANNEL (object);
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  RakiaTextChannel *self = RAKIA_TEXT_CHANNEL (object);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *contact_handles;
 
   contact_handles = tp_base_connection_get_handles (
@@ -526,8 +526,8 @@ static void
 rakia_text_channel_close (TpSvcChannel *iface,
                           DBusGMethodInvocation *context)
 {
-  RakiaTextChannel *self = TPSIP_TEXT_CHANNEL (iface);
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(self);
+  RakiaTextChannel *self = RAKIA_TEXT_CHANNEL (iface);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE(self);
 
   if (priv->closed)
     {
@@ -574,8 +574,8 @@ static void
 rakia_text_channel_destroy (TpSvcChannelInterfaceDestroyable *iface,
                             DBusGMethodInvocation *context)
 {
-  RakiaTextChannel *self = TPSIP_TEXT_CHANNEL (iface);
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  RakiaTextChannel *self = RAKIA_TEXT_CHANNEL (iface);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *contact_handles;
 
   contact_handles = tp_base_connection_get_handles (
@@ -615,12 +615,12 @@ static void
 rakia_text_channel_get_handle (TpSvcChannel *iface,
                              DBusGMethodInvocation *context)
 {
-  RakiaTextChannel *obj = TPSIP_TEXT_CHANNEL (iface);
+  RakiaTextChannel *obj = RAKIA_TEXT_CHANNEL (iface);
   RakiaTextChannelPrivate *priv;
 
   DEBUG("enter");
 
-  priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE(obj);
+  priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE(obj);
 
   tp_svc_channel_return_from_get_handle (context, TP_HANDLE_TYPE_CONTACT,
       priv->handle);
@@ -647,8 +647,8 @@ rakia_text_channel_send_message (GObject *object,
     TpMessage *message,
     TpMessageSendingFlags flags)
 {
-  RakiaTextChannel *self = TPSIP_TEXT_CHANNEL(object);
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  RakiaTextChannel *self = RAKIA_TEXT_CHANNEL(object);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
   RakiaTextPendingMessage *msg = NULL;
   nua_handle_t *msg_nh = NULL;
   GError *error = NULL;
@@ -760,7 +760,7 @@ delivery_report (RakiaTextChannel *self,
     TpDeliveryStatus status,
     TpChannelTextSendError send_error)
 {
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
   TpBaseConnection *base_conn;
   TpMessage *msg;
 
@@ -796,7 +796,7 @@ rakia_text_channel_nua_r_message_cb (RakiaTextChannel *self,
                                      tagi_t            tags[],
                                      gpointer          foo)
 {
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (self);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
   RakiaTextPendingMessage *msg;
   TpHandleRepoIface *contact_repo;
   TpChannelTextSendError send_error;
@@ -890,7 +890,7 @@ void rakia_text_channel_receive(RakiaTextChannel *chan,
                                 const char *text,
                                 gsize len)
 {
-  RakiaTextChannelPrivate *priv = TPSIP_TEXT_CHANNEL_GET_PRIVATE (chan);
+  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (chan);
   TpMessage *msg;
   TpBaseConnection *base_conn;
   sip_call_id_t *hdr_call_id;

@@ -36,7 +36,7 @@
 #include <sofia-sip/sip_tag.h>
 #include <sofia-sip/sip_status.h>
 
-#define DEBUG_FLAG TPSIP_DEBUG_IM
+#define DEBUG_FLAG RAKIA_DEBUG_IM
 #include "rakia/debug.h"
 
 
@@ -69,12 +69,12 @@ struct _RakiaTextManagerPrivate
   gboolean dispose_has_run;
 };
 
-#define TPSIP_TEXT_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_TEXT_MANAGER, RakiaTextManagerPrivate))
+#define RAKIA_TEXT_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_TEXT_MANAGER, RakiaTextManagerPrivate))
 
 static void
 rakia_text_manager_init (RakiaTextManager *fac)
 {
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (fac);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
 
   priv->conn = NULL;
   priv->channels = g_hash_table_new_full (g_direct_hash, g_direct_equal,
@@ -86,8 +86,8 @@ rakia_text_manager_init (RakiaTextManager *fac)
 static void
 rakia_text_manager_constructed (GObject *object)
 {
-  RakiaTextManager *fac = TPSIP_TEXT_MANAGER (object);
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (fac);
+  RakiaTextManager *fac = RAKIA_TEXT_MANAGER (object);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
   GObjectClass *parent_object_class =
       G_OBJECT_CLASS (rakia_text_manager_parent_class);
 
@@ -101,8 +101,8 @@ rakia_text_manager_constructed (GObject *object)
 static void
 rakia_text_manager_dispose (GObject *object)
 {
-  RakiaTextManager *fac = TPSIP_TEXT_MANAGER (object);
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (fac);
+  RakiaTextManager *fac = RAKIA_TEXT_MANAGER (object);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
 
   if (priv->dispose_has_run)
     return;
@@ -122,8 +122,8 @@ rakia_text_manager_get_property (GObject *object,
                                GValue *value,
                                GParamSpec *pspec)
 {
-  RakiaTextManager *fac = TPSIP_TEXT_MANAGER (object);
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (fac);
+  RakiaTextManager *fac = RAKIA_TEXT_MANAGER (object);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -141,8 +141,8 @@ rakia_text_manager_set_property (GObject *object,
                                const GValue *value,
                                GParamSpec *pspec)
 {
-  RakiaTextManager *fac = TPSIP_TEXT_MANAGER (object);
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (fac);
+  RakiaTextManager *fac = RAKIA_TEXT_MANAGER (object);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
 
   switch (property_id) {
     case PROP_CONNECTION:
@@ -170,7 +170,7 @@ rakia_text_manager_class_init (RakiaTextManagerClass *klass)
   param_spec = g_param_spec_object ("connection",
       "RakiaBaseConnection object",
       "SIP connection that owns this text channel manager",
-      TPSIP_TYPE_BASE_CONNECTION,
+      RAKIA_TYPE_BASE_CONNECTION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 }
@@ -178,7 +178,7 @@ rakia_text_manager_class_init (RakiaTextManagerClass *klass)
 static void
 rakia_text_manager_close_all (RakiaTextManager *fac)
 {
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (fac);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
   GHashTable *channels;
 
   if (priv->status_changed_id != 0)
@@ -217,8 +217,8 @@ rakia_text_manager_foreach_channel (TpChannelManager *manager,
                                     TpExportableChannelFunc func,
                                     gpointer user_data)
 {
-  RakiaTextManager *fac = TPSIP_TEXT_MANAGER (manager);
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (fac);
+  RakiaTextManager *fac = RAKIA_TEXT_MANAGER (manager);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
   struct _ForeachData data;
 
   data.func = func;
@@ -236,8 +236,8 @@ rakia_text_manager_foreach_channel (TpChannelManager *manager,
 static void
 channel_closed (RakiaTextChannel *chan, gpointer user_data)
 {
-  RakiaTextManager *self = TPSIP_TEXT_MANAGER (user_data);
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (self);
+  RakiaTextManager *self = RAKIA_TEXT_MANAGER (user_data);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (self);
   TpHandle contact_handle;
   gboolean really_destroyed = TRUE;
 
@@ -283,7 +283,7 @@ rakia_text_manager_new_channel (RakiaTextManager *fac,
   TpBaseConnection *conn;
   GSList *request_tokens;
 
-  priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (fac);
+  priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
   conn = priv->conn;
 
   object_path = g_strdup_printf ("%s/TextChannel%u",
@@ -291,7 +291,7 @@ rakia_text_manager_new_channel (RakiaTextManager *fac,
 
   DEBUG ("object path %s", object_path);
 
-  chan = g_object_new (TPSIP_TYPE_TEXT_CHANNEL,
+  chan = g_object_new (RAKIA_TYPE_TEXT_CHANNEL,
                        "connection", priv->conn,
                        "object-path", object_path,
                        "handle", handle,
@@ -361,7 +361,7 @@ rakia_text_manager_requestotron (RakiaTextManager *self,
                                  GHashTable *request_properties,
                                  gboolean require_new)
 {
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (self);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (self);
   TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
   TpHandle handle;
   GError *error = NULL;
@@ -419,7 +419,7 @@ rakia_text_manager_create_channel (TpChannelManager *manager,
                                    gpointer request_token,
                                    GHashTable *request_properties)
 {
-  RakiaTextManager *self = TPSIP_TEXT_MANAGER (manager);
+  RakiaTextManager *self = RAKIA_TEXT_MANAGER (manager);
 
   return rakia_text_manager_requestotron (self, request_token,
       request_properties, TRUE);
@@ -431,7 +431,7 @@ rakia_text_manager_request_channel (TpChannelManager *manager,
                                     gpointer request_token,
                                     GHashTable *request_properties)
 {
-  RakiaTextManager *self = TPSIP_TEXT_MANAGER (manager);
+  RakiaTextManager *self = RAKIA_TEXT_MANAGER (manager);
 
   return rakia_text_manager_requestotron (self, request_token,
       request_properties, FALSE);
@@ -443,7 +443,7 @@ rakia_text_manager_ensure_channel (TpChannelManager *manager,
                                    gpointer request_token,
                                    GHashTable *request_properties)
 {
-  RakiaTextManager *self = TPSIP_TEXT_MANAGER (manager);
+  RakiaTextManager *self = RAKIA_TEXT_MANAGER (manager);
 
   return rakia_text_manager_requestotron (self, request_token,
       request_properties, FALSE);
@@ -453,7 +453,7 @@ static inline RakiaTextChannel *
 rakia_text_manager_lookup_channel (RakiaTextManager *fac,
                                    TpHandle handle)
 {
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (fac);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
 
   return g_hash_table_lookup (priv->channels,
       GUINT_TO_POINTER(handle));
@@ -601,7 +601,7 @@ connection_status_changed_cb (TpBaseConnection *conn,
                               guint reason,
                               RakiaTextManager *self)
 {
-  RakiaTextManagerPrivate *priv = TPSIP_TEXT_MANAGER_GET_PRIVATE (self);
+  RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (self);
 
   switch (status)
     {

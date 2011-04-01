@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __TPSIP_CONNECTION_PRIVATE_H__
-#define __TPSIP_CONNECTION_PRIVATE_H__
+#ifndef __RAKIA_CONNECTION_PRIVATE_H__
+#define __RAKIA_CONNECTION_PRIVATE_H__
 
 #include "config.h"
 
@@ -78,8 +78,8 @@ struct _RakiaConnectionPrivate
   gboolean dispose_has_run;
 };
 
-/* #define TPSIP_PROTOCOL_STRING               "sip" */
+/* #define RAKIA_PROTOCOL_STRING               "sip" */
 
-#define TPSIP_CONNECTION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_CONNECTION, RakiaConnectionPrivate))
+#define RAKIA_CONNECTION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_CONNECTION, RakiaConnectionPrivate))
 
-#endif /*__TPSIP_CONNECTION_PRIVATE_H__*/
+#endif /*__RAKIA_CONNECTION_PRIVATE_H__*/

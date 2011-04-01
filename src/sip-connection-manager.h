@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __TPSIP_CONNECTION_MANAGER_H__
-#define __TPSIP_CONNECTION_MANAGER_H__
+#ifndef __RAKIA_CONNECTION_MANAGER_H__
+#define __RAKIA_CONNECTION_MANAGER_H__
 
 #include <glib-object.h>
 
@@ -43,21 +43,21 @@ struct _RakiaConnectionManager {
 GType rakia_connection_manager_get_type(void);
 
 /* TYPE MACROS */
-#define TPSIP_TYPE_CONNECTION_MANAGER \
+#define RAKIA_TYPE_CONNECTION_MANAGER \
   (rakia_connection_manager_get_type())
-#define TPSIP_CONNECTION_MANAGER(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_CONNECTION_MANAGER, RakiaConnectionManager))
-#define TPSIP_CONNECTION_MANAGER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_CONNECTION_MANAGER, RakiaConnectionManagerClass))
-#define TPSIP_IS_CONNECTION_MANAGER(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_CONNECTION_MANAGER))
-#define TPSIP_IS_CONNECTION_MANAGER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_CONNECTION_MANAGER))
-#define TPSIP_CONNECTION_MANAGER_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_CONNECTION_MANAGER, RakiaConnectionManagerClass))
+#define RAKIA_CONNECTION_MANAGER(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), RAKIA_TYPE_CONNECTION_MANAGER, RakiaConnectionManager))
+#define RAKIA_CONNECTION_MANAGER_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), RAKIA_TYPE_CONNECTION_MANAGER, RakiaConnectionManagerClass))
+#define RAKIA_IS_CONNECTION_MANAGER(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), RAKIA_TYPE_CONNECTION_MANAGER))
+#define RAKIA_IS_CONNECTION_MANAGER_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), RAKIA_TYPE_CONNECTION_MANAGER))
+#define RAKIA_CONNECTION_MANAGER_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), RAKIA_TYPE_CONNECTION_MANAGER, RakiaConnectionManagerClass))
 
 extern const TpCMProtocolSpec rakia_protocols[];
 
 G_END_DECLS
 
-#endif /* #ifndef __TPSIP_CONNECTION_MANAGER_H__*/
+#endif /* #ifndef __RAKIA_CONNECTION_MANAGER_H__*/

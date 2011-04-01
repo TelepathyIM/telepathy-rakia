@@ -49,7 +49,7 @@
 
 #include "signals-marshal.h"
 
-#define DEBUG_FLAG TPSIP_DEBUG_MEDIA
+#define DEBUG_FLAG RAKIA_DEBUG_MEDIA
 #include "rakia/debug.h"
 
 
@@ -145,7 +145,7 @@ struct _RakiaMediaStreamPrivate
   gboolean dispose_has_run;
 };
 
-#define TPSIP_MEDIA_STREAM_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_STREAM, RakiaMediaStreamPrivate))
+#define RAKIA_MEDIA_STREAM_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_MEDIA_STREAM, RakiaMediaStreamPrivate))
 
 static void push_remote_codecs (RakiaMediaStream *stream);
 static void push_remote_candidates (RakiaMediaStream *stream);
@@ -177,7 +177,7 @@ static const char *debug_tp_transports[] = {
 static void
 rakia_media_stream_init (RakiaMediaStream *self)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
 
   priv->playing = FALSE;
   priv->sending = FALSE;
@@ -200,8 +200,8 @@ rakia_media_stream_init (RakiaMediaStream *self)
 static void
 rakia_media_stream_constructed (GObject *obj)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (
-      TPSIP_MEDIA_STREAM (obj));
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (
+      RAKIA_MEDIA_STREAM (obj));
   GObjectClass *parent_object_class =
       G_OBJECT_CLASS (rakia_media_stream_parent_class);
 
@@ -233,8 +233,8 @@ rakia_media_stream_get_property (GObject    *object,
 			         GValue     *value,
 			         GParamSpec *pspec)
 {
-  RakiaMediaStream *stream = TPSIP_MEDIA_STREAM (object);
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  RakiaMediaStream *stream = RAKIA_MEDIA_STREAM (object);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
   switch (property_id)
     {
@@ -289,8 +289,8 @@ rakia_media_stream_set_property (GObject      *object,
 			         const GValue *value,
 			         GParamSpec   *pspec)
 {
-  RakiaMediaStream *stream = TPSIP_MEDIA_STREAM (object);
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  RakiaMediaStream *stream = RAKIA_MEDIA_STREAM (object);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
   switch (property_id)
     {
@@ -375,7 +375,7 @@ rakia_media_stream_class_init (RakiaMediaStreamClass *klass)
 
   param_spec = g_param_spec_object ("media-session", "RakiaMediaSession object",
       "SIP media session object that owns this media stream object.",
-      TPSIP_TYPE_MEDIA_SESSION,
+      RAKIA_TYPE_MEDIA_SESSION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_MEDIA_SESSION, param_spec);
 
@@ -523,8 +523,8 @@ rakia_media_stream_class_init (RakiaMediaStreamClass *klass)
 void
 rakia_media_stream_dispose (GObject *object)
 {
-  RakiaMediaStream *self = TPSIP_MEDIA_STREAM (object);
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStream *self = RAKIA_MEDIA_STREAM (object);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
 
   if (priv->dispose_has_run)
     return;
@@ -542,8 +542,8 @@ rakia_media_stream_dispose (GObject *object)
 void
 rakia_media_stream_finalize (GObject *object)
 {
-  RakiaMediaStream *self = TPSIP_MEDIA_STREAM (object);
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStream *self = RAKIA_MEDIA_STREAM (object);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
 
   /* free any data held directly by the object here */
   g_free (priv->object_path);
@@ -597,7 +597,7 @@ rakia_media_stream_error (TpSvcMediaStreamHandler *iface,
 {
   DEBUG("StreamHandler.Error called: %u %s", errno, message);
 
-  rakia_media_stream_close (TPSIP_MEDIA_STREAM (iface));
+  rakia_media_stream_close (RAKIA_MEDIA_STREAM (iface));
 
   tp_svc_media_stream_handler_return_from_error (context);
 }
@@ -616,10 +616,10 @@ rakia_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
    *          have been discovered for the moment." 
    */
 
-  RakiaMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  RakiaMediaStream *obj = RAKIA_MEDIA_STREAM (iface);
   RakiaMediaStreamPrivate *priv;
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (obj);
 
   DEBUG("enter");
 
@@ -646,10 +646,10 @@ rakia_media_stream_new_active_candidate_pair (TpSvcMediaStreamHandler *iface,
                                             const gchar *remote_candidate_id,
                                             DBusGMethodInvocation *context)
 {
-  RakiaMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  RakiaMediaStream *obj = RAKIA_MEDIA_STREAM (iface);
   RakiaMediaStreamPrivate *priv;
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (obj);
 
   DEBUG("stream engine reported new active candidate pair %s-%s",
         native_candidate_id, remote_candidate_id);
@@ -683,14 +683,14 @@ rakia_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
                                        const GPtrArray *transports,
                                        DBusGMethodInvocation *context)
 {
-  RakiaMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  RakiaMediaStream *obj = RAKIA_MEDIA_STREAM (iface);
   RakiaMediaStreamPrivate *priv;
   GPtrArray *candidates;
   GValue candidate = { 0, };
   GValue transport = { 0, };
   gint tr_goodness;
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (obj);
 
   if (priv->stream_sdp != NULL)
     {
@@ -742,7 +742,7 @@ static void
 priv_set_local_codecs (RakiaMediaStream *self,
                        const GPtrArray *codecs)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
   GValue val = { 0, };
 
   SESSION_DEBUG(priv->session, "putting list of %d locally supported "
@@ -761,8 +761,8 @@ rakia_media_stream_codecs_updated (TpSvcMediaStreamHandler *iface,
                                    const GPtrArray *codecs,
                                    DBusGMethodInvocation *context)
 {
-  RakiaMediaStream *self = TPSIP_MEDIA_STREAM (iface);
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStream *self = RAKIA_MEDIA_STREAM (iface);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
 
   if (!priv->native_codecs_prepared)
     {
@@ -814,12 +814,12 @@ rakia_media_stream_ready (TpSvcMediaStreamHandler *iface,
    *   candidates first
    */
 
-  RakiaMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  RakiaMediaStream *obj = RAKIA_MEDIA_STREAM (iface);
   RakiaMediaStreamPrivate *priv;
 
   DEBUG ("enter");
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (obj);
 
   if (priv->ready_received)
     {
@@ -866,7 +866,7 @@ rakia_media_stream_set_local_codecs (TpSvcMediaStreamHandler *iface,
                                      const GPtrArray *codecs,
                                      DBusGMethodInvocation *context)
 {
-  priv_set_local_codecs (TPSIP_MEDIA_STREAM (iface), codecs);
+  priv_set_local_codecs (RAKIA_MEDIA_STREAM (iface), codecs);
   tp_svc_media_stream_handler_return_from_set_local_codecs (context);
 }
 
@@ -887,9 +887,9 @@ rakia_media_stream_stream_state (TpSvcMediaStreamHandler *iface,
    * - set the stream state for session
    */
 
-  RakiaMediaStream *obj = TPSIP_MEDIA_STREAM (iface);
+  RakiaMediaStream *obj = RAKIA_MEDIA_STREAM (iface);
   RakiaMediaStreamPrivate *priv;
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (obj);
 
   if (priv->state != state)
     {
@@ -921,9 +921,9 @@ rakia_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
    * - emit SupportedCodecs
    */ 
 
-  RakiaMediaStream *self = TPSIP_MEDIA_STREAM (iface);
+  RakiaMediaStream *self = RAKIA_MEDIA_STREAM (iface);
   RakiaMediaStreamPrivate *priv;
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
 
   DEBUG("got codec intersection containing %u codecs from stream-engine",
         codecs->len);
@@ -982,14 +982,14 @@ rakia_media_stream_unhold_failure (TpSvcMediaStreamHandler *self,
 guint
 rakia_media_stream_get_id (RakiaMediaStream *self)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
   return priv->id;
 }
 
 guint
 rakia_media_stream_get_media_type (RakiaMediaStream *self)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
   return priv->media_type;
 }
 
@@ -1006,7 +1006,7 @@ rakia_media_stream_close (RakiaMediaStream *self)
 const char *rakia_media_stream_local_sdp (RakiaMediaStream *obj)
 {
   RakiaMediaStreamPrivate *priv;
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (obj);
   return priv->stream_sdp;
 }
 
@@ -1077,7 +1077,7 @@ rakia_media_stream_set_remote_media (RakiaMediaStream *stream,
 
   DEBUG ("enter");
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
   /* Do sanity checks */
 
@@ -1210,7 +1210,7 @@ rakia_tp_media_type (sdp_media_e sip_mtype)
 void rakia_media_stream_set_playing (RakiaMediaStream *stream, gboolean playing)
 {
   RakiaMediaStreamPrivate *priv;
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
   if (same_boolean (priv->playing, playing))
     return;
@@ -1232,7 +1232,7 @@ void
 rakia_media_stream_set_sending (RakiaMediaStream *stream, gboolean sending)
 {
   RakiaMediaStreamPrivate *priv;
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
   if (same_boolean(priv->sending, sending))
     return;
@@ -1250,7 +1250,7 @@ static void
 priv_update_sending (RakiaMediaStream *stream,
                      TpMediaStreamDirection direction)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
   gboolean sending = TRUE;
 
   /* XXX: the pending send flag check is probably an overkill
@@ -1276,7 +1276,7 @@ rakia_media_stream_set_direction (RakiaMediaStream *stream,
   guint pending_send_flags;
   TpMediaStreamDirection old_sdp_direction;
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
   pending_send_flags = priv->pending_send_flags & pending_send_mask;
 
   if ((direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0)
@@ -1346,7 +1346,7 @@ void
 rakia_media_stream_apply_pending_direction (RakiaMediaStream *stream,
                                             guint pending_send_mask)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
   guint flags;
 
 
@@ -1382,7 +1382,7 @@ rakia_media_stream_apply_pending_direction (RakiaMediaStream *stream,
 TpMediaStreamDirection
 rakia_media_stream_get_requested_direction (RakiaMediaStream *self)
 {
-  return priv_get_requested_direction (TPSIP_MEDIA_STREAM_GET_PRIVATE (self));
+  return priv_get_requested_direction (RAKIA_MEDIA_STREAM_GET_PRIVATE (self));
 }
 
 /**
@@ -1392,7 +1392,7 @@ rakia_media_stream_get_requested_direction (RakiaMediaStream *self)
 gboolean rakia_media_stream_is_local_ready (RakiaMediaStream *self)
 {
   RakiaMediaStreamPrivate *priv;
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
   g_assert (priv->stream_sdp == NULL || priv->ready_received);
   return (priv->stream_sdp != NULL);
 }
@@ -1400,7 +1400,7 @@ gboolean rakia_media_stream_is_local_ready (RakiaMediaStream *self)
 gboolean
 rakia_media_stream_is_codec_intersect_pending (RakiaMediaStream *self)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
   return priv->codec_intersect_pending;
 }
 
@@ -1421,7 +1421,7 @@ rakia_media_stream_stop_telephony_event  (RakiaMediaStream *self)
 gboolean
 rakia_media_stream_request_hold_state (RakiaMediaStream *self, gboolean hold)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
 
   if ((!priv->requested_hold_state) != (!hold))
     {
@@ -1435,7 +1435,7 @@ rakia_media_stream_request_hold_state (RakiaMediaStream *self, gboolean hold)
 static void
 priv_generate_sdp (RakiaMediaStream *self)
 {
-  RakiaMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
 
   if (priv->stream_sdp != NULL)
     return;
@@ -1466,7 +1466,7 @@ static void push_remote_codecs (RakiaMediaStream *stream)
 
   DEBUG ("enter");
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
   sdpmedia = priv->remote_media; 
   if (sdpmedia == NULL)
@@ -1583,7 +1583,7 @@ static void push_remote_candidates (RakiaMediaStream *stream)
 
   DEBUG("enter");
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
   media = priv->remote_media; 
   if (media == NULL)
@@ -1714,7 +1714,7 @@ push_active_candidate_pair (RakiaMediaStream *stream)
 
   DEBUG("enter");
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
   if (priv->ready_received
       && priv->native_candidate_id != NULL
@@ -1828,7 +1828,7 @@ priv_update_local_sdp(RakiaMediaStream *stream)
   const gchar *dirline;
   int i;
 
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
   candidates = g_value_get_boxed (&priv->native_candidates);
 

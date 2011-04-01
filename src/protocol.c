@@ -31,7 +31,7 @@
 #include <rakia/text-manager.h>
 #include <sofia-sip/su_glib.h>
 
-#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
+#define DEBUG_FLAG RAKIA_DEBUG_CONNECTION
 #include "rakia/debug.h"
 #include "sip-connection.h"
 #include "sip-connection-helpers.h"
@@ -125,7 +125,7 @@ static TpCMParamSpec rakia_params[] = {
     /* STUN port */
     { "stun-port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT,
-      GUINT_TO_POINTER(TPSIP_DEFAULT_STUN_PORT), PARAM_EASY,
+      GUINT_TO_POINTER(RAKIA_DEFAULT_STUN_PORT), PARAM_EASY,
       tp_cm_param_filter_uint_nonzero },
 
     /* If the session content cannot be modified once initially set up */
@@ -158,7 +158,7 @@ static TpCMParamSpec rakia_params[] = {
 static void
 rakia_protocol_init (RakiaProtocol *self)
 {
-  self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, TPSIP_TYPE_PROTOCOL,
+  self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, RAKIA_TYPE_PROTOCOL,
       RakiaProtocolPrivate);
 }
 
@@ -172,18 +172,18 @@ static RakiaConnectionKeepaliveMechanism
 priv_parse_keepalive (const gchar *str)
 {
   if (str == NULL || strcmp (str, "auto") == 0)
-    return TPSIP_CONNECTION_KEEPALIVE_AUTO;
+    return RAKIA_CONNECTION_KEEPALIVE_AUTO;
   if (strcmp (str, "register") == 0)
-    return TPSIP_CONNECTION_KEEPALIVE_REGISTER;
+    return RAKIA_CONNECTION_KEEPALIVE_REGISTER;
   if (strcmp (str, "options") == 0)
-    return TPSIP_CONNECTION_KEEPALIVE_OPTIONS;
+    return RAKIA_CONNECTION_KEEPALIVE_OPTIONS;
   if (strcmp (str, "stun") == 0)
-    return TPSIP_CONNECTION_KEEPALIVE_STUN;
+    return RAKIA_CONNECTION_KEEPALIVE_STUN;
   if (strcmp (str, "off") == 0)
-    return TPSIP_CONNECTION_KEEPALIVE_NONE;
+    return RAKIA_CONNECTION_KEEPALIVE_NONE;
 
   WARNING ("unsupported keepalive-method value \"%s\", falling back to auto", str);
-  return TPSIP_CONNECTION_KEEPALIVE_AUTO;
+  return RAKIA_CONNECTION_KEEPALIVE_AUTO;
 }
 
 static gchar *
@@ -273,7 +273,7 @@ new_connection (TpBaseProtocol *protocol,
                 GHashTable *params,
                 GError **error)
 {
-  RakiaProtocol *self = TPSIP_PROTOCOL (protocol);
+  RakiaProtocol *self = RAKIA_PROTOCOL (protocol);
   RakiaConnection *conn;
   guint i;
   const gchar *account;
@@ -290,7 +290,7 @@ new_connection (TpBaseProtocol *protocol,
   transport = tp_asv_get_string (params, "transport");
   port = tp_asv_get_uint32 (params, "port", NULL);
 
-  conn = g_object_new (TPSIP_TYPE_CONNECTION,
+  conn = g_object_new (RAKIA_TYPE_CONNECTION,
                        "protocol", PROTOCOL_NAME,
                        "sofia-root", self->priv->sofia_root,
                        "address", account,
@@ -438,8 +438,8 @@ get_connection_details (TpBaseProtocol *self,
   if (channel_managers != NULL)
     {
       GType types[] = {
-          TPSIP_TYPE_TEXT_MANAGER,
-          TPSIP_TYPE_MEDIA_MANAGER,
+          RAKIA_TYPE_TEXT_MANAGER,
+          RAKIA_TYPE_MEDIA_MANAGER,
           G_TYPE_INVALID };
 
       *channel_managers = g_memdup (types, sizeof(types));
@@ -478,7 +478,7 @@ rakia_protocol_get_property (GObject *object,
     GValue *value,
     GParamSpec *pspec)
 {
-  RakiaProtocol *self = TPSIP_PROTOCOL (object);
+  RakiaProtocol *self = RAKIA_PROTOCOL (object);
 
   switch (property_id)
     {
@@ -498,7 +498,7 @@ rakia_protocol_set_property (GObject *object,
     const GValue *value,
     GParamSpec *pspec)
 {
-  RakiaProtocol *self = TPSIP_PROTOCOL (object);
+  RakiaProtocol *self = RAKIA_PROTOCOL (object);
 
   switch (property_id)
     {
@@ -542,7 +542,7 @@ rakia_protocol_class_init (RakiaProtocolClass *klass)
 TpBaseProtocol *
 rakia_protocol_new (su_root_t *sofia_root)
 {
-  return g_object_new (TPSIP_TYPE_PROTOCOL,
+  return g_object_new (RAKIA_TYPE_PROTOCOL,
       "name", PROTOCOL_NAME,
       "sofia-root", sofia_root,
       NULL);

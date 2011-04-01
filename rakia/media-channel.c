@@ -39,13 +39,13 @@
 
 #include <rakia/event-target.h>
 
-#define DEBUG_FLAG TPSIP_DEBUG_MEDIA
+#define DEBUG_FLAG RAKIA_DEBUG_MEDIA
 #include "rakia/debug.h"
 
 #include <rakia/media-session.h>
 #include <rakia/base-connection.h>
 
-#define TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK \
+#define RAKIA_CHANNEL_CALL_STATE_PROCEEDING_MASK \
     (TP_CHANNEL_CALL_STATE_RINGING | \
      TP_CHANNEL_CALL_STATE_QUEUED | \
      TP_CHANNEL_CALL_STATE_IN_PROGRESS)
@@ -60,7 +60,7 @@ static void hold_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (RakiaMediaChannel, rakia_media_channel,
     G_TYPE_OBJECT,
-    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, event_target_init);
+    G_IMPLEMENT_INTERFACE (RAKIA_TYPE_EVENT_TARGET, event_target_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_DBUS_PROPERTIES,
       tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_PROPERTIES_INTERFACE,
@@ -163,7 +163,7 @@ struct _RakiaMediaChannelPrivate
   gboolean dispose_has_run;
 };
 
-#define TPSIP_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_CHANNEL, RakiaMediaChannelPrivate))
+#define RAKIA_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_MEDIA_CHANNEL, RakiaMediaChannelPrivate))
 
 /***********************************************************************
  * Set: Gobject interface
@@ -172,7 +172,7 @@ struct _RakiaMediaChannelPrivate
 static void
 rakia_media_channel_init (RakiaMediaChannel *self)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   /* allocate any data required by the object here */
   priv->call_states = g_hash_table_new (NULL, NULL);
@@ -186,8 +186,8 @@ rakia_media_channel_init (RakiaMediaChannel *self)
 static void
 rakia_media_channel_constructed (GObject *obj)
 {
-  RakiaMediaChannel *chan = TPSIP_MEDIA_CHANNEL (obj);
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
+  RakiaMediaChannel *chan = RAKIA_MEDIA_CHANNEL (obj);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (chan);
   TpBaseConnection *conn = (TpBaseConnection *)(priv->conn);
   GObjectClass *parent_object_class =
       G_OBJECT_CLASS (rakia_media_channel_parent_class);
@@ -324,7 +324,7 @@ rakia_media_channel_class_init (RakiaMediaChannelClass *klass)
 
   param_spec = g_param_spec_object ("connection", "RakiaConnection object",
       "SIP connection object that owns this SIP media channel object.",
-      TPSIP_TYPE_BASE_CONNECTION,
+      RAKIA_TYPE_BASE_CONNECTION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 
@@ -430,8 +430,8 @@ rakia_media_channel_get_property (GObject    *object,
                                   GValue     *value,
                                   GParamSpec *pspec)
 {
-  RakiaMediaChannel *chan = TPSIP_MEDIA_CHANNEL (object);
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
+  RakiaMediaChannel *chan = RAKIA_MEDIA_CHANNEL (object);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (chan);
   TpBaseConnection *base_conn = TP_BASE_CONNECTION (priv->conn);
 
   switch (property_id) {
@@ -572,8 +572,8 @@ rakia_media_channel_set_property (GObject     *object,
 				const GValue *value,
 				GParamSpec   *pspec)
 {
-  RakiaMediaChannel *chan = TPSIP_MEDIA_CHANNEL (object);
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (chan);
+  RakiaMediaChannel *chan = RAKIA_MEDIA_CHANNEL (object);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (chan);
 
   switch (property_id) {
     case PROP_HANDLE_TYPE:
@@ -631,8 +631,8 @@ rakia_media_channel_set_property (GObject     *object,
 static void
 rakia_media_channel_dispose (GObject *object)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (object);
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (object);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *contact_handles;
 
   if (priv->dispose_has_run)
@@ -662,8 +662,8 @@ rakia_media_channel_dispose (GObject *object)
 static void
 rakia_media_channel_finalize (GObject *object)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (object);
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (object);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   g_hash_table_destroy (priv->call_states);
 
@@ -694,7 +694,7 @@ static void
 rakia_media_channel_dbus_close (TpSvcChannel *iface,
                                 DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
 
   rakia_media_channel_close (self);
   tp_svc_channel_return_from_close (context);
@@ -707,8 +707,8 @@ rakia_media_channel_close (RakiaMediaChannel *obj)
 
   DEBUG("enter");
 
-  g_assert (TPSIP_IS_MEDIA_CHANNEL (obj));
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (obj);
+  g_assert (RAKIA_IS_MEDIA_CHANNEL (obj));
+  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (obj);
 
   if (priv->closed)
     return;
@@ -750,8 +750,8 @@ static void
 rakia_media_channel_get_handle (TpSvcChannel *iface,
                               DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (priv->handle != 0)
     tp_svc_channel_return_from_get_handle (context, TP_HANDLE_TYPE_CONTACT,
@@ -794,16 +794,16 @@ static void
 rakia_media_channel_get_session_handlers (TpSvcChannelInterfaceMediaSignalling *iface,
                                         DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
   RakiaMediaChannelPrivate *priv;
   GPtrArray *ret;
   GValue handler = { 0 };
 
   DEBUG("enter");
 
-  g_assert (TPSIP_IS_MEDIA_CHANNEL (self));
+  g_assert (RAKIA_IS_MEDIA_CHANNEL (self));
 
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   ret = g_ptr_array_new ();
 
@@ -859,11 +859,11 @@ static void
 rakia_media_channel_list_streams (TpSvcChannelTypeStreamedMedia *iface,
                                 DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
   RakiaMediaChannelPrivate *priv;
   GPtrArray *ret = NULL;
 
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   ret = g_ptr_array_new ();
 
@@ -886,11 +886,11 @@ rakia_media_channel_remove_streams (TpSvcChannelTypeStreamedMedia *iface,
                                   const GArray *streams,
                                   DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
   RakiaMediaChannelPrivate *priv;
   GError *error = NULL;
 
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (priv->immutable_streams)
     {
@@ -931,11 +931,11 @@ rakia_media_channel_request_stream_direction (TpSvcChannelTypeStreamedMedia *ifa
                                             guint stream_direction,
                                             DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
   RakiaMediaChannelPrivate *priv;
   GError *error = NULL;
 
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (priv->immutable_streams)
     {
@@ -982,7 +982,7 @@ rakia_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
                                    const GArray *types,
                                    DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
   GError *error = NULL;
   GPtrArray *ret = NULL;
   RakiaMediaChannelPrivate *priv;
@@ -990,7 +990,7 @@ rakia_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 
   DEBUG("enter");
 
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (priv->immutable_streams)
     {
@@ -1038,7 +1038,7 @@ rakia_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
 void
 rakia_media_channel_create_initial_streams (RakiaMediaChannel *self)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   g_assert (priv->initiator != priv->handle);
 
@@ -1074,7 +1074,7 @@ rakia_media_channel_handle_incoming_call (RakiaMediaChannel *self,
                                           nua_handle_t *nh,
                                           const sdp_session_t *sdp)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpBaseConnection *conn = TP_BASE_CONNECTION (priv->conn);
 
   g_assert (priv->initiator != conn->self_handle);
@@ -1122,7 +1122,7 @@ priv_nua_i_invite_cb (RakiaMediaChannel *self,
                       tagi_t             tags[],
                       gpointer           foo)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   /* nua_i_invite delivered for a bound handle means a re-INVITE */
 
@@ -1137,7 +1137,7 @@ static guint
 rakia_media_channel_get_call_state (RakiaMediaChannel *self,
                                     TpHandle peer)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   return GPOINTER_TO_UINT (g_hash_table_lookup (priv->call_states,
       GUINT_TO_POINTER (peer)));
@@ -1169,7 +1169,7 @@ rakia_media_channel_peer_error (RakiaMediaChannel *self,
     case 404:
     case 480:
       reason = (rakia_media_channel_get_call_state (self, peer)
-             & TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK)
+             & RAKIA_CHANNEL_CALL_STATE_PROCEEDING_MASK)
           ? TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER
           : TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
       break;
@@ -1201,7 +1201,7 @@ rakia_media_channel_change_call_state (RakiaMediaChannel *self,
                                        guint flags_add,
                                        guint flags_remove)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
   gpointer key = GUINT_TO_POINTER (peer);
   guint old_state;
   guint new_state;
@@ -1234,7 +1234,7 @@ priv_nua_i_bye_cb (RakiaMediaChannel *self,
                    tagi_t             tags[],
                    gpointer           foo)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
   TpIntSet *remove;
   TpHandle peer;
@@ -1261,7 +1261,7 @@ priv_nua_i_cancel_cb (RakiaMediaChannel *self,
                       tagi_t             tags[],
                       gpointer           foo)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
   TpIntSet *remove;
   TpHandle actor = 0;
@@ -1326,7 +1326,7 @@ priv_nua_i_state_cb (RakiaMediaChannel *self,
                      tagi_t             tags[],
                      gpointer           foo)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
   const sdp_session_t *r_sdp = NULL;
   int offer_recv = 0;
   int answer_recv = 0;
@@ -1393,7 +1393,7 @@ priv_nua_i_state_cb (RakiaMediaChannel *self,
 
       /* Clear any pre-establishment call states */
       rakia_media_channel_change_call_state (self, peer, 0,
-          TPSIP_CHANNEL_CALL_STATE_PROCEEDING_MASK);
+          RAKIA_CHANNEL_CALL_STATE_PROCEEDING_MASK);
 
       if (status < 300)
         {
@@ -1426,7 +1426,7 @@ priv_nua_i_state_cb (RakiaMediaChannel *self,
       /* In cases of self-inflicted termination,
        * we should have already gone through the moves */
       if (rakia_media_session_get_state (priv->session)
-          == TPSIP_MEDIA_SESSION_STATE_ENDED)
+          == RAKIA_MEDIA_SESSION_STATE_ENDED)
         break;
 
       if (status >= 300)
@@ -1436,7 +1436,7 @@ priv_nua_i_state_cb (RakiaMediaChannel *self,
         }
 
       rakia_media_session_change_state (priv->session,
-                                        TPSIP_MEDIA_SESSION_STATE_ENDED);
+                                        RAKIA_MEDIA_SESSION_STATE_ENDED);
       break;
 
     default:
@@ -1451,7 +1451,7 @@ static void priv_session_state_changed_cb (RakiaMediaSession *session,
                                            guint state,
 					   RakiaMediaChannel *channel)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (channel);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (channel);
   TpHandle self_handle;
   TpHandle peer;
@@ -1464,7 +1464,7 @@ static void priv_session_state_changed_cb (RakiaMediaSession *session,
 
   switch (state)
     {
-    case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
+    case RAKIA_MEDIA_SESSION_STATE_INVITE_SENT:
       g_assert (priv->initiator == self_handle);
 
       /* add the peer to remote pending */
@@ -1484,7 +1484,7 @@ static void priv_session_state_changed_cb (RakiaMediaSession *session,
 
       break;
 
-    case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
       /* add ourself to local pending */
       set = tp_intset_new_containing (self_handle);
       tp_group_mixin_change_members ((GObject *) channel, "",
@@ -1507,7 +1507,7 @@ static void priv_session_state_changed_cb (RakiaMediaSession *session,
 
       break;
 
-    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
+    case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
       if (priv->initiator == self_handle)
         {
           if (!tp_handle_set_is_member (mixin->remote_pending, peer))
@@ -1546,7 +1546,7 @@ static void priv_session_state_changed_cb (RakiaMediaSession *session,
 
       break;
 
-    case TPSIP_MEDIA_SESSION_STATE_ENDED:
+    case RAKIA_MEDIA_SESSION_STATE_ENDED:
       set = tp_intset_new ();
 
       /* remove us and the peer from the member list */
@@ -1574,13 +1574,13 @@ void
 rakia_media_channel_attach_to_nua_handle (RakiaMediaChannel *self,
                                           nua_handle_t *nh)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   rakia_event_target_attach (nh, (GObject *) self);
 
   /* have the connection handle authentication, before all other
    * response callbacks */
-  rakia_base_connection_add_auth_handler (priv->conn, TPSIP_EVENT_TARGET (self));
+  rakia_base_connection_add_auth_handler (priv->conn, RAKIA_EVENT_TARGET (self));
 
   g_signal_connect (self,
                     "nua-event::nua_i_invite",
@@ -1620,7 +1620,7 @@ priv_create_session (RakiaMediaChannel *channel,
 
   DEBUG("enter");
 
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
+  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (channel);
   conn = (TpBaseConnection *)(priv->conn);
   contact_repo = tp_base_connection_get_handles (conn,
       TP_HANDLE_TYPE_CONTACT);
@@ -1638,7 +1638,7 @@ priv_create_session (RakiaMediaChannel *channel,
                 "local-ip-address", &local_ip_address,
                 NULL);
 
-  session = g_object_new (TPSIP_TYPE_MEDIA_SESSION,
+  session = g_object_new (RAKIA_TYPE_MEDIA_SESSION,
                           "dbus-daemon",
                               tp_base_connection_get_dbus_daemon (conn),
                           "media-channel", channel,
@@ -1669,7 +1669,7 @@ priv_create_session (RakiaMediaChannel *channel,
 static void
 priv_destroy_session(RakiaMediaChannel *channel)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (channel);
   RakiaMediaSession *session;
   TpBaseConnection *conn;
   TpHandleRepoIface *contact_repo;
@@ -1699,7 +1699,7 @@ static void
 priv_outbound_call (RakiaMediaChannel *channel,
                     TpHandle peer)
 {
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (channel);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (channel);
   nua_handle_t *nh;
 
   if (priv->session == NULL)
@@ -1726,8 +1726,8 @@ _rakia_media_channel_add_member (GObject *iface,
                                  const gchar *message,
                                  GError **error)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (iface);
 
   DEBUG("mixin->self_handle=%d, handle=%d", mixin->self_handle, handle);
@@ -1811,8 +1811,8 @@ rakia_media_channel_remove_with_reason (GObject *obj,
                                         guint reason,
                                         GError **error)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (obj);
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (obj);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpGroupMixin *mixin = TP_GROUP_MIXIN (obj);
   TpIntSet *set = NULL;
   TpHandle self_handle;
@@ -1867,7 +1867,7 @@ rakia_media_channel_remove_with_reason (GObject *obj,
       /* This session is effectively ended, prevent the nua_i_state handler
        * from useless work */
       rakia_media_session_change_state (priv->session,
-                                        TPSIP_MEDIA_SESSION_STATE_ENDED);
+                                        RAKIA_MEDIA_SESSION_STATE_ENDED);
     }
   else
     {
@@ -1883,8 +1883,8 @@ static void
 rakia_media_channel_get_call_states (TpSvcChannelInterfaceCallState *iface,
                                      DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   tp_svc_channel_interface_call_state_return_from_get_call_states (
         context,
@@ -1895,8 +1895,8 @@ static void
 rakia_media_channel_get_hold_state (TpSvcChannelInterfaceHold *iface,
                                     DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
-  RakiaMediaChannelPrivate *priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
   TpLocalHoldState hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
   TpLocalHoldStateReason hold_reason = TP_LOCAL_HOLD_STATE_REASON_NONE;
 
@@ -1922,10 +1922,10 @@ rakia_media_channel_request_hold (TpSvcChannelInterfaceHold *iface,
                                   gboolean hold,
                                   DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
   RakiaMediaChannelPrivate *priv;
 
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (priv->immutable_streams)
     {
@@ -1955,13 +1955,13 @@ rakia_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
                               guchar event,
                               DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
   RakiaMediaChannelPrivate *priv;
   GError *error = NULL;
 
   DEBUG("enter");
 
-  g_assert (TPSIP_IS_MEDIA_CHANNEL (self));
+  g_assert (RAKIA_IS_MEDIA_CHANNEL (self));
 
   if (event >= NUM_TP_DTMF_EVENTS)
     {
@@ -1972,7 +1972,7 @@ rakia_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
       return;
     }
 
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (!rakia_media_session_start_telephony_event (priv->session,
                                                   stream_id,
@@ -1992,15 +1992,15 @@ rakia_media_channel_stop_tone (TpSvcChannelInterfaceDTMF *iface,
                              guint stream_id,
                              DBusGMethodInvocation *context)
 {
-  RakiaMediaChannel *self = TPSIP_MEDIA_CHANNEL (iface);
+  RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
   RakiaMediaChannelPrivate *priv;
   GError *error = NULL;
 
   DEBUG("enter");
 
-  g_assert (TPSIP_IS_MEDIA_CHANNEL (self));
+  g_assert (RAKIA_IS_MEDIA_CHANNEL (self));
 
-  priv = TPSIP_MEDIA_CHANNEL_GET_PRIVATE (self);
+  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   if (!rakia_media_session_stop_telephony_event (priv->session,
                                                  stream_id,

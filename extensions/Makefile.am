@@ -60,7 +60,7 @@ extensions.html: _gen/all.xml $(tools_dir)/doc-generator.xsl
 _gen/gtypes.h _gen/gtypes-body.h: _gen/all.xml \
 	$(top_srcdir)/tools/glib-gtypes-generator.py
 	$(PYTHON) $(top_srcdir)/tools/glib-gtypes-generator.py \
-		$< _gen/gtypes TPSIP
+		$< _gen/gtypes RAKIA
 
 _gen/signals-marshal.list: _gen/all.xml \
 	$(tools_dir)/glib-signals-marshal-gen.py

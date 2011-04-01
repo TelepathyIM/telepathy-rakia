@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __TPSIP_EVENT_TARGET_H__
-#define __TPSIP_EVENT_TARGET_H__
+#ifndef __RAKIA_EVENT_TARGET_H__
+#define __RAKIA_EVENT_TARGET_H__
 
 #include <glib-object.h>
 #include <rakia/sofia-decls.h>
@@ -59,14 +59,14 @@ typedef struct _RakiaEventTarget RakiaEventTarget;
 typedef struct _RakiaEventTargetInterface RakiaEventTargetInterface;
 
 /* TYPE MACROS */
-#define TPSIP_TYPE_EVENT_TARGET \
+#define RAKIA_TYPE_EVENT_TARGET \
   (rakia_event_target_get_type ())
-#define TPSIP_EVENT_TARGET(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_EVENT_TARGET, RakiaEventTarget))
-#define TPSIP_IS_EVENT_TARGET(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_EVENT_TARGET))
-#define TPSIP_EVENT_TARGET_GET_INTERFACE(obj) \
-  (G_TYPE_INSTANCE_GET_INTERFACE((obj), TPSIP_TYPE_EVENT_TARGET, RakiaEventTargetInterface))
+#define RAKIA_EVENT_TARGET(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), RAKIA_TYPE_EVENT_TARGET, RakiaEventTarget))
+#define RAKIA_IS_EVENT_TARGET(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), RAKIA_TYPE_EVENT_TARGET))
+#define RAKIA_EVENT_TARGET_GET_INTERFACE(obj) \
+  (G_TYPE_INSTANCE_GET_INTERFACE((obj), RAKIA_TYPE_EVENT_TARGET, RakiaEventTargetInterface))
 
 struct _RakiaEventTargetInterface {
   GTypeInterface base_iface;
@@ -89,4 +89,4 @@ gboolean rakia_event_target_emit_nua_event (gpointer             instance,
 
 G_END_DECLS
 
-#endif /*__TPSIP_EVENT_TARGET_H__*/
+#endif /*__RAKIA_EVENT_TARGET_H__*/

@@ -25,7 +25,7 @@
 #include <rakia/base-connection.h>
 #include <sofia-sip/su_tag_io.h>
 
-#define DEBUG_FLAG TPSIP_DEBUG_EVENTS
+#define DEBUG_FLAG RAKIA_DEBUG_EVENTS
 #include "rakia/debug.h"
 
 static void

@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __TPSIP_MEDIA_MANAGER_H__
-#define __TPSIP_MEDIA_MANAGER_H__
+#ifndef __RAKIA_MEDIA_MANAGER_H__
+#define __RAKIA_MEDIA_MANAGER_H__
 
 #include <glib-object.h>
 
@@ -39,18 +39,18 @@ struct _RakiaMediaManager {
 GType rakia_media_manager_get_type(void);
 
 /* TYPE MACROS */
-#define TPSIP_TYPE_MEDIA_MANAGER \
+#define RAKIA_TYPE_MEDIA_MANAGER \
   (rakia_media_manager_get_type())
-#define TPSIP_MEDIA_MANAGER(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_MEDIA_MANAGER, RakiaMediaManager))
-#define TPSIP_MEDIA_MANAGER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_MEDIA_MANAGER, RakiaMediaManagerClass))
-#define TPSIP_IS_MEDIA_MANAGER(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_MEDIA_MANAGER))
-#define TPSIP_IS_MEDIA_MANAGER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_MEDIA_MANAGER))
-#define TPSIP_MEDIA_MANAGER_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_MEDIA_MANAGER, RakiaMediaManagerClass))
+#define RAKIA_MEDIA_MANAGER(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), RAKIA_TYPE_MEDIA_MANAGER, RakiaMediaManager))
+#define RAKIA_MEDIA_MANAGER_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), RAKIA_TYPE_MEDIA_MANAGER, RakiaMediaManagerClass))
+#define RAKIA_IS_MEDIA_MANAGER(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), RAKIA_TYPE_MEDIA_MANAGER))
+#define RAKIA_IS_MEDIA_MANAGER_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), RAKIA_TYPE_MEDIA_MANAGER))
+#define RAKIA_MEDIA_MANAGER_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), RAKIA_TYPE_MEDIA_MANAGER, RakiaMediaManagerClass))
 
 G_END_DECLS
 

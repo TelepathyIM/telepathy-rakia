@@ -35,7 +35,7 @@
 
 #include <string.h>
 
-#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
+#define DEBUG_FLAG RAKIA_DEBUG_CONNECTION
 #include "rakia/debug.h"
 
 enum {
@@ -82,7 +82,7 @@ rakia_connection_aliasing_get_type (void)
       type = g_type_register_static (G_TYPE_INTERFACE,
           "RakiaConnectionAliasingInterface", &info, 0);
 
-      g_type_interface_add_prerequisite (type, TPSIP_TYPE_BASE_CONNECTION);
+      g_type_interface_add_prerequisite (type, RAKIA_TYPE_BASE_CONNECTION);
       g_type_interface_add_prerequisite (type,
           TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING);
     }

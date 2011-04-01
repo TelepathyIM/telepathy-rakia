@@ -25,7 +25,7 @@
 #include <rakia/handles.h>
 #include <sofia-sip/sip_header.h>
 
-#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
+#define DEBUG_FLAG RAKIA_DEBUG_CONNECTION
 #include "rakia/debug.h"
 
 static GQuark
@@ -240,7 +240,7 @@ priv_lowercase_url_part (su_home_t *home, const char *src)
   return (const char *) res;
 }
 
-#define TPSIP_RESERVED_CHARS_ALLOWED_IN_USERNAME "!*'()&=+$,;?/"
+#define RAKIA_RESERVED_CHARS_ALLOWED_IN_USERNAME "!*'()&=+$,;?/"
 
 gchar *
 rakia_normalize_contact (const gchar *sipuri,
@@ -274,7 +274,7 @@ rakia_normalize_contact (const gchar *sipuri,
       else
         {
           user = g_uri_escape_string (sipuri,
-              TPSIP_RESERVED_CHARS_ALLOWED_IN_USERNAME, FALSE);
+              RAKIA_RESERVED_CHARS_ALLOWED_IN_USERNAME, FALSE);
         }
 
       if (base_url->url_type == url_sips)

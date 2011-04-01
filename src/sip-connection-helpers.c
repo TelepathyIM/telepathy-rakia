@@ -41,21 +41,21 @@
 
 #include "sip-connection-private.h"
 
-#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
+#define DEBUG_FLAG RAKIA_DEBUG_CONNECTION
 #include "rakia/debug.h"
 
 /* Default keepalive timeout in seconds,
  * a value obtained from Sofia-SIP documentation */
-#define TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL 120
+#define RAKIA_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL 120
 
 /* The user is not allowed to set keepalive timeout to lower than that,
  * to avoid wasting traffic and device power */
-#define TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL 30
+#define RAKIA_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL 30
 
 /* The user is not allowed to set keepalive timeout to lower than that
  * for REGISTER keepalives, to avoid wasting traffic and device power.
  * REGISTER is special because it may tie resources on the server side */
-#define TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER 50
+#define RAKIA_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER 50
 
 static sip_to_t *
 priv_sip_to_url_make (RakiaConnection *conn,
@@ -72,7 +72,7 @@ static sip_from_t *
 priv_sip_from_url_make (RakiaConnection *conn,
                         su_home_t *home)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   sip_from_t *from;
   gchar *alias = NULL;
 
@@ -106,7 +106,7 @@ nua_handle_t *
 rakia_conn_create_register_handle (RakiaConnection *conn,
                                  TpHandle contact)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   nua_handle_t *result = NULL;
   su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
   sip_to_t *to;
@@ -128,7 +128,7 @@ nua_handle_t *
 rakia_conn_create_request_handle (RakiaConnection *conn,
                                   TpHandle contact)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   nua_handle_t *result = NULL;
   su_home_t temphome[1] = { SU_HOME_INIT(temphome) };
   sip_from_t *from;
@@ -155,7 +155,7 @@ rakia_conn_create_request_handle (RakiaConnection *conn,
 void
 rakia_conn_update_proxy_and_transport (RakiaConnection *conn)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
 
   if (priv->proxy_url != NULL)
     {
@@ -197,7 +197,7 @@ rakia_conn_update_proxy_and_transport (RakiaConnection *conn)
 const url_t *
 rakia_conn_get_local_url (RakiaConnection *conn)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   url_t *url;
 
   url = url_make (priv->sofia_home, "sip:*:*");
@@ -340,7 +340,7 @@ priv_nua_set_outbound_options (nua_t* nua, GHashTable* option_table)
 void
 rakia_conn_update_nua_outbound (RakiaConnection *conn)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   GHashTable *option_table;
 
   g_return_if_fail (priv->sofia_nua != NULL);
@@ -353,22 +353,22 @@ rakia_conn_update_nua_outbound (RakiaConnection *conn)
   /* Set options that affect keepalive behavior */
   switch (priv->keepalive_mechanism)
     {
-    case TPSIP_CONNECTION_KEEPALIVE_NONE:
-    case TPSIP_CONNECTION_KEEPALIVE_REGISTER:
+    case RAKIA_CONNECTION_KEEPALIVE_NONE:
+    case RAKIA_CONNECTION_KEEPALIVE_REGISTER:
       /* For REGISTER keepalives, we use NUTAG_M_FEATURES */
       g_hash_table_insert (option_table,
                            g_strdup ("options-keepalive"),
                            GINT_TO_POINTER(FALSE));
       break;
-    case TPSIP_CONNECTION_KEEPALIVE_OPTIONS:
+    case RAKIA_CONNECTION_KEEPALIVE_OPTIONS:
       g_hash_table_insert (option_table,
                            g_strdup ("options-keepalive"),
                            GINT_TO_POINTER(TRUE));
       break;
-    case TPSIP_CONNECTION_KEEPALIVE_STUN:
+    case RAKIA_CONNECTION_KEEPALIVE_STUN:
       /* Not supported */
       break;
-    case TPSIP_CONNECTION_KEEPALIVE_AUTO:
+    case RAKIA_CONNECTION_KEEPALIVE_AUTO:
     default:
       break;
     }
@@ -394,9 +394,9 @@ priv_sanitize_keepalive_interval (RakiaConnectionPrivate *priv)
   if (priv->keepalive_interval != 0)
     {
       minimum_interval =
-              (priv->keepalive_mechanism == TPSIP_CONNECTION_KEEPALIVE_REGISTER)
-              ? TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER
-              : TPSIP_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL;
+              (priv->keepalive_mechanism == RAKIA_CONNECTION_KEEPALIVE_REGISTER)
+              ? RAKIA_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL_REGISTER
+              : RAKIA_CONNECTION_MINIMUM_KEEPALIVE_INTERVAL;
       if (priv->keepalive_interval < minimum_interval)
         {
           WARNING ("keepalive interval is too low, pushing to %u", minimum_interval);
@@ -408,13 +408,13 @@ priv_sanitize_keepalive_interval (RakiaConnectionPrivate *priv)
 void
 rakia_conn_update_nua_keepalive_interval (RakiaConnection *conn)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   long keepalive_interval;
 
   if (!priv->keepalive_interval_specified)
     return;
 
-  if (priv->keepalive_mechanism == TPSIP_CONNECTION_KEEPALIVE_NONE)
+  if (priv->keepalive_mechanism == RAKIA_CONNECTION_KEEPALIVE_NONE)
     keepalive_interval = 0;
   else
     {
@@ -434,11 +434,11 @@ rakia_conn_update_nua_keepalive_interval (RakiaConnection *conn)
 void
 rakia_conn_update_nua_contact_features (RakiaConnection *conn)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   char *contact_features;
   guint timeout;
 
-  if (priv->keepalive_mechanism != TPSIP_CONNECTION_KEEPALIVE_REGISTER)
+  if (priv->keepalive_mechanism != RAKIA_CONNECTION_KEEPALIVE_REGISTER)
     return;
 
   if (priv->keepalive_interval == 0)
@@ -447,7 +447,7 @@ rakia_conn_update_nua_contact_features (RakiaConnection *conn)
   priv_sanitize_keepalive_interval (priv);
   timeout = priv->keepalive_interval_specified
       ? priv->keepalive_interval
-      : TPSIP_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
+      : RAKIA_CONNECTION_DEFAULT_KEEPALIVE_INTERVAL;
   contact_features = g_strdup_printf ("expires=%u", timeout);
   nua_set_params(priv->sofia_nua,
 		 NUTAG_M_FEATURES(contact_features),
@@ -458,7 +458,7 @@ rakia_conn_update_nua_contact_features (RakiaConnection *conn)
 static void
 rakia_conn_set_stun_server_address (RakiaConnection *conn, const gchar *address)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   g_return_if_fail (priv->media_manager != NULL);
   g_object_set (priv->media_manager,
                 "stun-server", address,
@@ -469,8 +469,8 @@ rakia_conn_set_stun_server_address (RakiaConnection *conn, const gchar *address)
 static void
 priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t **answers)
 {
-  RakiaConnection *conn = TPSIP_CONNECTION (ctx);
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnection *conn = RAKIA_CONNECTION (ctx);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   sres_a_record_t *ans = NULL;
 
   if (NULL != answers)
@@ -507,7 +507,7 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
 void
 rakia_conn_resolv_stun_server (RakiaConnection *conn, const gchar *stun_host)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   struct in_addr test_addr;
 
   if (stun_host == NULL)
@@ -548,8 +548,8 @@ priv_stun_discover_cb (sres_context_t *ctx,
                        sres_query_t *query,
                        sres_record_t **answers)
 {
-  RakiaConnection *conn = TPSIP_CONNECTION (ctx);
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnection *conn = RAKIA_CONNECTION (ctx);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   sres_srv_record_t *sel = NULL;
   int n_sel_items = 0;
   int i;
@@ -643,7 +643,7 @@ priv_stun_discover_cb (sres_context_t *ctx,
 void
 rakia_conn_discover_stun_server (RakiaConnection *conn)
 {
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   const char *url_host;
   char *srv_domain;
   struct in_addr test_addr;
@@ -694,8 +694,8 @@ rakia_handle_normalize (TpHandleRepoIface *repo,
                         gpointer context,
                         GError **error)
 {
-  RakiaConnection *conn = TPSIP_CONNECTION (context);
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (conn);
+  RakiaConnection *conn = RAKIA_CONNECTION (context);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
 
   return rakia_normalize_contact (sipuri, priv->account_url, priv->transport,
       error);
@@ -757,7 +757,7 @@ heartbeat_wakeup (su_root_magic_t *foo,
                   void *user_data)
 {
   RakiaConnection *self = (RakiaConnection *) user_data;
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (self);
 
   DEBUG("tick");
 
@@ -781,7 +781,7 @@ void
 rakia_conn_heartbeat_init (RakiaConnection *self)
 {
 #ifdef HAVE_LIBIPHB
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (self);
   int wait_id;
   int reference_interval = 0;
   su_root_t *root = NULL;
@@ -822,7 +822,7 @@ void
 rakia_conn_heartbeat_shutdown (RakiaConnection *self)
 {
 #ifdef HAVE_LIBIPHB
-  RakiaConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (self);
   su_root_t *root = NULL;
 
   if (priv->heartbeat_wait_id == 0)
