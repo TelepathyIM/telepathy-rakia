@@ -46,6 +46,7 @@ main (int argc, char** argv)
   int status;
   gpointer logdata;
   guint fatal_mask;
+  const gchar *logfile_string;
 
   fatal_mask = g_log_set_always_fatal (G_LOG_FATAL_MASK);
   fatal_mask |= G_LOG_LEVEL_CRITICAL;
@@ -55,12 +56,16 @@ main (int argc, char** argv)
   rakia_debug_set_flags_from_env ();
 #endif
 
-  if (g_getenv ("RAKIA_PERSIST") || g_getenv ("RAKIA_PERSIST"))
+  if (g_getenv ("RAKIA_PERSIST") || g_getenv ("TPSIP_PERSIST"))
     {
       tp_debug_set_persistent (TRUE);
     }
 
-  tp_debug_divert_messages (g_getenv ("RAKIA_LOGFILE"));
+  logfile_string = g_getenv ("RAKIA_LOGFILE");
+  if (logfile_string == NULL)
+    logfile_string = g_getenv ("TPSIP_LOGFILE");
+
+  tp_debug_divert_messages (logfile_string);
 
   logdata = rakia_sofia_log_init ();
 

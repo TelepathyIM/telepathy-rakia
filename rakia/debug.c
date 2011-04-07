@@ -46,7 +46,7 @@ void rakia_debug_set_flags_from_env ()
 
   flags_string = g_getenv ("RAKIA_DEBUG");
   if (flags_string == NULL)
-    flags_string = g_getenv ("RAKIA_DEBUG");
+    flags_string = g_getenv ("TPSIP_DEBUG");
 
   if (flags_string != NULL)
     {
