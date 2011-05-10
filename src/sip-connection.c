@@ -49,6 +49,7 @@
 #include "sip-connection-sofia.h"
 
 #include <sofia-sip/msg_header.h>
+#include <sofia-sip/tport_tag.h>
 
 #define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
 #include "debug.h"
@@ -929,6 +930,7 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
       NUTAG_AUTOANSWER(0),
       NUTAG_APPL_METHOD("MESSAGE"),
       SIPTAG_ALLOW_STR("INVITE, ACK, BYE, CANCEL, OPTIONS, PRACK, MESSAGE, UPDATE"),
+      TPTAG_TLS_VERIFY_POLICY(TPTLS_VERIFY_ALL),
       TAG_NULL());
   if (priv->sofia_nua == NULL)
     {
