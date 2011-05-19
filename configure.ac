@@ -96,7 +96,7 @@ AC_ARG_WITH(iphb,
   [with_iphb=no]
 )
 if test "x$with_iphb" != xno; then
-  PKG_CHECK_MODULES(IPHB, [libiphb],
+  PKG_CHECK_MODULES(IPHB, [libiphb >= 0.61.31],
     [
       AC_DEFINE([HAVE_LIBIPHB], [], [IP heartbeat library is available])
     ]
