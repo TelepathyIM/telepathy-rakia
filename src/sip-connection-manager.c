@@ -71,6 +71,7 @@ typedef struct {
     guint local_port;
     gchar *extra_auth_user;
     gchar *extra_auth_password;
+    gboolean ignore_tls_errors;
 } TpsipConnParams;
 
 static void *
@@ -121,6 +122,7 @@ enum {
     TPSIP_CONN_PARAM_LOCAL_PORT,
     TPSIP_CONN_PARAM_EXTRA_AUTH_USER,
     TPSIP_CONN_PARAM_EXTRA_AUTH_PASSWORD,
+    TPSIP_CONN_PARAM_IGNORE_TLS_ERRORS,
     N_TPSIP_CONN_PARAMS
 };
 
@@ -200,6 +202,10 @@ static const TpCMParamSpec tpsip_params[] = {
     { "extra-auth-password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_SECRET,
       NULL, G_STRUCT_OFFSET (TpsipConnParams, extra_auth_password) },
+      /* If true, TLS validation errors will be ignored */
+      { "ignore-tls-errors", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
+        TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(FALSE),
+        G_STRUCT_OFFSET (TpsipConnParams, ignore_tls_errors) },
     { NULL, NULL, 0, 0, NULL, 0 }
 };
 
@@ -548,6 +554,10 @@ tpsip_connection_manager_new_connection (TpBaseConnectionManager *base,
       params->extra_auth_user);
   SET_PROPERTY_IF_PARAM_SET ("extra-auth-password", TPSIP_CONN_PARAM_EXTRA_AUTH_PASSWORD,
       params->extra_auth_password);
+
+  SET_PROPERTY_IF_PARAM_SET ("ignore-tls-errors",
+      TPSIP_CONN_PARAM_IGNORE_TLS_ERRORS,
+      params->ignore_tls_errors);
 
   return connection;
 }

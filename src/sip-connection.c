@@ -103,6 +103,7 @@ enum
   PROP_LOCAL_PORT,         /**< Local port for SIP (normally not needed, chosen by stack) */
   PROP_EXTRA_AUTH_USER,	   /**< User name to use for extra authentication challenges */
   PROP_EXTRA_AUTH_PASSWORD,/**< Password to use for extra authentication challenges */
+  PROP_IGNORE_TLS_ERRORS,  /**< If true, TLS errors will be ignored */
   PROP_SOFIA_ROOT,         /**< Event root pointer from the Sofia-SIP stack */
   LAST_PROPERTY
 };
@@ -304,6 +305,9 @@ tpsip_connection_set_property (GObject      *object,
     priv->extra_auth_password =  g_value_dup_string (value);
     break;
   }
+  case PROP_IGNORE_TLS_ERRORS:
+    priv->ignore_tls_errors = g_value_get_boolean (value);
+    break;
   case PROP_SOFIA_ROOT: {
     priv->sofia_root = g_value_get_pointer (value);
     break;
@@ -393,6 +397,9 @@ tpsip_connection_get_property (GObject      *object,
     g_value_set_uint (value, priv->local_port);
     break;
   }
+  case PROP_IGNORE_TLS_ERRORS:
+    g_value_set_boolean (value, priv->ignore_tls_errors);
+    break;
   case PROP_SOFIA_ROOT: {
     g_value_set_pointer (value, priv->sofia_root);
     break;
@@ -584,6 +591,12 @@ tpsip_connection_class_init (TpsipConnectionClass *klass)
       NULL,
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_EXTRA_AUTH_PASSWORD);
+
+  param_spec = g_param_spec_boolean ("ignore-tls-errors", "Ignore TLS errors",
+      "If true, the TLS verification errors will be ignored",
+      FALSE,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  INST_PROP(PROP_IGNORE_TLS_ERRORS);
 
 #undef INST_PROP
 
@@ -930,7 +943,8 @@ tpsip_connection_start_connecting (TpBaseConnection *base,
       NUTAG_AUTOANSWER(0),
       NUTAG_APPL_METHOD("MESSAGE"),
       SIPTAG_ALLOW_STR("INVITE, ACK, BYE, CANCEL, OPTIONS, PRACK, MESSAGE, UPDATE"),
-      TPTAG_TLS_VERIFY_POLICY(TPTLS_VERIFY_ALL),
+      TAG_IF(!priv->ignore_tls_errors,
+             TPTAG_TLS_VERIFY_POLICY(TPTLS_VERIFY_ALL)),
       TAG_NULL());
   if (priv->sofia_nua == NULL)
     {

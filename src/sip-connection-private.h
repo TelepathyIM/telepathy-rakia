@@ -69,6 +69,7 @@ struct _TpsipConnectionPrivate
   gboolean loose_routing;
   gboolean discover_binding;
   gboolean immutable_streams;
+  gboolean ignore_tls_errors;
 
   gboolean keepalive_interval_specified;
 
