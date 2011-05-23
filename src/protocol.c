@@ -147,6 +147,11 @@ static TpCMParamSpec rakia_params[] = {
     { "extra-auth-password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_SECRET, NULL, PARAM_EASY },
 
+    /* If true, TLS validation errors will be ignored */
+    { "ignore-tls-errors", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GUINT_TO_POINTER(FALSE),
+      PARAM_EASY },
+
     { NULL }
 };
 
