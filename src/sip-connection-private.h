@@ -28,7 +28,7 @@
 #include <sofia-sip/sresolv.h>
 
 #ifdef HAVE_LIBIPHB
-#include <libiphb.h>
+#include <iphbd/libiphb.h>
 #endif
 
 struct _TpsipConnectionPrivate

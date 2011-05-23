@@ -967,6 +967,54 @@ tpsip_handle_parse_from (TpHandleRepoIface *contact_repo,
 
 #ifdef HAVE_LIBIPHB
 
+static gushort
+recommended_intervals[] = {
+    IPHB_GS_WAIT_10_HOURS,
+    IPHB_GS_WAIT_2_HOURS,
+    IPHB_GS_WAIT_1_HOUR,
+    IPHB_GS_WAIT_30_MINS,
+    IPHB_GS_WAIT_10_MINS * 2, /* It aligns with the 1 hour slot. */
+    IPHB_GS_WAIT_10_MINS,
+    IPHB_GS_WAIT_5_MINS,
+    IPHB_GS_WAIT_2_5_MINS,
+    IPHB_GS_WAIT_30_SEC};
+
+static gushort
+get_system_sync_interval (guint max_interval)
+{
+  guint i;
+
+  for (i = 0; i < G_N_ELEMENTS (recommended_intervals); i++)
+    {
+      if (recommended_intervals[i] <= max_interval)
+        return recommended_intervals[i];
+    }
+
+  return (gushort) MIN (max_interval, G_MAXUSHORT);
+}
+
+static void
+heartbeat_schedule_wait (TpsipConnection *self)
+{
+  TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
+  gushort interval;
+
+  /* Passing the same minimum and maximum interval to iphb_wait() means
+   * that the iphb daemon will wake us up when its internal time is a
+   * multiple of the interval.
+   * By using recommended intervals across the platform we can get
+   * multiple processes waken up at the same time. */
+  interval = get_system_sync_interval (priv->keepalive_interval);
+  DEBUG ("requested %hd as maximum interval; using the recommended %hu "
+      "interval", priv->keepalive_interval, interval);
+
+  if (iphb_wait (priv->heartbeat, interval, interval, 0) < 0)
+    {
+      WARNING ("iphb_wait failed");
+      tpsip_conn_heartbeat_shutdown (self);
+    }
+}
+
 static int
 heartbeat_wakeup (su_root_magic_t *foo,
                   su_wait_t *wait,
@@ -974,7 +1022,6 @@ heartbeat_wakeup (su_root_magic_t *foo,
 {
   TpsipConnection *self = (TpsipConnection *) user_data;
   TpsipConnectionPrivate *priv = TPSIP_CONNECTION_GET_PRIVATE (self);
-  gint keepalive_earliest; 
 
   DEBUG("tick");
 
@@ -987,19 +1034,7 @@ heartbeat_wakeup (su_root_magic_t *foo,
       return 0;
     }
 
-  keepalive_earliest = (int) priv->keepalive_interval - TPSIP_DEFER_TIMEOUT;
-  if (keepalive_earliest < 0)
-    keepalive_earliest = 0;
-
-  if (iphb_wait (priv->heartbeat,
-        (gushort) keepalive_earliest,
-        (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT),
-        0) < 0)
-    {
-      WARNING ("iphb_wait failed");
-      tpsip_conn_heartbeat_shutdown (self);
-      return 0;
-    }
+  heartbeat_schedule_wait (self);
 
   return 0;
 }
@@ -1039,15 +1074,7 @@ tpsip_conn_heartbeat_init (TpsipConnection *self)
   g_return_if_fail (wait_id > 0);
   priv->heartbeat_wait_id = wait_id;
 
-  /* Prime the heartbeat for the first time.
-   * The minimum wakeup timeout is 0 to fall in step with other
-   * clients using the same interval */
-  if (iphb_wait (priv->heartbeat,
-        0, (gushort) MIN(priv->keepalive_interval, G_MAXUSHORT), 0) < 0)
-    {
-      WARNING ("iphb_wait failed");
-      tpsip_conn_heartbeat_shutdown (self);
-    }
+  heartbeat_schedule_wait (self);
 
 #endif /* HAVE_LIBIPHB */
 }
