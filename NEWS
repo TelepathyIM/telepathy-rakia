@@ -7,6 +7,30 @@ recent at the top).
 
 See also ChangeLog.
 
+Changes in release 0.6.7 (2011-05-23)
+-------------------------------------
+
+The "boarding up" release.
+
+- Verify the validity of TLS certificates presented by SIP connection peers.
+  This change is disruptive: it relies on root CA certificates being available
+  to sofia-sip in the default verification path ``~/.sip/auth`` or file
+  ``~/.sip/auth/cafile.pem``, or sofia-sip changed to use OpenSSL library
+  defaults for verification path (sf.net #3306245).
+  The connection parameter "ignore-tls-errors" is added to disable
+  verification.
+- Choose keepalive timing to make the iphb heartbeat synchronize with the
+  other applications. (fd.o #37354)
+- Omission of parameter 'keepalive-interval' does not mean disabled keepalives.
+  A default defined by sofia-sip is used instead.
+- More client-friendly behavior for connection parameter 'discover-stun':
+  if set to TRUE, overrides 'stun-server'; by default discovery is performed if
+  'stun-server' is not set. (fd.o #34227)
+- If the home domain is given as an IP address, don't try to perform
+  SRV lookups on it.
+- Requires sofia-sip >= 1.12.11.
+- Requires iphb >= 0.61.31, if used.
+
 Changes in release 0.6.6 (2011-02-01)
 -------------------------------------
 
