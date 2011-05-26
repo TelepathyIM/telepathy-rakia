@@ -30,7 +30,7 @@
 #include <telepathy-glib/simple-password-manager.h>
 
 #ifdef HAVE_LIBIPHB
-#include <libiphb.h>
+#include <iphbd/libiphb.h>
 #endif
 
 struct _RakiaConnectionPrivate
