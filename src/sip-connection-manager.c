@@ -68,7 +68,7 @@ rakia_connection_manager_init (RakiaConnectionManager *obj)
 
   priv->sofia_root = su_glib_root_create(obj);
   su_root_threading(priv->sofia_root, 0);
-  source = su_root_gsource(priv->sofia_root);
+  source = su_glib_root_gsource(priv->sofia_root);
   g_source_attach(source, NULL);
 
   priv->debug_sender = tp_debug_sender_dup ();
@@ -120,7 +120,7 @@ rakia_connection_manager_finalize (GObject *object)
   RakiaConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
   GSource *source;
 
-  source = su_root_gsource(priv->sofia_root);
+  source = su_glib_root_gsource(priv->sofia_root);
   g_source_destroy(source);
   su_root_destroy(priv->sofia_root);
 
