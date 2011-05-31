@@ -111,13 +111,13 @@ static guint signals[SIG_LAST_SIGNAL] = {0};
 static const char session_states[NUM_RAKIA_MEDIA_SESSION_STATES][16] =
 {
     "created",
-    "invi-sent",
-    "invi-recv",
-    "resp-recv",
+    "invite-sent",
+    "invite-received",
+    "response-received",
     "active",
-    "rein-sent",
-    "rein-recv",
-    "rein-pend",
+    "reinvite-sent",
+    "reinvite-received",
+    "reinvite-pending",
     "ended"
 };
 

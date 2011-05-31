@@ -178,7 +178,7 @@ static void priv_generate_sdp (RakiaMediaStream *stream);
 static void
 rakia_media_stream_init (RakiaMediaStream *self)
 {
-  RakiaMediaStreamPrivate *priv = 
+  RakiaMediaStreamPrivate *priv =
       G_TYPE_INSTANCE_GET_PRIVATE ((self),
           RAKIA_TYPE_MEDIA_STREAM, RakiaMediaStreamPrivate);
 
