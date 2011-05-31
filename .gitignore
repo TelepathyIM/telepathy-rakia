@@ -61,3 +61,4 @@ Makefile
 /.settings
 .*.swp
 *~
+/tests/twisted/config.py

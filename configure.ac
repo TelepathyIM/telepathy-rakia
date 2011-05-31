@@ -54,6 +54,7 @@ AC_ARG_ENABLE(debug,
 if test x$enable_debug = xyes; then
   AC_DEFINE(ENABLE_DEBUG, [], [Enable debug code])
 fi
+AM_CONDITIONAL([ENABLE_DEBUG], [test "x$enable_debug" = xyes])
 
 AC_C_INLINE
 

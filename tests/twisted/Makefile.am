@@ -5,6 +5,7 @@ TWISTED_TESTS = \
 	test-register.py \
 	test-register-fail.py \
 	test-register-sasl.py \
+	test-debug.py \
 	test-handle-normalisation.py \
 	test-message.py \
 	test-self-alias.py \
@@ -16,7 +17,7 @@ TWISTED_TESTS = \
 TESTS =
 
 TESTS_ENVIRONMENT = \
-	PYTHONPATH=@abs_top_srcdir@/tests/twisted
+	PYTHONPATH=@abs_top_srcdir@/tests/twisted::@abs_top_builddir@/tests/twisted
 
 check-local: check-coding-style check-twisted
 
@@ -33,6 +34,20 @@ check-twisted:
 		TESTS_ENVIRONMENT="$(TESTS_ENVIRONMENT) $(PYTHON)" 2>&1 | \
 		fgrep -v -e DeprecationWarning -e DigestAuthorizer
 
+if ENABLE_DEBUG
+DEBUGGING_PYBOOL = True
+else
+DEBUGGING_PYBOOL = False
+endif
+
+config.py: Makefile
+	$(AM_V_GEN) { \
+		echo "PACKAGE_STRING = \"$(PACKAGE_STRING)\""; \
+		echo "DEBUGGING = $(DEBUGGING_PYBOOL)"; \
+	} > $@
+
+BUILT_SOURCES = config.py
+
 EXTRA_DIST = \
 	$(TWISTED_TESTS) \
 	constants.py \
@@ -40,7 +55,7 @@ EXTRA_DIST = \
 	servicetest.py \
 	voip/voip_test.py
 
-CLEANFILES = rakia-[1-9]*.log *.pyc */*.pyc
+CLEANFILES = rakia-[1-9]*.log *.pyc */*.pyc config.py
 
 check_misc_sources = $(TESTS)
 
