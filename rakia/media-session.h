@@ -38,11 +38,14 @@ typedef enum {
     RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT,
     RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
     RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING,
-    RAKIA_MEDIA_SESSION_STATE_ENDED
+    RAKIA_MEDIA_SESSION_STATE_ENDED,
+
+    NUM_RAKIA_MEDIA_SESSION_STATES
 } RakiaMediaSessionState;
 
 typedef struct _RakiaMediaSession RakiaMediaSession;
 typedef struct _RakiaMediaSessionClass RakiaMediaSessionClass;
+typedef struct _RakiaMediaSessionPrivate RakiaMediaSessionPrivate;
 
 struct _RakiaMediaSessionClass {
     GObjectClass parent_class;
@@ -50,6 +53,7 @@ struct _RakiaMediaSessionClass {
 
 struct _RakiaMediaSession {
     GObject parent;
+    RakiaMediaSessionPrivate *priv;
 };
 
 GType rakia_media_session_get_type(void);
@@ -124,20 +128,5 @@ gboolean rakia_sdp_rtcp_bandwidth_throttled (const sdp_bandwidth_t *b);
 
 gchar * rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs,
                                         const char *name);
-
-#ifdef ENABLE_DEBUG
-
-#define SESSION_DEBUG(s, ...)    rakia_media_session_debug (s, __VA_ARGS__)
-
-void rakia_media_session_debug (RakiaMediaSession *session,
-			      const gchar *format, ...);
-
-#else
-
-#define SESSION_DEBUG(s, ...)
-
-#endif
-
-G_END_DECLS
 
 #endif /* #ifndef __RAKIA_MEDIA_SESSION_H__*/

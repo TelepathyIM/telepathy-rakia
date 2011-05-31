@@ -17,18 +17,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "config.h"
-
-#include <stdarg.h>
+#include "debug.h"
 
 #include <glib.h>
 
 #include <telepathy-glib/debug.h>
 #include <telepathy-glib/debug-sender.h>
 
-#include "rakia/debug.h"
-
-#include <sofia-sip/su_log.h>
+#include "config.h"
 
 static RakiaDebugFlags rakia_debug_flags = 0;
 
@@ -38,7 +34,16 @@ static const GDebugKey rakia_debug_keys[] = {
   { "im",            RAKIA_DEBUG_IM },
   { "events",        RAKIA_DEBUG_EVENTS },
   { "sofia",         RAKIA_DEBUG_SOFIA },
+  { "utilities",     RAKIA_DEBUG_UTILITIES },
 };
+
+static GHashTable *flag_to_domains = NULL;
+
+static GString *sofia_log_buf = NULL;
+
+
+static void rakia_sofia_log_close (void);
+
 
 void rakia_debug_set_flags_from_env ()
 {
@@ -68,8 +73,6 @@ gboolean rakia_debug_flag_is_set (RakiaDebugFlags flag)
   return (flag & rakia_debug_flags) ? TRUE : FALSE;
 }
 
-static GHashTable *flag_to_domains = NULL;
-
 static const gchar *
 debug_flag_to_domain (RakiaDebugFlags flag)
 {
@@ -97,6 +100,8 @@ debug_flag_to_domain (RakiaDebugFlags flag)
 void
 rakia_debug_free (void)
 {
+  rakia_sofia_log_close ();
+
   if (flag_to_domains == NULL)
     return;
 
@@ -104,94 +109,75 @@ rakia_debug_free (void)
   flag_to_domains = NULL;
 }
 
-static void
-log_to_debug_sender (RakiaDebugFlags flag,
-                     GLogLevelFlags level,
-                     const gchar *message)
-{
-  TpDebugSender *dbg;
-  GTimeVal now;
-
-  dbg = tp_debug_sender_dup ();
-
-  g_get_current_time (&now);
-
-  tp_debug_sender_add_message (dbg, &now, debug_flag_to_domain (flag),
-      level, message);
-
-  g_object_unref (dbg);
-}
-
 void rakia_log (RakiaDebugFlags flag,
                 GLogLevelFlags level,
                 const gchar *format,
                 ...)
 {
-  gchar *message;
+  TpDebugSender *dbg;
+  gchar *message = NULL;
+  gchar **message_out;
   va_list args;
 
+  message_out =
+      (level > G_LOG_LEVEL_DEBUG || (flag & rakia_debug_flags) != 0)?
+      &message : NULL;
+
+  dbg = tp_debug_sender_dup ();
+
   va_start (args, format);
-  message = g_strdup_vprintf (format, args);
+  tp_debug_sender_add_message_vprintf (dbg, NULL, message_out,
+      debug_flag_to_domain (flag), level, format, args);
   va_end (args);
 
-  log_to_debug_sender (flag, level, message);
+  g_object_unref (dbg);
 
-  if (flag & rakia_debug_flags)
-    g_log (G_LOG_DOMAIN, level, "%s", message);
-
-  g_free (message);
-}
-
-static void
-rakia_sofia_log_handler (void *logdata, const char *format, va_list args)
-{
-#ifdef ENABLE_DEBUG
-  GString *buf = (GString *)logdata;
-  g_assert (buf != NULL);
-
-  /* Append the formatted message at the end of the buffer */
-  g_string_append_vprintf (buf, format, args);
-
-  /* If we have a terminated line, log it, stripping the newline */
-  if (buf->str[buf->len - 1] == '\n')
+  if (message_out != NULL)
     {
-      g_string_truncate (buf, buf->len - 1);
-      rakia_log (RAKIA_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG, "%s", buf->str);
-      g_string_truncate (buf, 0);
+      g_log (G_LOG_DOMAIN, level, "%s", message);
+      g_free (message);
     }
-#endif
-}
-
-gpointer
-rakia_sofia_log_init ()
-{
-  GString *buf;
-
-#ifdef ENABLE_DEBUG
-  buf = g_string_sized_new (80);
-#else
-  buf = NULL;
-#endif
-
-  su_log_redirect (NULL, rakia_sofia_log_handler, buf);
-
-  return buf;
 }
 
 void
-rakia_sofia_log_finalize (gpointer logdata)
+rakia_sofia_log_handler (void *logdata, const char *format, va_list args)
 {
 #ifdef ENABLE_DEBUG
-  GString *buf = (GString *)logdata;
+  if (G_UNLIKELY (sofia_log_buf == NULL))
+    sofia_log_buf = g_string_sized_new (
+        g_printf_string_upper_bound (format, args));
 
-  if (buf->len != 0)
+  /* Append the formatted message at the end of the buffer */
+  g_string_append_vprintf (sofia_log_buf, format, args);
+
+  /* If we have a newline-terminated line, log it, stripping the newline */
+  if (sofia_log_buf->str[sofia_log_buf->len - 1] == '\n')
     {
-      /* Don't use rakia_log here because the CM has already been finalized, so
-       * out TpDebugSender will have too. It isn't crucial, anyway. */
-      g_debug ("%s", buf->str);
-      g_message ("last Sofia log message was not newline-terminated");
+      g_string_truncate (sofia_log_buf, sofia_log_buf->len - 1);
+      rakia_log (RAKIA_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG, "%s",
+          sofia_log_buf->str);
+      g_string_truncate (sofia_log_buf, 0);
+    }
+#endif
+}
+
+static void
+rakia_sofia_log_close (void)
+{
+#ifdef ENABLE_DEBUG
+  if (sofia_log_buf == NULL)
+    return;
+
+  if (sofia_log_buf->len != 0)
+    {
+      rakia_log (RAKIA_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG, "%s",
+          sofia_log_buf->str);
+      rakia_log (RAKIA_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG,
+          "(the preceding message may have been deferred"
+          " due to not being newline-terminated)");
     }
 
-  g_string_free (buf, TRUE);
+  g_string_free (sofia_log_buf, TRUE);
+  sofia_log_buf = NULL;
 #endif
 }

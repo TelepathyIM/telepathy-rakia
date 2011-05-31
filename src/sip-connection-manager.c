@@ -37,6 +37,7 @@
 
 #include <rakia/sofia-decls.h>
 #include <sofia-sip/su_glib.h>
+#include <sofia-sip/su_log.h>
 
 #include "protocol.h"
 #include "sip-connection-manager.h"
@@ -66,13 +67,15 @@ rakia_connection_manager_init (RakiaConnectionManager *obj)
 
   obj->priv = priv;
 
+  priv->debug_sender = tp_debug_sender_dup ();
+  g_log_set_default_handler (tp_debug_sender_log_handler, G_LOG_DOMAIN);
+
+  su_log_redirect (NULL, rakia_sofia_log_handler, NULL);
+
   priv->sofia_root = su_glib_root_create(obj);
   su_root_threading(priv->sofia_root, 0);
   source = su_glib_root_gsource(priv->sofia_root);
   g_source_attach(source, NULL);
-
-  priv->debug_sender = tp_debug_sender_dup ();
-  g_log_set_default_handler (tp_debug_sender_log_handler, G_LOG_DOMAIN);
 
 #ifdef HAVE_LIBIPHB
   su_root_set_max_defer (priv->sofia_root, RAKIA_DEFER_TIMEOUT * 1000L);
@@ -124,13 +127,13 @@ rakia_connection_manager_finalize (GObject *object)
   g_source_destroy(source);
   su_root_destroy(priv->sofia_root);
 
+  rakia_debug_free ();
+
   if (priv->debug_sender != NULL)
     {
       g_object_unref (priv->debug_sender);
       priv->debug_sender = NULL;
     }
-
-  rakia_debug_free ();
 
   G_OBJECT_CLASS (rakia_connection_manager_parent_class)->finalize (object);
 }

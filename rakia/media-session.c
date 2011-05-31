@@ -108,24 +108,30 @@ static guint signals[SIG_LAST_SIGNAL] = {0};
  * - reinvite-received, a remote re-INVITE received, response is pending
  * - ended, session has ended
  */
-static const char* session_states[] =
+static const char session_states[NUM_RAKIA_MEDIA_SESSION_STATES][16] =
 {
     "created",
-    "invite-sent",
-    "invite-received",
-    "response-received",
+    "invi-sent",
+    "invi-recv",
+    "resp-recv",
     "active",
-    "reinvite-sent",
-    "reinvite-received",
-    "reinvite-pending",
+    "rein-sent",
+    "rein-recv",
+    "rein-pend",
     "ended"
 };
+
+#define SESSION_DEBUG(session, format, ...) \
+  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "session [%-9s]: " format, \
+      session_states[(session)->priv->state],##__VA_ARGS__)
+
+#else /* !ENABLE_DEBUG */
+
+#define SESSION_DEBUG
 
 #endif /* ENABLE_DEBUG */
 
 /* private structure */
-typedef struct _RakiaMediaSessionPrivate RakiaMediaSessionPrivate;
-
 struct _RakiaMediaSessionPrivate
 {
   TpDBusDaemon *dbus_daemon;
@@ -156,7 +162,7 @@ struct _RakiaMediaSessionPrivate
   gboolean dispose_has_run;
 };
 
-#define RAKIA_MEDIA_SESSION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_MEDIA_SESSION, RakiaMediaSessionPrivate))
+#define RAKIA_MEDIA_SESSION_GET_PRIVATE(session) ((session)->priv)
 
 static void rakia_media_session_get_property (GObject    *object,
 					    guint       property_id,
@@ -180,9 +186,12 @@ static gboolean priv_update_remote_media (RakiaMediaSession *session,
 static void priv_save_event (RakiaMediaSession *self);
 static void priv_zap_event (RakiaMediaSession *self);
 
-static void rakia_media_session_init (RakiaMediaSession *obj)
+static void rakia_media_session_init (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (obj);
+  RakiaMediaSessionPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE ((self),
+      RAKIA_TYPE_MEDIA_SESSION, RakiaMediaSessionPrivate);
+
+  self->priv = priv;
 
   priv->state = RAKIA_MEDIA_SESSION_STATE_CREATED;
   priv->hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
@@ -673,7 +682,7 @@ rakia_media_session_change_state (RakiaMediaSession *session,
   old_state = priv->state;
   priv->state = new_state;
 
-  SESSION_DEBUG (session, "state change: %s -> %s",
+  DEBUG ("%s -> %s",
       session_states[old_state],
       session_states[new_state]);
 
@@ -703,6 +712,8 @@ rakia_media_session_change_state (RakiaMediaSession *session,
           priv->nua_op = NULL;
         }
       break;
+    case NUM_RAKIA_MEDIA_SESSION_STATES:
+      g_assert_not_reached();
 
       /* Don't add default because we want to be warned by the compiler
        * about unhandled states */
@@ -713,31 +724,6 @@ rakia_media_session_change_state (RakiaMediaSession *session,
   if (new_state == RAKIA_MEDIA_SESSION_STATE_ACTIVE && priv->pending_offer)
     priv_session_invite (session, TRUE);
 }
-
-#ifdef ENABLE_DEBUG
-void
-rakia_media_session_debug (RakiaMediaSession *session,
-                           const gchar *format, ...)
-{
-  RakiaMediaSessionPrivate *priv;
-  va_list list;
-  gchar buf[240];
-
-  if (!rakia_debug_flag_is_set (DEBUG_FLAG))
-    return;
-
-  priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-
-  va_start (list, format);
-
-  g_vsnprintf (buf, sizeof (buf), format, list);
-
-  va_end (list);
-
-  DEBUG ("SIP media session [%-17s]: %s",
-      session_states[priv->state], buf);
-}
-#endif /* ENABLE_DEBUG */
 
 void rakia_media_session_terminate (RakiaMediaSession *session)
 {
@@ -1509,7 +1495,7 @@ priv_local_media_changed (RakiaMediaSession *session)
             "immutable-streams", &immutable_streams,
             NULL);
         if (immutable_streams) {
-          g_message ("sending of a local media update disabled by parameter 'immutable-streams'");
+          MESSAGE ("sending of a local media update disabled by parameter 'immutable-streams'");
           break;
         }
       }

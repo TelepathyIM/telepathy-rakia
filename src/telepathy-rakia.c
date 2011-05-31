@@ -44,7 +44,6 @@ int
 main (int argc, char** argv)
 {
   int status;
-  gpointer logdata;
   guint fatal_mask;
   const gchar *logfile_string;
 
@@ -67,12 +66,8 @@ main (int argc, char** argv)
 
   tp_debug_divert_messages (logfile_string);
 
-  logdata = rakia_sofia_log_init ();
-
   status = tp_run_connection_manager ("telepathy-rakia", VERSION,
                                       construct_cm, argc, argv);
-
-  rakia_sofia_log_finalize (logdata);
 
   return status;
 }

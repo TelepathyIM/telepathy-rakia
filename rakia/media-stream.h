@@ -30,6 +30,7 @@ G_BEGIN_DECLS
 
 typedef struct _RakiaMediaStream RakiaMediaStream;
 typedef struct _RakiaMediaStreamClass RakiaMediaStreamClass;
+typedef struct _RakiaMediaStreamPrivate RakiaMediaStreamPrivate;
 
 struct _RakiaMediaStreamClass {
     GObjectClass parent_class;
@@ -38,6 +39,7 @@ struct _RakiaMediaStreamClass {
 
 struct _RakiaMediaStream {
     GObject parent;
+    RakiaMediaStreamPrivate *priv;
 };
 
 GType rakia_media_stream_get_type(void);
