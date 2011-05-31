@@ -68,8 +68,8 @@
 
 #else
 
-#define STREAM_DEBUG
-#define STREAM_MESSAGE
+#define STREAM_DEBUG(stream, format, ...) G_STMT_START { } G_STMT_END
+#define STREAM_MESSAGE(stream, format, ...) G_STMT_START { } G_STMT_END
 
 #endif
 
@@ -580,7 +580,9 @@ rakia_media_stream_codec_choice (TpSvcMediaStreamHandler *iface,
                                  guint codec_id,
                                  DBusGMethodInvocation *context)
 {
+#ifdef ENABLE_DEBUG
   RakiaMediaStream *self = RAKIA_MEDIA_STREAM (iface);
+#endif
 
   /* Inform the connection manager of the current codec choice. */
 

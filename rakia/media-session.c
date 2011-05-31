@@ -127,7 +127,7 @@ static const char session_states[NUM_RAKIA_MEDIA_SESSION_STATES][16] =
 
 #else /* !ENABLE_DEBUG */
 
-#define SESSION_DEBUG
+#define SESSION_DEBUG(session, format, ...) G_STMT_START { } G_STMT_END
 
 #endif /* ENABLE_DEBUG */
 

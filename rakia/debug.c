@@ -39,8 +39,9 @@ static const GDebugKey rakia_debug_keys[] = {
 
 static GHashTable *flag_to_domains = NULL;
 
+#ifdef ENABLE_DEBUG
 static GString *sofia_log_buf = NULL;
-
+#endif
 
 static void rakia_sofia_log_close (void);
 
