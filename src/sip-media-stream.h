@@ -30,6 +30,7 @@ G_BEGIN_DECLS
 
 typedef struct _TpsipMediaStream TpsipMediaStream;
 typedef struct _TpsipMediaStreamClass TpsipMediaStreamClass;
+typedef struct _TpsipMediaStreamPrivate TpsipMediaStreamPrivate;
 
 struct _TpsipMediaStreamClass {
     GObjectClass parent_class;
@@ -38,6 +39,7 @@ struct _TpsipMediaStreamClass {
 
 struct _TpsipMediaStream {
     GObject parent;
+    TpsipMediaStreamPrivate *priv;
 };
 
 GType tpsip_media_stream_get_type(void);
@@ -63,7 +65,8 @@ GType tpsip_media_stream_get_type(void);
 void tpsip_media_stream_close (TpsipMediaStream *self);
 guint tpsip_media_stream_get_id (TpsipMediaStream *self);
 guint tpsip_media_stream_get_media_type (TpsipMediaStream *self);
-const char *tpsip_media_stream_local_sdp (TpsipMediaStream *self);
+void tpsip_media_stream_generate_sdp (TpsipMediaStream *self,
+                                      GString *out);
 gboolean tpsip_media_stream_set_remote_media (TpsipMediaStream *self,
                                               const sdp_media_t *media,
                                               guint direction_up_mask,

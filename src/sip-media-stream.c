@@ -102,8 +102,6 @@ enum
 static GPtrArray *tpsip_media_stream_relay_info_empty = NULL;
 
 /* private structure */
-typedef struct _TpsipMediaStreamPrivate TpsipMediaStreamPrivate;
-
 struct _TpsipMediaStreamPrivate
 {
   TpDBusDaemon *dbus_daemon;
@@ -116,8 +114,6 @@ struct _TpsipMediaStreamPrivate
   guint pending_send_flags;       /* see gobj. prop. 'pending-send-flags' */
   gboolean hold_state;            /* see gobj. prop. 'hold-state' */
   gboolean created_locally;       /* see gobj. prop. 'created-locally' */
-
-  gchar *stream_sdp;              /* SDP description of the stream */
 
   GValue native_codecs;           /* intersected codec list */
   GValue native_candidates;
@@ -143,30 +139,18 @@ struct _TpsipMediaStreamPrivate
   gboolean dispose_has_run;
 };
 
-#define TPSIP_MEDIA_STREAM_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_STREAM, TpsipMediaStreamPrivate))
+#define TPSIP_MEDIA_STREAM_GET_PRIVATE(stream) ((stream)->priv)
 
 static void push_remote_codecs (TpsipMediaStream *stream);
 static void push_remote_candidates (TpsipMediaStream *stream);
 static void push_active_candidate_pair (TpsipMediaStream *stream);
 static void priv_update_sending (TpsipMediaStream *stream,
                                  TpMediaStreamDirection direction);
-static void priv_update_local_sdp(TpsipMediaStream *stream);
-static void priv_generate_sdp (TpsipMediaStream *stream);
+static void priv_emit_local_ready (TpsipMediaStream *stream);
+static const char *priv_get_preferred_native_candidate (
+    TpsipMediaStreamPrivate *priv,
+    const GPtrArray **transports);
 
-#if 0
-#ifdef ENABLE_DEBUG
-static const char *debug_tp_protocols[] = {
-  "TP_MEDIA_STREAM_PROTO_UDP (0)",
-  "TP_MEDIA_STREAM_PROTO_TCP (1)"
-};
-
-static const char *debug_tp_transports[] = {
-  "TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL (0)",
-  "TP_MEDIA_STREAM_TRANSPORT_TYPE_DERIVED (1)",
-  "TP_MEDIA_STREAM_TRANSPORT_TYPE_RELAY (2)"
-};
-#endif /* ENABLE_DEBUG */
-#endif /* 0 */
 
 /***********************************************************************
  * Set: Gobject interface
@@ -175,10 +159,10 @@ static const char *debug_tp_transports[] = {
 static void
 tpsip_media_stream_init (TpsipMediaStream *self)
 {
-  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
+  TpsipMediaStreamPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE ((self),
+      TPSIP_TYPE_MEDIA_STREAM, TpsipMediaStreamPrivate);
 
-  priv->playing = FALSE;
-  priv->sending = FALSE;
+  self->priv = priv;
 
   g_value_init (&priv->native_codecs, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST);
   g_value_take_boxed (&priv->native_codecs,
@@ -187,12 +171,6 @@ tpsip_media_stream_init (TpsipMediaStream *self)
   g_value_init (&priv->native_candidates, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CANDIDATE_LIST);
   g_value_take_boxed (&priv->native_candidates,
       dbus_g_type_specialized_construct (TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CANDIDATE_LIST));
-
-  priv->native_cands_prepared = FALSE;
-  priv->native_codecs_prepared = FALSE;
-
-  priv->push_remote_cands_pending = FALSE;
-  priv->push_remote_codecs_pending = FALSE;
 }
 
 static void
@@ -545,7 +523,6 @@ tpsip_media_stream_finalize (GObject *object)
 
   /* free any data held directly by the object here */
   g_free (priv->object_path);
-  g_free (priv->stream_sdp);
 
   g_value_unset (&priv->native_codecs);
   g_value_unset (&priv->native_candidates);
@@ -624,7 +601,7 @@ tpsip_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
   priv->native_cands_prepared = TRUE;
 
   if (priv->native_codecs_prepared)
-    priv_generate_sdp (obj);
+    priv_emit_local_ready (obj);
 
   push_active_candidate_pair (obj);
 
@@ -690,13 +667,6 @@ tpsip_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
 
-  if (priv->stream_sdp != NULL)
-    {
-      MESSAGE ("Stream %u: SDP already generated, ignoring native candidate '%s'", priv->id, candidate_id);
-      tp_svc_media_stream_handler_return_from_new_native_candidate (context);
-      return;
-    }
-
   g_return_if_fail (transports->len >= 1);
 
   /* Rate the preferability of the address */
@@ -741,17 +711,14 @@ priv_set_local_codecs (TpsipMediaStream *self,
                        const GPtrArray *codecs)
 {
   TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
-  GValue val = { 0, };
 
-  SESSION_DEBUG(priv->session, "putting list of %d locally supported "
+  SESSION_DEBUG(priv->session, "putting list of %u locally supported "
                 "codecs from stream-engine into cache", codecs->len);
-  g_value_init (&val, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST);
-  g_value_set_static_boxed (&val, codecs);
-  g_value_copy (&val, &priv->native_codecs);
+  g_value_set_boxed (&priv->native_codecs, codecs);
 
   priv->native_codecs_prepared = TRUE;
   if (priv->native_cands_prepared)
-    priv_generate_sdp (self);
+    priv_emit_local_ready (self);
 }
 
 static void
@@ -775,19 +742,12 @@ tpsip_media_stream_codecs_updated (TpSvcMediaStreamHandler *iface,
     }
   else
     {
-      GValue val = { 0, };
-
-      SESSION_DEBUG(priv->session, "putting list of %d locally supported "
+      SESSION_DEBUG(priv->session, "putting list of %u locally supported "
           "codecs from CodecsUpdated into cache", codecs->len);
-      g_value_init (&val, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST);
-      g_value_set_static_boxed (&val, codecs);
-      g_value_copy (&val, &priv->native_codecs);
+      g_value_set_boxed (&priv->native_codecs, codecs);
 
-      /* This doesn't use priv_generate_sdp because it short-circuits if
-       * priv->stream_sdp is already set. We want to update it.
-       */
       if (priv->native_cands_prepared)
-        priv_update_local_sdp (self);
+        g_signal_emit (self, signals[SIG_LOCAL_MEDIA_UPDATED], 0);
 
       tp_svc_media_stream_handler_return_from_codecs_updated (context);
     }
@@ -836,10 +796,6 @@ tpsip_media_stream_ready (TpSvcMediaStreamHandler *iface,
         iface, priv->playing);
   tp_svc_media_stream_handler_emit_set_stream_sending (
         iface, priv->sending);
-
-  priv->native_codecs_prepared = TRUE;
-  if (priv->native_cands_prepared)
-    priv_generate_sdp (obj);
 
   if (priv->push_remote_cands_pending)
     {
@@ -907,8 +863,8 @@ tpsip_media_stream_stream_state (TpSvcMediaStreamHandler *iface,
  */
 static void
 tpsip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
-                                   const GPtrArray *codecs,
-                                   DBusGMethodInvocation *context)
+                                     const GPtrArray *codecs,
+                                     DBusGMethodInvocation *context)
 {
   /* purpose: "Inform the connection manager of the supported codecs for this session.
    *          This is called after the connection manager has emitted SetRemoteCodecs
@@ -926,10 +882,10 @@ tpsip_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
   DEBUG("got codec intersection containing %u codecs from stream-engine",
         codecs->len);
 
-  /* Uncomment the line below if there's need to limit the local codec list
-   * with the intersection for later SDP negotiations.
-   * TODO: Make sure to update the SDP for the stream as well. */
-  /* g_value_set_boxed (&priv->native_codecs, codecs); */
+  /* Save the local codecs, but avoid triggering a new
+   * session update at this point. If the stream engine have changed any codec
+   * parameters, it is supposed to follow up with CodecsUpdated. */
+  g_value_set_boxed (&priv->native_codecs, codecs);
 
   if (priv->codec_intersect_pending)
     {
@@ -995,17 +951,6 @@ void
 tpsip_media_stream_close (TpsipMediaStream *self)
 {
   tp_svc_media_stream_handler_emit_close (self);
-}
-
-/**
- * Described the local stream configuration in SDP (RFC2327),
- * or NULL if stream not configured yet.
- */
-const char *tpsip_media_stream_local_sdp (TpsipMediaStream *obj)
-{
-  TpsipMediaStreamPrivate *priv;
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (obj);
-  return priv->stream_sdp;
 }
 
 TpMediaStreamDirection
@@ -1330,7 +1275,7 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
       && priv->native_codecs_prepared
       && priv_get_requested_direction (priv)
          != old_sdp_direction)
-    priv_update_local_sdp (stream);
+    g_signal_emit (stream, signals[SIG_LOCAL_MEDIA_UPDATED], 0);
 }
 
 /*
@@ -1389,10 +1334,10 @@ tpsip_media_stream_get_requested_direction (TpsipMediaStream *self)
  */
 gboolean tpsip_media_stream_is_local_ready (TpsipMediaStream *self)
 {
-  TpsipMediaStreamPrivate *priv;
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
-  g_assert (priv->stream_sdp == NULL || priv->ready_received);
-  return (priv->stream_sdp != NULL);
+  TpsipMediaStreamPrivate *priv = self->priv;
+
+  return (priv->ready_received && priv->native_cands_prepared
+      && priv->native_codecs_prepared);
 }
 
 gboolean
@@ -1431,17 +1376,10 @@ tpsip_media_stream_request_hold_state (TpsipMediaStream *self, gboolean hold)
 }
 
 static void
-priv_generate_sdp (TpsipMediaStream *self)
+priv_emit_local_ready (TpsipMediaStream *self)
 {
-  TpsipMediaStreamPrivate *priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (self);
-
-  if (priv->stream_sdp != NULL)
-    return;
-
-  priv_update_local_sdp (self);
-
-  g_assert (priv->stream_sdp != NULL);
-
+  /* Trigger any session updates that are due in the current session state */
+  g_signal_emit (self, signals[SIG_LOCAL_MEDIA_UPDATED], 0);
   g_signal_emit (self, signals[SIG_READY], 0);
 }
 
@@ -1708,20 +1646,18 @@ static void push_remote_candidates (TpsipMediaStream *stream)
 static void
 push_active_candidate_pair (TpsipMediaStream *stream)
 {
-  TpsipMediaStreamPrivate *priv;
+  TpsipMediaStreamPrivate *priv = stream->priv;
 
-  DEBUG("enter");
-
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
-
-  if (priv->ready_received
-      && priv->native_candidate_id != NULL
+  if (priv->ready_received && priv->native_cands_prepared
       && priv->remote_candidate_id != NULL)
     {
+      const char *native_candidate_id;
+
+      native_candidate_id = priv_get_preferred_native_candidate (priv, NULL);
       DEBUG("emitting SetActiveCandidatePair for %s-%s",
-            priv->native_candidate_id, priv->remote_candidate_id);
-      tp_svc_media_stream_handler_emit_set_active_candidate_pair (
-                stream, priv->native_candidate_id, priv->remote_candidate_id);
+          native_candidate_id, priv->remote_candidate_id);
+      tp_svc_media_stream_handler_emit_set_active_candidate_pair (stream,
+          native_candidate_id, priv->remote_candidate_id);
     }
 }
 
@@ -1799,34 +1735,15 @@ priv_append_rtpmaps (const GPtrArray *codecs, GString *mline, GString *alines)
     }
 }
 
-/**
-* Refreshes the local SDP based on Farsight stream, and current
-* object, state.
-*/
-static void
-priv_update_local_sdp(TpsipMediaStream *stream)
+static const char *
+priv_get_preferred_native_candidate (TpsipMediaStreamPrivate *priv,
+                                     const GPtrArray **transports)
 {
-  TpsipMediaStreamPrivate *priv;
-  GString *mline;
-  GString *alines;
-  gchar *cline;
-  GValue transport = { 0 };
   const GPtrArray *candidates;
-  gchar *tr_addr = NULL;
-  /* gchar *tr_user = NULL; */
-  /* gchar *tr_pass = NULL; */
-  gchar *tr_subtype = NULL;
-  gchar *tr_profile = NULL;
-  guint tr_port;
-  guint tr_component;
-  /* guint tr_type; */
-  /* gdouble tr_pref; */
-  guint rtcp_port = 0;
-  gchar *rtcp_address = NULL;
-  const gchar *dirline;
+  const gchar *candidate_id = NULL;
+  const GPtrArray *ca_tports = NULL;
+  GValue transport = { 0 };
   int i;
-
-  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
 
   candidates = g_value_get_boxed (&priv->native_candidates);
 
@@ -1838,9 +1755,7 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   for (i = candidates->len - 1; i >= 0; --i)
     {
       GValueArray *candidate;
-      const gchar *candidate_id;
-      const GPtrArray *ca_tports;
-      guint tr_proto = TP_MEDIA_STREAM_BASE_PROTO_UDP;
+      guint tr_proto = (guint) -1;
       guint j;
 
       candidate = g_ptr_array_index (candidates, i);
@@ -1856,33 +1771,18 @@ priv_update_local_sdp(TpsipMediaStream *stream)
 
       for (j = 0; j < ca_tports->len; j++)
         {
+          guint tr_component = 0;
+
           g_value_set_static_boxed (&transport,
                                     g_ptr_array_index (ca_tports, j));
+
+          /* Find the RTP component */
           dbus_g_type_struct_get (&transport,
                                   0, &tr_component,
+                                  3, &tr_proto,
                                   G_MAXUINT);
-          switch (tr_component)
-            {
-            case 1:     /* RTP */
-              dbus_g_type_struct_get (&transport,
-                                      1, &tr_addr,
-                                      2, &tr_port,
-                                      3, &tr_proto,
-                                      4, &tr_subtype,
-                                      5, &tr_profile,
-                                      /* 6, &tr_pref, */
-                                      /* 7, &tr_type, */
-                                      /* 8, &tr_user, */
-                                      /* 9, &tr_pass, */
-                                      G_MAXUINT);
-              break;
-            case 2:     /* RTCP */
-              dbus_g_type_struct_get (&transport,
-                                      1, &rtcp_address,
-                                      2, &rtcp_port,
-                                      G_MAXUINT);
-              break;
-            }
+          if (tr_component == 1)
+            break;
         }
 
       if (priv->native_candidate_id != NULL)
@@ -1892,27 +1792,101 @@ priv_update_local_sdp(TpsipMediaStream *stream)
         }
       else if (tr_proto == TP_MEDIA_STREAM_BASE_PROTO_UDP)
         {
-          g_free (priv->native_candidate_id);
-          priv->native_candidate_id = g_strdup (candidate_id);
           break;
         }
     }
-  g_return_if_fail (i >= 0);
+
+  if (i < 0)
+    {
+      WARNING ("preferred candidate not found");
+      return NULL;
+    }
+
+  if (transports != NULL)
+    *transports = ca_tports;
+
+  return candidate_id;
+}
+
+/**
+ * Produces the SDP description of the stream based on Farsight state and
+ * current object state.
+ *
+ * @param stream The stream object
+ * @param signal_update If true, emit the signal "local-media-updated".
+ */
+void
+tpsip_media_stream_generate_sdp (TpsipMediaStream *stream, GString *out)
+{
+  TpsipMediaStreamPrivate *priv;
+  GString *alines;
+  GValue transport = { 0 };
+  const GPtrArray *transports = NULL;
+  gchar *tr_addr = NULL;
+  /* gchar *tr_user = NULL; */
+  /* gchar *tr_pass = NULL; */
+  gchar *tr_subtype = NULL;
+  gchar *tr_profile = NULL;
+  guint tr_port;
+  /* guint tr_type; */
+  /* gdouble tr_pref; */
+  guint rtcp_port = 0;
+  gchar *rtcp_address = NULL;
+  const gchar *dirline;
+  guint j;
+
+  priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
+
+  priv_get_preferred_native_candidate (priv, &transports);
+
+  g_return_if_fail (transports != NULL);
+
+  g_value_init (&transport, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT);
+
+  for (j = 0; j != transports->len; j++)
+    {
+      guint tr_component;
+
+      g_value_set_static_boxed (&transport,
+                                g_ptr_array_index (transports, j));
+
+      dbus_g_type_struct_get (&transport,
+                              0, &tr_component,
+                              G_MAXUINT);
+      switch (tr_component)
+        {
+        case 1:     /* RTP */
+          dbus_g_type_struct_get (&transport,
+                                  1, &tr_addr,
+                                  2, &tr_port,
+                                  4, &tr_subtype,
+                                  5, &tr_profile,
+                                  /* 6, &tr_pref, */
+                                  /* 7, &tr_type, */
+                                  /* 8, &tr_user, */
+                                  /* 9, &tr_pass, */
+                                  G_MAXUINT);
+          break;
+        case 2:     /* RTCP */
+          dbus_g_type_struct_get (&transport,
+                                  1, &rtcp_address,
+                                  2, &rtcp_port,
+                                  G_MAXUINT);
+          break;
+        }
+    }
+
   g_return_if_fail (tr_addr != NULL);
   g_return_if_fail (tr_subtype != NULL);
   g_return_if_fail (tr_profile != NULL);
 
-  mline = g_string_new ("m=");
-  g_string_append_printf (mline,
+  g_string_append (out, "m=");
+  g_string_append_printf (out,
                           "%s %u %s/%s",
                           priv_media_type_to_str (priv->media_type),
                           tr_port,
                           tr_subtype,
                           tr_profile);
-
-  cline = g_strdup_printf ("c=IN %s %s\r\n",
-                           (strchr (tr_addr, ':') == NULL)? "IP4" : "IP6",
-                           tr_addr);
 
   switch (priv_get_requested_direction (priv))
     {
@@ -1955,13 +1929,13 @@ priv_update_local_sdp(TpsipMediaStream *stream)
     }
 
   priv_append_rtpmaps (g_value_get_boxed (&priv->native_codecs),
-                       mline, alines);
+                       out, alines);
 
-  g_free(priv->stream_sdp);
-  priv->stream_sdp = g_strconcat(mline->str, "\r\n",
-                                 cline,
-                                 alines->str,
-                                 NULL);
+  g_string_append_printf (out, "\r\nc=IN %s %s\r\n",
+                          (strchr (tr_addr, ':') == NULL)? "IP4" : "IP6",
+                          tr_addr);
+
+  g_string_append (out, alines->str);
 
   g_free (tr_addr);
   g_free (tr_profile);
@@ -1970,11 +1944,7 @@ priv_update_local_sdp(TpsipMediaStream *stream)
   /* g_free (tr_pass); */
   g_free (rtcp_address);
 
-  g_string_free (mline, TRUE);
-  g_free (cline);
   g_string_free (alines, TRUE);
-
-  g_signal_emit (stream, signals[SIG_LOCAL_MEDIA_UPDATED], 0);
 }
 
 static void

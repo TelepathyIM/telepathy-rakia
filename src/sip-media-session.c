@@ -143,6 +143,7 @@ struct _TpsipMediaSessionPrivate
   su_home_t *backup_home;                 /* Sofia memory home for previous generation remote SDP session*/
   sdp_session_t *remote_sdp;              /* last received remote session */
   sdp_session_t *backup_remote_sdp;       /* previous remote session */
+  gchar *local_sdp;                       /* local session as SDP string */
   GPtrArray *streams;
   gboolean remote_initiated;              /*< session is remotely intiated */
   gboolean accepted;                      /*< session has been locally accepted for use */
@@ -494,6 +495,7 @@ tpsip_media_session_finalize (GObject *object)
   if (priv->backup_home != NULL)
     su_home_unref (priv->backup_home);
 
+  g_free (priv->local_sdp);
   g_free (priv->remote_ptime);
   g_free (priv->remote_max_ptime);
   g_free (priv->local_ip_address);
@@ -1751,17 +1753,18 @@ priv_session_rollback (TpsipMediaSession *session)
   tpsip_media_session_change_state (session, TPSIP_MEDIA_SESSION_STATE_ACTIVE);
 }
 
-static gboolean
-priv_session_local_sdp (TpsipMediaSession *session,
-                        GString *user_sdp,
-                        gboolean authoritative)
+static GString *
+priv_session_generate_sdp (TpsipMediaSession *session,
+                           gboolean authoritative)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
-  gboolean has_supported_media = FALSE;
+  GString *user_sdp;
   guint len;
   guint i;
 
-  g_return_val_if_fail (priv->local_non_ready == 0, FALSE);
+  g_return_val_if_fail (priv->local_non_ready == 0, NULL);
+
+  user_sdp = g_string_new ("v=0\r\n");
 
   len = priv->streams->len;
   if (!authoritative && len > priv->remote_stream_count)
@@ -1770,24 +1773,16 @@ priv_session_local_sdp (TpsipMediaSession *session,
       DEBUG("clamped response to %u streams seen in the offer", len);
     }
 
-  g_string_append (user_sdp, "v=0\r\n");
-
   for (i = 0; i < len; i++)
     {
       TpsipMediaStream *stream = g_ptr_array_index (priv->streams, i);
       if (stream)
-        {
-          user_sdp = g_string_append (user_sdp,
-                                      tpsip_media_stream_local_sdp (stream));
-          has_supported_media = TRUE;
-        }
+        tpsip_media_stream_generate_sdp (stream, user_sdp);
       else
-        { 
-          user_sdp = g_string_append (user_sdp, "m=audio 0 RTP/AVP 0\r\n");
-        }
+        g_string_append (user_sdp, "m=audio 0 RTP/AVP 0\r\n");
     }
 
-  return has_supported_media;
+  return user_sdp;
 }
 
 static void
@@ -1800,16 +1795,23 @@ priv_session_invite (TpsipMediaSession *session, gboolean reinvite)
 
   g_return_if_fail (priv->nua_op != NULL);
 
-  user_sdp = g_string_new (NULL);
+  user_sdp = priv_session_generate_sdp (session, TRUE);
 
-  if (priv_session_local_sdp (session, user_sdp, TRUE))
+  g_return_if_fail (user_sdp != NULL);
+
+  if (!reinvite
+      || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING
+      || tp_strdiff (priv->local_sdp, user_sdp->str))
     {
+      g_free (priv->local_sdp);
+      priv->local_sdp = g_string_free (user_sdp, FALSE);
+
       /* We need to be prepared to receive media right after the
        * offer is sent, so we must set the streams to playing */
       priv_session_set_streams_playing (session, TRUE);
 
       nua_invite (priv->nua_op,
-                  SOATAG_USER_SDP_STR(user_sdp->str),
+                  SOATAG_USER_SDP_STR(priv->local_sdp),
                   SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
                   SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
                   NUTAG_AUTOANSWER(0),
@@ -1824,53 +1826,46 @@ priv_session_invite (TpsipMediaSession *session, gboolean reinvite)
                         : TPSIP_MEDIA_SESSION_STATE_INVITE_SENT);
     }
   else
-    WARNING ("cannot send a valid SDP offer, are there no streams?");
-
-  g_string_free (user_sdp, TRUE);
+    {
+      DEBUG("SDP unchanged, not sending a re-INVITE");
+      g_string_free (user_sdp, TRUE);
+    }
 }
 
 static void
 priv_session_respond (TpsipMediaSession *session)
 {
   TpsipMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
-  GString *user_sdp;
+  msg_t *msg;
 
   g_return_if_fail (priv->nua_op != NULL);
 
-  user_sdp = g_string_new (NULL);
+  {
+    GString *user_sdp = priv_session_generate_sdp (session, FALSE);
 
-  if (priv_session_local_sdp (session, user_sdp, FALSE))
-    {
-      msg_t *msg;
+    g_free (priv->local_sdp);
+    priv->local_sdp = g_string_free (user_sdp, FALSE);
+  }
 
-      /* We need to be prepared to receive media right after the
-       * answer is sent, so we must set the streams to playing */
-      priv_session_set_streams_playing (session, TRUE);
+  /* We need to be prepared to receive media right after the
+   * answer is sent, so we must set the streams to playing */
+  priv_session_set_streams_playing (session, TRUE);
 
-      msg = (priv->saved_event[0])
-                ? nua_saved_event_request (priv->saved_event) : NULL;
+  msg = (priv->saved_event[0])
+            ? nua_saved_event_request (priv->saved_event) : NULL;
 
-      nua_respond (priv->nua_op, SIP_200_OK,
-                   TAG_IF(msg, NUTAG_WITH(msg)),
-                   SOATAG_USER_SDP_STR (user_sdp->str),
-                   SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
-                   SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
-                   NUTAG_AUTOANSWER(0),
-                   TAG_END());
+  nua_respond (priv->nua_op, SIP_200_OK,
+               TAG_IF(msg, NUTAG_WITH(msg)),
+               SOATAG_USER_SDP_STR(priv->local_sdp),
+               SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
+               SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
+               NUTAG_AUTOANSWER(0),
+               TAG_END());
 
-      if (priv->saved_event[0])
-        nua_destroy_event (priv->saved_event);
+  if (priv->saved_event[0])
+    nua_destroy_event (priv->saved_event);
 
-      tpsip_media_session_change_state (session, TPSIP_MEDIA_SESSION_STATE_ACTIVE);
-    }
-  else
-    {
-      WARNING ("cannot respond with a valid SDP answer, were all streams closed?");
-
-      priv_session_rollback (session);
-    }
-
-  g_string_free (user_sdp, TRUE);
+  tpsip_media_session_change_state (session, TPSIP_MEDIA_SESSION_STATE_ACTIVE);
 }
 
 static gboolean
