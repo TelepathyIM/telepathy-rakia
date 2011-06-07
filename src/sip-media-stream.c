@@ -1813,7 +1813,7 @@ priv_get_preferred_native_candidate (TpsipMediaStreamPrivate *priv,
  * current object state.
  *
  * @param stream The stream object
- * @param signal_update If true, emit the signal "local-media-updated".
+ * @param out The string buffer to output the stream description into.
  */
 void
 tpsip_media_stream_generate_sdp (TpsipMediaStream *stream, GString *out)
