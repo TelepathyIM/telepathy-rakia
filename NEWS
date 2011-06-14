@@ -7,6 +7,16 @@ recent at the top).
 
 See also ChangeLog.
 
+Changes in release 0.6.8 (2011-06-14)
+-------------------------------------
+
+The "homage to World's Toughest Fixes" release.
+
+- Refactored handling of local codec information to avoid excessive re-INVITEs
+- Remove non-intersecting local codecs from any further SDP
+  negotiations (fd.o #30434).
+
+
 Changes in release 0.6.7 (2011-05-23)
 -------------------------------------
 
