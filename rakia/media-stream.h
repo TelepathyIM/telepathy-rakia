@@ -30,6 +30,7 @@ G_BEGIN_DECLS
 
 typedef struct _RakiaMediaStream RakiaMediaStream;
 typedef struct _RakiaMediaStreamClass RakiaMediaStreamClass;
+typedef struct _RakiaMediaStreamPrivate RakiaMediaStreamPrivate;
 
 struct _RakiaMediaStreamClass {
     GObjectClass parent_class;
@@ -38,6 +39,7 @@ struct _RakiaMediaStreamClass {
 
 struct _RakiaMediaStream {
     GObject parent;
+    RakiaMediaStreamPrivate *priv;
 };
 
 GType rakia_media_stream_get_type(void);
@@ -63,7 +65,7 @@ GType rakia_media_stream_get_type(void);
 void rakia_media_stream_close (RakiaMediaStream *self);
 guint rakia_media_stream_get_id (RakiaMediaStream *self);
 guint rakia_media_stream_get_media_type (RakiaMediaStream *self);
-const char *rakia_media_stream_local_sdp (RakiaMediaStream *self);
+void rakia_media_stream_generate_sdp (RakiaMediaStream *self, GString *out);
 gboolean rakia_media_stream_set_remote_media (RakiaMediaStream *self,
                                               const sdp_media_t *media,
                                               guint direction_up_mask,
