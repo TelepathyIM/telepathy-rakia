@@ -55,7 +55,7 @@ G_DEFINE_TYPE_WITH_CODE (RakiaBaseConnection,
     rakia_base_connection, TP_TYPE_BASE_CONNECTION,
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS,
         tp_contacts_mixin_iface_init);
-    G_IMPLEMENT_INTERFACE (TPSIP_TYPE_EVENT_TARGET, event_target_iface_init);
+    G_IMPLEMENT_INTERFACE (RAKIA_TYPE_EVENT_TARGET, event_target_iface_init);
 );
 
 static void
@@ -64,7 +64,7 @@ rakia_base_connection_init (RakiaBaseConnection *self)
   GObject *object = G_OBJECT (self);
   TpBaseConnection *base = TP_BASE_CONNECTION (self);
 
-  self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, TPSIP_TYPE_BASE_CONNECTION,
+  self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, RAKIA_TYPE_BASE_CONNECTION,
       RakiaBaseConnectionPrivate);
 
   tp_contacts_mixin_init (object,
@@ -84,7 +84,7 @@ rakia_base_connection_constructed(GObject *object)
 static void
 rakia_base_connection_dispose(GObject *object)
 {
-  RakiaBaseConnection *self = TPSIP_BASE_CONNECTION(object);
+  RakiaBaseConnection *self = RAKIA_BASE_CONNECTION(object);
 
   if (self->priv->dispose_has_run)
     return;
@@ -105,7 +105,7 @@ rakia_base_connection_set_property (GObject *object,
                              const GValue *value,
                              GParamSpec *pspec)
 {
-  RakiaBaseConnection *self = TPSIP_BASE_CONNECTION (object);
+  RakiaBaseConnection *self = RAKIA_BASE_CONNECTION (object);
   RakiaBaseConnectionPrivate *priv = self->priv;
 
   switch (property_id)
@@ -126,7 +126,7 @@ rakia_base_connection_get_property (GObject *object,
                              GValue *value,
                              GParamSpec *pspec)
 {
-  RakiaBaseConnection *self = TPSIP_BASE_CONNECTION (object);
+  RakiaBaseConnection *self = RAKIA_BASE_CONNECTION (object);
   RakiaBaseConnectionPrivate *priv = self->priv;
 
   switch (property_id)
@@ -178,7 +178,7 @@ nua_handle_t *
 rakia_base_connection_create_handle (RakiaBaseConnection *self,
                                      TpHandle tphandle)
 {
-  RakiaBaseConnectionClass *cls = TPSIP_BASE_CONNECTION_GET_CLASS (self);
+  RakiaBaseConnectionClass *cls = RAKIA_BASE_CONNECTION_GET_CLASS (self);
 
   return cls->create_handle (self, tphandle);
 }
@@ -187,7 +187,7 @@ void
 rakia_base_connection_add_auth_handler (RakiaBaseConnection *self,
                                         RakiaEventTarget *target)
 {
-  RakiaBaseConnectionClass *cls = TPSIP_BASE_CONNECTION_GET_CLASS (self);
+  RakiaBaseConnectionClass *cls = RAKIA_BASE_CONNECTION_GET_CLASS (self);
 
   if (cls->add_auth_handler)
     cls->add_auth_handler (self, target);

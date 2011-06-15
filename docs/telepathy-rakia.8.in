@@ -20,16 +20,16 @@ start it manually for debugging.
 There are no command-line options.
 .SH ENVIRONMENT
 .TP
-\fBTPSIP_DEBUG\fR=\fItype\fR
+\fBRAKIA_DEBUG\fR=\fItype\fR
 May be set to "all" for full debug output, or various undocumented options
 (which may change from release to release) to filter the output.
 .TP
-\fBTPSIP_LOGFILE\fR=\fIfilename\fR
+\fBRAKIA_LOGFILE\fR=\fIfilename\fR
 May be set to the name of a file to overwrite with log messages. The filename
 may be prefixed with \fB+\fR to append messages to an existing file instead
 of overwriting it.
 .TP
-\fBTPSIP_PERSIST\fR
+\fBRAKIA_PERSIST\fR
 May be set to any value to avoid telepathy-rakia's usual automatic exit
 when there have been no connections for a few seconds.
 .TP

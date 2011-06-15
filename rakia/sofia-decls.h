@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef _TPSIP_SOFIA_DECLS_H_
-#define _TPSIP_SOFIA_DECLS_H_
+#ifndef _RAKIA_SOFIA_DECLS_H_
+#define _RAKIA_SOFIA_DECLS_H_
 
 /* note: As one Sofia-SIP NUA instance is created per SIP connection,
  *       RakiaConnection is used as the context pointer.
@@ -39,12 +39,12 @@
 #define SU_TIMER_ARG_T   struct _RakiaBaseConnection
 #define SU_WAKEUP_ARG_T  void
 
-#define TPSIP_DEFAULT_STUN_PORT 3478
+#define RAKIA_DEFAULT_STUN_PORT 3478
 
 /* Maximum defer timeout for deferrable Sofia timers */
-#define TPSIP_DEFER_TIMEOUT 30
+#define RAKIA_DEFER_TIMEOUT 30
 
 #include <sofia-sip/nua.h>
 #include <sofia-sip/su.h>
 
-#endif /* _TPSIP_SOFIA_DECLS_H_*/
+#endif /* _RAKIA_SOFIA_DECLS_H_*/

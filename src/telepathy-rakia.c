@@ -36,7 +36,7 @@ static TpBaseConnectionManager *
 construct_cm (void)
 {
   return (TpBaseConnectionManager *)g_object_new (
-      TPSIP_TYPE_CONNECTION_MANAGER, NULL);
+      RAKIA_TYPE_CONNECTION_MANAGER, NULL);
 }
 
 
@@ -55,12 +55,12 @@ main (int argc, char** argv)
   rakia_debug_set_flags_from_env ();
 #endif
 
-  if (g_getenv ("TPSIP_PERSIST") || g_getenv ("RAKIA_PERSIST"))
+  if (g_getenv ("RAKIA_PERSIST") || g_getenv ("RAKIA_PERSIST"))
     {
       tp_debug_set_persistent (TRUE);
     }
 
-  tp_debug_divert_messages (g_getenv ("TPSIP_LOGFILE"));
+  tp_debug_divert_messages (g_getenv ("RAKIA_LOGFILE"));
 
   logdata = rakia_sofia_log_init ();
 

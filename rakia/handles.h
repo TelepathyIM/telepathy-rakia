@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef TPSIP_HANDLE_H
-#define TPSIP_HANDLE_H
+#ifndef RAKIA_HANDLE_H
+#define RAKIA_HANDLE_H
 
 #include <telepathy-glib/base-connection.h>
 #include <sofia-sip/sip.h>
@@ -44,4 +44,4 @@ gchar *rakia_normalize_contact (const gchar *sipuri,
 
 G_END_DECLS
 
-#endif /* !TPSIP_HANDLE_H */
+#endif /* !RAKIA_HANDLE_H */

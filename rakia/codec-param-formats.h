@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __TPSIP_CODEC_PARAM_FORMATS_H__
-#define __TPSIP_CODEC_PARAM_FORMATS_H__
+#ifndef __RAKIA_CODEC_PARAM_FORMATS_H__
+#define __RAKIA_CODEC_PARAM_FORMATS_H__
 
 #include <glib.h>
 
@@ -77,4 +77,4 @@ void rakia_codec_param_parse_generic (const gchar *str, GHashTable *out);
 
 G_END_DECLS
 
-#endif /* !__TPSIP_CODEC_PARAM_FORMATS_H__ */
+#endif /* !__RAKIA_CODEC_PARAM_FORMATS_H__ */

@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __TPSIP_MEDIA_STREAM_H__
-#define __TPSIP_MEDIA_STREAM_H__
+#ifndef __RAKIA_MEDIA_STREAM_H__
+#define __RAKIA_MEDIA_STREAM_H__
 
 #include <glib-object.h>
 #include <telepathy-glib/dbus-properties-mixin.h>
@@ -45,18 +45,18 @@ struct _RakiaMediaStream {
 GType rakia_media_stream_get_type(void);
 
 /* TYPE MACROS */
-#define TPSIP_TYPE_MEDIA_STREAM \
+#define RAKIA_TYPE_MEDIA_STREAM \
   (rakia_media_stream_get_type())
-#define TPSIP_MEDIA_STREAM(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_MEDIA_STREAM, RakiaMediaStream))
-#define TPSIP_MEDIA_STREAM_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_MEDIA_STREAM, RakiaMediaStreamClass))
-#define TPSIP_IS_MEDIA_STREAM(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_MEDIA_STREAM))
-#define TPSIP_IS_MEDIA_STREAM_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_MEDIA_STREAM))
-#define TPSIP_MEDIA_STREAM_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_MEDIA_STREAM, RakiaMediaStreamClass))
+#define RAKIA_MEDIA_STREAM(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), RAKIA_TYPE_MEDIA_STREAM, RakiaMediaStream))
+#define RAKIA_MEDIA_STREAM_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), RAKIA_TYPE_MEDIA_STREAM, RakiaMediaStreamClass))
+#define RAKIA_IS_MEDIA_STREAM(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), RAKIA_TYPE_MEDIA_STREAM))
+#define RAKIA_IS_MEDIA_STREAM_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), RAKIA_TYPE_MEDIA_STREAM))
+#define RAKIA_MEDIA_STREAM_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), RAKIA_TYPE_MEDIA_STREAM, RakiaMediaStreamClass))
 
 /***********************************************************************
  * Additional declarations (not based on generated templates)
@@ -91,4 +91,4 @@ TpMediaStreamDirection rakia_media_stream_direction_from_remote_media (
 
 G_END_DECLS
 
-#endif /* #ifndef __TPSIP_MEDIA_STREAM_H__*/
+#endif /* #ifndef __RAKIA_MEDIA_STREAM_H__*/

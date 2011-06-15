@@ -16,20 +16,20 @@ And then continue with the normal:
 sh> ./configure
 sh> make
 
-Running 
+Running
 -------
 
-Set the "TPSIP_PERSIST" environment variable to prevent the connection 
+Set the "RAKIA_PERSIST" environment variable to prevent the connection
 manager from exiting after all connections have been disconnected. This
 option is only available if telepathy-sofiasip was configured with
 the "--enable-debug" option, which is on by default.
 
 Other useful environment variables:
-* TPSIP_DEBUG -- enables debug tracing via g_log.
+* RAKIA_DEBUG -- enables debug tracing via g_log.
   The value "all" enables all categories; for detailed categories look into
   the file 'src/debug.c'.
 * TPORT_LOG -- setting to 1 enables logging of SIP protocol messages.
 
 See also Sofia-SIP documentation for environment variables to enable tracing
-in various modules of the Sofia-SIP library: 
+in various modules of the Sofia-SIP library:
 http://sofia-sip.sourceforge.net/refdocs/pages.html

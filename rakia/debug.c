@@ -33,18 +33,18 @@
 static RakiaDebugFlags rakia_debug_flags = 0;
 
 static const GDebugKey rakia_debug_keys[] = {
-  { "media-channel", TPSIP_DEBUG_MEDIA },
-  { "connection",    TPSIP_DEBUG_CONNECTION },
-  { "im",            TPSIP_DEBUG_IM },
-  { "events",        TPSIP_DEBUG_EVENTS },
-  { "sofia",         TPSIP_DEBUG_SOFIA },
+  { "media-channel", RAKIA_DEBUG_MEDIA },
+  { "connection",    RAKIA_DEBUG_CONNECTION },
+  { "im",            RAKIA_DEBUG_IM },
+  { "events",        RAKIA_DEBUG_EVENTS },
+  { "sofia",         RAKIA_DEBUG_SOFIA },
 };
 
 void rakia_debug_set_flags_from_env ()
 {
   const gchar *flags_string;
 
-  flags_string = g_getenv ("TPSIP_DEBUG");
+  flags_string = g_getenv ("RAKIA_DEBUG");
   if (flags_string == NULL)
     flags_string = g_getenv ("RAKIA_DEBUG");
 
@@ -156,7 +156,7 @@ rakia_sofia_log_handler (void *logdata, const char *format, va_list args)
   if (buf->str[buf->len - 1] == '\n')
     {
       g_string_truncate (buf, buf->len - 1);
-      rakia_log (TPSIP_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG, "%s", buf->str);
+      rakia_log (RAKIA_DEBUG_SOFIA, G_LOG_LEVEL_DEBUG, "%s", buf->str);
       g_string_truncate (buf, 0);
     }
 #endif

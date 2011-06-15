@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __TPSIP_CONNECTION_H__
-#define __TPSIP_CONNECTION_H__
+#ifndef __RAKIA_CONNECTION_H__
+#define __RAKIA_CONNECTION_H__
 
 #include <glib-object.h>
 
@@ -30,11 +30,11 @@ G_BEGIN_DECLS
 
 typedef enum
 {
-  TPSIP_CONNECTION_KEEPALIVE_AUTO = 0,	/** Keepalive management is up to the implementation */
-  TPSIP_CONNECTION_KEEPALIVE_NONE,	/** Disable keepalive management */
-  TPSIP_CONNECTION_KEEPALIVE_REGISTER,	/** Maintain registration with REGISTER requests */
-  TPSIP_CONNECTION_KEEPALIVE_OPTIONS,	/** Maintain registration with OPTIONS requests */
-  TPSIP_CONNECTION_KEEPALIVE_STUN,	/** Maintain registration with STUN as described in IETF draft-sip-outbound */
+  RAKIA_CONNECTION_KEEPALIVE_AUTO = 0,	/** Keepalive management is up to the implementation */
+  RAKIA_CONNECTION_KEEPALIVE_NONE,	/** Disable keepalive management */
+  RAKIA_CONNECTION_KEEPALIVE_REGISTER,	/** Maintain registration with REGISTER requests */
+  RAKIA_CONNECTION_KEEPALIVE_OPTIONS,	/** Maintain registration with OPTIONS requests */
+  RAKIA_CONNECTION_KEEPALIVE_STUN,	/** Maintain registration with STUN as described in IETF draft-sip-outbound */
 } RakiaConnectionKeepaliveMechanism;
 
 typedef struct _RakiaConnection RakiaConnection;
@@ -51,18 +51,18 @@ struct _RakiaConnection {
 };
 
 /* TYPE MACROS */
-#define TPSIP_TYPE_CONNECTION \
+#define RAKIA_TYPE_CONNECTION \
   (rakia_connection_get_type())
-#define TPSIP_CONNECTION(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), TPSIP_TYPE_CONNECTION, RakiaConnection))
-#define TPSIP_CONNECTION_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), TPSIP_TYPE_CONNECTION, RakiaConnectionClass))
-#define TPSIP_IS_CONNECTION(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), TPSIP_TYPE_CONNECTION))
-#define TPSIP_IS_CONNECTION_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), TPSIP_TYPE_CONNECTION))
-#define TPSIP_CONNECTION_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), TPSIP_TYPE_CONNECTION, RakiaConnectionClass))
+#define RAKIA_CONNECTION(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), RAKIA_TYPE_CONNECTION, RakiaConnection))
+#define RAKIA_CONNECTION_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), RAKIA_TYPE_CONNECTION, RakiaConnectionClass))
+#define RAKIA_IS_CONNECTION(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), RAKIA_TYPE_CONNECTION))
+#define RAKIA_IS_CONNECTION_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), RAKIA_TYPE_CONNECTION))
+#define RAKIA_CONNECTION_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS ((obj), RAKIA_TYPE_CONNECTION, RakiaConnectionClass))
 
 GType rakia_connection_get_type (void) G_GNUC_CONST;
 
@@ -73,4 +73,4 @@ const gchar **rakia_connection_get_implemented_interfaces (void);
 
 G_END_DECLS
 
-#endif /* #ifndef __TPSIP_CONNECTION_H__*/
+#endif /* #ifndef __RAKIA_CONNECTION_H__*/

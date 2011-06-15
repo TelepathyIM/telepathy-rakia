@@ -42,7 +42,7 @@
 #include "sip-connection-manager.h"
 #include "sip-connection.h"
 
-#define DEBUG_FLAG TPSIP_DEBUG_CONNECTION
+#define DEBUG_FLAG RAKIA_DEBUG_CONNECTION
 #include "rakia/debug.h"
 
 
@@ -55,13 +55,13 @@ struct _RakiaConnectionManagerPrivate
   TpDebugSender *debug_sender;
 };
 
-#define TPSIP_CONNECTION_MANAGER_GET_PRIVATE(obj) ((obj)->priv)
+#define RAKIA_CONNECTION_MANAGER_GET_PRIVATE(obj) ((obj)->priv)
 
 static void
 rakia_connection_manager_init (RakiaConnectionManager *obj)
 {
   RakiaConnectionManagerPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (obj,
-        TPSIP_TYPE_CONNECTION_MANAGER, RakiaConnectionManagerPrivate);
+        RAKIA_TYPE_CONNECTION_MANAGER, RakiaConnectionManagerPrivate);
   GSource *source;
 
   obj->priv = priv;
@@ -75,14 +75,14 @@ rakia_connection_manager_init (RakiaConnectionManager *obj)
   g_log_set_default_handler (tp_debug_sender_log_handler, G_LOG_DOMAIN);
 
 #ifdef HAVE_LIBIPHB
-  su_root_set_max_defer (priv->sofia_root, TPSIP_DEFER_TIMEOUT * 1000L);
+  su_root_set_max_defer (priv->sofia_root, RAKIA_DEFER_TIMEOUT * 1000L);
 #endif
 }
 
 static void
 rakia_connection_manager_constructed (GObject *object)
 {
-  RakiaConnectionManager *self = TPSIP_CONNECTION_MANAGER (object);
+  RakiaConnectionManager *self = RAKIA_CONNECTION_MANAGER (object);
   TpBaseConnectionManager *base = (TpBaseConnectionManager *) self;
   void (*constructed) (GObject *) =
       ((GObjectClass *) rakia_connection_manager_parent_class)->constructed;
@@ -116,8 +116,8 @@ rakia_connection_manager_class_init (RakiaConnectionManagerClass *klass)
 void
 rakia_connection_manager_finalize (GObject *object)
 {
-  RakiaConnectionManager *self = TPSIP_CONNECTION_MANAGER (object);
-  RakiaConnectionManagerPrivate *priv = TPSIP_CONNECTION_MANAGER_GET_PRIVATE (self);
+  RakiaConnectionManager *self = RAKIA_CONNECTION_MANAGER (object);
+  RakiaConnectionManagerPrivate *priv = RAKIA_CONNECTION_MANAGER_GET_PRIVATE (self);
   GSource *source;
 
   source = su_glib_root_gsource(priv->sofia_root);

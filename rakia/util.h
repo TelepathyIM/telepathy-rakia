@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef TPSIP_UTIL_H_
-#define TPSIP_UTIL_H_
+#ifndef RAKIA_UTIL_H_
+#define RAKIA_UTIL_H_
 
 #include <glib.h>
 
@@ -35,4 +35,4 @@ gchar const *rakia_version_string ();
 
 G_END_DECLS
 
-#endif /* !TPSIP_UTIL_H_ */
+#endif /* !RAKIA_UTIL_H_ */

@@ -49,13 +49,13 @@
 
 #include "signals-marshal.h"
 
-#define DEBUG_FLAG TPSIP_DEBUG_MEDIA
+#define DEBUG_FLAG RAKIA_DEBUG_MEDIA
 #include "rakia/debug.h"
 
 /* The timeout for outstanding re-INVITE transactions in seconds.
  * Chosen to match the allowed cancellation timeout for proxies
  * described in RFC 3261 Section 13.3.1.1 */
-#define TPSIP_REINVITE_TIMEOUT 180
+#define RAKIA_REINVITE_TIMEOUT 180
 
 static void session_handler_iface_init (gpointer, gpointer);
 
@@ -157,7 +157,7 @@ struct _RakiaMediaSessionPrivate
   gboolean dispose_has_run;
 };
 
-#define TPSIP_MEDIA_SESSION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), TPSIP_TYPE_MEDIA_SESSION, RakiaMediaSessionPrivate))
+#define RAKIA_MEDIA_SESSION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_MEDIA_SESSION, RakiaMediaSessionPrivate))
 
 static void rakia_media_session_get_property (GObject    *object,
 					    guint       property_id,
@@ -183,9 +183,9 @@ static void priv_zap_event (RakiaMediaSession *self);
 
 static void rakia_media_session_init (RakiaMediaSession *obj)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (obj);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (obj);
 
-  priv->state = TPSIP_MEDIA_SESSION_STATE_CREATED;
+  priv->state = RAKIA_MEDIA_SESSION_STATE_CREATED;
   priv->hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
   priv->hold_reason = TP_LOCAL_HOLD_STATE_REASON_NONE;
   priv->rtcp_enabled = TRUE;
@@ -203,7 +203,7 @@ rakia_media_session_constructor (GType type, guint n_props,
 
   obj = G_OBJECT_CLASS (rakia_media_session_parent_class)->
            constructor (type, n_props, props);
-  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (TPSIP_MEDIA_SESSION (obj));
+  priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (RAKIA_MEDIA_SESSION (obj));
 
   g_assert (TP_IS_DBUS_DAEMON (priv->dbus_daemon));
   tp_dbus_daemon_register_object (priv->dbus_daemon, priv->object_path, obj);
@@ -216,8 +216,8 @@ static void rakia_media_session_get_property (GObject    *object,
 					    GValue     *value,
 					    GParamSpec *pspec)
 {
-  RakiaMediaSession *session = TPSIP_MEDIA_SESSION (object);
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSession *session = RAKIA_MEDIA_SESSION (object);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
 
   switch (property_id)
     {
@@ -260,7 +260,7 @@ static void rakia_media_session_get_property (GObject    *object,
          * At the moment, rawudp ignores all servers except the first one. */
         GPtrArray *servers;
         gchar *stun_server = NULL;
-        guint stun_port = TPSIP_DEFAULT_STUN_PORT;
+        guint stun_port = RAKIA_DEFAULT_STUN_PORT;
 
         g_return_if_fail (priv->channel != NULL);
 
@@ -304,8 +304,8 @@ static void rakia_media_session_set_property (GObject      *object,
 					    const GValue *value,
 					    GParamSpec   *pspec)
 {
-  RakiaMediaSession *session = TPSIP_MEDIA_SESSION (object);
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSession *session = RAKIA_MEDIA_SESSION (object);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
 
   switch (property_id)
     {
@@ -314,7 +314,7 @@ static void rakia_media_session_set_property (GObject      *object,
       priv->dbus_daemon = g_value_dup_object (value);
       break;
     case PROP_MEDIA_CHANNEL:
-      priv->channel = TPSIP_MEDIA_CHANNEL (g_value_get_object (value));
+      priv->channel = RAKIA_MEDIA_CHANNEL (g_value_get_object (value));
       break;
     case PROP_OBJECT_PATH:
       g_assert (priv->object_path == NULL);
@@ -367,7 +367,7 @@ rakia_media_session_class_init (RakiaMediaSessionClass *klass)
   param_spec = g_param_spec_object ("media-channel", "RakiaMediaChannel object",
       "SIP media channel object that owns this media session object"
       " (not reference counted).",
-      TPSIP_TYPE_MEDIA_CHANNEL,
+      RAKIA_TYPE_MEDIA_CHANNEL,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_MEDIA_CHANNEL, param_spec);
 
@@ -450,8 +450,8 @@ rakia_media_session_class_init (RakiaMediaSessionClass *klass)
 static void
 rakia_media_session_dispose (GObject *object)
 {
-  RakiaMediaSession *self = TPSIP_MEDIA_SESSION (object);
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSession *self = RAKIA_MEDIA_SESSION (object);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
 
   if (priv->dispose_has_run)
     return;
@@ -474,8 +474,8 @@ rakia_media_session_dispose (GObject *object)
 static void
 rakia_media_session_finalize (GObject *object)
 {
-  RakiaMediaSession *self = TPSIP_MEDIA_SESSION (object);
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSession *self = RAKIA_MEDIA_SESSION (object);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   guint i;
 
   /* terminating the session should have discarded the NUA handle */
@@ -525,7 +525,7 @@ rakia_media_session_error (TpSvcMediaSessionHandler *iface,
                          const gchar *message,
                          DBusGMethodInvocation *context)
 {
-  RakiaMediaSession *obj = TPSIP_MEDIA_SESSION (iface);
+  RakiaMediaSession *obj = RAKIA_MEDIA_SESSION (iface);
 
   SESSION_DEBUG (obj, "Media.SessionHandler::Error called (%s), terminating session", message);
 
@@ -570,13 +570,13 @@ static void
 rakia_media_session_ready (TpSvcMediaSessionHandler *iface,
                          DBusGMethodInvocation *context)
 {
-  RakiaMediaSession *obj = TPSIP_MEDIA_SESSION (iface);
+  RakiaMediaSession *obj = RAKIA_MEDIA_SESSION (iface);
   RakiaMediaSessionPrivate *priv;
   guint i;
 
   DEBUG ("enter");
 
-  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (obj);
+  priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (obj);
 
   if (!priv->se_ready)
     {
@@ -602,14 +602,14 @@ rakia_media_session_ready (TpSvcMediaSessionHandler *iface,
 TpHandle
 rakia_media_session_get_peer (RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   return priv->peer;
 }
 
 RakiaMediaSessionState
 rakia_media_session_get_state (RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   return priv->state;
 }
 
@@ -628,7 +628,7 @@ rakia_media_session_supports_media_type (guint media_type)
 static void
 priv_close_all_streams (RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   guint i;
   for (i = 0; i < priv->streams->len; i++)
     {
@@ -644,7 +644,7 @@ static void
 priv_apply_streams_pending_direction (RakiaMediaSession *session,
                                       guint pending_send_mask)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   RakiaMediaStream *stream;
   guint i;
 
@@ -666,7 +666,7 @@ void
 rakia_media_session_change_state (RakiaMediaSession *session,
                                 RakiaMediaSessionState new_state)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   guint old_state;
 
   if (priv->state == new_state)
@@ -681,22 +681,22 @@ rakia_media_session_change_state (RakiaMediaSession *session,
 
   switch (new_state)
     {
-    case TPSIP_MEDIA_SESSION_STATE_CREATED:
-    case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-    case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT:
-    case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING:
+    case RAKIA_MEDIA_SESSION_STATE_CREATED:
+    case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_INVITE_SENT:
+    case RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT:
+    case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING:
       break;
-    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
+    case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
       /* Apply any pending remote send after outgoing INVITEs.
        * We don't want automatic removal of pending local send after
        * responding to incoming re-INVITEs, however */
       priv_apply_streams_pending_direction (session,
           TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
       break;
-    case TPSIP_MEDIA_SESSION_STATE_ENDED:
+    case RAKIA_MEDIA_SESSION_STATE_ENDED:
       priv_close_all_streams (session);
       DEBUG("destroying the NUA handle %p", priv->nua_op);
       if (priv->nua_op != NULL)
@@ -712,7 +712,7 @@ rakia_media_session_change_state (RakiaMediaSession *session,
 
   g_signal_emit (session, signals[SIG_STATE_CHANGED], 0, old_state, new_state);
 
-  if (new_state == TPSIP_MEDIA_SESSION_STATE_ACTIVE && priv->pending_offer)
+  if (new_state == RAKIA_MEDIA_SESSION_STATE_ACTIVE && priv->pending_offer)
     priv_session_invite (session, TRUE);
 }
 
@@ -728,7 +728,7 @@ rakia_media_session_debug (RakiaMediaSession *session,
   if (!rakia_debug_flag_is_set (DEBUG_FLAG))
     return;
 
-  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
 
   va_start (list, format);
 
@@ -743,11 +743,11 @@ rakia_media_session_debug (RakiaMediaSession *session,
 
 void rakia_media_session_terminate (RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
 
   DEBUG ("enter");
 
-  if (priv->state == TPSIP_MEDIA_SESSION_STATE_ENDED)
+  if (priv->state == RAKIA_MEDIA_SESSION_STATE_ENDED)
     return;
 
   /* XXX: taken care of by the state change? */
@@ -759,22 +759,22 @@ void rakia_media_session_terminate (RakiaMediaSession *session)
        * (except freeing the saved event) upon nua_handle_destroy()? */
       switch (priv->state)
         {
-        case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
-        case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-        case TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT:
-        case TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING:
+        case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
+        case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+        case RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT:
+        case RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING:
           DEBUG("sending BYE");
           nua_bye (priv->nua_op, TAG_END());
           break;
-        case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
+        case RAKIA_MEDIA_SESSION_STATE_INVITE_SENT:
           DEBUG("sending CANCEL");
           nua_cancel (priv->nua_op, TAG_END());
           break;
-        case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+        case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
           DEBUG("sending the 480 response to an incoming INVITE");
           nua_respond (priv->nua_op, 480, "Terminated", TAG_END());
           break;
-        case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+        case RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
           if (priv->saved_event[0])
             {
               DEBUG("sending the 480 response to an incoming re-INVITE");
@@ -791,24 +791,24 @@ void rakia_media_session_terminate (RakiaMediaSession *session)
         }
     }
 
-  rakia_media_session_change_state (session, TPSIP_MEDIA_SESSION_STATE_ENDED);
+  rakia_media_session_change_state (session, RAKIA_MEDIA_SESSION_STATE_ENDED);
 }
 
 gboolean
 rakia_media_session_set_remote_media (RakiaMediaSession *session,
                                     const sdp_session_t* sdp)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   gboolean authoritative;
 
   DEBUG ("enter");
 
-  if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_SENT
-      || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT)
+  if (priv->state == RAKIA_MEDIA_SESSION_STATE_INVITE_SENT
+      || priv->state == RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT)
     {
       rakia_media_session_change_state (
                 session,
-                TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED);
+                RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED);
     }
   else
     {
@@ -850,8 +850,8 @@ rakia_media_session_set_remote_media (RakiaMediaSession *session,
   priv->remote_sdp = sdp_session_dup (priv->home, sdp);
   g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
 
-  authoritative = (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
-                || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
+  authoritative = (priv->state == RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED
+                || priv->state == RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
   if (!priv_update_remote_media (session, authoritative))
     return FALSE;
 
@@ -867,7 +867,7 @@ priv_add_stream_list_entry (GPtrArray *list,
                             RakiaMediaStream *stream,
                             RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   GValue entry = { 0 };
   GType stream_type;
   guint id;
@@ -978,7 +978,7 @@ rakia_media_session_remove_streams (RakiaMediaSession *self,
 void rakia_media_session_list_streams (RakiaMediaSession *session,
                                      GPtrArray *ret)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   RakiaMediaStream *stream;
   guint i;
 
@@ -996,7 +996,7 @@ rakia_media_session_request_stream_direction (RakiaMediaSession *self,
                                               guint direction,
                                               GError **error)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   RakiaMediaStream *stream;
 
   stream = rakia_media_session_get_stream (self, stream_id, error);
@@ -1010,8 +1010,8 @@ rakia_media_session_request_stream_direction (RakiaMediaSession *self,
   SESSION_DEBUG (self, "direction %u requested for stream %u",
       direction, stream_id);
 
-  if (priv->state == TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED
-      || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED)
+  if (priv->state == RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED
+      || priv->state == RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED)
     {
       /* While processing a session offer, we can only mask out direction
        * requested by the remote peer */
@@ -1028,7 +1028,7 @@ rakia_media_session_request_stream_direction (RakiaMediaSession *self,
 static void
 priv_save_event (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   RakiaBaseConnection *conn = NULL;
 
   priv_zap_event (self);
@@ -1053,7 +1053,7 @@ priv_save_event (RakiaMediaSession *self)
 static void
 priv_zap_event (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
 
   if (priv->saved_event[0])
     {
@@ -1067,30 +1067,30 @@ priv_zap_event (RakiaMediaSession *self)
 void
 rakia_media_session_receive_invite (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
 
-  g_return_if_fail (priv->state == TPSIP_MEDIA_SESSION_STATE_CREATED);  
+  g_return_if_fail (priv->state == RAKIA_MEDIA_SESSION_STATE_CREATED);  
   g_return_if_fail (priv->nua_op != NULL);
 
   priv->remote_initiated = TRUE;
 
   nua_respond (priv->nua_op, SIP_180_RINGING, TAG_END());
 
-  rakia_media_session_change_state (self, TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED);
+  rakia_media_session_change_state (self, RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED);
 }
 
 void
 rakia_media_session_receive_reinvite (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
 
   /* Check for permitted state transitions */
   switch (priv->state)
     {
-    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
-    case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
+    case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
       break;
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING:
+    case RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING:
       g_source_remove (priv->glare_timer_id);
       break;
     default:
@@ -1099,13 +1099,13 @@ rakia_media_session_receive_reinvite (RakiaMediaSession *self)
 
   priv_save_event (self);
 
-  rakia_media_session_change_state (self, TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
+  rakia_media_session_change_state (self, RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
 }
 
 void
 rakia_media_session_accept (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
 
   if (priv->accepted)
     return;
@@ -1128,7 +1128,7 @@ rakia_media_session_respond (RakiaMediaSession *self,
                              gint status,
                              const char *message)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
 
   SESSION_DEBUG (self, "responding: %03d %s", status, message ? message : "");
 
@@ -1141,7 +1141,7 @@ rakia_media_session_respond (RakiaMediaSession *self,
 
 gboolean rakia_media_session_is_accepted (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   return priv->accepted;
 }
 
@@ -1149,11 +1149,11 @@ static gboolean
 priv_glare_retry (gpointer session)
 {
   RakiaMediaSession *self = session;
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
 
   SESSION_DEBUG (self, "glare resolution interval is over");
 
-  if (priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING)
+  if (priv->state == RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING)
     priv_session_invite (self, TRUE);
 
   /* Reap the timer */
@@ -1164,10 +1164,10 @@ priv_glare_retry (gpointer session)
 void
 rakia_media_session_resolve_glare (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   guint interval;
 
-  if (priv->state != TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT)
+  if (priv->state != RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT)
     {
       SESSION_DEBUG (self, "glare resolution triggered in unexpected state");
       return;
@@ -1198,7 +1198,7 @@ rakia_media_session_resolve_glare (RakiaMediaSession *self)
   SESSION_DEBUG (self, "glare resolution interval %u msec", interval);
 
   rakia_media_session_change_state (
-        self, TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING);
+        self, RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING);
 }
 
 static RakiaMediaStream *
@@ -1206,7 +1206,7 @@ rakia_media_session_get_stream (RakiaMediaSession *self,
                                 guint stream_id,
                                 GError **error)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   RakiaMediaStream *stream;
 
   g_assert (priv->streams != NULL);
@@ -1233,14 +1233,14 @@ rakia_media_session_get_stream (RakiaMediaSession *self,
 TpLocalHoldState
 rakia_media_session_get_hold_state (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   return priv->hold_state;
 }
 
 static gboolean
 rakia_media_session_is_local_hold_ongoing (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   return (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD
           || priv->hold_state == TP_LOCAL_HOLD_STATE_PENDING_HOLD);
 }
@@ -1250,7 +1250,7 @@ priv_initiate_hold (RakiaMediaSession *self,
                     gboolean hold,
                     TpLocalHoldStateReason reason)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   gboolean stream_hold_requested = FALSE;
   RakiaMediaStream *stream;
   guint i;
@@ -1305,7 +1305,7 @@ priv_initiate_hold (RakiaMediaSession *self,
 static void
 priv_finalize_hold (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   RakiaMediaStream *stream;
   TpLocalHoldState final_hold_state;
   guint hold_mask;
@@ -1437,7 +1437,7 @@ gint
 rakia_media_session_rate_native_transport (RakiaMediaSession *session,
                                          const GValue *transport)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   gint result = 0;
   gchar *address = NULL;
   guint proto = TP_MEDIA_STREAM_BASE_PROTO_UDP;
@@ -1464,7 +1464,7 @@ rakia_media_session_rate_native_transport (RakiaMediaSession *session,
 static void
 priv_session_set_streams_playing (RakiaMediaSession *session, gboolean playing)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   RakiaMediaStream *stream;
   guint i;
 
@@ -1479,16 +1479,16 @@ priv_session_set_streams_playing (RakiaMediaSession *session, gboolean playing)
 static void
 priv_local_media_changed (RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
 
   switch (priv->state)
     {
-    case TPSIP_MEDIA_SESSION_STATE_CREATED:
+    case RAKIA_MEDIA_SESSION_STATE_CREATED:
       /* If all streams are ready, send an offer now */
       priv_request_response_step (session);
       break;
-    case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
       /* The changes to existing streams will be included in the
        * eventual answer (FIXME: implement postponed direction changes,
        * which are applied after the remote offer has been processed).
@@ -1497,13 +1497,13 @@ priv_local_media_changed (RakiaMediaSession *session)
       if (priv->remote_stream_count < priv->streams->len)
         priv->pending_offer = TRUE;
       break;
-    case TPSIP_MEDIA_SESSION_STATE_INVITE_SENT:
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT:
-    case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_INVITE_SENT:
+    case RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT:
+    case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
       /* Cannot send another offer right now */
       priv->pending_offer = TRUE;
       break;
-    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
+    case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
       /* Check if we are allowed to send re-INVITES */
       {
         gboolean immutable_streams = FALSE;
@@ -1516,7 +1516,7 @@ priv_local_media_changed (RakiaMediaSession *session)
         }
       }
       /* Fall through to the next case */
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING:
+    case RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING:
       if (priv->local_non_ready == 0)
         priv_session_invite (session, TRUE);
       else
@@ -1530,7 +1530,7 @@ priv_local_media_changed (RakiaMediaSession *session)
 static void
 priv_update_remote_hold (RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   RakiaMediaStream *stream;
   gboolean has_streams = FALSE;
   gboolean remote_held = TRUE;
@@ -1584,7 +1584,7 @@ rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs, const char *name)
 static gboolean
 priv_update_remote_media (RakiaMediaSession *session, gboolean authoritative)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   const sdp_session_t *sdp = priv->remote_sdp;
   const sdp_media_t *media;
   gboolean has_supported_media = FALSE;
@@ -1716,7 +1716,7 @@ priv_update_remote_media (RakiaMediaSession *session, gboolean authoritative)
 static void
 priv_session_rollback (RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
 
   DEBUG("enter");
 
@@ -1755,14 +1755,14 @@ priv_session_rollback (RakiaMediaSession *session)
                    TAG_END());
     }
 
-  rakia_media_session_change_state (session, TPSIP_MEDIA_SESSION_STATE_ACTIVE);
+  rakia_media_session_change_state (session, RAKIA_MEDIA_SESSION_STATE_ACTIVE);
 }
 
 static GString *
 priv_session_generate_sdp (RakiaMediaSession *session,
                            gboolean authoritative)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   GString *user_sdp;
   guint len;
   guint i;
@@ -1793,7 +1793,7 @@ priv_session_generate_sdp (RakiaMediaSession *session,
 static void
 priv_session_invite (RakiaMediaSession *session, gboolean reinvite)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   GString *user_sdp;
 
   DEBUG("enter");
@@ -1805,7 +1805,7 @@ priv_session_invite (RakiaMediaSession *session, gboolean reinvite)
   g_return_if_fail (user_sdp != NULL);
 
   if (!reinvite
-      || priv->state == TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING
+      || priv->state == RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING
       || tp_strdiff (priv->local_sdp, user_sdp->str))
     {
       g_free (priv->local_sdp);
@@ -1821,14 +1821,14 @@ priv_session_invite (RakiaMediaSession *session, gboolean reinvite)
                   SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
                   NUTAG_AUTOANSWER(0),
                   TAG_IF(reinvite,
-                         NUTAG_INVITE_TIMER (TPSIP_REINVITE_TIMEOUT)),
+                         NUTAG_INVITE_TIMER (RAKIA_REINVITE_TIMEOUT)),
                   TAG_END());
       priv->pending_offer = FALSE;
 
       rakia_media_session_change_state (
                 session,
-                reinvite? TPSIP_MEDIA_SESSION_STATE_REINVITE_SENT
-                        : TPSIP_MEDIA_SESSION_STATE_INVITE_SENT);
+                reinvite? RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT
+                        : RAKIA_MEDIA_SESSION_STATE_INVITE_SENT);
     }
   else
     {
@@ -1840,7 +1840,7 @@ priv_session_invite (RakiaMediaSession *session, gboolean reinvite)
 static void
 priv_session_respond (RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   msg_t *msg;
 
   g_return_if_fail (priv->nua_op != NULL);
@@ -1870,13 +1870,13 @@ priv_session_respond (RakiaMediaSession *session)
   if (priv->saved_event[0])
     nua_destroy_event (priv->saved_event);
 
-  rakia_media_session_change_state (session, TPSIP_MEDIA_SESSION_STATE_ACTIVE);
+  rakia_media_session_change_state (session, RAKIA_MEDIA_SESSION_STATE_ACTIVE);
 }
 
 static gboolean
 priv_is_codec_intersect_pending (RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   guint i;
 
   for (i = 0; i < priv->streams->len; i++)
@@ -1902,7 +1902,7 @@ priv_is_codec_intersect_pending (RakiaMediaSession *session)
 static void
 priv_request_response_step (RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
 
   if (priv->local_non_ready != 0)
     {
@@ -1912,16 +1912,16 @@ priv_request_response_step (RakiaMediaSession *session)
 
   switch (priv->state)
     {
-    case TPSIP_MEDIA_SESSION_STATE_CREATED:
+    case RAKIA_MEDIA_SESSION_STATE_CREATED:
       priv_session_invite (session, FALSE);
       break;
-    case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
       if (priv->accepted
           && !priv_is_codec_intersect_pending (session))
         rakia_media_session_change_state (session,
-                                        TPSIP_MEDIA_SESSION_STATE_ACTIVE);
+                                        RAKIA_MEDIA_SESSION_STATE_ACTIVE);
       break;
-    case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
       /* TODO: if the call has not yet been accepted locally
        * and the remote endpoint supports 100rel, send them
        * an early session answer in a reliable 183 response */
@@ -1929,12 +1929,12 @@ priv_request_response_step (RakiaMediaSession *session)
           && !priv_is_codec_intersect_pending (session))
         priv_session_respond (session);
       break;
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+    case RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
       if (!priv_is_codec_intersect_pending (session))
         priv_session_respond (session);
       break;
-    case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
-    case TPSIP_MEDIA_SESSION_STATE_REINVITE_PENDING:
+    case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
+    case RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING:
       if (priv->pending_offer)
         priv_session_invite (session, TRUE);
       break;
@@ -1952,7 +1952,7 @@ priv_stream_close_cb (RakiaMediaStream *stream,
 
   DEBUG("enter");
 
-  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
 
   id = rakia_media_stream_get_id (stream);
   g_return_if_fail (g_ptr_array_index(priv->streams, id) == stream);
@@ -1978,7 +1978,7 @@ static void priv_stream_ready_cb (RakiaMediaStream *stream,
 
   DEBUG ("enter");
 
-  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
 
   g_assert (priv->local_non_ready > 0);
   --priv->local_non_ready;
@@ -1992,7 +1992,7 @@ static void priv_stream_supported_codecs_cb (RakiaMediaStream *stream,
 {
   RakiaMediaSessionPrivate *priv;
 
-  priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
 
   g_assert (!rakia_media_stream_is_codec_intersect_pending (stream));
 
@@ -2001,21 +2001,21 @@ static void priv_stream_supported_codecs_cb (RakiaMediaStream *stream,
       /* This remote media description got no codec intersection. */
       switch (priv->state)
         {
-        case TPSIP_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-        case TPSIP_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+        case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
+        case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
           DEBUG("no codec intersection, closing the stream");
           rakia_media_stream_close (stream);
           break;
-        case TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
+        case RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
           /* In this case, we have the stream negotiated already,
            * and we don't want to close it just because the remote party
            * offers a different set of codecs.
            * Roll back the whole session to the previously negotiated state. */
           priv_session_rollback (session);
           return;
-        case TPSIP_MEDIA_SESSION_STATE_ACTIVE:
+        case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
           /* We've most likely rolled back from
-           * TPSIP_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
+           * RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
            * but we may receive more than one empty codec intersection
            * in the session, so we ignore the rest */
           return;
@@ -2032,7 +2032,7 @@ priv_stream_state_changed_cb (RakiaMediaStream *stream,
                               guint state,
                               RakiaMediaChannel *channel)
 {
-  g_assert (TPSIP_IS_MEDIA_CHANNEL (channel));
+  g_assert (RAKIA_IS_MEDIA_CHANNEL (channel));
   tp_svc_channel_type_streamed_media_emit_stream_state_changed(
         channel,
         rakia_media_stream_get_id (stream), state);
@@ -2044,7 +2044,7 @@ priv_stream_direction_changed_cb (RakiaMediaStream *stream,
                                   guint pending_send_flags,
                                   RakiaMediaChannel *channel)
 {
-  g_assert (TPSIP_IS_MEDIA_CHANNEL (channel));
+  g_assert (RAKIA_IS_MEDIA_CHANNEL (channel));
   tp_svc_channel_type_streamed_media_emit_stream_direction_changed (
         channel,
         rakia_media_stream_get_id (stream), direction, pending_send_flags);
@@ -2055,7 +2055,7 @@ priv_stream_hold_state_cb (RakiaMediaStream *stream,
                            GParamSpec *pspec,
                            RakiaMediaSession *session)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (session);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
   gboolean hold;
   guint i;
 
@@ -2110,7 +2110,7 @@ rakia_media_session_add_stream (RakiaMediaSession *self,
                                 TpMediaStreamDirection direction,
                                 gboolean created_locally)
 {
-  RakiaMediaSessionPrivate *priv = TPSIP_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   RakiaMediaStream *stream = NULL;
 
   DEBUG ("enter");
@@ -2134,7 +2134,7 @@ rakia_media_session_add_stream (RakiaMediaSession *self,
     if (rakia_media_session_is_local_hold_ongoing (self))
       direction &= ~TP_MEDIA_STREAM_DIRECTION_RECEIVE;
 
-    stream = g_object_new (TPSIP_TYPE_MEDIA_STREAM,
+    stream = g_object_new (RAKIA_TYPE_MEDIA_STREAM,
                            "dbus-daemon", priv->dbus_daemon,
 			   "media-session", self,
 			   "media-type", media_type,

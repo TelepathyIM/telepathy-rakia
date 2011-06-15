@@ -17,8 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef TPSIP_PROTOCOL_H
-#define TPSIP_PROTOCOL_H
+#ifndef RAKIA_PROTOCOL_H
+#define RAKIA_PROTOCOL_H
 
 #include <glib-object.h>
 #include <telepathy-glib/base-protocol.h>
@@ -47,22 +47,22 @@ struct _RakiaProtocol {
 
 GType rakia_protocol_get_type (void);
 
-#define TPSIP_TYPE_PROTOCOL \
+#define RAKIA_TYPE_PROTOCOL \
     (rakia_protocol_get_type ())
-#define TPSIP_PROTOCOL(obj) \
+#define RAKIA_PROTOCOL(obj) \
     (G_TYPE_CHECK_INSTANCE_CAST ((obj), \
-        TPSIP_TYPE_PROTOCOL, \
+        RAKIA_TYPE_PROTOCOL, \
         RakiaProtocol))
-#define TPSIP_PROTOCOL_CLASS(klass) \
+#define RAKIA_PROTOCOL_CLASS(klass) \
     (G_TYPE_CHECK_CLASS_CAST ((klass), \
-        TPSIP_TYPE_PROTOCOL, \
+        RAKIA_TYPE_PROTOCOL, \
         RakiaProtocolClass))
-#define TPSIP_IS_PROTOCOL_CLASS(klass) \
+#define RAKIA_IS_PROTOCOL_CLASS(klass) \
     (G_TYPE_CHECK_CLASS_TYPE ((klass), \
-        TPSIP_TYPE_PROTOCOL))
-#define TPSIP_PROTOCOL_GET_CLASS(klass) \
+        RAKIA_TYPE_PROTOCOL))
+#define RAKIA_PROTOCOL_GET_CLASS(klass) \
     (G_TYPE_INSTANCE_GET_CLASS ((obj), \
-        TPSIP_TYPE_PROTOCOL, \
+        RAKIA_TYPE_PROTOCOL, \
         RakiaProtocolClass))
 
 gchar *rakia_protocol_normalize_contact (const gchar *id,
