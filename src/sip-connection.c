@@ -509,7 +509,7 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
 
   param_spec = g_param_spec_enum ("keepalive-mechanism", "Keepalive mechanism",
       "Keepalive mechanism for SIP registration",
-      rakia_connection_keepalive_mechanism_get_type (),
+      RAKIA_TYPE_CONNECTION_KEEPALIVE_MECHANISM,
       RAKIA_CONNECTION_KEEPALIVE_AUTO, /*default value*/
       G_PARAM_CONSTRUCT | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   INST_PROP(PROP_KEEPALIVE_MECHANISM);
