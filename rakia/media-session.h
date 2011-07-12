@@ -109,13 +109,12 @@ TpLocalHoldState rakia_media_session_get_hold_state (RakiaMediaSession *session)
 void rakia_media_session_request_hold (RakiaMediaSession *session,
                                        gboolean hold);
 
-gboolean rakia_media_session_start_telephony_event (RakiaMediaSession *self,
-                                                    guint stream_id,
-                                                    guchar event,
-                                                    GError **error);
-gboolean rakia_media_session_stop_telephony_event  (RakiaMediaSession *self,
-                                                    guint stream_id,
-                                                    GError **error);
+gboolean rakia_media_session_has_media (RakiaMediaSession *self,
+                                        TpMediaStreamType type);
+
+void rakia_media_session_start_telephony_event (RakiaMediaSession *self,
+                                                guchar event);
+void rakia_media_session_stop_telephony_event  (RakiaMediaSession *self);
 
 gint rakia_media_session_rate_native_transport (RakiaMediaSession *session,
                                               const GValue *transport);

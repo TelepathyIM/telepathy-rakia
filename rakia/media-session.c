@@ -1383,54 +1383,68 @@ rakia_media_session_request_hold (RakiaMediaSession *self,
 }
 
 gboolean
-rakia_media_session_start_telephony_event (RakiaMediaSession *self,
-                                         guint stream_id,
-                                         guchar event,
-                                         GError **error)
+rakia_media_session_has_media (RakiaMediaSession *self,
+                               TpMediaStreamType type)
 {
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   RakiaMediaStream *stream;
+  guint i;
 
-  stream = rakia_media_session_get_stream (self, stream_id, error);
-  if (stream == NULL)
-    return FALSE;
-
-  if (rakia_media_stream_get_media_type (stream) != TP_MEDIA_STREAM_TYPE_AUDIO)
+  for (i = 0; i < priv->streams->len; i++)
     {
-      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-                   "non-audio stream %u does not support telephony events", stream_id);
-      return FALSE;
+      stream = g_ptr_array_index(priv->streams, i);
+      if (stream == NULL)
+        continue;
+      if (rakia_media_stream_get_media_type (stream) == type)
+        return TRUE;
     }
 
-  DEBUG("starting telephony event %u on stream %u", (guint) event, stream_id);
-
-  rakia_media_stream_start_telephony_event (stream, event);
-
-  return TRUE;
+  return FALSE;
 }
 
-gboolean
-rakia_media_session_stop_telephony_event  (RakiaMediaSession *self,
-                                         guint stream_id,
-                                         GError **error)
+void
+rakia_media_session_start_telephony_event (RakiaMediaSession *self,
+                                           guchar event)
 {
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   RakiaMediaStream *stream;
+  guint i;
 
-  stream = rakia_media_session_get_stream (self, stream_id, error);
-  if (stream == NULL)
-    return FALSE;
-
-  if (rakia_media_stream_get_media_type (stream) != TP_MEDIA_STREAM_TYPE_AUDIO)
+  for (i = 0; i < priv->streams->len; i++)
     {
-      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-                   "non-audio stream %u does not support telephony events; spurious use of the stop event?", stream_id);
-      return FALSE;
+      stream = g_ptr_array_index(priv->streams, i);
+      if (stream == NULL)
+        continue;
+      if (rakia_media_stream_get_media_type (stream)
+          != TP_MEDIA_STREAM_TYPE_AUDIO)
+        continue;
+
+      DEBUG("starting telephony event %u on stream %u", (guint) event, i);
+
+      rakia_media_stream_start_telephony_event (stream, event);
     }
+}
 
-  DEBUG("stopping the telephony event on stream %u", stream_id);
+void
+rakia_media_session_stop_telephony_event  (RakiaMediaSession *self)
+{
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
+  RakiaMediaStream *stream;
+  guint i;
 
-  rakia_media_stream_stop_telephony_event (stream);
+  for (i = 0; i < priv->streams->len; i++)
+    {
+      stream = g_ptr_array_index(priv->streams, i);
+      if (stream == NULL)
+        continue;
+      if (rakia_media_stream_get_media_type (stream)
+          != TP_MEDIA_STREAM_TYPE_AUDIO)
+        continue;
 
-  return TRUE;
+      DEBUG("stopping the telephony event on stream %u", i);
+
+      rakia_media_stream_stop_telephony_event (stream);
+    }
 }
 
 gint

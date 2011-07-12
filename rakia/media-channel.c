@@ -32,6 +32,7 @@
 
 #include <telepathy-glib/channel-iface.h>
 #include <telepathy-glib/dbus.h>
+#include <telepathy-glib/dtmf.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/exportable-channel.h>
 #include <telepathy-glib/interfaces.h>
@@ -49,6 +50,11 @@
     (TP_CHANNEL_CALL_STATE_RINGING | \
      TP_CHANNEL_CALL_STATE_QUEUED | \
      TP_CHANNEL_CALL_STATE_IN_PROGRESS)
+
+/* DTMF dialstring playback durations in milliseconds */
+#define RAKIA_DTMF_TONE_DURATION 250
+#define RAKIA_DTMF_GAP_DURATION 100
+#define RAKIA_DTMF_PAUSE_DURATION 3000
 
 static void event_target_init (gpointer, gpointer);
 static void channel_iface_init (gpointer, gpointer);
@@ -109,6 +115,9 @@ enum
   PROP_INITIAL_AUDIO,
   PROP_INITIAL_VIDEO,
   PROP_IMMUTABLE_STREAMS,
+  PROP_CURRENTLY_SENDING_TONES,
+  PROP_INITIAL_TONES,
+  PROP_DEFERRED_TONES,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
   PROP_STUN_SERVER,
@@ -143,8 +152,6 @@ static guint signals[NUM_SIGNALS] = { 0 };
 
 
 /* private structure */
-typedef struct _RakiaMediaChannelPrivate RakiaMediaChannelPrivate;
-
 struct _RakiaMediaChannelPrivate
 {
   RakiaBaseConnection *conn;
@@ -155,6 +162,9 @@ struct _RakiaMediaChannelPrivate
   GHashTable *call_states;
   gchar *stun_server;
   guint stun_port;
+  TpDTMFPlayer *dtmf_player;
+  gchar *initial_tones;
+  gchar *deferred_tones;
 
   gboolean initial_audio;
   gboolean initial_video;
@@ -163,7 +173,7 @@ struct _RakiaMediaChannelPrivate
   gboolean dispose_has_run;
 };
 
-#define RAKIA_MEDIA_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_MEDIA_CHANNEL, RakiaMediaChannelPrivate))
+#define RAKIA_MEDIA_CHANNEL_GET_PRIVATE(chan) ((chan)->priv)
 
 /***********************************************************************
  * Set: Gobject interface
@@ -172,7 +182,11 @@ struct _RakiaMediaChannelPrivate
 static void
 rakia_media_channel_init (RakiaMediaChannel *self)
 {
-  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
+  RakiaMediaChannelPrivate *priv =
+      G_TYPE_INSTANCE_GET_PRIVATE (self,
+          RAKIA_TYPE_MEDIA_CHANNEL, RakiaMediaChannelPrivate);
+
+  self->priv = priv;
 
   /* allocate any data required by the object here */
   priv->call_states = g_hash_table_new (NULL, NULL);
@@ -280,6 +294,12 @@ rakia_media_channel_class_init (RakiaMediaChannelClass *klass)
       { "ImmutableStreams", "immutable-streams", NULL },
       { NULL }
   };
+  static TpDBusPropertiesMixinPropImpl dtmf_props[] = {
+      { "CurrentlySendingTones", "currently-sending-tones", NULL },
+      { "InitialTones", "initial-tones", NULL },
+      { "DeferredTones", "deferred-tones", NULL },
+      { NULL }
+  };
 
   static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
       { TP_IFACE_CHANNEL,
@@ -291,6 +311,11 @@ rakia_media_channel_class_init (RakiaMediaChannelClass *klass)
         tp_dbus_properties_mixin_getter_gobject_properties,
         NULL,
         streamed_media_props,
+      },
+      { TP_IFACE_CHANNEL_INTERFACE_DTMF,
+        tp_dbus_properties_mixin_getter_gobject_properties,
+        NULL,
+        dtmf_props,
       },
       { NULL }
   };
@@ -393,6 +418,28 @@ rakia_media_channel_class_init (RakiaMediaChannelClass *klass)
       FALSE,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_IMMUTABLE_STREAMS,
+      param_spec);
+
+  param_spec = g_param_spec_boolean ("currently-sending-tones",
+      "Currently sending tones",
+      "True if the channel is currently sending DTMF tones",
+      FALSE,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_CURRENTLY_SENDING_TONES,
+      param_spec);
+
+  param_spec = g_param_spec_string ("initial-tones", "Initial tones",
+      "The initial DTMF tones to send after audio stream(s) are established.",
+      NULL,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_INITIAL_TONES,
+      param_spec);
+
+  param_spec = g_param_spec_string ("deferred-tones", "Deferred tones",
+      "The DTMF tones deferred waiting for user input.",
+      NULL,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_DEFERRED_TONES,
       param_spec);
 
   signals[SIG_INCOMING_CALL] =
@@ -513,6 +560,23 @@ rakia_media_channel_get_property (GObject    *object,
     case PROP_STUN_PORT:
       g_value_set_uint (value, priv->stun_port);
       break;
+    case PROP_CURRENTLY_SENDING_TONES:
+      g_value_set_boolean (value,
+          priv->dtmf_player != NULL
+            && tp_dtmf_player_is_active (priv->dtmf_player));
+      break;
+    case PROP_INITIAL_TONES:
+      if (priv->initial_tones == NULL)
+        g_value_set_static_string (value, "");
+      else
+        g_value_set_string (value, priv->initial_tones);
+      break;
+    case PROP_DEFERRED_TONES:
+      if (priv->deferred_tones == NULL)
+        g_value_set_static_string (value, "");
+      else
+        g_value_set_string (value, priv->deferred_tones);
+      break;
     default:
       /* Some properties live in the mixin */
       {
@@ -618,6 +682,9 @@ rakia_media_channel_set_property (GObject     *object,
       /* Also expose as a legacy Telepathy property */
       rakia_media_channel_set_tp_property (chan, value, pspec);
       break;
+    case PROP_INITIAL_TONES:
+      priv->initial_tones = g_value_dup_string (value);
+      break;
     default:
       /* some properties live in the mixin */
       if (rakia_media_channel_set_tp_property (chan, value, pspec))
@@ -645,6 +712,9 @@ rakia_media_channel_dispose (GObject *object)
   if (!priv->closed)
     rakia_media_channel_close (self);
 
+  if (priv->dtmf_player != NULL)
+    g_object_unref (priv->dtmf_player);
+
   contact_handles = tp_base_connection_get_handles (
       TP_BASE_CONNECTION (priv->conn), TP_HANDLE_TYPE_CONTACT);
 
@@ -666,6 +736,9 @@ rakia_media_channel_finalize (GObject *object)
   RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
   g_hash_table_destroy (priv->call_states);
+
+  g_free (priv->initial_tones);
+  g_free (priv->deferred_tones);
 
   g_free (priv->stun_server);
 
@@ -1950,18 +2023,119 @@ rakia_media_channel_request_hold (TpSvcChannelInterfaceHold *iface,
 }
 
 static void
+dtmf_player_started_tone_cb (TpDTMFPlayer *dtmf_player,
+                             guint event,
+                             gpointer user_data)
+{
+  RakiaMediaChannel *self = user_data;
+  RakiaMediaChannelPrivate *priv = self->priv;
+
+  if (priv->session != NULL)
+    rakia_media_session_start_telephony_event (priv->session, event);
+}
+
+static void
+dtmf_player_stopped_tone_cb (TpDTMFPlayer *dtmf_player,
+                             gpointer user_data)
+{
+  RakiaMediaChannel *self = user_data;
+  RakiaMediaChannelPrivate *priv = self->priv;
+
+  if (priv->session != NULL)
+    rakia_media_session_stop_telephony_event (priv->session);
+}
+
+static void
+dtmf_player_finished_cb (TpDTMFPlayer *dtmf_player,
+                         gboolean cancelled,
+                         gpointer user_data)
+{
+  RakiaMediaChannel *self = user_data;
+
+  tp_svc_channel_interface_dtmf_emit_stopped_tones (self, cancelled);
+}
+
+static void
+dtmf_player_tones_deferred_cb (TpDTMFPlayer *dtmf_player,
+                               gchar *tones,
+                               gpointer user_data)
+{
+  RakiaMediaChannel *self = user_data;
+  RakiaMediaChannelPrivate *priv = self->priv;
+
+  g_free (priv->deferred_tones);
+  priv->deferred_tones = g_strdup (tones);
+
+  tp_svc_channel_interface_dtmf_emit_tones_deferred (self, tones);
+}
+
+static void
+priv_ensure_dtmf_player (RakiaMediaChannel *self)
+{
+  RakiaMediaChannelPrivate *priv = self->priv;
+  if (priv->dtmf_player != NULL)
+    return;
+
+  priv->dtmf_player = tp_dtmf_player_new ();
+
+  g_signal_connect (priv->dtmf_player, "started-tone",
+      G_CALLBACK (dtmf_player_started_tone_cb), self);
+  g_signal_connect (priv->dtmf_player, "stopped-tone",
+      G_CALLBACK (dtmf_player_stopped_tone_cb), self);
+  g_signal_connect (priv->dtmf_player, "finished",
+      G_CALLBACK (dtmf_player_finished_cb), self);
+  g_signal_connect (priv->dtmf_player, "tones-deferred",
+      G_CALLBACK (dtmf_player_tones_deferred_cb), self);
+}
+
+static gboolean
+rakia_media_channel_send_dtmf_tones (RakiaMediaChannel *self,
+                                     const gchar *tones,
+                                     guint tone_duration,
+                                     GError **error)
+{
+  RakiaMediaChannelPrivate *priv = self->priv;
+
+  /* Perform sanity checks on the session */
+  if (priv->session == NULL)
+    {
+      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "the media session is not available, has the channel been closed?");
+      return FALSE;
+    }
+  if (!rakia_media_session_has_media (priv->session,
+          TP_MEDIA_STREAM_TYPE_AUDIO))
+    {
+      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+          "no audio streams are available");
+      return FALSE;
+    }
+
+  priv_ensure_dtmf_player (self);
+
+  if (!tp_dtmf_player_play (priv->dtmf_player, tones, tone_duration,
+          RAKIA_DTMF_GAP_DURATION, RAKIA_DTMF_PAUSE_DURATION, error))
+    return FALSE;
+
+  g_free (priv->deferred_tones);
+  priv->deferred_tones = NULL;
+
+  tp_svc_channel_interface_dtmf_emit_sending_tones (self, tones);
+
+  return TRUE;
+}
+
+static void
 rakia_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
-                              guint stream_id,
-                              guchar event,
-                              DBusGMethodInvocation *context)
+                                guint stream_id,
+                                guchar event,
+                                DBusGMethodInvocation *context)
 {
   RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
-  RakiaMediaChannelPrivate *priv;
   GError *error = NULL;
+  gchar tone[2];
 
   DEBUG("enter");
-
-  g_assert (RAKIA_IS_MEDIA_CHANNEL (self));
 
   if (event >= NUM_TP_DTMF_EVENTS)
     {
@@ -1972,12 +2146,10 @@ rakia_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
       return;
     }
 
-  priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
+  tone[0] = tp_dtmf_event_to_char (event);
+  tone[1] = '\0';
 
-  if (!rakia_media_session_start_telephony_event (priv->session,
-                                                  stream_id,
-                                                  event,
-                                                  &error))
+  if (!rakia_media_channel_send_dtmf_tones (self, tone, G_MAXUINT, &error))
     {
       dbus_g_method_return_error (context, error);
       g_error_free (error);
@@ -1989,29 +2161,39 @@ rakia_media_channel_start_tone (TpSvcChannelInterfaceDTMF *iface,
 
 static void
 rakia_media_channel_stop_tone (TpSvcChannelInterfaceDTMF *iface,
-                             guint stream_id,
-                             DBusGMethodInvocation *context)
+                               guint stream_id,
+                               DBusGMethodInvocation *context)
 {
   RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (iface);
   RakiaMediaChannelPrivate *priv;
-  GError *error = NULL;
 
   DEBUG("enter");
 
-  g_assert (RAKIA_IS_MEDIA_CHANNEL (self));
-
   priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  if (!rakia_media_session_stop_telephony_event (priv->session,
-                                                 stream_id,
-                                                 &error))
+  if (priv->dtmf_player != NULL)
+    tp_dtmf_player_cancel (priv->dtmf_player);
+
+  tp_svc_channel_interface_dtmf_return_from_stop_tone (context);
+}
+
+static void
+rakia_media_channel_multiple_tones (TpSvcChannelInterfaceDTMF *iface,
+                                    const gchar *tones,
+                                    DBusGMethodInvocation *context)
+{
+  RakiaMediaChannel *self = (RakiaMediaChannel *) iface;
+  GError *error = NULL;
+
+  if (!rakia_media_channel_send_dtmf_tones (self, tones,
+          RAKIA_DTMF_TONE_DURATION, &error))
     {
       dbus_g_method_return_error (context, error);
       g_error_free (error);
       return;
     }
 
-  tp_svc_channel_interface_dtmf_return_from_stop_tone (context);
+  tp_svc_channel_interface_dtmf_return_from_multiple_tones (context);
 }
 
 static void
@@ -2068,6 +2250,7 @@ dtmf_iface_init (gpointer g_iface, gpointer iface_data)
     klass, rakia_media_channel_##x)
   IMPLEMENT(start_tone);
   IMPLEMENT(stop_tone);
+  IMPLEMENT(multiple_tones);
 #undef IMPLEMENT
 }
 
