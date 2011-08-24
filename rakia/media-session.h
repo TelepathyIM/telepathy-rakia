@@ -43,6 +43,7 @@ typedef enum {
 
 typedef struct _RakiaMediaSession RakiaMediaSession;
 typedef struct _RakiaMediaSessionClass RakiaMediaSessionClass;
+typedef struct _RakiaMediaSessionPrivate RakiaMediaSessionPrivate;
 
 struct _RakiaMediaSessionClass {
     GObjectClass parent_class;
@@ -50,6 +51,7 @@ struct _RakiaMediaSessionClass {
 
 struct _RakiaMediaSession {
     GObject parent;
+    RakiaMediaSessionPrivate *priv;
 };
 
 GType rakia_media_session_get_type(void);

@@ -124,8 +124,6 @@ static const char* session_states[] =
 #endif /* ENABLE_DEBUG */
 
 /* private structure */
-typedef struct _RakiaMediaSessionPrivate RakiaMediaSessionPrivate;
-
 struct _RakiaMediaSessionPrivate
 {
   TpDBusDaemon *dbus_daemon;
@@ -157,7 +155,7 @@ struct _RakiaMediaSessionPrivate
   gboolean dispose_has_run;
 };
 
-#define RAKIA_MEDIA_SESSION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_MEDIA_SESSION, RakiaMediaSessionPrivate))
+#define RAKIA_MEDIA_SESSION_GET_PRIVATE(session) ((session)->priv)
 
 static void rakia_media_session_get_property (GObject    *object,
 					    guint       property_id,
@@ -181,9 +179,12 @@ static gboolean priv_update_remote_media (RakiaMediaSession *session,
 static void priv_save_event (RakiaMediaSession *self);
 static void priv_zap_event (RakiaMediaSession *self);
 
-static void rakia_media_session_init (RakiaMediaSession *obj)
+static void rakia_media_session_init (RakiaMediaSession *self)
 {
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (obj);
+  RakiaMediaSessionPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
+      RAKIA_TYPE_MEDIA_SESSION, RakiaMediaSessionPrivate);
+
+  self->priv = priv;
 
   priv->state = RAKIA_MEDIA_SESSION_STATE_CREATED;
   priv->hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
