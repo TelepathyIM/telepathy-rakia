@@ -176,8 +176,6 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
 
     stream_handler = context.handle_audio_session(chan)
 
-    stream_handler.StreamState(cs.MEDIA_STREAM_STATE_CONNECTED)
-
     sh_props = stream_handler.GetAll(
         cs.STREAM_HANDLER, dbus_interface=dbus.PROPERTIES_IFACE)
     assertEquals('none', sh_props['NATTraversal'])
@@ -213,7 +211,11 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
         EventPattern('dbus-signal', signal='MembersChanged',
             args=['', [remote_handle], [], [], [], remote_handle,
                   cs.GC_REASON_NONE]),
-        )
+        EventPattern('dbus-signal', signal='SetRemoteCodecs'),
+        ),
+
+    stream_handler.SupportedCodecs(context.get_audio_codecs_dbus())
+    stream_handler.StreamState(cs.MEDIA_STREAM_STATE_CONNECTED)
 
     # Time passes ... afterwards we close the chan
 
