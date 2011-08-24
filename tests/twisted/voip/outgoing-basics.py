@@ -9,7 +9,7 @@ from sofiatest import exec_test
 from servicetest import (
     make_channel_proxy, wrap_channel,
     EventPattern, call_async,
-    assertEquals, assertContains, assertLength,
+    assertEquals, assertContains, assertLength, assertSameSets
     )
 import constants as cs
 from voip_test import VoipTestContext
@@ -272,12 +272,13 @@ def rccs(q, bus, conn, stream):
 
     expected_allowed = [
         cs.TARGET_ID, cs.TARGET_HANDLE,
-        cs.INITIAL_VIDEO, cs.INITIAL_AUDIO
+        cs.INITIAL_VIDEO, cs.INITIAL_AUDIO,
+        cs.DTMF_INITIAL_TONES
     ]
 
     allowed.sort()
     expected_allowed.sort()
-    assertEquals(expected_allowed, allowed)
+    assertSameSets(expected_allowed, allowed)
 
 if __name__ == '__main__':
     

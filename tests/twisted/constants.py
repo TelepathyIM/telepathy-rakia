@@ -17,6 +17,7 @@ CHANNEL = "org.freedesktop.Telepathy.Channel"
 CHANNEL_IFACE_CALL_STATE = CHANNEL + ".Interface.CallState"
 CHANNEL_IFACE_CHAT_STATE = CHANNEL + '.Interface.ChatState'
 CHANNEL_IFACE_DESTROYABLE = CHANNEL + ".Interface.Destroyable"
+CHANNEL_IFACE_DTMF = CHANNEL + ".Interface.DTMF"
 CHANNEL_IFACE_GROUP = CHANNEL + ".Interface.Group"
 CHANNEL_IFACE_HOLD = CHANNEL + ".Interface.Hold"
 CHANNEL_IFACE_MEDIA_SIGNALLING = CHANNEL + ".Interface.MediaSignalling"
@@ -62,6 +63,8 @@ IMMUTABLE_STREAMS = CHANNEL_TYPE_STREAMED_MEDIA + '.ImmutableStreams'
 CALL_INITIAL_AUDIO = CHANNEL_TYPE_CALL + '.InitialAudio'
 CALL_INITIAL_VIDEO = CHANNEL_TYPE_CALL + '.InitialVideo'
 CALL_MUTABLE_CONTENTS = CHANNEL_TYPE_CALL + '.MutableContents'
+
+DTMF_INITIAL_TONES = CHANNEL_IFACE_DTMF + '.InitialTones'
 
 CALL_CONTENT = 'org.freedesktop.Telepathy.Call.Content.DRAFT'
 CALL_CONTENT_IFACE_MEDIA = \
