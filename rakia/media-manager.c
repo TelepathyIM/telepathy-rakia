@@ -37,11 +37,6 @@
 #define DEBUG_FLAG RAKIA_DEBUG_CONNECTION
 #include "rakia/debug.h"
 
-typedef enum {
-  RAKIA_MEDIA_CHANNEL_CREATE_WITH_AUDIO = 1 << 0,
-  RAKIA_MEDIA_CHANNEL_CREATE_WITH_VIDEO = 1 << 1,
-} RakiaMediaChannelCreationFlags;
-
 static void channel_manager_iface_init (gpointer, gpointer);
 static void rakia_media_manager_constructed (GObject *object);
 static void rakia_media_manager_close_all (RakiaMediaManager *fac);
@@ -264,15 +259,16 @@ static RakiaMediaChannel *
 new_media_channel (RakiaMediaManager *fac,
                    TpHandle initiator,
                    TpHandle maybe_peer,
-                   RakiaMediaChannelCreationFlags flags)
+                   GHashTable *request_properties)
 {
   RakiaMediaManagerPrivate *priv;
   RakiaMediaChannel *chan = NULL;
   gchar *object_path;
   const gchar *nat_traversal = "none";
-  gboolean initial_audio;
-  gboolean initial_video;
+  gboolean initial_audio = FALSE;
+  gboolean initial_video = FALSE;
   gboolean immutable_streams = FALSE;
+  const gchar *dtmf_initial_tones = NULL;
 
   g_assert (initiator != 0);
 
@@ -283,8 +279,15 @@ new_media_channel (RakiaMediaManager *fac,
 
   DEBUG("channel object path %s", object_path);
 
-  initial_audio = ((flags & RAKIA_MEDIA_CHANNEL_CREATE_WITH_AUDIO) != 0);
-  initial_video = ((flags & RAKIA_MEDIA_CHANNEL_CREATE_WITH_VIDEO) != 0);
+  if (request_properties != NULL)
+    {
+      initial_audio = tp_asv_get_boolean (request_properties,
+          TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio", NULL);
+      initial_video = tp_asv_get_boolean (request_properties,
+          TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo", NULL);
+      dtmf_initial_tones = tp_asv_get_string (request_properties,
+          TP_IFACE_CHANNEL_INTERFACE_DTMF ".InitialTones");
+    }
 
   g_object_get (priv->conn,
       "immutable-streams", &immutable_streams,
@@ -304,6 +307,7 @@ new_media_channel (RakiaMediaManager *fac,
                        "initial-video", initial_video,
                        "immutable-streams", immutable_streams,
                        "nat-traversal", nat_traversal,
+                       "initial-tones", dtmf_initial_tones,
                        NULL);
 
   g_free (object_path);
@@ -340,7 +344,6 @@ rakia_nua_i_invite_cb (TpBaseConnection    *conn,
 {
   RakiaMediaChannel *channel;
   TpHandle handle;
-  guint channel_flags = 0;
 
   /* figure out a handle for the identity */
 
@@ -362,7 +365,7 @@ rakia_nua_i_invite_cb (TpBaseConnection    *conn,
       return TRUE;
     }
 
-  channel = new_media_channel (fac, handle, handle, channel_flags);
+  channel = new_media_channel (fac, handle, handle, NULL);
 
   rakia_handle_unref (conn, handle);
 
@@ -453,6 +456,7 @@ static const gchar * const named_channel_allowed_properties[] = {
     TP_IFACE_CHANNEL ".TargetID",
     TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio",
     TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo",
+    TP_IFACE_CHANNEL_INTERFACE_DTMF ".InitialTones",
     NULL
 };
 
@@ -507,7 +511,6 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
   RakiaMediaChannel *channel = NULL;
   GError *error = NULL;
   GSList *request_tokens;
-  guint chan_flags = 0;
   gboolean require_target_handle;
   gboolean add_peer_to_remote_pending;
 
@@ -572,7 +575,7 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
               &error))
         goto error;
 
-      channel = new_media_channel (self, conn->self_handle, 0, 0);
+      channel = new_media_channel (self, conn->self_handle, 0, NULL);
       break;
 
     case TP_HANDLE_TYPE_CONTACT:
@@ -613,15 +616,8 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
             }
         }
 
-      if (tp_asv_get_boolean (request_properties,
-            TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio", NULL))
-        chan_flags |= RAKIA_MEDIA_CHANNEL_CREATE_WITH_AUDIO;
-
-      if (tp_asv_get_boolean (request_properties,
-            TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo", NULL))
-        chan_flags |= RAKIA_MEDIA_CHANNEL_CREATE_WITH_VIDEO;
-
-      channel = new_media_channel (self, conn->self_handle, handle, chan_flags);
+      channel = new_media_channel (self, conn->self_handle, handle,
+          request_properties);
 
       if (add_peer_to_remote_pending)
         {
