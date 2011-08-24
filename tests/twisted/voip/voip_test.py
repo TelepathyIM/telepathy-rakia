@@ -4,7 +4,10 @@ import uuid
 
 import twisted.protocols.sip
 
-from servicetest import assertContains
+from servicetest import (
+    make_channel_proxy,
+    assertContains,
+    )
 
 class VoipTestContext(object):
     # Default audio codecs for the remote end
@@ -178,3 +181,28 @@ class VoipTestContext(object):
         
     def terminate(self):
         return self.send_message('BYE', call_id=self.call_id)
+
+    def handle_audio_session(self, chan):
+        """
+        Serves a SessionHandler and a StreamHandler for the MediaSignalling
+        channel. Returns the interface proxy for StreamHandler.
+        """
+        session_handlers = chan.MediaSignalling.GetSessionHandlers()
+        sh_path, sh_type = session_handlers[0]
+
+        assert sh_type == 'rtp'
+
+        session_handler = make_channel_proxy(self.conn, sh_path,
+                'Media.SessionHandler')
+        session_handler.Ready()
+
+        e = self.q.expect('dbus-signal', signal='NewStreamHandler')
+
+        stream_handler = make_channel_proxy(self.conn, e.args[0],
+                'Media.StreamHandler')
+
+        stream_handler.NewNativeCandidate("fake", self.get_remote_transports_dbus())
+        stream_handler.NativeCandidatesPrepared()
+        stream_handler.Ready(self.get_audio_codecs_dbus())
+
+        return stream_handler

@@ -7,8 +7,7 @@ import dbus
 
 from sofiatest import exec_test
 from servicetest import (
-    make_channel_proxy, wrap_channel,
-    EventPattern, call_async,
+    wrap_channel, EventPattern, call_async,
     assertEquals, assertContains, assertLength, assertSameSets
     )
 import constants as cs
@@ -175,22 +174,8 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
         cs.MEDIA_STREAM_PENDING_REMOTE_SEND),
         streams[0][1:])
 
-    # S-E does state recovery to get the session handler, and calls Ready on it
-    session_handlers = chan.MediaSignalling.GetSessionHandlers()
-    sh_path, sh_type = session_handlers[0]
+    stream_handler = context.handle_audio_session(chan)
 
-    assert sh_type == 'rtp'
-
-    session_handler = make_channel_proxy(conn, sh_path, 'Media.SessionHandler')
-    session_handler.Ready()
-
-    e = q.expect('dbus-signal', signal='NewStreamHandler')
-
-    stream_handler = make_channel_proxy(conn, e.args[0], 'Media.StreamHandler')
-
-    stream_handler.NewNativeCandidate("fake", context.get_remote_transports_dbus())
-    stream_handler.NativeCandidatesPrepared()
-    stream_handler.Ready(context.get_audio_codecs_dbus())
     stream_handler.StreamState(cs.MEDIA_STREAM_STATE_CONNECTED)
 
     sh_props = stream_handler.GetAll(
