@@ -64,6 +64,9 @@ static void dtmf_iface_init (gpointer, gpointer);
 static void call_state_iface_init (gpointer, gpointer);
 static void hold_iface_init (gpointer, gpointer);
 
+static void priv_session_dtmf_ready_cb (RakiaMediaSession *session,
+                                        RakiaMediaChannel *channel);
+
 G_DEFINE_TYPE_WITH_CODE (RakiaMediaChannel, rakia_media_channel,
     G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (RAKIA_TYPE_EVENT_TARGET, event_target_init);
@@ -1728,6 +1731,11 @@ priv_create_session (RakiaMediaChannel *channel,
                            G_CALLBACK(priv_session_state_changed_cb),
                            channel,
                            0);
+  g_signal_connect_object (session,
+                           "dtmf-ready",
+                           G_CALLBACK (priv_session_dtmf_ready_cb),
+                           channel,
+                           0);
 
   priv->session = session;
 
@@ -2194,6 +2202,16 @@ rakia_media_channel_multiple_tones (TpSvcChannelInterfaceDTMF *iface,
     }
 
   tp_svc_channel_interface_dtmf_return_from_multiple_tones (context);
+}
+
+static void
+priv_session_dtmf_ready_cb (RakiaMediaSession *session,
+                            RakiaMediaChannel *channel)
+{
+  RakiaMediaChannelPrivate *priv = channel->priv;
+  if (!tp_str_empty (priv->initial_tones))
+    rakia_media_channel_send_dtmf_tones (channel, priv->initial_tones,
+        RAKIA_DTMF_TONE_DURATION, NULL);
 }
 
 static void

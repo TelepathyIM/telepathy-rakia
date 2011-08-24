@@ -70,6 +70,7 @@ G_DEFINE_TYPE_WITH_CODE(RakiaMediaSession,
 enum
 {
   SIG_STATE_CHANGED,
+  SIG_DTMF_READY,
   SIG_LAST_SIGNAL
 };
 
@@ -151,6 +152,7 @@ struct _RakiaMediaSessionPrivate
   gboolean remote_initiated;              /*< session is remotely intiated */
   gboolean accepted;                      /*< session has been locally accepted for use */
   gboolean se_ready;                      /*< connection established with stream-engine */
+  gboolean audio_connected;               /*< an audio stream has reached connected state */
   gboolean pending_offer;                 /*< local media have been changed, but a re-INVITE is pending */
   gboolean dispose_has_run;
 };
@@ -446,6 +448,14 @@ rakia_media_session_class_init (RakiaMediaSessionClass *klass)
                   NULL, NULL,
                   _rakia_marshal_VOID__UINT_UINT,
                   G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
+
+  signals[SIG_DTMF_READY] =
+      g_signal_new ("dtmf-ready",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_LAST,
+          0, NULL, NULL,
+          g_cclosure_marshal_VOID__VOID,
+          G_TYPE_NONE, 0);
 }
 
 static void
@@ -1122,6 +1132,10 @@ rakia_media_session_accept (RakiaMediaSession *self)
 
   /* Will change session state to active when streams are ready */
   priv_request_response_step (self);
+
+  /* Can play the DTMF dialstring if an audio stream is connected */
+  if (priv->audio_connected)
+    g_signal_emit (self, signals[SIG_DTMF_READY], 0);
 }
 
 void
@@ -2045,12 +2059,25 @@ static void priv_stream_supported_codecs_cb (RakiaMediaStream *stream,
 static void
 priv_stream_state_changed_cb (RakiaMediaStream *stream,
                               guint state,
-                              RakiaMediaChannel *channel)
+                              RakiaMediaSession *session)
 {
-  g_assert (RAKIA_IS_MEDIA_CHANNEL (channel));
+  RakiaMediaSessionPrivate *priv = session->priv;
+
   tp_svc_channel_type_streamed_media_emit_stream_state_changed(
-        channel,
+        priv->channel,
         rakia_media_stream_get_id (stream), state);
+
+  /* Check if DTMF can now be played */
+  if (!priv->audio_connected
+      && state == TP_MEDIA_STREAM_STATE_CONNECTED
+      && rakia_media_stream_get_media_type (stream)
+         == TP_MEDIA_STREAM_TYPE_AUDIO)
+    {
+      priv->audio_connected = TRUE;
+
+      if (priv->accepted)
+        g_signal_emit (session, signals[SIG_DTMF_READY], 0);
+    }
 }
 
 static void
@@ -2173,7 +2200,7 @@ rakia_media_session_add_stream (RakiaMediaSession *self,
 		      self);
     g_signal_connect (stream, "state-changed",
                       G_CALLBACK (priv_stream_state_changed_cb),
-                      priv->channel);
+                      self);
     g_signal_connect (stream, "direction-changed",
                       G_CALLBACK (priv_stream_direction_changed_cb),
                       priv->channel);
