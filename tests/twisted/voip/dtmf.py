@@ -4,7 +4,7 @@ Test DTMF dialstring playback and signalling.
 
 from sofiatest import exec_test
 from servicetest import (
-    wrap_channel, EventPattern,
+    call_async, wrap_channel, EventPattern,
     assertEquals, assertContains, assertLength, assertSameSets
     )
 from voip_test import VoipTestContext
@@ -130,6 +130,31 @@ def multiple_tones(q, bus, conn, sip_proxy, peer='foo@bar.com'):
 
     q.expect('dbus-signal', signal='StoppedTones', args=[False])
 
+def bleep_bloop(q, bus, conn, sip_proxy, peer='foo@bar.com'):
+
+    context = VoipTestContext(q, conn, bus, sip_proxy, 'sip:testacc@127.0.0.1', peer)
+
+    chan = setup_dtmf_channel(context)
+
+    call_async(q, chan.DTMF, 'StartTone', 666, 3)
+    q.expect_many(
+            EventPattern('dbus-signal', signal='StartTelephonyEvent'),
+            EventPattern('dbus-signal', signal='SendingTones', args=['3']),
+            EventPattern('dbus-return', method='StartTone'),
+            )
+
+    assertEquals(True, chan.Properties.Get(cs.CHANNEL_IFACE_DTMF, 'CurrentlySendingTones'))
+
+    call_async(q, chan.DTMF, 'StopTone', 666)
+    q.expect_many(
+            EventPattern('dbus-signal', signal='StopTelephonyEvent'),
+            EventPattern('dbus-signal', signal='StoppedTones', args=[True]),
+            EventPattern('dbus-return', method='StopTone'),
+            )
+
+    assertEquals(False, chan.Properties.Get(cs.CHANNEL_IFACE_DTMF, 'CurrentlySendingTones'))
+
 if __name__ == '__main__':
     exec_test(request_initial_tones)
     exec_test(multiple_tones)
+    exec_test(bleep_bloop)
