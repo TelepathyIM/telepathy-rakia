@@ -76,7 +76,7 @@ def request_initial_tones(q, bus, conn, sip_proxy, peer='foo@bar.com'):
         q.expect('dbus-signal', signal='StartTelephonyEvent', args=[int(tones[i])])
         q.expect('dbus-signal', signal='StopTelephonyEvent')
 
-    q.expect('dbus-signal', signal='StoppedTones')
+    q.expect('dbus-signal', signal='StoppedTones', args=[False])
 
     assertEquals(False, chan.Properties.Get(cs.CHANNEL_IFACE_DTMF, 'CurrentlySendingTones'))
 
@@ -128,7 +128,7 @@ def multiple_tones(q, bus, conn, sip_proxy, peer='foo@bar.com'):
         q.expect('dbus-signal', signal='StartTelephonyEvent', args=[int(tones_deferred[i])])
         q.expect('dbus-signal', signal='StopTelephonyEvent')
 
-    q.expect('dbus-signal', signal='StoppedTones')
+    q.expect('dbus-signal', signal='StoppedTones', args=[False])
 
 if __name__ == '__main__':
     exec_test(request_initial_tones)
