@@ -609,18 +609,16 @@ rakia_media_stream_error (TpSvcMediaStreamHandler *iface,
  */
 static void
 rakia_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
-                                             DBusGMethodInvocation *context)
+                                               DBusGMethodInvocation *context)
 {
   /* purpose: "Informs the connection manager that all possible native candisates
    *          have been discovered for the moment." 
    */
 
   RakiaMediaStream *obj = RAKIA_MEDIA_STREAM (iface);
-  RakiaMediaStreamPrivate *priv;
+  RakiaMediaStreamPrivate *priv = obj->priv;
 
-  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (obj);
-
-  DEBUG("enter");
+  STREAM_DEBUG(obj, "Media.StreamHandler.NativeCandidatesPrepared called");
 
   priv->native_cands_prepared = TRUE;
 
@@ -795,15 +793,13 @@ rakia_media_stream_ready (TpSvcMediaStreamHandler *iface,
    */
 
   RakiaMediaStream *obj = RAKIA_MEDIA_STREAM (iface);
-  RakiaMediaStreamPrivate *priv;
+  RakiaMediaStreamPrivate *priv = obj->priv;
 
-  DEBUG ("enter");
-
-  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (obj);
+  STREAM_DEBUG (obj, "Media.StreamHandler.Ready called");
 
   if (priv->ready_received)
     {
-      MESSAGE ("Ready called more than once");
+      STREAM_MESSAGE (obj, "Ready called more than once");
       tp_svc_media_stream_handler_return_from_ready (context);
       return;
     }
