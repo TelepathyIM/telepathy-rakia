@@ -109,7 +109,7 @@ static guint signals[SIG_LAST_SIGNAL] = {0};
  * - reinvite-received, a remote re-INVITE received, response is pending
  * - ended, session has ended
  */
-static const char session_states[NUM_RAKIA_MEDIA_SESSION_STATES][16] =
+static const char *const session_states[NUM_RAKIA_MEDIA_SESSION_STATES] =
 {
     "created",
     "invite-sent",
@@ -123,7 +123,7 @@ static const char session_states[NUM_RAKIA_MEDIA_SESSION_STATES][16] =
 };
 
 #define SESSION_DEBUG(session, format, ...) \
-  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "session [%-9s]: " format, \
+  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "session [%-17s]: " format, \
       session_states[(session)->priv->state],##__VA_ARGS__)
 
 #else /* !ENABLE_DEBUG */
