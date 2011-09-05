@@ -66,6 +66,8 @@ main (int argc, char** argv)
 
   tp_debug_divert_messages (logfile_string);
 
+  tp_debug_divert_messages (logfile_string);
+
   status = tp_run_connection_manager ("telepathy-rakia", VERSION,
                                       construct_cm, argc, argv);
 

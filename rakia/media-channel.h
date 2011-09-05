@@ -35,6 +35,7 @@ G_BEGIN_DECLS
 
 typedef struct _RakiaMediaChannel RakiaMediaChannel;
 typedef struct _RakiaMediaChannelClass RakiaMediaChannelClass;
+typedef struct _RakiaMediaChannelPrivate RakiaMediaChannelPrivate;
 
 struct _RakiaMediaChannelClass {
     GObjectClass parent_class;
@@ -47,6 +48,7 @@ struct _RakiaMediaChannel {
     GObject parent;
     TpGroupMixin group;
     TpPropertiesMixin properties;
+    RakiaMediaChannelPrivate *priv;
 };
 
 GType rakia_media_channel_get_type(void);

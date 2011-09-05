@@ -7,9 +7,8 @@ import dbus
 
 from sofiatest import exec_test
 from servicetest import (
-    make_channel_proxy, wrap_channel,
-    EventPattern, call_async,
-    assertEquals, assertContains, assertLength,
+    wrap_channel, EventPattern, call_async,
+    assertEquals, assertContains, assertLength, assertSameSets
     )
 import constants as cs
 from voip_test import VoipTestContext
@@ -175,23 +174,7 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
         cs.MEDIA_STREAM_PENDING_REMOTE_SEND),
         streams[0][1:])
 
-    # S-E does state recovery to get the session handler, and calls Ready on it
-    session_handlers = chan.MediaSignalling.GetSessionHandlers()
-    sh_path, sh_type = session_handlers[0]
-
-    assert sh_type == 'rtp'
-
-    session_handler = make_channel_proxy(conn, sh_path, 'Media.SessionHandler')
-    session_handler.Ready()
-
-    e = q.expect('dbus-signal', signal='NewStreamHandler')
-
-    stream_handler = make_channel_proxy(conn, e.args[0], 'Media.StreamHandler')
-
-    stream_handler.NewNativeCandidate("fake", context.get_remote_transports_dbus())
-    stream_handler.NativeCandidatesPrepared()
-    stream_handler.Ready(context.get_audio_codecs_dbus())
-    stream_handler.StreamState(cs.MEDIA_STREAM_STATE_CONNECTED)
+    stream_handler = context.handle_audio_session(chan)
 
     sh_props = stream_handler.GetAll(
         cs.STREAM_HANDLER, dbus_interface=dbus.PROPERTIES_IFACE)
@@ -228,7 +211,11 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
         EventPattern('dbus-signal', signal='MembersChanged',
             args=['', [remote_handle], [], [], [], remote_handle,
                   cs.GC_REASON_NONE]),
-        )
+        EventPattern('dbus-signal', signal='SetRemoteCodecs'),
+        ),
+
+    stream_handler.SupportedCodecs(context.get_audio_codecs_dbus())
+    stream_handler.StreamState(cs.MEDIA_STREAM_STATE_CONNECTED)
 
     # Time passes ... afterwards we close the chan
 
@@ -272,12 +259,13 @@ def rccs(q, bus, conn, stream):
 
     expected_allowed = [
         cs.TARGET_ID, cs.TARGET_HANDLE,
-        cs.INITIAL_VIDEO, cs.INITIAL_AUDIO
+        cs.INITIAL_VIDEO, cs.INITIAL_AUDIO,
+        cs.DTMF_INITIAL_TONES
     ]
 
     allowed.sort()
     expected_allowed.sort()
-    assertEquals(expected_allowed, allowed)
+    assertSameSets(expected_allowed, allowed)
 
 if __name__ == '__main__':
     
