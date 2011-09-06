@@ -1,11 +1,27 @@
-===========================
-NEWS for telepathy-sofiasip
-===========================
+========================
+NEWS for telepathy-rakia
+========================
 
-List of changes in each public release of telepathy-sofiasip (most 
-recent at the top).
+List of changes in each public release of Telepathy-Rakia,
+formerly known as Telepathy-SofiaSIP (most recent at the top).
 
 See also ChangeLog.
+
+telepathy-rakia 0.7.2 (2011-09-06)
+----------------------------------
+
+The "Correcting People" release.
+
+News and enhancements:
+
+- The project is renamed to Telepathy-Rakia.
+- Updated Channel.Interface.DTMF implementation to spec 0.21.3.
+  * This means dialstrings!
+- Improved and slightly optimized logging.
+- Added Messages properties to immutable properties.
+
+This release also includes fixes and enhancements done to the stable
+telepathy-sofiasip releases up to version 0.6.8. 
 
 telepathy-sofiasip 0.7.1 (2011-02-01)
 -------------------------------------
@@ -24,11 +40,6 @@ New features:
   remote endpoint generating the SIP Call-ID headers does not use an algorithm
   compliant with the SIP specification to provide sufficient uniqueness.
 - Authentication channels implemented as a simple password challenge. 
-
-Bugfixes:
-
-- Reject incoming calls from the same URI as the local user, rather than
-  crashing apologetically (fd.o #33716).
 
 Other enhancements:
 
@@ -51,6 +62,64 @@ The "Fermentation Vat No. 78" release.
 - Uses TpDBusDaemon to export media streams (fd.o #31720).
 - Depends on telepathy-glib 0.12.0 now.
 - Improvements in session state and signalling.
+
+Changes in release 0.6.8 (2011-06-14)
+-------------------------------------
+
+The "homage to World's Toughest Fixes" release.
+
+- Refactored handling of local codec information to avoid excessive re-INVITEs
+- Remove non-intersecting local codecs from any further SDP
+  negotiations (fd.o #30434).
+
+Changes in release 0.6.7 (2011-05-23)
+-------------------------------------
+
+The "boarding up" release.
+
+- Verify the validity of TLS certificates presented by SIP connection peers.
+  This change is disruptive: it relies on root CA certificates being available
+  to sofia-sip in the default verification path ``~/.sip/auth`` or file
+  ``~/.sip/auth/cafile.pem``, or sofia-sip changed to use OpenSSL library
+  defaults for verification path (sf.net #3306245).
+  The connection parameter "ignore-tls-errors" is added to disable
+  verification.
+- Choose keepalive timing to make the iphb heartbeat synchronize with the
+  other applications. (fd.o #37354)
+- Omission of parameter 'keepalive-interval' does not mean disabled keepalives.
+  A default defined by sofia-sip is used instead.
+- More client-friendly behavior for connection parameter 'discover-stun':
+  if set to TRUE, overrides 'stun-server'; by default discovery is performed if
+  'stun-server' is not set. (fd.o #34227)
+- If the home domain is given as an IP address, don't try to perform
+  SRV lookups on it.
+- Requires sofia-sip >= 1.12.11.
+- Requires iphb >= 0.61.31, if used.
+
+Changes in release 0.6.6 (2011-02-01)
+-------------------------------------
+
+The "Multiple Personality Communications Disorder" release.
+
+- Reject incoming calls from the same URI as the local user, rather than
+  crashing apologetically (fd.o #33716).
+
+Changes in release 0.6.5 (2011-01-29)
+-------------------------------------
+
+The "make buildable" release.
+
+- Changed the type of the size parameter to gssize in tpsip_unquote_string(). 
+- Bugs fixed:
+  - fd.o #31720 - stop using tp_get_bus()
+
+Changes in release 0.6.4 (2010-08-27)
+-------------------------------------
+
+The "stretched thin" release.
+
+- Fix a thinko preventing proper declining of incoming calls with
+  informative statuses like 603 Decline.
 
 Changes in release 0.6.3 (2010-06-21)
 -------------------------------------
