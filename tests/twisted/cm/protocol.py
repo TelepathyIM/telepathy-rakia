@@ -1,5 +1,5 @@
 """
-Test sofiasip's o.fd.T.Protocol implementation
+Test Rakia's o.fd.T.Protocol implementation
 """
 
 import dbus

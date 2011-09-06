@@ -1,5 +1,5 @@
 /*
- * util.c - implementation of Telepathy-SofiaSIP utilities
+ * util.c - implementation of Telepathy-Rakia utilities
  * Copyright (C) 2009, 2010 Nokia Corporation
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
  *

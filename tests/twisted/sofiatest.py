@@ -1,5 +1,5 @@
 """
-SofiaSIP testing framework
+Telepathy-Rakia testing framework
 """
 
 import servicetest

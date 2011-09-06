@@ -1,5 +1,5 @@
 /*
- * debug.h - Debug helpers for Telepathy-SofiaSIP, headers
+ * debug.h - Debug helpers for Telepathy-Rakia, headers
  * Copyright (C) 2007-2008 Nokia Corporation
  *
  * This work is free software; you can redistribute it and/or

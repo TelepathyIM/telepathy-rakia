@@ -1,5 +1,5 @@
 /*
- * util.h - declarations for Telepathy-SofiaSIP utilities
+ * util.h - declarations for Telepathy-Rakia utilities
  * Copyright (C) 2009 Nokia Corporation
  *   @author Mikhail Zabaluev <mikhail.zabaluev@nokia.com>
  *

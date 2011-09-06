@@ -25,7 +25,7 @@
  *       RakiaConnection is used as the context pointer.
  *       See {top}/docs/design.txt for further information.
  *
- *       Each NUA handle managed by Telepathy-SofiaSIP is bound to an object
+ *       Each NUA handle managed by Telepathy-Rakia is bound to an object
  *       implementing RakiaEventTarget. The managed NUA handle survives at
  *       least as long as the bound object. When the object is destroyed,
  *       the handle is bound to a special end-of-life event handler object.
