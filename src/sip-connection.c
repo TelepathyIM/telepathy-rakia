@@ -40,6 +40,7 @@
 #include <rakia/connection-aliasing.h>
 #include <rakia/media-manager.h>
 #include <rakia/text-manager.h>
+#include <rakia/util.h>
 
 #include "sip-connection.h"
 
@@ -1048,7 +1049,7 @@ rakia_connection_start_connecting (TpBaseConnection *base,
       /* TAG_IF(local_url && local_url->url_type == url_sips,
              NUTAG_SIPS_URL(local_url)), */
       NUTAG_M_USERNAME(priv->account_url->url_user),
-      NUTAG_USER_AGENT("Telepathy-SofiaSIP/" TELEPATHY_SIP_VERSION),
+      NUTAG_USER_AGENT(rakia_version_string ()),
       NUTAG_ENABLEMESSAGE(1),
       NUTAG_ENABLEINVITE(1),
       NUTAG_AUTOALERT(0),

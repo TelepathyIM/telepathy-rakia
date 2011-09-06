@@ -27,7 +27,7 @@
 gchar const *
 rakia_version_string (void)
 {
-  return "Telepathy-SofiaSIP/" TELEPATHY_SIP_VERSION;
+  return "Telepathy-Rakia/" PACKAGE_VERSION;
 }
 
 static const guchar escape_table[256] =
