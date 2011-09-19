@@ -1222,7 +1222,12 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
   priv = TPSIP_MEDIA_STREAM_GET_PRIVATE (stream);
   pending_send_flags = priv->pending_send_flags & pending_send_mask;
 
-  if ((direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0)
+  if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND) == 0)
+    {
+      /* We won't be sending, clear the pending local send flag */
+      pending_send_flags &= ~TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
+    }
+  else if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND & ~priv->direction) != 0)
     {
       /* We are requested to start sending, but... */
       if ((pending_send_mask
@@ -1245,9 +1250,15 @@ tpsip_media_stream_set_direction (TpsipMediaStream *stream,
           priv->pending_remote_receive = TRUE;
         }
     }
-  if ((direction & ~priv->direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE) != 0
-      && (pending_send_mask
-          & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0)
+
+  if ((direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE) == 0)
+    {
+      /* We are not going to receive, clear the pending remote send flag */
+      pending_send_flags &= ~TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
+    }
+  else if ((direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE & ~priv->direction) != 0
+           && (pending_send_mask
+               & TP_MEDIA_STREAM_PENDING_REMOTE_SEND) != 0)
     {
       /* We're requested to start receiving, but the remote end did not
        * confirm if it will send. Set the pending send flag. */
