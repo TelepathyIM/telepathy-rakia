@@ -7,6 +7,16 @@ formerly known as Telepathy-SofiaSIP (most recent at the top).
 
 See also ChangeLog.
 
+telepathy-rakia 0.7.3 (2011-10-27)
+----------------------------------
+
+The "one sip too many" release.
+
+Bugfixes:
+
+- Correct the bus service name.
+- Clear pending send flag if its respective stream direction is disabled.
+
 telepathy-rakia 0.7.2 (2011-09-06)
 ----------------------------------
 
