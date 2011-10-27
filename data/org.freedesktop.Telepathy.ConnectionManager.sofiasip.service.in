@@ -1,4 +1,3 @@
 [D-BUS Service]
-Name=org.freedesktop.Telepathy.ConnectionManager.rakia
+Name=org.freedesktop.Telepathy.ConnectionManager.sofiasip
 Exec=@libexecdir@/telepathy-rakia
-
