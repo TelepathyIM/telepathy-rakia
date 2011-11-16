@@ -384,7 +384,7 @@ rakia_conn_update_nua_outbound (RakiaConnection *conn)
 
   priv_nua_set_outbound_options (priv->sofia_nua, option_table);
 
-  g_hash_table_destroy (option_table);
+  g_hash_table_unref (option_table);
 }
 
 static void
@@ -492,7 +492,7 @@ priv_stun_resolver_cb (sres_context_t *ctx, sres_query_t *query, sres_record_t *
           ans = g_ptr_array_index (items, g_random_int_range (0, items->len));
         }
 
-      g_ptr_array_free (items, TRUE);
+      g_ptr_array_unref (items);
     }
 
   if (NULL != ans)
@@ -626,7 +626,7 @@ priv_stun_discover_cb (sres_context_t *ctx,
             }
         }
 
-      g_array_free (items, TRUE);
+      g_array_unref (items);
     }
 
   if (sel != NULL)

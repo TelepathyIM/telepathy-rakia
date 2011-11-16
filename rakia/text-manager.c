@@ -194,7 +194,7 @@ rakia_text_manager_close_all (RakiaTextManager *fac)
   channels = priv->channels;
   priv->channels = NULL;
 
-  g_hash_table_destroy (channels);
+  g_hash_table_unref (channels);
 }
 
 struct _ForeachData
@@ -351,7 +351,7 @@ rakia_text_manager_type_foreach_channel_class (GType type,
 
   func (type, table, text_channel_allowed_properties, user_data);
 
-  g_hash_table_destroy (table);
+  g_hash_table_unref (table);
 }
 
 

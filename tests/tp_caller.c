@@ -205,7 +205,7 @@ static TpConn *action_login(const char* sip_address, const char* sip_password, c
     check_conn_properties(conn);
   }
 
-  g_hash_table_destroy(connection_parameters);
+  g_hash_table_unref(connection_parameters);
 
   return conn;
 }

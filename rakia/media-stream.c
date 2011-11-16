@@ -1516,7 +1516,7 @@ static void push_remote_codecs (RakiaMediaStream *stream)
       rtpmap = rtpmap->rm_next;
     }
 
-  g_hash_table_destroy (opt_params);
+  g_hash_table_unref (opt_params);
   g_free (ptime);
   g_free (max_ptime);
 
@@ -1759,7 +1759,7 @@ priv_append_rtpmaps (const GPtrArray *codecs, GString *mline, GString *alines)
 
       g_free (co_name);
       co_name = NULL;
-      g_hash_table_destroy (co_params);
+      g_hash_table_unref (co_params);
       co_params = NULL;
     }
 }

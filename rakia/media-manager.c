@@ -225,7 +225,7 @@ rakia_media_manager_close_all (RakiaMediaManager *fac)
           g_object_unref (chan);
         }
 
-      g_ptr_array_free (channels, TRUE);
+      g_ptr_array_unref (channels);
     }
 }
 
@@ -487,7 +487,7 @@ rakia_media_manager_type_foreach_channel_class (GType type,
   g_value_set_uint (handle_type_value, TP_HANDLE_TYPE_CONTACT);
   func (type, table, named_channel_allowed_properties, user_data);
 
-  g_hash_table_destroy (table);
+  g_hash_table_unref (table);
 }
 
 typedef enum

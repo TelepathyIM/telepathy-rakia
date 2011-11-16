@@ -738,7 +738,7 @@ rakia_media_channel_finalize (GObject *object)
   RakiaMediaChannel *self = RAKIA_MEDIA_CHANNEL (object);
   RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
 
-  g_hash_table_destroy (priv->call_states);
+  g_hash_table_unref (priv->call_states);
 
   g_free (priv->initial_tones);
   g_free (priv->deferred_tones);
@@ -917,7 +917,7 @@ rakia_media_channel_get_session_handlers (TpSvcChannelInterfaceMediaSignalling *
   if (G_IS_VALUE(&handler))
     g_value_unset (&handler);
 
-  g_ptr_array_free (ret, TRUE);
+  g_ptr_array_unref (ret);
 }
 
 

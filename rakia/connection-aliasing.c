@@ -245,7 +245,7 @@ rakia_connection_get_aliases (TpSvcConnectionInterfaceAliasing *iface,
   tp_svc_connection_interface_aliasing_return_from_get_aliases (context,
       result);
 
-  g_hash_table_destroy (result);
+  g_hash_table_unref (result);
 }
 
 static void
@@ -266,7 +266,7 @@ emit_self_alias_change (TpBaseConnection *base, const gchar *alias)
 
   tp_svc_connection_interface_aliasing_emit_aliases_changed (base, change_data);
 
-  g_ptr_array_free (change_data, TRUE);
+  g_ptr_array_unref (change_data);
   g_value_unset (&change_pair);
 }
 
