@@ -575,11 +575,6 @@ rakia_text_channel_destroy (TpSvcChannelInterfaceDestroyable *iface,
                             DBusGMethodInvocation *context)
 {
   RakiaTextChannel *self = RAKIA_TEXT_CHANNEL (iface);
-  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
-  TpHandleRepoIface *contact_handles;
-
-  contact_handles = tp_base_connection_get_handles (
-      (TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
 
   tp_message_mixin_clear ((GObject *) iface);
 
