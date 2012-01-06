@@ -35,6 +35,7 @@ static const GDebugKey rakia_debug_keys[] = {
   { "events",        RAKIA_DEBUG_EVENTS },
   { "sofia",         RAKIA_DEBUG_SOFIA },
   { "utilities",     RAKIA_DEBUG_UTILITIES },
+  { "call",          RAKIA_DEBUG_CALL },
 };
 
 static GHashTable *flag_to_domains = NULL;

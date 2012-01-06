@@ -34,6 +34,12 @@ BUILT_SOURCES = \
 librakia_la_SOURCES = \
 	base-connection.c \
 	base-connection-sofia.c \
+	call-channel.h \
+	call-channel.c \
+	call-content.h \
+	call-content.c \
+	call-stream.h \
+	call-stream.c \
 	connection-aliasing.c \
 	codec-param-formats.c \
 	event-target.c \
