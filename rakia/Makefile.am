@@ -40,6 +40,10 @@ librakia_la_SOURCES = \
 	handles.c \
 	debug.c \
 	media-manager.c \
+	sip-media.c \
+	sip-media.h \
+	sip-session.c \
+	sip-session.h \
 	text-channel.h \
 	text-channel.c \
 	text-manager.c \
