@@ -145,7 +145,7 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
             # but we should be allowed to add the peer.
             chan.Group.AddMembers([remote_handle], 'I love backwards compat')
 
-    base_flags = cs.GF_PROPERTIES | cs.GF_CAN_REMOVE | cs.GF_CAN_RESCIND
+    base_flags = cs.GF_PROPERTIES | cs.GF_CAN_REMOVE | cs.GF_CAN_RESCIND | cs.GF_MEMBERS_CHANGED_DETAILED
 
     if variant in [REQUEST_ANONYMOUS_AND_ADD, REQUEST_ANONYMOUS, CREATE]:
         expected_flags = base_flags | cs.GF_CAN_ADD
