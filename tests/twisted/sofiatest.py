@@ -58,7 +58,8 @@ def prepare_test(event_func, register_cb, params=None):
         'password': 'testpwd',
         'proxy-host': '127.0.0.1',
         'port': dbus.UInt16(random.randint(9090, 9999)),
-        'local-ip-address': '127.0.0.1'
+        'local-ip-address': '127.0.0.1',
+        'transport': 'udp'
     }
 
     if params is not None:
