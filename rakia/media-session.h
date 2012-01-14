@@ -29,20 +29,6 @@
 
 G_BEGIN_DECLS
 
-typedef enum {
-    RAKIA_MEDIA_SESSION_STATE_CREATED = 0,
-    RAKIA_MEDIA_SESSION_STATE_INVITE_SENT,
-    RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED,
-    RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED,
-    RAKIA_MEDIA_SESSION_STATE_ACTIVE,
-    RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT,
-    RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
-    RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING,
-    RAKIA_MEDIA_SESSION_STATE_ENDED,
-
-    NUM_RAKIA_MEDIA_SESSION_STATES
-} RakiaMediaSessionState;
-
 typedef struct _RakiaMediaSession RakiaMediaSession;
 typedef struct _RakiaMediaSessionClass RakiaMediaSessionClass;
 typedef struct _RakiaMediaSessionPrivate RakiaMediaSessionPrivate;
@@ -77,12 +63,6 @@ GType rakia_media_session_get_type(void);
  ***********************************************************************/
 
 TpHandle rakia_media_session_get_peer (RakiaMediaSession *session);
-void rakia_media_session_terminate (RakiaMediaSession *session);
-RakiaMediaSessionState rakia_media_session_get_state (RakiaMediaSession *session);
-void rakia_media_session_change_state (RakiaMediaSession *session,
-                                     RakiaMediaSessionState new_state);
-gboolean rakia_media_session_set_remote_media (RakiaMediaSession *chan,
-                                            const sdp_session_t* r_sdp);
 RakiaMediaStream* rakia_media_session_add_stream (RakiaMediaSession *self,
                                                   guint media_type,
                                                   TpMediaStreamDirection direction,
@@ -100,14 +80,8 @@ gboolean rakia_media_session_request_stream_direction (RakiaMediaSession *sessio
                                                      guint stream_id,
                                                      guint direction,
                                                      GError **error);
-void rakia_media_session_receive_invite (RakiaMediaSession *self);
-void rakia_media_session_receive_reinvite (RakiaMediaSession *self);
 void rakia_media_session_accept (RakiaMediaSession *self);
-void rakia_media_session_respond (RakiaMediaSession *self,
-                                  gint status,
-                                  const char *message);
 gboolean rakia_media_session_is_accepted (RakiaMediaSession *self);
-void rakia_media_session_resolve_glare (RakiaMediaSession *self);
 
 TpLocalHoldState rakia_media_session_get_hold_state (RakiaMediaSession *session);
 void rakia_media_session_request_hold (RakiaMediaSession *session,
@@ -122,8 +96,6 @@ void rakia_media_session_stop_telephony_event  (RakiaMediaSession *self);
 
 gint rakia_media_session_rate_native_transport (RakiaMediaSession *session,
                                               const GValue *transport);
-
-gboolean rakia_sdp_rtcp_bandwidth_throttled (const sdp_bandwidth_t *b);
 
 gchar * rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs,
                                         const char *name);

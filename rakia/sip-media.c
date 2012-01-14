@@ -28,11 +28,36 @@
 
 #include "rakia/sip-media.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 #include <sofia-sip/sip_status.h>
 
 
 #define DEBUG_FLAG RAKIA_DEBUG_MEDIA
 #include "rakia/debug.h"
+#include "rakia/codec-param-formats.h"
+#include "rakia/sip-session.h"
+
+
+#ifdef ENABLE_DEBUG
+
+#define MEDIA_DEBUG(media, format, ...) \
+  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "media %s %p: " format, \
+      priv_media_type_to_str ((media)->priv->media_type), (media),  \
+      ##__VA_ARGS__)
+
+#define MEDIA_MESSAGE(media, format, ...) \
+  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_MESSAGE, "media %s %p: " format, \
+      priv_media_type_to_str ((media)->priv->media_type), (media), \
+      ##__VA_ARGS__)
+
+#else
+
+#define MEDIA_DEBUG(media, format, ...) G_STMT_START { } G_STMT_END
+#define MEDIA_MESSAGE(media, format, ...) G_STMT_START { } G_STMT_END
+
+#endif
 
 
 /* The timeout for outstanding re-INVITE transactions in seconds.
@@ -45,11 +70,45 @@ G_DEFINE_TYPE(RakiaSipMedia,
     G_TYPE_OBJECT)
 
 
+/* signals */
+enum
+{
+  SIG_LOCAL_NEGOTIATION_COMPLETE,
+  SIG_REMOTE_CODECS_UPDATED,
+  SIG_REMOTE_CANDIDATES_UPDATED,
+  SIG_LOCAL_UPDATED,
+  NUM_SIGNALS
+};
+
+static guint signals[NUM_SIGNALS] = { 0 };
+
+
 
 /* private structure */
 struct _RakiaSipMediaPrivate
 {
-  int empty;
+  RakiaMediaType media_type;
+
+  RakiaSipSession *session;
+
+  GPtrArray *local_codecs;
+  GPtrArray *local_candidates;
+  gboolean local_candidates_prepared;
+
+  RakiaDirection direction;
+  RakiaDirection requested_direction;
+
+
+  const sdp_media_t *remote_media; /* pointer to the SDP media structure
+                                    *  owned by the session object */
+
+
+  gboolean codec_intersect_pending;     /* codec intersection is pending */
+  gboolean push_remote_codecs_pending;  /* SetRemoteCodecs emission is pending */
+  gboolean stop_sending_before_codecs;  /* Stop sending before changing codecs */
+
+  GPtrArray *remote_codecs;
+  GPtrArray *remote_candidates;
 };
 
 
@@ -79,6 +138,46 @@ rakia_sip_media_class_init (RakiaSipMediaClass *klass)
 
   object_class->dispose = rakia_sip_media_dispose;
   object_class->finalize = rakia_sip_media_finalize;
+
+
+  signals[SIG_LOCAL_NEGOTIATION_COMPLETE] =
+      g_signal_new ("local-negotiation-complete",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_LAST,
+          0,
+          NULL, NULL,
+          g_cclosure_marshal_VOID__BOOLEAN,
+          G_TYPE_NONE, 1, G_TYPE_BOOLEAN);
+
+
+  signals[SIG_REMOTE_CODECS_UPDATED] =
+      g_signal_new ("remote-codecs-updated",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_LAST,
+          0,
+          NULL, NULL,
+          g_cclosure_marshal_VOID__VOID,
+          G_TYPE_NONE, 0);
+
+
+  signals[SIG_REMOTE_CANDIDATES_UPDATED] =
+      g_signal_new ("remote-candidates-updated",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_LAST,
+          0,
+          NULL, NULL,
+          g_cclosure_marshal_VOID__VOID,
+          G_TYPE_NONE, 0);
+
+
+  signals[SIG_LOCAL_UPDATED] =
+      g_signal_new ("local-updated",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_LAST,
+          0,
+          NULL, NULL,
+          g_cclosure_marshal_VOID__VOID,
+          G_TYPE_NONE, 0);
 }
 
 
@@ -98,7 +197,17 @@ rakia_sip_media_dispose (GObject *object)
 static void
 rakia_sip_media_finalize (GObject *object)
 {
-  //RakiaSipMedia *self = RAKIA_SIP_MEDIA (object);
+  RakiaSipMedia *self = RAKIA_SIP_MEDIA (object);
+  RakiaSipMediaPrivate *priv = self->priv;
+
+  if (priv->local_candidates)
+    g_ptr_array_unref (priv->local_candidates);
+  if (priv->local_codecs)
+    g_ptr_array_unref (priv->local_codecs);
+  if (priv->remote_candidates)
+    g_ptr_array_unref (priv->remote_candidates);
+  if (priv->remote_codecs)
+    g_ptr_array_unref (priv->remote_codecs);
 
   G_OBJECT_CLASS (rakia_sip_media_parent_class)->finalize (object);
 
@@ -106,3 +215,716 @@ rakia_sip_media_finalize (GObject *object)
 }
 
 
+RakiaMediaType
+rakia_sip_media_get_media_type (RakiaSipMedia *self)
+{
+  return self->priv->media_type;
+}
+
+
+static const char *
+priv_media_type_to_str(RakiaMediaType media_type)
+{
+  switch (media_type)
+    {
+    case RAKIA_MEDIA_TYPE_AUDIO:
+      return "audio";
+    case RAKIA_MEDIA_TYPE_VIDEO:
+      return "video";
+    default:
+      g_assert_not_reached ();
+      return "-";
+    }
+}
+
+static void
+priv_append_rtpmaps (RakiaMediaType media_type,
+    const GPtrArray *codecs, GString *mline, GString *alines)
+{
+  guint i;
+
+
+  for (i = 0; i < codecs->len; i++)
+    {
+      RakiaSipCodec *codec = g_ptr_array_index (codecs, i);
+
+      /* Add rtpmap entry to the a= lines */
+      g_string_append_printf (alines,
+                              "a=rtpmap:%u %s/%u",
+                              codec->id,
+                              codec->encoding_name,
+                              codec->clock_rate);
+      if (codec->channels > 1)
+        g_string_append_printf (alines, "/%u", codec->channels);
+      g_string_append (alines, "\r\n");
+
+      /* Marshal parameters into the fmtp attribute */
+      if (codec->params != NULL)
+        {
+          GString *fmtp_value;
+          g_string_append_printf (alines, "a=fmtp:%u ", codec->id);
+          fmtp_value = g_string_new (NULL);
+          rakia_codec_param_format (media_type, codec, fmtp_value);
+          g_string_append (alines, fmtp_value->str);
+          g_string_free (fmtp_value, TRUE);
+          g_string_append (alines, "\r\n");
+        }
+
+      /* Add PT id to the m= line */
+      g_string_append_printf (mline, " %u", codec->id);
+    }
+}
+
+static void
+priv_get_preferred_local_candidates (RakiaSipMedia *media,
+    RakiaSipCandidate **rtp_cand, RakiaSipCandidate **rtcp_cand)
+{
+  RakiaSipMediaPrivate *priv = media->priv;
+  guint i;
+
+  g_assert (priv->local_candidates);
+  g_assert (priv->local_candidates->len > 0);
+
+  *rtp_cand = NULL;
+  *rtcp_cand = NULL;
+
+  for (i = 1; i < priv->local_candidates->len; i++)
+    {
+      RakiaSipCandidate *tmpcand =
+          g_ptr_array_index (priv->local_candidates, i);
+
+      if (tmpcand->component != 1)
+        continue;
+
+      if (rtp_cand == NULL)
+        *rtp_cand = g_ptr_array_index (priv->local_candidates, 0);
+      else if ((*rtp_cand)->priority > tmpcand->priority)
+        *rtp_cand = tmpcand;
+    }
+
+  g_assert (rtp_cand != NULL);
+
+  for (i = 1; i < priv->local_candidates->len; i++)
+    {
+      RakiaSipCandidate *tmpcand =
+          g_ptr_array_index (priv->local_candidates, i);
+
+      if (tmpcand->component != 2)
+        continue;
+
+      if (((*rtp_cand)->foundation == NULL && tmpcand->foundation == NULL) ||
+          ((*rtp_cand)->foundation != NULL && tmpcand->foundation != NULL &&
+              !strcmp ((*rtp_cand)->foundation, tmpcand->foundation)))
+        {
+          if (rtcp_cand == NULL)
+            *rtcp_cand = g_ptr_array_index (priv->local_candidates, 0);
+          else if ((*rtcp_cand)->priority > tmpcand->priority)
+            *rtcp_cand = tmpcand;
+        }
+
+    }
+}
+
+
+/**
+ * Produces the SDP description of the media based on Farsight state and
+ * current object state.
+ *
+ * @param media The media object
+ * @param signal_update If true, emit the signal "local-media-updated".
+ */
+void
+rakia_sip_media_generate_sdp (RakiaSipMedia *media, GString *out)
+{
+  RakiaSipMediaPrivate *priv = media->priv;
+  GString *alines;
+  const gchar *dirline;
+  RakiaSipCandidate *rtp_cand, *rtcp_cand;
+
+  priv_get_preferred_local_candidates (media, &rtp_cand, &rtcp_cand);
+
+  g_return_if_fail (rtp_cand != NULL);
+
+  g_string_append (out, "m=");
+  g_string_append_printf (out,
+                          "%s %u RTP/AVP",
+                          priv_media_type_to_str (priv->media_type),
+                          rtp_cand->port);
+
+  switch (priv->requested_direction)
+    {
+    case RAKIA_DIRECTION_BIDIRECTIONAL:
+      dirline = "";
+      break;
+    case RAKIA_DIRECTION_SEND:
+      dirline = "a=sendonly\r\n";
+      break;
+    case RAKIA_DIRECTION_RECEIVE:
+      dirline = "a=recvonly\r\n";
+      break;
+    case RAKIA_DIRECTION_NONE:
+      dirline = "a=inactive\r\n";
+      break;
+    default:
+      g_assert_not_reached();
+    }
+
+  alines = g_string_new (dirline);
+
+  if (rtcp_cand != NULL)
+    {
+      /* Add RTCP attribute as per RFC 3605 */
+      if (strcmp (rtcp_cand->ip, rtp_cand->ip) != 0)
+        {
+          g_string_append_printf (alines,
+                                  "a=rtcp:%u IN %s %s\r\n",
+                                  rtcp_cand->port,
+                                  (strchr (rtcp_cand->ip, ':') == NULL)
+                                        ? "IP4" : "IP6",
+                                  rtcp_cand->ip);
+        }
+      else if (rtcp_cand->port != rtp_cand->port + 1)
+        {
+          g_string_append_printf (alines,
+                                  "a=rtcp:%u\r\n",
+                                  rtcp_cand->port);
+        }
+    }
+
+  priv_append_rtpmaps (priv->media_type,
+      priv->local_codecs,
+      out, alines);
+
+  g_string_append_printf (out, "\r\nc=IN %s %s\r\n",
+                          (strchr (rtp_cand->ip, ':') == NULL)? "IP4" : "IP6",
+                          rtp_cand->ip);
+
+  g_string_append (out, alines->str);
+
+  g_string_free (alines, TRUE);
+}
+
+
+RakiaSipCodec*
+rakia_sip_codec_new (guint id, const gchar *encoding_name,
+    guint clock_rate, guint channels)
+{
+  RakiaSipCodec *codec = g_slice_new (RakiaSipCodec);
+
+  codec->id = id;
+  codec->encoding_name = g_strdup (encoding_name);
+  codec->clock_rate = clock_rate;
+  codec->channels = channels;
+  codec->params = NULL;
+
+  return codec;
+}
+
+static void
+rakia_sip_codec_param_free (RakiaSipCodecParam *param)
+{
+  g_free (param->name);
+  g_free (param->value);
+  g_slice_free (RakiaSipCodecParam, param);
+}
+
+void
+rakia_sip_codec_add_param (RakiaSipCodec *codec, const gchar *name,
+    const gchar *value)
+{
+  RakiaSipCodecParam *param;
+
+  if (codec->params == NULL)
+    codec->params = g_ptr_array_new_with_free_func (
+        (GDestroyNotify) rakia_sip_codec_param_free);
+
+  param = g_slice_new (RakiaSipCodecParam);
+  param->name = g_strdup (name);
+  param->value = g_strdup (value);
+  g_ptr_array_add (codec->params, param);
+}
+
+void
+rakia_sip_codec_free (RakiaSipCodec *codec)
+{
+  g_free (codec->encoding_name);
+  if (codec->params)
+    g_ptr_array_unref (codec->params);
+  g_slice_free (RakiaSipCodec, codec);
+}
+
+
+RakiaSipCandidate*
+rakia_sip_candidate_new (guint component, const gchar *ip, guint port,
+    const gchar *foundation, guint priority)
+{
+  RakiaSipCandidate *candidate = g_slice_new (RakiaSipCandidate);
+
+  candidate->component = component;
+  candidate->ip = g_strdup (ip);
+  candidate->port = port;
+  candidate->foundation = g_strdup (foundation);
+  candidate->priority = priority;
+
+  return candidate;
+}
+
+
+void
+rakia_sip_candidate_free (RakiaSipCandidate *candidate)
+{
+  g_free (candidate->ip);
+  g_free (candidate->foundation);
+  g_slice_free (RakiaSipCandidate, candidate);
+}
+
+
+
+RakiaDirection
+rakia_direction_from_remote_media (const sdp_media_t *media)
+{
+  sdp_mode_t mode = media->m_mode;
+  return ((mode & sdp_recvonly)? RAKIA_DIRECTION_SEND : 0)
+       | ((mode & sdp_sendonly)? RAKIA_DIRECTION_RECEIVE : 0);
+}
+
+
+static gboolean
+rakia_sdp_codecs_differ (const sdp_rtpmap_t *m1, const sdp_rtpmap_t *m2)
+{
+  while (m1 != NULL && m2 != NULL)
+    {
+      if (sdp_rtpmap_cmp (m1, m2) != 0)
+        return TRUE;
+      m1 = m1->rm_next;
+      m2 = m2->rm_next;
+    }
+  return m1 != NULL || m2 != NULL;
+}
+
+
+gchar *
+rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs, const char *name)
+{
+  sdp_attribute_t *attr;
+
+  attr = sdp_attribute_find (attrs, name);
+  if (attr == NULL)
+    return NULL;
+
+  return g_strdup (attr->a_value);
+}
+
+
+static void
+priv_update_sending (RakiaSipMedia *media,
+                     RakiaDirection direction)
+{
+  /* FIXME: Fill me */
+}
+
+RakiaDirection
+rakia_sip_media_get_remote_direction (RakiaSipMedia *media)
+{
+  RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
+  if (priv->remote_media == NULL)
+    return RAKIA_DIRECTION_BIDIRECTIONAL;
+
+  return rakia_direction_from_remote_media (priv->remote_media);
+}
+
+static void
+rakia_sip_media_set_direction (RakiaSipMedia *media,
+    RakiaDirection direction,
+    guint pending_send_mask)
+{
+}
+
+
+void
+rakia_sip_media_set_requested_direction (RakiaSipMedia *media,
+    RakiaDirection direction)
+{
+  RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
+
+  if (priv->requested_direction == direction)
+    return;
+
+  priv->requested_direction = direction;
+
+  rakia_sip_media_local_updated (media);
+}
+
+static void push_remote_codecs (RakiaSipMedia *media)
+{
+  RakiaSipMediaPrivate *priv;
+  GPtrArray *codecs;
+  const sdp_media_t *sdpmedia;
+  const sdp_rtpmap_t *rtpmap;
+  gchar *ptime = NULL;
+  gchar *max_ptime = NULL;
+
+  DEBUG ("enter");
+
+  priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
+
+  sdpmedia = priv->remote_media;
+  if (sdpmedia == NULL)
+    {
+      MEDIA_DEBUG (media, "remote media description is not received yet");
+      return;
+    }
+
+
+  ptime = rakia_sdp_get_string_attribute (sdpmedia->m_attributes, "ptime");
+  if (ptime == NULL)
+    {
+      g_object_get (priv->session,
+          "remote-ptime", &ptime,
+          NULL);
+    }
+  max_ptime = rakia_sdp_get_string_attribute (sdpmedia->m_attributes, "maxptime");
+  if (max_ptime == NULL)
+    {
+      g_object_get (priv->session,
+          "remote-max-ptime", &max_ptime,
+          NULL);
+    }
+
+
+  codecs = g_ptr_array_new_with_free_func (
+      (GDestroyNotify) rakia_sip_codec_free);
+
+  rtpmap = sdpmedia->m_rtpmaps;
+  while (rtpmap)
+    {
+      RakiaSipCodec *codec;
+
+
+      codec = rakia_sip_codec_new (rtpmap->rm_pt, rtpmap->rm_encoding,
+          rtpmap->rm_rate,
+          rtpmap->rm_params ? atoi(rtpmap->rm_params) : 0);
+
+
+      rakia_codec_param_parse (priv->media_type, codec,
+          rtpmap->rm_fmtp);
+
+      if (ptime != NULL)
+        rakia_sip_codec_add_param (codec, "ptime", ptime);
+      if (max_ptime != NULL)
+        rakia_sip_codec_add_param (codec, "maxptime", max_ptime);
+
+      g_ptr_array_add (codecs, codec);
+
+      rtpmap = rtpmap->rm_next;
+    }
+
+  g_free (ptime);
+  g_free (max_ptime);
+
+  if (priv->remote_codecs)
+    g_ptr_array_unref (priv->remote_codecs);
+
+  priv->remote_codecs = codecs;
+
+  g_signal_emit (media, signals[SIG_REMOTE_CODECS_UPDATED], 0);
+
+  MEDIA_DEBUG(media, "emitting %d remote codecs to the handler",
+      codecs->len);
+}
+
+
+static void push_remote_candidates (RakiaSipMedia *media)
+{
+  RakiaSipMediaPrivate *priv;
+  RakiaSipCandidate *rtp_cand;
+  const sdp_media_t *sdp_media;
+  const sdp_connection_t *sdp_conn;
+  GPtrArray *candidates;
+  guint port;
+
+  DEBUG("enter");
+
+  priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
+
+  sdp_media = priv->remote_media;
+  if (sdp_media == NULL)
+    {
+      MEDIA_DEBUG (media, "remote media description is not received yet");
+      return;
+    }
+
+
+  /* use the address from SDP c-line as the only remote candidate */
+
+  sdp_conn = sdp_media_connections (sdp_media);
+  g_return_if_fail (sdp_conn != NULL);
+
+  port = (guint) sdp_media->m_port;
+
+
+  rtp_cand = rakia_sip_candidate_new (1, sdp_conn->c_address, port, NULL, 0);
+  candidates = g_ptr_array_new_with_free_func (
+      (GDestroyNotify) rakia_sip_candidate_free);
+
+  g_ptr_array_add (candidates, rtp_cand);
+
+
+
+  MEDIA_DEBUG (media, "remote RTP address=<%s>, port=<%u>", sdp_conn->c_address, port);
+
+  if (!rakia_sdp_rtcp_bandwidth_throttled (sdp_media->m_bandwidths))
+    {
+      gboolean session_rtcp_enabled = TRUE;
+
+      g_object_get (priv->session,
+                    "rtcp-enabled", &session_rtcp_enabled,
+                    NULL);
+
+      if (session_rtcp_enabled)
+        {
+          const sdp_attribute_t *rtcp_attr;
+          const char *rtcp_address;
+          guint rtcp_port;
+          RakiaSipCandidate *rtcp_cand;
+
+          /* Get the port and optional address for RTCP accordingly to RFC 3605 */
+          rtcp_address = sdp_conn->c_address;
+          rtcp_attr = sdp_attribute_find (sdp_media->m_attributes, "rtcp");
+          if (rtcp_attr == NULL || rtcp_attr->a_value == NULL)
+            {
+              rtcp_port = port + 1;
+            }
+          else
+            {
+              const char *rest;
+              rtcp_port = (guint) g_ascii_strtoull (rtcp_attr->a_value,
+                                                    (gchar **) &rest,
+                                                    10);
+              if (rtcp_port != 0
+                  && (strncmp (rest, " IN IP4 ", 8) == 0
+                      || strncmp (rest, " IN IP6 ", 8) == 0))
+                rtcp_address = rest + 8;
+            }
+
+
+          rtcp_cand = rakia_sip_candidate_new (2, rtcp_address, rtcp_port,
+              NULL, 0);
+          g_ptr_array_add (candidates, rtcp_cand);
+        }
+    }
+
+  if (priv->remote_candidates != NULL)
+    g_ptr_array_unref (priv->remote_candidates);
+  priv->remote_candidates = candidates;
+
+  g_signal_emit (media, signals[SIG_REMOTE_CANDIDATES_UPDATED], 0);
+
+}
+
+
+
+/*
+ * Sets the remote candidates and codecs for this stream, as
+ * received via signaling.
+ *
+ * Parses the SDP information, updates TP remote candidates and
+ * codecs if the client is ready.
+ *
+ * Note that the pointer to the media description structure is saved,
+ * implying that the structure shall not go away for the lifetime of
+ * the stream, preferably kept in the memory home attached to
+ * the session object.
+ *
+ * @return TRUE if the remote information has been accepted,
+ *         FALSE if the update is not acceptable.
+ */
+gboolean
+rakia_sip_media_set_remote_media (RakiaSipMedia *media,
+    const sdp_media_t *new_media,
+    guint direction_up_mask,
+    guint pending_send_mask)
+{
+  RakiaSipMediaPrivate *priv;
+  sdp_connection_t *sdp_conn;
+  const sdp_media_t *old_media;
+  gboolean transport_changed = TRUE;
+  gboolean codecs_changed = TRUE;
+  guint old_direction;
+  guint new_direction;
+
+  DEBUG ("enter");
+
+  priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
+
+  /* Do sanity checks */
+
+  g_return_val_if_fail (new_media != NULL, FALSE);
+
+  if (new_media->m_rejected || new_media->m_port == 0)
+    {
+      MEDIA_DEBUG (media, "the media is rejected remotely");
+      return FALSE;
+    }
+
+  if (new_media->m_proto != sdp_proto_rtp)
+    {
+      MEDIA_MESSAGE (media, "the remote protocol is not RTP/AVP");
+      return FALSE;
+    }
+
+  sdp_conn = sdp_media_connections (new_media);
+  if (sdp_conn == NULL)
+    {
+      MEDIA_MESSAGE (media, "no valid remote connections");
+      return FALSE;
+    }
+
+  if (new_media->m_rtpmaps == NULL)
+    {
+      MEDIA_MESSAGE (media, "no remote codecs");
+      return FALSE;
+    }
+
+  /* Note: always update the pointer to the current media structure
+   * because of memory management done in the session object */
+  old_media = priv->remote_media;
+  priv->remote_media = new_media;
+
+  /* Check if there was any media update at all */
+
+  if (sdp_media_cmp (old_media, new_media) == 0)
+    {
+      MEDIA_DEBUG (media, "no media changes detected for the media");
+      return TRUE;
+    }
+
+  old_direction = priv->requested_direction;
+  new_direction = rakia_direction_from_remote_media (new_media);
+
+  /* Make sure the peer can only enable sending or receiving direction
+   * if it's allowed to */
+  new_direction &= old_direction | direction_up_mask;
+
+  if (old_media != NULL)
+    {
+      /* Check if the transport candidate needs to be changed */
+      if (!sdp_connection_cmp (sdp_media_connections (old_media), sdp_conn))
+        transport_changed = FALSE;
+
+      /* Check if the codec list needs to be updated */
+      codecs_changed = rakia_sdp_codecs_differ (old_media->m_rtpmaps,
+                                                new_media->m_rtpmaps);
+
+      /* Disable sending at this point if it will be disabled
+       * accordingly to the new direction */
+      priv_update_sending (media,
+                           priv->direction & new_direction);
+    }
+
+  /* First add the new candidate, then update the codec set.
+   * The offerer isn't supposed to send us anything from the new transport
+   * until we accept; if it's the answer, both orderings have problems. */
+
+  if (transport_changed)
+    {
+      /* Make sure we stop sending before we use the new set of codecs
+       * intended for the new connection */
+      if (codecs_changed)
+        priv->stop_sending_before_codecs = TRUE;
+
+      push_remote_candidates (media);
+    }
+
+  if (codecs_changed)
+    {
+      if (!priv->codec_intersect_pending)
+        {
+          priv->codec_intersect_pending = TRUE;
+          push_remote_codecs (media);
+        }
+      else
+        {
+          priv->push_remote_codecs_pending = TRUE;
+        }
+    }
+
+  /* TODO: this will go to session change commit code */
+
+  /* Set the final direction and update pending send flags */
+  rakia_sip_media_set_direction (media,
+                                    new_direction,
+                                    pending_send_mask);
+
+  return TRUE;
+}
+
+RakiaDirection
+rakia_sip_media_get_requested_direction (RakiaSipMedia *self)
+{
+  return self->priv->requested_direction;
+}
+
+
+gboolean
+rakia_sip_media_is_codec_intersect_pending (RakiaSipMedia *self)
+{
+  RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (self);
+
+  return priv->codec_intersect_pending;
+}
+
+gboolean
+rakia_sip_media_is_ready (RakiaSipMedia *self)
+{
+  return (self->priv->local_candidates_prepared && self->priv->local_codecs);
+}
+
+void
+rakia_sip_media_take_local_codecs (RakiaSipMedia *self, GPtrArray *local_codecs)
+{
+  if (self->priv->local_codecs)
+    g_ptr_array_unref (local_codecs);
+  self->priv->local_codecs = local_codecs;
+}
+
+
+void
+rakia_sip_media_take_local_candidate (RakiaSipMedia *self,
+    RakiaSipCandidate *candidate)
+{
+  if (!self->priv->local_candidates)
+    self->priv->local_candidates = g_ptr_array_new_with_free_func (
+        (GDestroyNotify) rakia_sip_candidate_free);
+
+  g_ptr_array_add (self->priv->local_candidates, candidate);
+}
+
+void
+rakia_sip_media_local_candidates_prepared (RakiaSipMedia *self)
+{
+  self->priv->local_candidates_prepared = TRUE;
+}
+
+GPtrArray *
+rakia_sip_media_get_remote_codecs (RakiaSipMedia *self)
+{
+  RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (self);
+
+  return priv->remote_codecs;
+}
+
+GPtrArray *
+rakia_sip_media_get_remote_candidates (RakiaSipMedia *self)
+{
+  RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (self);
+
+  return priv->remote_candidates;
+}
+
+
+void
+rakia_sip_media_local_updated (RakiaSipMedia *self)
+{
+  g_signal_emit (self, signals[SIG_LOCAL_UPDATED], 0);
+}

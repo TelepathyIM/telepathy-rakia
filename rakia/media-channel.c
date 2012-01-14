@@ -45,6 +45,7 @@
 
 #include <rakia/media-session.h>
 #include <rakia/base-connection.h>
+#include <rakia/sip-session.h>
 
 #define RAKIA_CHANNEL_CALL_STATE_PROCEEDING_MASK \
     (TP_CHANNEL_CALL_STATE_RINGING | \
@@ -121,6 +122,7 @@ enum
   PROP_CURRENTLY_SENDING_TONES,
   PROP_INITIAL_TONES,
   PROP_DEFERRED_TONES,
+  PROP_SIP_SESSION,
   /* Telepathy properties (see below too) */
   PROP_NAT_TRAVERSAL,
   PROP_STUN_SERVER,
@@ -147,11 +149,10 @@ static const TpPropertySignature media_channel_property_signatures[NUM_TP_PROPS]
 /* signals */
 enum
 {
-  SIG_INCOMING_CALL,
   NUM_SIGNALS
 };
 
-static guint signals[NUM_SIGNALS] = { 0 };
+//static guint signals[NUM_SIGNALS] = { 0 };
 
 
 /* private structure */
@@ -159,6 +160,7 @@ struct _RakiaMediaChannelPrivate
 {
   RakiaBaseConnection *conn;
   RakiaMediaSession *session;
+  RakiaSipSession *sipsession;
   gchar *object_path;
   TpHandle handle;
   TpHandle initiator;
@@ -175,6 +177,35 @@ struct _RakiaMediaChannelPrivate
   gboolean closed;
   gboolean dispose_has_run;
 };
+
+
+
+static void rakia_media_channel_dispose (GObject *object);
+static void rakia_media_channel_finalize (GObject *object);
+static void rakia_media_channel_get_property (GObject    *object,
+					    guint       property_id,
+					    GValue     *value,
+					    GParamSpec *pspec);
+static void rakia_media_channel_set_property (GObject     *object,
+					    guint        property_id,
+					    const GValue *value,
+					    GParamSpec   *pspec);
+
+static void priv_create_session (RakiaMediaChannel *channel,
+                                 TpHandle peer);
+static void priv_destroy_session(RakiaMediaChannel *channel);
+
+static gboolean rakia_media_channel_remove_with_reason (
+                                                 GObject *iface,
+                                                 TpHandle handle,
+                                                 const gchar *message,
+                                                 guint reason,
+                                                 GError **error);
+static void priv_session_state_changed_cb (RakiaSipSession *session,
+    guint old_state,
+    guint state,
+    RakiaMediaChannel *channel);
+
 
 #define RAKIA_MEDIA_CHANNEL_GET_PRIVATE(chan) ((chan)->priv)
 
@@ -199,6 +230,120 @@ rakia_media_channel_init (RakiaMediaChannel *self)
   tp_properties_mixin_init (G_OBJECT (self),
       G_STRUCT_OFFSET (RakiaMediaChannel, properties));
 }
+
+
+
+static void
+session_ringing_cb (RakiaSipSession *sipsession, RakiaMediaChannel *self)
+{
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  rakia_media_channel_change_call_state (self, priv->handle,
+      TP_CHANNEL_CALL_STATE_RINGING, 0);
+}
+
+static void
+session_queued_cb (RakiaSipSession *sipsession, RakiaMediaChannel *self)
+{
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  rakia_media_channel_change_call_state (self, priv->handle,
+      TP_CHANNEL_CALL_STATE_QUEUED, 0);
+}
+
+static void
+session_in_progress_cb (RakiaSipSession *sipsession, RakiaMediaChannel *self)
+{
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
+
+  rakia_media_channel_change_call_state (self, priv->handle,
+      TP_CHANNEL_CALL_STATE_IN_PROGRESS, 0);
+}
+
+static void
+session_established_cb (RakiaSipSession *sipsession, RakiaMediaChannel *self)
+{
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpIntSet *add = tp_intset_new_containing (priv->handle);
+
+  tp_group_mixin_change_members ((GObject *) self,
+      "",
+      add,  /* add */
+      NULL, /* remove */
+      NULL,
+      NULL,
+      priv->handle,
+      TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+  tp_intset_destroy (add);
+}
+
+static void
+session_ended_cb (RakiaSipSession *sipsession, gboolean self_actor,
+    guint cause, gchar *message, RakiaMediaChannel *self)
+{
+  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
+  TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
+  TpIntSet *remove;
+  TpHandle actor;
+  TpChannelGroupChangeReason reason;
+
+  remove = tp_intset_new ();
+  tp_intset_add (remove, priv->handle);
+  tp_intset_add (remove, mixin->self_handle);
+
+  if (self_actor)
+    actor = mixin->self_handle;
+  else
+    actor = priv->handle;
+
+  if (message == NULL)
+    message = "";
+
+  switch (cause)
+    {
+    case 410:
+    case 604:
+      reason = TP_CHANNEL_GROUP_CHANGE_REASON_INVALID_CONTACT;
+      break;
+    case 486:
+    case 600:
+      reason = TP_CHANNEL_GROUP_CHANGE_REASON_BUSY;
+      break;
+    case 408:
+      reason = TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER;
+      break;
+    case 404:
+    case 480:
+      if (rakia_sip_session_get_state (priv->sipsession) <=
+          RAKIA_SIP_SESSION_STATE_INVITE_SENT)
+        reason = TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER;
+      else
+        reason = TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
+      break;
+    case 603:
+      /* No reason means roughly "rejected" */
+      reason = TP_CHANNEL_GROUP_CHANGE_REASON_NONE;
+      break;
+    case 403:
+    case 401:
+    case 407:
+      reason = TP_CHANNEL_GROUP_CHANGE_REASON_PERMISSION_DENIED;
+      break;
+    default:
+      if (cause < 300)
+        reason =  TP_CHANNEL_GROUP_CHANGE_REASON_NONE;
+      else
+        reason = TP_CHANNEL_GROUP_CHANGE_REASON_ERROR;
+      break;
+    }
+
+  tp_group_mixin_change_members ((GObject *) self, message,
+      NULL, remove, NULL, NULL, actor, reason);
+
+  tp_intset_destroy (remove);
+
+}
+
 
 static void
 rakia_media_channel_constructed (GObject *obj)
@@ -249,34 +394,38 @@ rakia_media_channel_constructed (GObject *obj)
   tp_group_mixin_change_flags (obj,
       TP_CHANNEL_GROUP_FLAG_CAN_ADD | TP_CHANNEL_GROUP_FLAG_CAN_REMOVE |
       TP_CHANNEL_GROUP_FLAG_CAN_RESCIND | TP_CHANNEL_GROUP_FLAG_PROPERTIES, 0);
+
+  g_signal_connect_object (priv->sipsession, "ringing",
+      G_CALLBACK (session_ringing_cb), chan, 0);
+  g_signal_connect_object (priv->sipsession, "queued",
+      G_CALLBACK (session_queued_cb), chan, 0);
+  g_signal_connect_object (priv->sipsession, "in-progress",
+      G_CALLBACK (session_in_progress_cb), chan, 0);
+  g_signal_connect_object (priv->sipsession, "established",
+      G_CALLBACK (session_established_cb), chan, 0);
+  g_signal_connect_object (priv->sipsession, "ended",
+      G_CALLBACK (session_ended_cb), chan, 0);
+  g_signal_connect_object (priv->sipsession,
+      "state-changed", G_CALLBACK(priv_session_state_changed_cb), chan, 0);
+
+  if (priv->initiator != conn->self_handle)
+    {
+      /* Incoming */
+      priv->initial_audio = rakia_sip_session_has_media (priv->sipsession,
+          RAKIA_MEDIA_TYPE_AUDIO);
+      priv->initial_video = rakia_sip_session_has_media (priv->sipsession,
+          RAKIA_MEDIA_TYPE_VIDEO);
+      priv_create_session (chan, priv->initiator);
+
+      g_assert (priv->session != NULL);
+      //rakia_sip_session_receive_invite (priv->sipsession);
+    }
+  else
+    {
+      priv_create_session (chan,  priv->handle);
+    }
+
 }
-
-static void rakia_media_channel_dispose (GObject *object);
-static void rakia_media_channel_finalize (GObject *object);
-static void rakia_media_channel_get_property (GObject    *object,
-					    guint       property_id,
-					    GValue     *value,
-					    GParamSpec *pspec);
-static void rakia_media_channel_set_property (GObject     *object,
-					    guint        property_id,
-					    const GValue *value,
-					    GParamSpec   *pspec);
-
-static void priv_create_session (RakiaMediaChannel *channel,
-                                 nua_handle_t *nh,
-                                 TpHandle peer);
-static void priv_destroy_session(RakiaMediaChannel *channel);
-
-static void priv_outbound_call (RakiaMediaChannel *channel,
-                                TpHandle peer);
-
-static gboolean rakia_media_channel_remove_with_reason (
-                                                 GObject *iface,
-                                                 TpHandle handle,
-                                                 const gchar *message,
-                                                 guint reason,
-                                                 GError **error);
-
 static void
 rakia_media_channel_class_init (RakiaMediaChannelClass *klass)
 {
@@ -363,6 +512,12 @@ rakia_media_channel_class_init (RakiaMediaChannelClass *klass)
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_NAT_TRAVERSAL, param_spec);
 
+  param_spec = g_param_spec_object ("sip-session", "RakiaSipSession object",
+      "SIP session object that is used for this SIP media channel object.",
+      RAKIA_TYPE_SIP_SESSION,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_SIP_SESSION, param_spec);
+
   param_spec = g_param_spec_string ("stun-server", "STUN server",
       "IP or address of STUN server.", NULL,
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
@@ -445,14 +600,6 @@ rakia_media_channel_class_init (RakiaMediaChannelClass *klass)
   g_object_class_install_property (object_class, PROP_DEFERRED_TONES,
       param_spec);
 
-  signals[SIG_INCOMING_CALL] =
-      g_signal_new ("incoming-call",
-                    G_OBJECT_CLASS_TYPE (klass),
-                    G_SIGNAL_RUN_LAST,
-                    0,
-                    NULL, NULL,
-                    g_cclosure_marshal_VOID__VOID,
-                    G_TYPE_NONE, 0);
 
   tp_properties_mixin_class_init (object_class,
       G_STRUCT_OFFSET (RakiaMediaChannelClass, properties_class),
@@ -688,6 +835,9 @@ rakia_media_channel_set_property (GObject     *object,
     case PROP_INITIAL_TONES:
       priv->initial_tones = g_value_dup_string (value);
       break;
+    case PROP_SIP_SESSION:
+      priv->sipsession = g_value_dup_object (value);
+      break;
     default:
       /* some properties live in the mixin */
       if (rakia_media_channel_set_tp_property (chan, value, pspec))
@@ -714,6 +864,9 @@ rakia_media_channel_dispose (GObject *object)
 
   if (!priv->closed)
     rakia_media_channel_close (self);
+
+  if (priv->sipsession)
+    g_object_unref (priv->sipsession);
 
   if (priv->dtmf_player != NULL)
     g_object_unref (priv->dtmf_player);
@@ -791,9 +944,8 @@ rakia_media_channel_close (RakiaMediaChannel *obj)
 
   priv->closed = TRUE;
 
-  if (priv->session) {
-    rakia_media_session_terminate (priv->session);
-    g_assert (priv->session == NULL);
+  if (priv->sipsession) {
+    rakia_sip_session_terminate (priv->sipsession);
   }
 
   tp_svc_channel_emit_closed ((TpSvcChannel *)obj);
@@ -1086,8 +1238,6 @@ rakia_media_channel_request_streams (TpSvcChannelTypeStreamedMedia *iface,
       return;
     }
 
-  priv_outbound_call (self, contact_handle);
-
   ret = g_ptr_array_sized_new (types->len);
 
   if (rakia_media_session_request_streams (priv->session, types, ret, &error))
@@ -1123,8 +1273,6 @@ rakia_media_channel_create_initial_streams (RakiaMediaChannel *self)
   if (priv->handle == 0)
     return;
 
-  priv_outbound_call (self, priv->handle);
-
   g_assert (priv->session != NULL);
 
   if (priv->initial_audio)
@@ -1140,136 +1288,7 @@ rakia_media_channel_create_initial_streams (RakiaMediaChannel *self)
         TRUE);
 }
 
-/*
- * Handles an incoming call, called shortly after the channel
- * has been created with initiator handle of the sender, when remote SDP
- * session data are reported by the NUA stack.
- */
-static void
-rakia_media_channel_handle_incoming_call (RakiaMediaChannel *self,
-                                          nua_handle_t *nh,
-                                          const sdp_session_t *sdp)
-{
-  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
-  TpBaseConnection *conn = TP_BASE_CONNECTION (priv->conn);
 
-  g_assert (priv->initiator != conn->self_handle);
-  g_assert (priv->session == NULL);
-
-  if (sdp != NULL)
-    {
-      /* Get the initial media properties from the session offer */
-      const sdp_media_t *media;
-  
-      for (media = sdp->sdp_media; media != NULL; media = media->m_next)
-        {
-          if (media->m_rejected || media->m_port == 0)
-            continue;
-  
-          switch (media->m_type)
-            {
-            case sdp_media_audio:
-              priv->initial_audio = TRUE;
-              DEBUG("has initial audio");
-              break;
-            case sdp_media_video:
-              priv->initial_video = TRUE;
-              DEBUG("has initial video");
-              break;
-            default:
-              break;
-            }
-        }
-    }
-
-  /* Tell the factory to emit NewChannel(s) */
-  g_signal_emit (self, signals[SIG_INCOMING_CALL], 0);
-
-  /* Offer the session handler to the client */
-  priv_create_session (self, nh, priv->initiator);
-
-  g_assert (priv->session != NULL);
-  rakia_media_session_receive_invite (priv->session);
-}
-
-static gboolean
-priv_nua_i_invite_cb (RakiaMediaChannel *self,
-                      const RakiaNuaEvent  *ev,
-                      tagi_t             tags[],
-                      gpointer           foo)
-{
-  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
-
-  /* nua_i_invite delivered for a bound handle means a re-INVITE */
-
-  g_return_val_if_fail (priv->session != NULL, FALSE);
-
-  rakia_media_session_receive_reinvite (priv->session);
-
-  return TRUE;
-}
-
-static guint
-rakia_media_channel_get_call_state (RakiaMediaChannel *self,
-                                    TpHandle peer)
-{
-  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
-
-  return GPOINTER_TO_UINT (g_hash_table_lookup (priv->call_states,
-      GUINT_TO_POINTER (peer)));
-}
-
-static void
-rakia_media_channel_peer_error (RakiaMediaChannel *self,
-                                TpHandle peer,
-                                guint status,
-                                const char* message)
-{
-  TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
-  TpIntSet *remove;
-  guint reason = TP_CHANNEL_GROUP_CHANGE_REASON_ERROR;
-
-  switch (status)
-    {
-    case 410:
-    case 604:
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_INVALID_CONTACT;
-      break;
-    case 486:
-    case 600:
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_BUSY;
-      break;
-    case 408:
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER;
-      break;
-    case 404:
-    case 480:
-      reason = (rakia_media_channel_get_call_state (self, peer)
-             & RAKIA_CHANNEL_CALL_STATE_PROCEEDING_MASK)
-          ? TP_CHANNEL_GROUP_CHANGE_REASON_NO_ANSWER
-          : TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE;
-      break;
-    case 603:
-      /* No reason means roughly "rejected" */
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_NONE;
-      break;
-    case 403:
-    case 401:
-    case 407:
-      reason = TP_CHANNEL_GROUP_CHANGE_REASON_PERMISSION_DENIED;
-      break;
-    }
-
-  if (message == NULL || !g_utf8_validate (message, -1, NULL))
-    message = "";
-
-  remove = tp_intset_new ();
-  tp_intset_add (remove, peer);
-  tp_intset_add (remove, mixin->self_handle);
-  tp_group_mixin_change_members ((GObject *)self, message,
-      NULL, remove, NULL, NULL, peer, reason);
-  tp_intset_destroy (remove);
-}
 
 guint
 rakia_media_channel_change_call_state (RakiaMediaChannel *self,
@@ -1304,225 +1323,10 @@ rakia_media_channel_change_call_state (RakiaMediaChannel *self,
   return new_state;
 }
 
-static gboolean
-priv_nua_i_bye_cb (RakiaMediaChannel *self,
-                   const RakiaNuaEvent  *ev,
-                   tagi_t             tags[],
-                   gpointer           foo)
-{
-  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
-  TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
-  TpIntSet *remove;
-  TpHandle peer;
 
-  g_return_val_if_fail (priv->session != NULL, FALSE);
 
-  peer = rakia_media_session_get_peer (priv->session);
-  remove = tp_intset_new ();
-  tp_intset_add (remove, peer);
-  tp_intset_add (remove, mixin->self_handle);
 
-  tp_group_mixin_change_members ((GObject *) self, "",
-     NULL, remove, NULL, NULL,
-     peer, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
-
-  tp_intset_destroy (remove);
-
-  return TRUE;
-}
-
-static gboolean
-priv_nua_i_cancel_cb (RakiaMediaChannel *self,
-                      const RakiaNuaEvent  *ev,
-                      tagi_t             tags[],
-                      gpointer           foo)
-{
-  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
-  TpGroupMixin *mixin = TP_GROUP_MIXIN (self);
-  TpIntSet *remove;
-  TpHandle actor = 0;
-  TpHandle peer;
-  const sip_reason_t *reason;
-  guint cause = 0;
-  const gchar *message = NULL;
-
-  g_return_val_if_fail (priv->session != NULL, FALSE);
-
-  /* FIXME: implement cancellation of an incoming re-INVITE, if ever
-   * found in real usage and not caused by a request timeout */
-
-  if (ev->sip != NULL)
-    for (reason = ev->sip->sip_reason;
-         reason != NULL;
-         reason = reason->re_next)
-      {
-        const char *protocol = reason->re_protocol;
-        if (protocol == NULL || strcmp (protocol, "SIP") != 0)
-          continue;
-        if (reason->re_cause != NULL)
-          {
-            cause = (guint) g_ascii_strtoull (reason->re_cause, NULL, 10);
-            message = reason->re_text;
-            break;
-          }
-      }
-
-  peer = rakia_media_session_get_peer (priv->session);
-
-  switch (cause)
-    {
-    case 200:
-    case 603:
-      /* The user must have acted on another branch of the forked call */
-      actor = mixin->self_handle;
-      break;
-    default:
-      actor = peer;
-    }
-
-  if (message == NULL || !g_utf8_validate (message, -1, NULL))
-    message = "";
-
-  remove = tp_intset_new ();
-  tp_intset_add (remove, peer);
-  tp_intset_add (remove, mixin->self_handle);
-
-  tp_group_mixin_change_members ((GObject *) self, message,
-      NULL, remove, NULL, NULL,
-      actor, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
-
-  tp_intset_destroy (remove);
-
-  return TRUE;
-}
-
-static gboolean
-priv_nua_i_state_cb (RakiaMediaChannel *self,
-                     const RakiaNuaEvent  *ev,
-                     tagi_t             tags[],
-                     gpointer           foo)
-{
-  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
-  const sdp_session_t *r_sdp = NULL;
-  int offer_recv = 0;
-  int answer_recv = 0;
-  int ss_state = nua_callstate_init;
-  gint status = ev->status;
-  TpHandle peer;
-
-  tl_gets(tags,
-          NUTAG_CALLSTATE_REF(ss_state),
-          NUTAG_OFFER_RECV_REF(offer_recv),
-          NUTAG_ANSWER_RECV_REF(answer_recv),
-          SOATAG_REMOTE_SDP_REF(r_sdp),
-          TAG_END());
-
-  DEBUG("call with handle %p is %s", ev->nua_handle, nua_callstate_name (ss_state));
-
-  if (ss_state == nua_callstate_received && priv->session == NULL)
-    {
-      /* We get the session data for initial media properties with this event;
-       * initialize the session before we can create any streams below.
-       */
-      rakia_media_channel_handle_incoming_call (self, ev->nua_handle, r_sdp);
-    }
-
-  g_return_val_if_fail (priv->session != NULL, FALSE);
-
-  if (r_sdp)
-    {
-      g_return_val_if_fail (answer_recv || offer_recv, FALSE);
-      if (!rakia_media_session_set_remote_media (priv->session, r_sdp))
-        {
-          rakia_media_channel_close (self);
-          return TRUE;
-        }
-    }
-
-  peer = rakia_media_session_get_peer (priv->session);
-
-  switch ((enum nua_callstate)ss_state)
-    {
-    case nua_callstate_proceeding:
-      switch (status)
-        {
-          case 180:
-            rakia_media_channel_change_call_state (self, peer,
-                    TP_CHANNEL_CALL_STATE_RINGING, 0);
-            break;
-          case 182:
-            rakia_media_channel_change_call_state (self, peer,
-                    TP_CHANNEL_CALL_STATE_QUEUED, 0);
-            break;
-          case 183:
-            rakia_media_channel_change_call_state (self, peer,
-                    TP_CHANNEL_CALL_STATE_IN_PROGRESS, 0);
-            break;
-        }
-      break;
-
-    case nua_callstate_completing:
-      /* In auto-ack mode, we don't need to call nua_ack(), see NUTAG_AUTOACK() */
-      break;
-
-    case nua_callstate_ready:
-
-      /* Clear any pre-establishment call states */
-      rakia_media_channel_change_call_state (self, peer, 0,
-          RAKIA_CHANNEL_CALL_STATE_PROCEEDING_MASK);
-
-      if (status < 300)
-        {
-          TpIntSet *add = tp_intset_new_containing (peer);
-
-          tp_group_mixin_change_members ((GObject *) self,
-                                         "",
-                                         add,  /* add */
-                                         NULL, /* remove */
-                                         NULL,
-                                         NULL,
-                                         peer,
-                                         TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
-
-          tp_intset_destroy (add);
-
-          rakia_media_session_accept (priv->session);
-        }
-      else if (status == 491)
-        rakia_media_session_resolve_glare (priv->session);
-      else
-        {
-          /* Was something wrong with our re-INVITE? We can't cope anyway. */
-          MESSAGE ("can't handle non-fatal response %d %s", status, ev->text);
-          rakia_media_session_terminate (priv->session);
-        }
-      break;
-
-    case nua_callstate_terminated:
-      /* In cases of self-inflicted termination,
-       * we should have already gone through the moves */
-      if (rakia_media_session_get_state (priv->session)
-          == RAKIA_MEDIA_SESSION_STATE_ENDED)
-        break;
-
-      if (status >= 300)
-        {
-          rakia_media_channel_peer_error (
-                self, peer, status, ev->text);
-        }
-
-      rakia_media_session_change_state (priv->session,
-                                        RAKIA_MEDIA_SESSION_STATE_ENDED);
-      break;
-
-    default:
-      break;
-  }
-
-  return TRUE;
-}
-
-static void priv_session_state_changed_cb (RakiaMediaSession *session,
+static void priv_session_state_changed_cb (RakiaSipSession *session,
 					   guint old_state,
                                            guint state,
 					   RakiaMediaChannel *channel)
@@ -1536,11 +1340,11 @@ static void priv_session_state_changed_cb (RakiaMediaSession *session,
   DEBUG("enter");
 
   self_handle = mixin->self_handle;
-  peer = rakia_media_session_get_peer (session);
+  peer = rakia_media_session_get_peer (priv->session);
 
   switch (state)
     {
-    case RAKIA_MEDIA_SESSION_STATE_INVITE_SENT:
+    case RAKIA_SIP_SESSION_STATE_INVITE_SENT:
       g_assert (priv->initiator == self_handle);
 
       /* add the peer to remote pending */
@@ -1560,7 +1364,7 @@ static void priv_session_state_changed_cb (RakiaMediaSession *session,
 
       break;
 
-    case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
+    case RAKIA_SIP_SESSION_STATE_INVITE_RECEIVED:
       /* add ourself to local pending */
       set = tp_intset_new_containing (self_handle);
       tp_group_mixin_change_members ((GObject *) channel, "",
@@ -1583,7 +1387,7 @@ static void priv_session_state_changed_cb (RakiaMediaSession *session,
 
       break;
 
-    case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
+    case RAKIA_SIP_SESSION_STATE_ACTIVE:
       if (priv->initiator == self_handle)
         {
           if (!tp_handle_set_is_member (mixin->remote_pending, peer))
@@ -1622,7 +1426,7 @@ static void priv_session_state_changed_cb (RakiaMediaSession *session,
 
       break;
 
-    case RAKIA_MEDIA_SESSION_STATE_ENDED:
+    case RAKIA_SIP_SESSION_STATE_ENDED:
       set = tp_intset_new ();
 
       /* remove us and the peer from the member list */
@@ -1646,37 +1450,6 @@ static void priv_session_state_changed_cb (RakiaMediaSession *session,
     tp_intset_destroy (set);
 }
 
-void
-rakia_media_channel_attach_to_nua_handle (RakiaMediaChannel *self,
-                                          nua_handle_t *nh)
-{
-  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (self);
-
-  rakia_event_target_attach (nh, (GObject *) self);
-
-  /* have the connection handle authentication, before all other
-   * response callbacks */
-  rakia_base_connection_add_auth_handler (priv->conn, RAKIA_EVENT_TARGET (self));
-
-  g_signal_connect (self,
-                    "nua-event::nua_i_invite",
-                    G_CALLBACK (priv_nua_i_invite_cb),
-                    NULL);
-  g_signal_connect (self,
-                    "nua-event::nua_i_bye",
-                    G_CALLBACK (priv_nua_i_bye_cb),
-                    NULL);
-  g_signal_connect (self,
-                    "nua-event::nua_i_cancel",
-                    G_CALLBACK (priv_nua_i_cancel_cb),
-                    NULL);
-  g_signal_connect (self,
-                    "nua-event::nua_i_state",
-                    G_CALLBACK (priv_nua_i_state_cb),
-                    NULL);
-
-}
-
 /**
  * priv_create_session:
  *
@@ -1684,7 +1457,6 @@ rakia_media_channel_attach_to_nua_handle (RakiaMediaChannel *self,
  **/
 static void
 priv_create_session (RakiaMediaChannel *channel,
-                     nua_handle_t *nh,
                      TpHandle peer)
 {
   RakiaMediaChannelPrivate *priv;
@@ -1719,18 +1491,13 @@ priv_create_session (RakiaMediaChannel *channel,
                               tp_base_connection_get_dbus_daemon (conn),
                           "media-channel", channel,
                           "object-path", object_path,
-                          "nua-handle", nh,
+                          "sip-session", priv->sipsession,
                           "peer", peer,
                           "local-ip-address", local_ip_address,
                           NULL);
 
   g_free (local_ip_address);
 
-  g_signal_connect_object (session,
-                           "state-changed",
-                           G_CALLBACK(priv_session_state_changed_cb),
-                           channel,
-                           0);
   g_signal_connect_object (session,
                            "dtmf-ready",
                            G_CALLBACK (priv_session_dtmf_ready_cb),
@@ -1773,34 +1540,6 @@ priv_destroy_session(RakiaMediaChannel *channel)
   DEBUG("exit");
 }
 
-/*
- * Creates an outbound call session if a session does not exist
- */
-static void
-priv_outbound_call (RakiaMediaChannel *channel,
-                    TpHandle peer)
-{
-  RakiaMediaChannelPrivate *priv = RAKIA_MEDIA_CHANNEL_GET_PRIVATE (channel);
-  nua_handle_t *nh;
-
-  if (priv->session == NULL)
-    {
-      DEBUG("making outbound call - setting peer handle to %u", peer);
-
-      nh = rakia_base_connection_create_handle (priv->conn, peer);
-      priv_create_session (channel, nh, peer);
-
-      /* Bind the channel object to the handle to handle NUA events */
-      rakia_media_channel_attach_to_nua_handle (channel, nh);
-
-      nua_handle_unref (nh);
-    }
-  else
-    DEBUG("session already exists");
-
-  g_assert (priv->session != NULL);
-}
-
 gboolean
 _rakia_media_channel_add_member (GObject *iface,
                                  TpHandle handle,
@@ -1816,11 +1555,6 @@ _rakia_media_channel_add_member (GObject *iface,
   if (priv->initiator == mixin->self_handle)
     {
       TpIntSet *remote_pending;
-
-      /* case a: an old-school outbound call
-       * (we are the initiator, a new handle added with AddMembers) */
-
-      priv_outbound_call (self, handle);
 
       /* Backwards compatible behavior:
        * add the peer to remote pending without waiting for the actual request
@@ -1843,6 +1577,7 @@ _rakia_media_channel_add_member (GObject *iface,
 
       return TRUE;
     }
+
   if (priv->session &&
       handle == mixin->self_handle &&
       tp_handle_set_is_member (mixin->local_pending, handle))
@@ -1943,18 +1678,18 @@ rakia_media_channel_remove_with_reason (GObject *obj,
       status = rakia_status_from_tp_reason (reason);
 
       /* XXX: raise NotAvailable if it's the wrong state? */
-      rakia_media_session_respond (priv->session, status, message);
+      rakia_sip_session_respond (priv->sipsession, status, message);
 
       /* This session is effectively ended, prevent the nua_i_state handler
        * from useless work */
-      rakia_media_session_change_state (priv->session,
-                                        RAKIA_MEDIA_SESSION_STATE_ENDED);
+      rakia_sip_session_change_state (priv->sipsession,
+          RAKIA_SIP_SESSION_STATE_ENDED);
     }
   else
     {
       /* Want to terminate the call in whatever other situation;
        * rescinding is handled by sending CANCEL */
-      rakia_media_session_terminate (priv->session);
+      rakia_sip_session_terminate (priv->sipsession);
     }
 
   return TRUE;

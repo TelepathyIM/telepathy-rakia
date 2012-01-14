@@ -25,55 +25,17 @@
 
 #include <telepathy-glib/enums.h>
 
+#include <rakia/sip-media.h>
+
 G_BEGIN_DECLS
 
-/**
- * RakiaCodecParamFormatFunc:
- * @params: the map of codec parameters
- * @out: a #GString for the output
- *
- * Defines the function pointer signature for codec parameter formatters.
- * A formatter takes a codec parameter map as passed in
- * a org.freedesktop.Telepathy.Media.StreamHandler codec structure,
- * and outputs its SDP representation, as per the value for an
- * <literal>a=fmtp</literal> attribute, into the string buffer @out.
- *
- * <note>
- *   <para>The function is allowed to delete pairs from the @params hash table.
- *   This is useful to implement a custom formatter that processes the
- *   few parameters treated specially, removes them from the map, and 
- *   calls a more generic formatter such as rakia_codec_param_format_generic().
- *   </para>
- * </note>
- */
-typedef void (* RakiaCodecParamFormatFunc) (GHashTable *params, GString *out);
 
-/**
- * RakiaCodecParamParseFunc:
- * @str: a string value with format-specific parameter description
- * @out: the parameter map to populate
- *
- * Defines the function pointer signature for codec parameter parsers.
- * A parser takes the string value coming from an <literal>a=fmtp</literal>
- * SDP attribute, and populates the parameter hash table.
- */
-typedef void (* RakiaCodecParamParseFunc) (const gchar *str, GHashTable *out);
+void rakia_codec_param_format (RakiaMediaType media_type, RakiaSipCodec *codec,
+    GString *out);
 
-void rakia_codec_param_format (TpMediaStreamType media, const char *name,
-                               GHashTable *params, GString *out);
+void rakia_codec_param_parse (RakiaMediaType media_type, RakiaSipCodec *codec,
+    const gchar *fmtp);
 
-void rakia_codec_param_parse (TpMediaStreamType media, const char *name,
-                              const gchar *fmtp, GHashTable *out);
-
-void rakia_codec_param_register_format (
-            TpMediaStreamType media,
-            const char *name,
-            RakiaCodecParamFormatFunc format,
-            RakiaCodecParamParseFunc parse);
-
-void rakia_codec_param_format_generic (GHashTable *params, GString *out);
-
-void rakia_codec_param_parse_generic (const gchar *str, GHashTable *out);
 
 G_END_DECLS
 

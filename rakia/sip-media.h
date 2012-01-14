@@ -22,11 +22,16 @@
 #define __RAKIA_SIP_MEDIA_H__
 
 #include <glib-object.h>
-#include <telepathy-glib/handle.h>
 #include <sofia-sip/sdp.h>
 
 G_BEGIN_DECLS
 
+
+typedef enum {
+  RAKIA_MEDIA_TYPE_UNKNOWN,
+  RAKIA_MEDIA_TYPE_AUDIO,
+  RAKIA_MEDIA_TYPE_VIDEO
+} RakiaMediaType;
 
 typedef struct _RakiaSipMedia RakiaSipMedia;
 typedef struct _RakiaSipMediaClass RakiaSipMediaClass;
@@ -40,6 +45,35 @@ struct _RakiaSipMedia {
     GObject parent;
     RakiaSipMediaPrivate *priv;
 };
+
+typedef enum {
+    RAKIA_DIRECTION_NONE = 0,
+    RAKIA_DIRECTION_SEND = 1,
+    RAKIA_DIRECTION_RECEIVE = 2,
+    RAKIA_DIRECTION_BIDIRECTIONAL = 3,
+} RakiaDirection;
+
+typedef struct _RakiaSipCodecParam {
+  gchar *name;
+  gchar *value;
+} RakiaSipCodecParam;
+
+typedef struct _RakiaSipCodec {
+  guint id;
+  gchar *encoding_name;
+  guint clock_rate;
+  guint channels;
+  GPtrArray *params;
+} RakiaSipCodec;
+
+
+typedef struct _RakiaSipCandidate {
+  guint component;
+  gchar *ip;
+  guint port;
+  gchar *foundation;
+  guint priority;
+} RakiaSipCandidate;
 
 GType rakia_sip_media_get_type(void);
 
@@ -56,6 +90,55 @@ GType rakia_sip_media_get_type(void);
   (G_TYPE_CHECK_CLASS_TYPE((klass), RAKIA_TYPE_SIP_MEDIA))
 #define RAKIA_SIP_MEDIA_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), RAKIA_TYPE_SIP_MEDIA, RakiaSipMediaClass))
+
+
+void rakia_sip_media_generate_sdp (RakiaSipMedia *media, GString *out);
+
+
+RakiaMediaType rakia_sip_media_get_media_type (RakiaSipMedia *self);
+
+RakiaSipCodec* rakia_sip_codec_new (guint id, const gchar *encoding_name,
+    guint clock_rate, guint channels);
+void rakia_sip_codec_add_param (RakiaSipCodec *codec, const gchar *name,
+    const gchar *value);
+void rakia_sip_codec_free (RakiaSipCodec *codec);
+
+RakiaSipCandidate* rakia_sip_candidate_new (guint component,
+    const gchar *ip, guint port,
+    const gchar *foundation, guint priority);
+void rakia_sip_candidate_free (RakiaSipCandidate *candidate);
+
+gchar * rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs,
+                                        const char *name);
+
+gboolean rakia_sip_media_set_remote_media (RakiaSipMedia *media,
+    const sdp_media_t *new_media,
+    guint direction_up_mask,
+    guint pending_send_mask);
+
+RakiaDirection rakia_sip_media_get_requested_direction (
+    RakiaSipMedia *self);
+
+void rakia_sip_media_set_requested_direction (RakiaSipMedia *media,
+    RakiaDirection direction);
+
+RakiaDirection rakia_direction_from_remote_media (const sdp_media_t *media);
+
+gboolean rakia_sip_media_is_codec_intersect_pending (RakiaSipMedia *self);
+
+gboolean rakia_sip_media_is_ready (RakiaSipMedia *self);
+
+void rakia_sip_media_take_local_codecs (RakiaSipMedia *self,
+    GPtrArray *local_codecs);
+void rakia_sip_media_take_local_candidate (RakiaSipMedia *self,
+    RakiaSipCandidate *candidate);
+void rakia_sip_media_local_candidates_prepared (RakiaSipMedia *self);
+
+GPtrArray *rakia_sip_media_get_remote_codecs (RakiaSipMedia *self);
+GPtrArray *rakia_sip_media_get_remote_candidates (RakiaSipMedia *self);
+
+void rakia_sip_media_local_updated (RakiaSipMedia *self);
+
 
 G_END_DECLS
 

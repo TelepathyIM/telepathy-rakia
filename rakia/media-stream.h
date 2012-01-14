@@ -26,6 +26,8 @@
 #include <telepathy-glib/enums.h>
 #include <sofia-sip/sdp.h>
 
+#include "rakia/sip-media.h"
+
 G_BEGIN_DECLS
 
 typedef struct _RakiaMediaStream RakiaMediaStream;
@@ -65,11 +67,7 @@ GType rakia_media_stream_get_type(void);
 void rakia_media_stream_close (RakiaMediaStream *self);
 guint rakia_media_stream_get_id (RakiaMediaStream *self);
 guint rakia_media_stream_get_media_type (RakiaMediaStream *self);
-void rakia_media_stream_generate_sdp (RakiaMediaStream *self, GString *out);
-gboolean rakia_media_stream_set_remote_media (RakiaMediaStream *self,
-                                              const sdp_media_t *media,
-                                              guint direction_up_mask,
-                                              guint pending_send_mask);
+
 void rakia_media_stream_set_playing (RakiaMediaStream *self, gboolean playing);
 void rakia_media_stream_set_sending (RakiaMediaStream *self, gboolean sending);
 void rakia_media_stream_set_direction (RakiaMediaStream *stream,
@@ -86,8 +84,9 @@ gboolean rakia_media_stream_request_hold_state (RakiaMediaStream *self,
                                                 gboolean hold);
 
 guint rakia_tp_media_type (sdp_media_e sip_mtype);
-TpMediaStreamDirection rakia_media_stream_direction_from_remote_media (
-                          const sdp_media_t *media);
+
+
+RakiaSipMedia *rakia_media_stream_get_media (RakiaMediaStream *stream);
 
 G_END_DECLS
 

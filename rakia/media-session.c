@@ -46,6 +46,7 @@
 
 #include "rakia/media-channel.h"
 #include "rakia/media-stream.h"
+#include "rakia/sip-session.h"
 
 #include "signals-marshal.h"
 
@@ -69,7 +70,6 @@ G_DEFINE_TYPE_WITH_CODE(RakiaMediaSession,
 /* signal enum */
 enum
 {
-  SIG_STATE_CHANGED,
   SIG_DTMF_READY,
   SIG_LAST_SIGNAL
 };
@@ -80,13 +80,10 @@ enum
   PROP_MEDIA_CHANNEL = 1,
   PROP_DBUS_DAEMON,
   PROP_OBJECT_PATH,
-  PROP_NUA_OP,
+  PROP_SIP_SESSION,
   PROP_PEER,
   PROP_HOLD_STATE,
   PROP_HOLD_STATE_REASON,
-  PROP_REMOTE_PTIME,
-  PROP_REMOTE_MAX_PTIME,
-  PROP_RTCP_ENABLED,
   PROP_LOCAL_IP_ADDRESS,
   PROP_STUN_SERVERS,
   LAST_PROPERTY
@@ -96,39 +93,13 @@ static guint signals[SIG_LAST_SIGNAL] = {0};
 
 #ifdef ENABLE_DEBUG
 
-/**
- * Media session states:
- * - created, objects created, local cand/codec query ongoing
- * - invite-sent, an INVITE with local SDP sent, awaiting response
- * - invite-received, a remote INVITE received, response is pending
- * - response-received, a 200 OK received, codec intersection is in progress
- * - active, codecs and candidate pairs have been negotiated (note,
- *   SteamEngine might still fail to verify connectivity and report
- *   an error)
- * - reinvite-sent, a local re-INVITE sent, response is pending
- * - reinvite-received, a remote re-INVITE received, response is pending
- * - ended, session has ended
- */
-static const char *const session_states[NUM_RAKIA_MEDIA_SESSION_STATES] =
-{
-    "created",
-    "invite-sent",
-    "invite-received",
-    "response-received",
-    "active",
-    "reinvite-sent",
-    "reinvite-received",
-    "reinvite-pending",
-    "ended"
-};
-
 #define SESSION_DEBUG(session, format, ...) \
-  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "session [%-17s]: " format, \
-      session_states[(session)->priv->state],##__VA_ARGS__)
+  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "session: " format, \
+      ##__VA_ARGS__)
 
 #define SESSION_MESSAGE(session, format, ...) \
-  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_MESSAGE, "session [%-17s]: " format, \
-      session_states[(session)->priv->state],##__VA_ARGS__)
+  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_MESSAGE, "session: " format, \
+      ##__VA_ARGS__)
 
 #else /* !ENABLE_DEBUG */
 
@@ -143,30 +114,19 @@ struct _RakiaMediaSessionPrivate
   TpDBusDaemon *dbus_daemon;
   RakiaMediaChannel *channel;             /* see gobj. prop. 'media-channel' */
   gchar *object_path;                     /* see gobj. prop. 'object-path' */
-  nua_handle_t *nua_op;                   /* see gobj. prop. 'nua-handle' */
+  RakiaSipSession *sipsession;
   TpHandle peer;                          /* see gobj. prop. 'peer' */
   gchar *local_ip_address;                /* see gobj. prop. 'local-ip-address' */
-  gchar *remote_ptime;                    /* see gobj. prop. 'remote-ptime' */
-  gchar *remote_max_ptime;                /* see gobj. prop. 'remote-max-ptime' */
-  gboolean rtcp_enabled;                  /* see gobj. prop. 'rtcp-enabled' */
-  RakiaMediaSessionState state;           /* session state */
   TpLocalHoldState hold_state;         /* local hold state aggregated from stream directions */
   TpLocalHoldStateReason hold_reason;  /* last used hold state change reason */
-  nua_saved_event_t saved_event[1];       /* Saved incoming request event */
+
   gint local_non_ready;                   /* number of streams with local information update pending */
   guint remote_stream_count;              /* number of streams last seen in a remote offer */
-  guint glare_timer_id;
-  su_home_t *home;                        /* Sofia memory home for remote SDP session structure */
-  su_home_t *backup_home;                 /* Sofia memory home for previous generation remote SDP session*/
-  sdp_session_t *remote_sdp;              /* last received remote session */
-  sdp_session_t *backup_remote_sdp;       /* previous remote session */
-  gchar *local_sdp;                       /* local session as SDP string */
   GPtrArray *streams;
   gboolean remote_initiated;              /*< session is remotely intiated */
-  gboolean accepted;                      /*< session has been locally accepted for use */
+
   gboolean se_ready;                      /*< connection established with stream-engine */
   gboolean audio_connected;               /*< an audio stream has reached connected state */
-  gboolean pending_offer;                 /*< local media have been changed, but a re-INVITE is pending */
   gboolean dispose_has_run;
 };
 
@@ -186,14 +146,6 @@ rakia_media_session_get_stream (RakiaMediaSession *self,
                               guint stream_id,
                               GError **error);
 
-static void priv_request_response_step (RakiaMediaSession *session);
-static void priv_session_invite (RakiaMediaSession *session, gboolean reinvite);
-static void priv_local_media_changed (RakiaMediaSession *session);
-static gboolean priv_update_remote_media (RakiaMediaSession *session,
-                                          gboolean authoritative);
-static void priv_save_event (RakiaMediaSession *self);
-static void priv_zap_event (RakiaMediaSession *self);
-
 static void rakia_media_session_init (RakiaMediaSession *self)
 {
   RakiaMediaSessionPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
@@ -201,10 +153,8 @@ static void rakia_media_session_init (RakiaMediaSession *self)
 
   self->priv = priv;
 
-  priv->state = RAKIA_MEDIA_SESSION_STATE_CREATED;
   priv->hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
   priv->hold_reason = TP_LOCAL_HOLD_STATE_REASON_NONE;
-  priv->rtcp_enabled = TRUE;
 
   /* allocate any data required by the object here */
   priv->streams = g_ptr_array_new ();
@@ -246,8 +196,8 @@ static void rakia_media_session_get_property (GObject    *object,
     case PROP_OBJECT_PATH:
       g_value_set_string (value, priv->object_path);
       break;
-    case PROP_NUA_OP:
-      g_value_set_pointer (value, priv->nua_op);
+    case PROP_SIP_SESSION:
+      g_value_set_object (value, priv->sipsession);
       break;
     case PROP_PEER:
       g_value_set_uint (value, priv->peer);
@@ -258,18 +208,10 @@ static void rakia_media_session_get_property (GObject    *object,
     case PROP_HOLD_STATE_REASON:
       g_value_set_uint (value, priv->hold_reason);
       break;
-    case PROP_REMOTE_PTIME:
-      g_value_set_string (value, priv->remote_ptime);
-      break;
-    case PROP_REMOTE_MAX_PTIME:
-      g_value_set_string (value, priv->remote_max_ptime);
-      break;
     case PROP_LOCAL_IP_ADDRESS:
       g_value_set_string (value, priv->local_ip_address);
       break;
-    case PROP_RTCP_ENABLED:
-      g_value_set_boolean (value, priv->rtcp_enabled);
-      break;
+
     case PROP_STUN_SERVERS:
       {
         /* TODO: should be able to get all entries from the DNS lookup(s).
@@ -336,12 +278,8 @@ static void rakia_media_session_set_property (GObject      *object,
       g_assert (priv->object_path == NULL);
       priv->object_path = g_value_dup_string (value);
       break;
-    case PROP_NUA_OP:
-      /* you can only set the NUA handle once - migrating a media session
-       * between two NUA handles makes no sense */
-      g_return_if_fail (priv->nua_op == NULL);
-      priv->nua_op = g_value_get_pointer (value);
-      nua_handle_ref (priv->nua_op);
+    case PROP_SIP_SESSION:
+      priv->sipsession = g_value_dup_object (value);
       break;
     case PROP_PEER:
       priv->peer = g_value_get_uint (value);
@@ -393,10 +331,11 @@ rakia_media_session_class_init (RakiaMediaSessionClass *klass)
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_OBJECT_PATH, param_spec);
 
-  param_spec = g_param_spec_pointer ("nua-handle", "NUA handle",
-      "NUA stack operation handle associated with this media session.",
+  param_spec = g_param_spec_object ("sip-session", "RakiaSipSession object",
+      "SIP session object that is used for this SIP media channel object.",
+      RAKIA_TYPE_SIP_SESSION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_NUA_OP, param_spec);
+  g_object_class_install_property (object_class, PROP_SIP_SESSION, param_spec);
 
   param_spec = g_param_spec_uint ("peer", "Session peer",
       "The TpHandle representing the contact with whom this session communicates.",
@@ -421,46 +360,17 @@ rakia_media_session_class_init (RakiaMediaSessionClass *klass)
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_HOLD_STATE_REASON, param_spec);
 
-  param_spec = g_param_spec_string ("remote-ptime",
-      "a=ptime value of remote media session",
-      "Value of the a=ptime attribute of the remote media session, or NULL",
-      NULL,
-      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_REMOTE_PTIME, param_spec);
-
-  param_spec = g_param_spec_string ("remote-max-ptime",
-      "a=maxptime value of remote media session",
-      "Value of the a=maxptime attribute of the remote media session, or NULL",
-      NULL,
-      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_REMOTE_MAX_PTIME, param_spec);
-
   param_spec = g_param_spec_string ("local-ip-address", "Local IP address",
       "The local IP address preferred for media streams",
       NULL,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_LOCAL_IP_ADDRESS, param_spec);
 
-  param_spec = g_param_spec_boolean ("rtcp-enabled", "RTCP enabled",
-      "Is RTCP enabled session-wide",
-      TRUE,
-      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_RTCP_ENABLED, param_spec);
-
   param_spec = g_param_spec_boxed ("stun-servers", "STUN servers",
       "Array of IP address-port pairs for available STUN servers",
       TP_ARRAY_TYPE_SOCKET_ADDRESS_IP_LIST,
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_STUN_SERVERS, param_spec);
-
-  signals[SIG_STATE_CHANGED] =
-    g_signal_new ("state-changed",
-                  G_OBJECT_CLASS_TYPE (klass),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  _rakia_marshal_VOID__UINT_UINT,
-                  G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
 
   signals[SIG_DTMF_READY] =
       g_signal_new ("dtmf-ready",
@@ -484,10 +394,9 @@ rakia_media_session_dispose (GObject *object)
 
   priv->dispose_has_run = TRUE;
 
-  if (priv->glare_timer_id)
-    g_source_remove (priv->glare_timer_id);
-
   tp_clear_object (&priv->dbus_daemon);
+
+  tp_clear_object (&priv->sipsession);
 
   if (G_OBJECT_CLASS (rakia_media_session_parent_class)->dispose)
     G_OBJECT_CLASS (rakia_media_session_parent_class)->dispose (object);
@@ -502,9 +411,6 @@ rakia_media_session_finalize (GObject *object)
   RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   guint i;
 
-  /* terminating the session should have discarded the NUA handle */
-  g_assert (priv->nua_op == NULL);
-
   /* free any data held directly by the object here */
 
   for (i = 0; i < priv->streams->len; i++) {
@@ -517,16 +423,6 @@ rakia_media_session_finalize (GObject *object)
   }
   g_ptr_array_free(priv->streams, TRUE);
 
-  priv_zap_event (self);
-
-  if (priv->home != NULL)
-    su_home_unref (priv->home);
-  if (priv->backup_home != NULL)
-    su_home_unref (priv->backup_home);
-
-  g_free (priv->local_sdp);
-  g_free (priv->remote_ptime);
-  g_free (priv->remote_max_ptime);
   g_free (priv->local_ip_address);
   g_free (priv->object_path);
 
@@ -549,11 +445,12 @@ rakia_media_session_error (TpSvcMediaSessionHandler *iface,
                          const gchar *message,
                          DBusGMethodInvocation *context)
 {
-  RakiaMediaSession *obj = RAKIA_MEDIA_SESSION (iface);
+  RakiaMediaSession *self = RAKIA_MEDIA_SESSION (iface);
+  RakiaMediaSessionPrivate *priv = self->priv;
 
   SESSION_DEBUG (obj, "Media.SessionHandler::Error called (%s), terminating session", message);
 
-  rakia_media_session_terminate (obj);
+  rakia_sip_session_terminate (priv->sipsession);
 
   tp_svc_media_session_handler_return_from_error (context);
 }
@@ -626,13 +523,6 @@ rakia_media_session_get_peer (RakiaMediaSession *session)
   return priv->peer;
 }
 
-RakiaMediaSessionState
-rakia_media_session_get_state (RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  return priv->state;
-}
-
 static gboolean
 rakia_media_session_supports_media_type (guint media_type)
 {
@@ -646,21 +536,6 @@ rakia_media_session_supports_media_type (guint media_type)
 }
 
 static void
-priv_close_all_streams (RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  guint i;
-  for (i = 0; i < priv->streams->len; i++)
-    {
-      RakiaMediaStream *stream;
-      stream = g_ptr_array_index (priv->streams, i);
-      if (stream != NULL)
-        rakia_media_stream_close (stream);
-      g_assert (g_ptr_array_index (priv->streams, i) == NULL);
-    }
-}
-
-static void
 priv_apply_streams_pending_direction (RakiaMediaSession *session,
                                       guint pending_send_mask)
 {
@@ -670,7 +545,7 @@ priv_apply_streams_pending_direction (RakiaMediaSession *session,
 
   /* If there has been a local change pending a re-INVITE,
    * suspend remote approval until the next transaction */
-  if (priv->pending_offer)
+  if (rakia_sip_session_pending_offer (priv->sipsession))
     pending_send_mask &= ~(guint)TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
 
   /* Apply the pending direction changes */
@@ -682,180 +557,6 @@ priv_apply_streams_pending_direction (RakiaMediaSession *session,
     }
 }
 
-void
-rakia_media_session_change_state (RakiaMediaSession *session,
-                                RakiaMediaSessionState new_state)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  guint old_state;
-
-  if (priv->state == new_state)
-    return;
-
-  SESSION_DEBUG (session, "changing state to %s", session_states[new_state]);
-
-  old_state = priv->state;
-  priv->state = new_state;
-
-  switch (new_state)
-    {
-    case RAKIA_MEDIA_SESSION_STATE_CREATED:
-    case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-    case RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-    case RAKIA_MEDIA_SESSION_STATE_INVITE_SENT:
-    case RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT:
-    case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-    case RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING:
-      break;
-    case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
-      /* Apply any pending remote send after outgoing INVITEs.
-       * We don't want automatic removal of pending local send after
-       * responding to incoming re-INVITEs, however */
-      priv_apply_streams_pending_direction (session,
-          TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
-      break;
-    case RAKIA_MEDIA_SESSION_STATE_ENDED:
-      priv_close_all_streams (session);
-      SESSION_DEBUG (session, "destroying the NUA handle %p", priv->nua_op);
-      if (priv->nua_op != NULL)
-        {
-          nua_handle_destroy (priv->nua_op);
-          priv->nua_op = NULL;
-        }
-      break;
-    case NUM_RAKIA_MEDIA_SESSION_STATES:
-      g_assert_not_reached();
-
-      /* Don't add default because we want to be warned by the compiler
-       * about unhandled states */
-    }
-
-  g_signal_emit (session, signals[SIG_STATE_CHANGED], 0, old_state, new_state);
-
-  if (new_state == RAKIA_MEDIA_SESSION_STATE_ACTIVE && priv->pending_offer)
-    priv_session_invite (session, TRUE);
-}
-
-void rakia_media_session_terminate (RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-
-  DEBUG ("enter");
-
-  if (priv->state == RAKIA_MEDIA_SESSION_STATE_ENDED)
-    return;
-
-  /* XXX: taken care of by the state change? */
-  priv_close_all_streams (session);
-
-  if (priv->nua_op != NULL)
-    {
-      /* XXX: should the stack do pretty much the same
-       * (except freeing the saved event) upon nua_handle_destroy()? */
-      switch (priv->state)
-        {
-        case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
-        case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-        case RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT:
-        case RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING:
-          SESSION_DEBUG (session, "sending BYE");
-          nua_bye (priv->nua_op, TAG_END());
-          break;
-        case RAKIA_MEDIA_SESSION_STATE_INVITE_SENT:
-          SESSION_DEBUG (session, "sending CANCEL");
-          nua_cancel (priv->nua_op, TAG_END());
-          break;
-        case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-          SESSION_DEBUG (session, "sending the 480 response to an incoming INVITE");
-          nua_respond (priv->nua_op, 480, "Terminated", TAG_END());
-          break;
-        case RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-          if (priv->saved_event[0])
-            {
-              SESSION_DEBUG (session, "sending the 480 response to an incoming re-INVITE");
-              nua_respond (priv->nua_op, 480, "Terminated",
-                           NUTAG_WITH(nua_saved_event_request (priv->saved_event)),
-                           TAG_END());
-              nua_destroy_event (priv->saved_event);
-            }
-          SESSION_DEBUG (session, "sending BYE to terminate the call itself");
-          nua_bye (priv->nua_op, TAG_END());
-          break;
-        default:
-          /* let the Sofia stack decide what do to */;
-        }
-    }
-
-  rakia_media_session_change_state (session, RAKIA_MEDIA_SESSION_STATE_ENDED);
-}
-
-gboolean
-rakia_media_session_set_remote_media (RakiaMediaSession *session,
-                                    const sdp_session_t* sdp)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  gboolean authoritative;
-
-  DEBUG ("enter");
-
-  if (priv->state == RAKIA_MEDIA_SESSION_STATE_INVITE_SENT
-      || priv->state == RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT)
-    {
-      rakia_media_session_change_state (
-                session,
-                RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED);
-    }
-  else
-    {
-      /* Remember the m= line count in the remote offer,
-       * to match it with exactly this number of answer lines */
-      sdp_media_t *media;
-      guint count = 0;
-
-      for (media = sdp->sdp_media; media != NULL; media = media->m_next)
-        ++count;
-
-      priv->remote_stream_count = count;
-    }
-
-  /* Shortcut session non-updates */
-  if (!sdp_session_cmp (priv->remote_sdp, sdp))
-    goto finally;
-
-  /* Delete a backup session structure, if any */
-  if (priv->backup_remote_sdp != NULL)
-    {
-      priv->backup_remote_sdp = NULL;
-      g_assert (priv->backup_home != NULL);
-      su_home_unref (priv->backup_home);
-      priv->backup_home = NULL;
-    }
-  /* Back up the old session.
-   * The streams still need the old media descriptions */
-  if (priv->remote_sdp != NULL)
-    {
-      g_assert (priv->home != NULL);
-      g_assert (priv->backup_home == NULL);
-      priv->backup_home = priv->home;
-      priv->backup_remote_sdp = priv->remote_sdp;
-    }
-
-  /* Store the session description structure */
-  priv->home = su_home_create ();
-  priv->remote_sdp = sdp_session_dup (priv->home, sdp);
-  g_return_val_if_fail (priv->remote_sdp != NULL, FALSE);
-
-  authoritative = (priv->state == RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED
-                || priv->state == RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
-  if (!priv_update_remote_media (session, authoritative))
-    return FALSE;
-
-finally:
-  /* Make sure to always transition states and send out the response,
-   * even if no stream-engine roundtrips were initiated */
-  priv_request_response_step (session);
-  return TRUE;
-}
 
 void
 priv_add_stream_list_entry (GPtrArray *list,
@@ -940,8 +641,6 @@ gboolean rakia_media_session_request_streams (RakiaMediaSession *session,
     priv_add_stream_list_entry (ret, stream, session);
   }
 
-  priv_local_media_changed (session);
-
   return TRUE;
 }
 
@@ -950,7 +649,9 @@ rakia_media_session_remove_streams (RakiaMediaSession *self,
                                   const GArray *stream_ids,
                                   GError **error)
 {
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   RakiaMediaStream *stream;
+  RakiaSipMedia *media;
   guint stream_id;
   guint i;
 
@@ -962,10 +663,12 @@ rakia_media_session_remove_streams (RakiaMediaSession *self,
       stream = rakia_media_session_get_stream (self, stream_id, error);
       if (stream == NULL)
         return FALSE;
+      media = rakia_media_stream_get_media (stream);
       rakia_media_stream_close (stream);
+      rakia_sip_session_remove_media (priv->sipsession, media);
     }
 
-  priv_local_media_changed (self);
+  rakia_sip_session_media_changed (priv->sipsession);
 
   return TRUE;
 }
@@ -985,6 +688,15 @@ void rakia_media_session_list_streams (RakiaMediaSession *session,
     }
 }
 
+
+static gboolean
+rakia_media_session_is_local_hold_ongoing (RakiaMediaSession *self)
+{
+  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
+  return (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD
+          || priv->hold_state == TP_LOCAL_HOLD_STATE_PENDING_HOLD);
+}
+
 gboolean
 rakia_media_session_request_stream_direction (RakiaMediaSession *self,
                                               guint stream_id,
@@ -993,6 +705,7 @@ rakia_media_session_request_stream_direction (RakiaMediaSession *self,
 {
   RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   RakiaMediaStream *stream;
+  RakiaSipSessionState state;
 
   stream = rakia_media_session_get_stream (self, stream_id, error);
   if (stream == NULL)
@@ -1002,203 +715,52 @@ rakia_media_session_request_stream_direction (RakiaMediaSession *self,
       return FALSE;
     }
 
+  state = rakia_sip_session_get_state (priv->sipsession);
+
   SESSION_DEBUG (self, "direction %u requested for stream %u",
       direction, stream_id);
 
-  if (priv->state == RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED
-      || priv->state == RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED)
+  if (state == RAKIA_SIP_SESSION_STATE_INVITE_RECEIVED
+      || state == RAKIA_SIP_SESSION_STATE_REINVITE_RECEIVED)
     {
       /* While processing a session offer, we can only mask out direction
        * requested by the remote peer */
-      direction &= rakia_media_stream_get_requested_direction (stream);
+      direction &= rakia_sip_media_get_requested_direction (
+          rakia_media_stream_get_media (stream));
     }
 
-  rakia_media_stream_set_direction (stream,
-                                    direction,
-                                    TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
+  if (rakia_media_session_is_local_hold_ongoing (self))
+    direction = RAKIA_DIRECTION_NONE;
+
+  rakia_sip_media_set_requested_direction (
+      rakia_media_stream_get_media (stream), direction);
 
   return TRUE;
 }
 
-static void
-priv_save_event (RakiaMediaSession *self)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
-  RakiaBaseConnection *conn = NULL;
-
-  priv_zap_event (self);
-
-  g_object_get (priv->channel, "connection", &conn, NULL);
-
-  g_return_if_fail (conn != NULL);
-
-  rakia_base_connection_save_event (conn, priv->saved_event);
-
-  g_object_unref (conn);
-
-#ifdef ENABLE_DEBUG
-  {
-    nua_event_data_t const *ev_data = nua_event_data (priv->saved_event);
-    g_assert (ev_data != NULL);
-    DEBUG("saved the last event: %s %hd %s", nua_event_name (ev_data->e_event), ev_data->e_status, ev_data->e_phrase);
-  }
-#endif
-}
-
-static void
-priv_zap_event (RakiaMediaSession *self)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
-
-  if (priv->saved_event[0])
-    {
-      nua_event_data_t const *ev_data = nua_event_data (priv->saved_event);
-      g_assert (ev_data != NULL);
-      WARNING ("zapping unhandled saved event '%s'", nua_event_name (ev_data->e_event));
-      nua_destroy_event (priv->saved_event);
-    }
-}
-
-void
-rakia_media_session_receive_invite (RakiaMediaSession *self)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
-
-  g_return_if_fail (priv->state == RAKIA_MEDIA_SESSION_STATE_CREATED);  
-  g_return_if_fail (priv->nua_op != NULL);
-
-  priv->remote_initiated = TRUE;
-
-  nua_respond (priv->nua_op, SIP_180_RINGING, TAG_END());
-
-  rakia_media_session_change_state (self, RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED);
-}
-
-void
-rakia_media_session_receive_reinvite (RakiaMediaSession *self)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
-
-  /* Check for permitted state transitions */
-  switch (priv->state)
-    {
-    case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
-    case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-      break;
-    case RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING:
-      g_source_remove (priv->glare_timer_id);
-      break;
-    default:
-      g_return_if_reached ();
-    }
-
-  priv_save_event (self);
-
-  rakia_media_session_change_state (self, RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED);
-}
 
 void
 rakia_media_session_accept (RakiaMediaSession *self)
 {
   RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
 
-  if (priv->accepted)
+  if (rakia_sip_session_is_accepted (priv->sipsession))
     return;
 
   SESSION_DEBUG (self, "accepting the session");
 
-  priv->accepted = TRUE;
+  rakia_sip_session_accept (priv->sipsession);
 
   /* Apply the pending send flags */
   priv_apply_streams_pending_direction (self,
       TP_MEDIA_STREAM_PENDING_LOCAL_SEND |
       TP_MEDIA_STREAM_PENDING_REMOTE_SEND);
 
-  /* Will change session state to active when streams are ready */
-  priv_request_response_step (self);
-
   /* Can play the DTMF dialstring if an audio stream is connected */
   if (priv->audio_connected)
     g_signal_emit (self, signals[SIG_DTMF_READY], 0);
 }
 
-void
-rakia_media_session_respond (RakiaMediaSession *self,
-                             gint status,
-                             const char *message)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
-
-  SESSION_DEBUG (self, "responding: %03d %s", status, message ? message : "");
-
-  if (message != NULL && !message[0])
-    message = NULL;
-
-  if (priv->nua_op)
-    nua_respond (priv->nua_op, status, message, TAG_END());
-}
-
-gboolean rakia_media_session_is_accepted (RakiaMediaSession *self)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
-  return priv->accepted;
-}
-
-static gboolean
-priv_glare_retry (gpointer session)
-{
-  RakiaMediaSession *self = session;
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
-
-  SESSION_DEBUG (self, "glare resolution interval is over");
-
-  if (priv->state == RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING)
-    priv_session_invite (self, TRUE);
-
-  /* Reap the timer */
-  priv->glare_timer_id = 0;
-  return FALSE;
-}
-
-void
-rakia_media_session_resolve_glare (RakiaMediaSession *self)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
-  guint interval;
-
-  if (priv->state != RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT)
-    {
-      SESSION_DEBUG (self, "glare resolution triggered in unexpected state");
-      return;
-    }
-
-  /*
-   * Set the grace interval accordinlgly to RFC 3261 section 14.1:
-   *
-   *  1. If the UAC is the owner of the Call-ID of the dialog ID
-   *     (meaning it generated the value), T has a randomly chosen value
-   *     between 2.1 and 4 seconds in units of 10 ms.
-   *  2. If the UAC is not the owner of the Call-ID of the dialog ID, T
-   *     has a randomly chosen value of between 0 and 2 seconds in units
-   *     of 10 ms.
-   */
-  if (priv->pending_offer)
-    interval = 0;       /* cut short, we have new things to negotiate */
-  else if (priv->remote_initiated)
-    interval = g_random_int_range (0, 200) * 10;
-  else
-    interval = g_random_int_range (210, 400) * 10;
-
-  if (priv->glare_timer_id != 0)
-    g_source_remove (priv->glare_timer_id);
-
-  priv->glare_timer_id = g_timeout_add (interval, priv_glare_retry, self);
-
-  SESSION_DEBUG (self, "glare resolution interval %u msec", interval);
-
-  rakia_media_session_change_state (
-        self, RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING);
-}
 
 static RakiaMediaStream *
 rakia_media_session_get_stream (RakiaMediaSession *self,
@@ -1234,14 +796,6 @@ rakia_media_session_get_hold_state (RakiaMediaSession *self)
 {
   RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   return priv->hold_state;
-}
-
-static gboolean
-rakia_media_session_is_local_hold_ongoing (RakiaMediaSession *self)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
-  return (priv->hold_state == TP_LOCAL_HOLD_STATE_HELD
-          || priv->hold_state == TP_LOCAL_HOLD_STATE_PENDING_HOLD);
 }
 
 static void
@@ -1307,10 +861,9 @@ priv_finalize_hold (RakiaMediaSession *self)
   RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (self);
   RakiaMediaStream *stream;
   TpLocalHoldState final_hold_state;
-  guint hold_mask;
-  guint unhold_mask;
   guint i;
   gboolean held = FALSE;
+  RakiaDirection dir;
 
   DEBUG("enter");
 
@@ -1341,14 +894,12 @@ priv_finalize_hold (RakiaMediaSession *self)
   if (held)
     {
       final_hold_state = TP_LOCAL_HOLD_STATE_HELD;
-      hold_mask = TP_MEDIA_STREAM_DIRECTION_SEND;
-      unhold_mask = 0;
+      dir = RAKIA_DIRECTION_NONE;
     }
   else
     {
       final_hold_state = TP_LOCAL_HOLD_STATE_UNHELD;
-      hold_mask = TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
-      unhold_mask = TP_MEDIA_STREAM_DIRECTION_RECEIVE;
+      dir = RAKIA_DIRECTION_BIDIRECTIONAL;
     }
 
   priv->hold_state = final_hold_state;
@@ -1361,13 +912,8 @@ priv_finalize_hold (RakiaMediaSession *self)
       stream = g_ptr_array_index(priv->streams, i);
       if (stream != NULL)
         {
-          guint direction = rakia_media_stream_get_requested_direction (stream);
-          direction &= hold_mask;
-          direction |= unhold_mask;
-          rakia_media_stream_set_direction (stream,
-              direction,
-              TP_MEDIA_STREAM_PENDING_REMOTE_SEND
-                  | TP_MEDIA_STREAM_PENDING_LOCAL_SEND);
+          rakia_sip_media_set_requested_direction (
+              rakia_media_stream_get_media (stream), dir);
         }
     }
 }
@@ -1476,492 +1022,11 @@ rakia_media_session_rate_native_transport (RakiaMediaSession *session,
 }
 
 static void
-priv_session_set_streams_playing (RakiaMediaSession *session, gboolean playing)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  RakiaMediaStream *stream;
-  guint i;
-
-  for (i = 0; i < priv->streams->len; i++)
-    {
-      stream = g_ptr_array_index(priv->streams, i);
-      if (stream != NULL)
-        rakia_media_stream_set_playing (stream, playing);
-    }
-}
-
-static void
-priv_local_media_changed (RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-
-  switch (priv->state)
-    {
-    case RAKIA_MEDIA_SESSION_STATE_CREATED:
-      /* If all streams are ready, send an offer now */
-      priv_request_response_step (session);
-      break;
-    case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-    case RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-      /* The changes to existing streams will be included in the
-       * eventual answer (FIXME: implement postponed direction changes,
-       * which are applied after the remote offer has been processed).
-       * Check, however, if there are new streams not present in the
-       * remote offer, that will need another offer-answer round */
-      if (priv->remote_stream_count < priv->streams->len)
-        priv->pending_offer = TRUE;
-      break;
-    case RAKIA_MEDIA_SESSION_STATE_INVITE_SENT:
-    case RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT:
-    case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-      /* Cannot send another offer right now */
-      priv->pending_offer = TRUE;
-      break;
-    case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
-      /* Check if we are allowed to send re-INVITES */
-      {
-        gboolean immutable_streams = FALSE;
-        g_object_get (priv->channel,
-            "immutable-streams", &immutable_streams,
-            NULL);
-        if (immutable_streams) {
-          SESSION_MESSAGE (session, "sending of a local media update disabled by parameter 'immutable-streams'");
-          break;
-        }
-      }
-      /* Fall through to the next case */
-    case RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING:
-      if (priv->local_non_ready == 0)
-        priv_session_invite (session, TRUE);
-      else
-        priv->pending_offer = TRUE;
-      break;
-    default:
-      g_assert_not_reached();
-    }
-}
-
-static void
-priv_update_remote_hold (RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  RakiaMediaStream *stream;
-  gboolean has_streams = FALSE;
-  gboolean remote_held = TRUE;
-  guint direction;
-  guint i;
-
-  /* The call is remotely unheld if there's at least one sending stream */
-  for (i = 0; i < priv->streams->len; i++)
-    {
-      stream = g_ptr_array_index(priv->streams, i);
-      if (stream != NULL)
-        {
-          direction = rakia_media_stream_get_requested_direction (stream);
-
-          if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND) != 0)
-            remote_held = FALSE;
-
-          has_streams = TRUE;
-        }
-    }
-
-  if (!has_streams)
-    return;
-
-  SESSION_DEBUG (session, "is remotely %s", remote_held? "held" : "unheld");
-
-  if (remote_held)
-    rakia_media_channel_change_call_state (priv->channel,
-                                           priv->peer,
-                                           TP_CHANNEL_CALL_STATE_HELD,
-                                           0);
-  else
-    rakia_media_channel_change_call_state (priv->channel,
-                                           priv->peer,
-                                           0,
-                                           TP_CHANNEL_CALL_STATE_HELD);
-}
-
-gchar *
-rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs, const char *name)
-{
-  sdp_attribute_t *attr;
-
-  attr = sdp_attribute_find (attrs, name);
-  if (attr == NULL)
-    return NULL;
-
-  return g_strdup (attr->a_value);
-}
-
-static gboolean
-priv_update_remote_media (RakiaMediaSession *session, gboolean authoritative)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  const sdp_session_t *sdp = priv->remote_sdp;
-  const sdp_media_t *media;
-  gboolean has_supported_media = FALSE;
-  guint direction_up_mask;
-  guint pending_send_mask;
-  guint i;
-
-  g_return_val_if_fail (sdp != NULL, FALSE);
-
-  /* Update the session-wide parameters
-   * before updating streams' media */
-
-  priv->remote_ptime     = rakia_sdp_get_string_attribute (
-      sdp->sdp_attributes, "ptime");
-  priv->remote_max_ptime = rakia_sdp_get_string_attribute (
-      sdp->sdp_attributes, "maxptime");
-
-  priv->rtcp_enabled = !rakia_sdp_rtcp_bandwidth_throttled (
-                                sdp->sdp_bandwidths);
-
-  /*
-   * Do not allow:
-   * 1) an answer to bump up directions beyond what's been offered;
-   * 2) an offer to remove the local hold.
-   */
-  if (authoritative)
-    direction_up_mask
-        = rakia_media_session_is_local_hold_ongoing (session)
-                ? TP_MEDIA_STREAM_DIRECTION_SEND
-                : TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
-  else
-    direction_up_mask = 0;
-
-  /* A remote media requesting to enable sending would need local approval.
-   * Also, if there have been any local media updates pending a re-INVITE,
-   * keep or bump the pending remote send flag on the streams: it will
-   * be resolved in the next re-INVITE transaction */
-  pending_send_mask = TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
-  if (priv->pending_offer)
-    pending_send_mask |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
-
-  media = sdp->sdp_media;
-
-  /* note: for each session, we maintain an ordered list of
-   *       streams (SDP m-lines) which are matched 1:1 to
-   *       the streams of the remote SDP */
-
-  for (i = 0; media != NULL; media = media->m_next, i++)
-    {
-      RakiaMediaStream *stream = NULL;
-      guint media_type;
-
-      media_type = rakia_tp_media_type (media->m_type);
-
-      if (i >= priv->streams->len)
-        stream = rakia_media_session_add_stream (
-                        session,
-                        media_type,
-                        rakia_media_stream_direction_from_remote_media (media),
-                        FALSE);
-      else
-        stream = g_ptr_array_index(priv->streams, i);
-
-      /* note: it is ok for the stream to be NULL (unsupported media type) */
-      if (stream == NULL)
-        continue;
-
-      SESSION_DEBUG (session, "setting remote SDP for stream %u", i);
-
-      if (media->m_rejected)
-        {
-          SESSION_DEBUG (session, "the stream has been rejected, closing");
-        }
-      else if (rakia_media_stream_get_media_type (stream) != media_type)
-        {
-          /* XXX: close this stream and create a new one in its place? */
-          WARNING ("The peer has changed the media type, don't know what to do");
-        }
-      else if (rakia_media_stream_set_remote_media (stream,
-                                                    media,
-                                                    direction_up_mask,
-                                                    pending_send_mask))
-        {
-          has_supported_media = TRUE;
-          continue;
-        }
-
-      /* There have been problems with the stream update, kill the stream */
-      rakia_media_stream_close (stream);
-    }
-  g_assert(media == NULL);
-  g_assert(i <= priv->streams->len);
-  g_assert(!authoritative || i == priv->remote_stream_count);
-
-  if (i < priv->streams->len && !priv->pending_offer)
-    {
-      /*
-       * It's not defined what we should do if there are previously offered
-       * streams not accounted in the remote SDP, in violation of RFC 3264.
-       * Closing them off serves resource preservation and gives better
-       * clue to the client as to the real state of the session.
-       * Note that this situation is masked if any local media updates
-       * have been requested and are pending until the present remote session
-       * answer is received and applied. In such a case, we'll issue a new offer
-       * at the closest available time, with the "overhanging" stream entries
-       * intact.
-       */
-      do
-        {
-          RakiaMediaStream *stream;
-          stream = g_ptr_array_index(priv->streams, i);
-          if (stream != NULL)
-            {
-              SESSION_MESSAGE (session, "closing a mismatched stream %u", i);
-              rakia_media_stream_close (stream);
-            }
-        }
-      while (++i < priv->streams->len);
-    }
-
-  if (has_supported_media)
-    priv_update_remote_hold (session);
-
-  DEBUG("exit");
-
-  return has_supported_media;
-}
-
-static void
-priv_session_rollback (RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-
-  DEBUG("enter");
-
-  if (priv->remote_sdp != NULL)
-    {
-      priv->remote_sdp = NULL;
-      g_assert (priv->home != NULL);
-      su_home_unref (priv->home);
-      priv->home = NULL;
-    }
-  if (priv->backup_remote_sdp == NULL)
-    {
-      rakia_media_session_terminate (session);
-      return;
-    }
-
-  /* restore remote SDP from the backup */
-  priv->remote_sdp = priv->backup_remote_sdp;
-  g_assert (priv->backup_home != NULL);
-  priv->home = priv->backup_home;
-  priv->backup_remote_sdp = NULL;
-  priv->backup_home = NULL;
-
-  priv_update_remote_media (session, FALSE);
-
-  if (priv->saved_event[0])
-    {
-      nua_respond (priv->nua_op, SIP_488_NOT_ACCEPTABLE,
-                   NUTAG_WITH(nua_saved_event_request (priv->saved_event)),
-                   TAG_END());
-      nua_destroy_event (priv->saved_event);
-    }
-  else
-    {
-      nua_respond (priv->nua_op, SIP_488_NOT_ACCEPTABLE,
-                   TAG_END());
-    }
-
-  rakia_media_session_change_state (session, RAKIA_MEDIA_SESSION_STATE_ACTIVE);
-}
-
-static GString *
-priv_session_generate_sdp (RakiaMediaSession *session,
-                           gboolean authoritative)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  GString *user_sdp;
-  guint len;
-  guint i;
-
-  g_return_val_if_fail (priv->local_non_ready == 0, NULL);
-
-  user_sdp = g_string_new ("v=0\r\n");
-
-  len = priv->streams->len;
-  if (!authoritative && len > priv->remote_stream_count)
-    {
-      len = priv->remote_stream_count;
-      SESSION_DEBUG (session, "clamped response to %u streams seen in the offer", len);
-    }
-
-  for (i = 0; i < len; i++)
-    {
-      RakiaMediaStream *stream = g_ptr_array_index (priv->streams, i);
-      if (stream)
-        rakia_media_stream_generate_sdp (stream, user_sdp);
-      else
-        g_string_append (user_sdp, "m=audio 0 RTP/AVP 0\r\n");
-    }
-
-  return user_sdp;
-}
-
-static void
-priv_session_invite (RakiaMediaSession *session, gboolean reinvite)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  GString *user_sdp;
-
-  DEBUG("enter");
-
-  g_return_if_fail (priv->nua_op != NULL);
-
-  user_sdp = priv_session_generate_sdp (session, TRUE);
-
-  g_return_if_fail (user_sdp != NULL);
-
-  if (!reinvite
-      || priv->state == RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING
-      || tp_strdiff (priv->local_sdp, user_sdp->str))
-    {
-      g_free (priv->local_sdp);
-      priv->local_sdp = g_string_free (user_sdp, FALSE);
-
-      /* We need to be prepared to receive media right after the
-       * offer is sent, so we must set the streams to playing */
-      priv_session_set_streams_playing (session, TRUE);
-
-      nua_invite (priv->nua_op,
-                  SOATAG_USER_SDP_STR(priv->local_sdp),
-                  SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
-                  SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
-                  NUTAG_AUTOANSWER(0),
-                  TAG_IF(reinvite,
-                         NUTAG_INVITE_TIMER (RAKIA_REINVITE_TIMEOUT)),
-                  TAG_END());
-      priv->pending_offer = FALSE;
-
-      rakia_media_session_change_state (
-                session,
-                reinvite? RAKIA_MEDIA_SESSION_STATE_REINVITE_SENT
-                        : RAKIA_MEDIA_SESSION_STATE_INVITE_SENT);
-    }
-  else
-    {
-      SESSION_DEBUG (session, "SDP unchanged, not sending a re-INVITE");
-      g_string_free (user_sdp, TRUE);
-    }
-}
-
-static void
-priv_session_respond (RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  msg_t *msg;
-
-  g_return_if_fail (priv->nua_op != NULL);
-
-  {
-    GString *user_sdp = priv_session_generate_sdp (session, FALSE);
-
-    g_free (priv->local_sdp);
-    priv->local_sdp = g_string_free (user_sdp, FALSE);
-  }
-
-  /* We need to be prepared to receive media right after the
-   * answer is sent, so we must set the streams to playing */
-  priv_session_set_streams_playing (session, TRUE);
-
-  msg = (priv->saved_event[0])
-            ? nua_saved_event_request (priv->saved_event) : NULL;
-
-  nua_respond (priv->nua_op, SIP_200_OK,
-               TAG_IF(msg, NUTAG_WITH(msg)),
-               SOATAG_USER_SDP_STR(priv->local_sdp),
-               SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
-               SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
-               NUTAG_AUTOANSWER(0),
-               TAG_END());
-
-  if (priv->saved_event[0])
-    nua_destroy_event (priv->saved_event);
-
-  rakia_media_session_change_state (session, RAKIA_MEDIA_SESSION_STATE_ACTIVE);
-}
-
-static gboolean
-priv_is_codec_intersect_pending (RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-  guint i;
-
-  for (i = 0; i < priv->streams->len; i++)
-    {
-      RakiaMediaStream *stream = g_ptr_array_index (priv->streams, i);
-      if (stream != NULL
-          && rakia_media_stream_is_codec_intersect_pending (stream))
-        return TRUE;
-    }
-
-  return FALSE;
-}
-
-/**
- * Sends requests and responses with an outbound offer/answer
- * if all streams of the session are prepared.
- * 
- * Following inputs are considered in decision making:
- *  - state of the session (is remote INVITE being handled)  
- *  - status of local streams (set up with stream-engine)
- *  - whether session is locally accepted
- */
-static void
-priv_request_response_step (RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-
-  if (priv->local_non_ready != 0)
-    {
-      SESSION_DEBUG (session, "there are local streams not ready, postponed");
-      return;
-    }
-
-  switch (priv->state)
-    {
-    case RAKIA_MEDIA_SESSION_STATE_CREATED:
-      priv_session_invite (session, FALSE);
-      break;
-    case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-      if (priv->accepted
-          && !priv_is_codec_intersect_pending (session))
-        rakia_media_session_change_state (session,
-                                        RAKIA_MEDIA_SESSION_STATE_ACTIVE);
-      break;
-    case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-      /* TODO: if the call has not yet been accepted locally
-       * and the remote endpoint supports 100rel, send them
-       * an early session answer in a reliable 183 response */
-      if (priv->accepted
-          && !priv_is_codec_intersect_pending (session))
-        priv_session_respond (session);
-      break;
-    case RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-      if (!priv_is_codec_intersect_pending (session))
-        priv_session_respond (session);
-      break;
-    case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
-    case RAKIA_MEDIA_SESSION_STATE_REINVITE_PENDING:
-      if (priv->pending_offer)
-        priv_session_invite (session, TRUE);
-      break;
-    default:
-      SESSION_DEBUG (session, "no action taken in the current state");
-    }
-}
-
-static void
 priv_stream_close_cb (RakiaMediaStream *stream,
                       RakiaMediaSession *session)
 {
   RakiaMediaSessionPrivate *priv;
+  RakiaSipMedia *media;
   guint id;
 
   DEBUG("enter");
@@ -1971,74 +1036,14 @@ priv_stream_close_cb (RakiaMediaStream *stream,
   id = rakia_media_stream_get_id (stream);
   g_return_if_fail (g_ptr_array_index(priv->streams, id) == stream);
 
-  if (!rakia_media_stream_is_local_ready (stream))
-    {
-      g_assert (priv->local_non_ready > 0);
-      --priv->local_non_ready;
-      SESSION_DEBUG(session, "stream wasn't ready, decrement the local non ready counter to %d", priv->local_non_ready);
-    }
+  media = rakia_media_stream_get_media (stream);
+  rakia_sip_session_remove_media (priv->sipsession, media);
 
   g_object_unref (stream);
 
   g_ptr_array_index(priv->streams, id) = NULL;
 
   tp_svc_channel_type_streamed_media_emit_stream_removed (priv->channel, id);
-}
-
-static void priv_stream_ready_cb (RakiaMediaStream *stream,
-				  RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv;
-
-  DEBUG ("enter");
-
-  priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-
-  g_assert (priv->local_non_ready > 0);
-  --priv->local_non_ready;
-
-  priv_request_response_step (session);
-}
-
-static void priv_stream_supported_codecs_cb (RakiaMediaStream *stream,
-					     guint num_codecs,
-					     RakiaMediaSession *session)
-{
-  RakiaMediaSessionPrivate *priv;
-
-  priv = RAKIA_MEDIA_SESSION_GET_PRIVATE (session);
-
-  g_assert (!rakia_media_stream_is_codec_intersect_pending (stream));
-
-  if (num_codecs == 0)
-    {
-      /* This remote media description got no codec intersection. */
-      switch (priv->state)
-        {
-        case RAKIA_MEDIA_SESSION_STATE_RESPONSE_RECEIVED:
-        case RAKIA_MEDIA_SESSION_STATE_INVITE_RECEIVED:
-          SESSION_DEBUG (session, "no codec intersection, closing the stream");
-          rakia_media_stream_close (stream);
-          break;
-        case RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED:
-          /* In this case, we have the stream negotiated already,
-           * and we don't want to close it just because the remote party
-           * offers a different set of codecs.
-           * Roll back the whole session to the previously negotiated state. */
-          priv_session_rollback (session);
-          return;
-        case RAKIA_MEDIA_SESSION_STATE_ACTIVE:
-          /* We've most likely rolled back from
-           * RAKIA_MEDIA_SESSION_STATE_REINVITE_RECEIVED,
-           * but we may receive more than one empty codec intersection
-           * in the session, so we ignore the rest */
-          return;
-        default:
-          g_assert_not_reached();
-        }
-    }
-
-  priv_request_response_step (session);
 }
 
 static void
@@ -2060,7 +1065,7 @@ priv_stream_state_changed_cb (RakiaMediaStream *stream,
     {
       priv->audio_connected = TRUE;
 
-      if (priv->accepted)
+      if (rakia_sip_session_is_accepted (priv->sipsession))
         g_signal_emit (session, signals[SIG_DTMF_READY], 0);
     }
 }
@@ -2146,6 +1151,7 @@ rakia_media_session_add_stream (RakiaMediaSession *self,
     guint stream_id;
     gchar *object_path;
     guint pending_send_flags;
+    RakiaSipMedia *media;
 
     stream_id = priv->streams->len;
     object_path = g_strdup_printf ("%s/MediaStream%u",
@@ -2161,9 +1167,13 @@ rakia_media_session_add_stream (RakiaMediaSession *self,
     if (rakia_media_session_is_local_hold_ongoing (self))
       direction &= ~TP_MEDIA_STREAM_DIRECTION_RECEIVE;
 
+    media = rakia_sip_session_add_media (priv->sipsession,
+        media_type, direction, created_locally);
+
     stream = g_object_new (RAKIA_TYPE_MEDIA_STREAM,
                            "dbus-daemon", priv->dbus_daemon,
 			   "media-session", self,
+                           "sip-media", media,
 			   "media-type", media_type,
 			   "object-path", object_path,
 			   "id", stream_id,
@@ -2173,25 +1183,16 @@ rakia_media_session_add_stream (RakiaMediaSession *self,
 			   NULL);
 
     g_free (object_path);
- 
+
     g_signal_connect (stream, "close",
                       G_CALLBACK (priv_stream_close_cb),
                       self);
-    g_signal_connect (stream, "ready",
-		      G_CALLBACK (priv_stream_ready_cb),
-		      self);
-    g_signal_connect (stream, "supported-codecs",
-		      G_CALLBACK (priv_stream_supported_codecs_cb),
-		      self);
     g_signal_connect (stream, "state-changed",
                       G_CALLBACK (priv_stream_state_changed_cb),
                       self);
     g_signal_connect (stream, "direction-changed",
                       G_CALLBACK (priv_stream_direction_changed_cb),
                       priv->channel);
-    g_signal_connect_swapped (stream, "local-media-updated",
-                              G_CALLBACK (priv_local_media_changed),
-                              self);
     g_signal_connect (stream, "notify::hold-state",
                       G_CALLBACK (priv_stream_hold_state_cb),
                       self);
@@ -2240,26 +1241,9 @@ session_handler_iface_init (gpointer g_iface, gpointer iface_data)
 #undef IMPLEMENT
 }
 
-/* Checks if RTCP is not disabled with bandwidth modifiers
- * as described in RFC 3556 */
+
 gboolean
-rakia_sdp_rtcp_bandwidth_throttled (const sdp_bandwidth_t *b)
+rakia_media_session_is_accepted (RakiaMediaSession *self)
 {
-  const sdp_bandwidth_t *b_RS = NULL;
-  const sdp_bandwidth_t *b_RR = NULL;
-
-  while (b != NULL)
-    {
-      if (b->b_modifier_name != NULL)
-        {
-          if (strcmp (b->b_modifier_name, "RS") == 0)
-            b_RS = b;
-          else if (strcmp (b->b_modifier_name, "RR") == 0)
-            b_RR = b;
-        }
-      b = b->b_next;
-    }
-
-  return (b_RS != NULL && b_RS->b_value == 0
-       && b_RR != NULL && b_RR->b_value == 0);
+  return rakia_sip_session_is_accepted (self->priv->sipsession);
 }

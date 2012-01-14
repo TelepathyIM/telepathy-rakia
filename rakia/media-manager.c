@@ -36,8 +36,10 @@
 
 #include "rakia/base-connection.h"
 #include "rakia/handles.h"
+#include "rakia/sip-session.h"
 
 #include <sofia-sip/sip_status.h>
+
 
 #define DEBUG_FLAG RAKIA_DEBUG_CONNECTION
 #include "rakia/debug.h"
@@ -45,6 +47,10 @@
 static void channel_manager_iface_init (gpointer, gpointer);
 static void rakia_media_manager_constructed (GObject *object);
 static void rakia_media_manager_close_all (RakiaMediaManager *fac);
+
+
+static RakiaSipSession * new_session (RakiaMediaManager *fac, nua_handle_t *nh,
+    TpHandle handle);
 
 G_DEFINE_TYPE_WITH_CODE (RakiaMediaManager, rakia_media_manager,
     G_TYPE_OBJECT,
@@ -265,7 +271,8 @@ static RakiaMediaChannel *
 new_media_channel (RakiaMediaManager *fac,
                    TpHandle initiator,
                    TpHandle maybe_peer,
-                   GHashTable *request_properties)
+                   GHashTable *request_properties,
+                   RakiaSipSession *session)
 {
   RakiaMediaManagerPrivate *priv;
 #ifdef ENABLE_CHANNEL_TYPE_CALL
@@ -348,6 +355,7 @@ new_media_channel (RakiaMediaManager *fac,
                        "immutable-contents", immutable_streams,
                        "initial-tones", dtmf_initial_tones,
                        "nat-traversal", nat_traversal,
+                       "sip-session", session,
                        NULL);
 #else
   chan = g_object_new (RAKIA_TYPE_MEDIA_CHANNEL,
@@ -360,6 +368,7 @@ new_media_channel (RakiaMediaManager *fac,
                        "immutable-streams", immutable_streams,
                        "nat-traversal", nat_traversal,
                        "initial-tones", dtmf_initial_tones,
+                       "sip-session", session,
                        NULL);
 #endif
 
@@ -379,17 +388,76 @@ new_media_channel (RakiaMediaManager *fac,
   return chan;
 }
 
-#ifndef ENABLE_CHANNEL_TYPE_CALL
-static void
-incoming_call_cb (RakiaMediaChannel *channel,
-                  RakiaMediaManager *fac)
+
+static RakiaSipSession *
+new_session (RakiaMediaManager *fac,
+    nua_handle_t *nh,
+    TpHandle handle)
 {
-  g_signal_handlers_disconnect_by_func (channel,
-      G_CALLBACK (incoming_call_cb), fac);
-  tp_channel_manager_emit_new_channel (fac,
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
+  RakiaSipSession *session;
+  gboolean outgoing = (nh == NULL);
+  gboolean immutable_streams = FALSE;
+
+  g_object_get (priv->conn,
+      "immutable-streams", &immutable_streams,
+      NULL);
+
+  if (outgoing)
+    {
+      nh = rakia_base_connection_create_handle (
+          RAKIA_BASE_CONNECTION (priv->conn), handle);
+    }
+
+  session = rakia_sip_session_new (nh, RAKIA_BASE_CONNECTION (priv->conn),
+      !outgoing, immutable_streams);
+
+  if (outgoing)
+    {
+      nua_handle_unref (nh);
+    }
+
+  return session;
+}
+
+
+struct InviteData {
+  RakiaMediaManager *fac;
+  TpHandle handle;
+};
+
+static void
+incoming_call_cb (RakiaSipSession *session,
+    struct InviteData *idata)
+{
+#ifdef ENABLE_CHANNEL_TYPE_CALL
+  RakiaCallChannel *channel;
+#else
+  RakiaMediaChannel *channel;
+#endif
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (idata->fac);
+
+
+  g_signal_handlers_disconnect_by_func (session,
+      G_CALLBACK (incoming_call_cb), idata);
+
+#ifdef ENABLE_CHANNEL_TYPE_CALL
+  channel = new_media_channel (idata->fac, idata->handle, idata->handle, NULL,
+      session);
+#else
+  channel = new_media_channel (idata->fac, idata->handle, idata->handle, NULL,
+      session);
+#endif
+
+  g_object_unref (session);
+  rakia_handle_unref (priv->conn, idata->handle);
+
+  g_slice_free (struct InviteData, idata);
+
+  tp_channel_manager_emit_new_channel (idata->fac,
       TP_EXPORTABLE_CHANNEL (channel), NULL);
 }
-#endif
+
 
 static gboolean
 rakia_nua_i_invite_cb (TpBaseConnection    *conn,
@@ -397,10 +465,9 @@ rakia_nua_i_invite_cb (TpBaseConnection    *conn,
                        tagi_t               tags[],
                        RakiaMediaManager   *fac)
 {
-#ifndef ENABLE_CHANNEL_TYPE_CALL
-  RakiaMediaChannel *channel;
-#endif
   TpHandle handle;
+  RakiaSipSession *session;
+  struct InviteData *idata;
 
   /* figure out a handle for the identity */
 
@@ -419,25 +486,20 @@ rakia_nua_i_invite_cb (TpBaseConnection    *conn,
     {
       DEBUG("cannot handle calls from self");
       nua_respond (ev->nua_handle, 501, "Calls from self are not supported", TAG_END());
+      /* FIXME: Possible handle leak.. needs double checking ? */
       return TRUE;
     }
 
-#ifdef ENABLE_CHANNEL_TYPE_CALL
-  new_media_channel (fac, handle, handle, NULL);
-#else
-  channel = new_media_channel (fac, handle, handle, NULL);
-#endif
+  session = new_session (fac, ev->nua_handle, 0);
 
-  rakia_handle_unref (conn, handle);
-
-#ifndef ENABLE_CHANNEL_TYPE_CALL
   /* We delay emission of NewChannel(s) until we have the data on
    * initial media */
-  g_signal_connect (channel, "incoming-call",
-      G_CALLBACK (incoming_call_cb), fac);
+  idata = g_slice_new (struct InviteData);
+  idata->fac = fac;
+  idata->handle = handle;
 
-  rakia_media_channel_attach_to_nua_handle (channel, ev->nua_handle);
-#endif
+  g_signal_connect (session, "incoming-call",
+      G_CALLBACK (incoming_call_cb), fac);
 
   return TRUE;
 }
@@ -583,6 +645,7 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
   TpBaseConnection *conn = (TpBaseConnection *) priv->conn;
   TpHandleType handle_type;
   TpHandle handle;
+  RakiaSipSession *session;
 #ifdef ENABLE_CHANNEL_TYPE_CALL
   RakiaCallChannel *channel = NULL;
 #else
@@ -590,7 +653,6 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
 #endif
   GError *error = NULL;
   GSList *request_tokens;
-  gboolean require_target_handle;
   gboolean add_peer_to_remote_pending;
 
   /* Supported modes of operation:
@@ -613,12 +675,10 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
   switch (method)
     {
     case METHOD_REQUEST:
-      require_target_handle = FALSE;
       add_peer_to_remote_pending = TRUE;
       break;
     case METHOD_CREATE:
     case METHOD_ENSURE:
-      require_target_handle = TRUE;
       add_peer_to_remote_pending = FALSE;
       break;
     default:
@@ -644,25 +704,6 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
 
   switch (handle_type)
     {
-    case TP_HANDLE_TYPE_NONE:
-      g_assert (handle == 0);
-
-      if (require_target_handle)
-        {
-          g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
-              "A valid Contact handle must be provided when requesting a media "
-              "channel");
-          goto error;
-        }
-
-      if (tp_channel_manager_asv_has_unknown_properties (request_properties,
-              media_channel_fixed_properties, anon_channel_allowed_properties,
-              &error))
-        goto error;
-
-      channel = new_media_channel (self, conn->self_handle, 0, NULL);
-      break;
-
     case TP_HANDLE_TYPE_CONTACT:
       g_assert (handle != 0);
 
@@ -701,13 +742,15 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
             }
         }
 
+      session = new_session (self, NULL, handle);
 #ifdef ENABLE_CHANNEL_TYPE_CALL
       new_media_channel (self, conn->self_handle, handle,
-          request_properties);
+          request_properties, session);
 #else
       channel = new_media_channel (self, conn->self_handle, handle,
-          request_properties);
+          request_properties, session);
 #endif
+      g_object_unref (session);
 
       if (add_peer_to_remote_pending)
         {

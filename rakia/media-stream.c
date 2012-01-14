@@ -43,7 +43,9 @@
 
 #include <rakia/codec-param-formats.h>
 
+
 #include "rakia/media-session.h"
+#include "rakia/sip-session.h"
 
 #include <sofia-sip/msg_parser.h>
 
@@ -108,6 +110,7 @@ enum
   PROP_OBJECT_PATH,
   PROP_ID,
   PROP_MEDIA_TYPE,
+  PROP_SIP_MEDIA,
   PROP_STATE,
   PROP_DIRECTION,
   PROP_PENDING_SEND_FLAGS,
@@ -127,6 +130,7 @@ struct _RakiaMediaStreamPrivate
   TpDBusDaemon *dbus_daemon;
   RakiaMediaSession *session;     /* see gobj. prop. 'media-session' */
   gchar *object_path;             /* see gobj. prop. 'object-path' */
+  RakiaSipMedia *media;
   guint id;                       /* see gobj. prop. 'id' */
   guint media_type;               /* see gobj. prop. 'media-type' */
   guint state;                    /* see gobj. prop. 'state' */
@@ -134,12 +138,6 @@ struct _RakiaMediaStreamPrivate
   guint pending_send_flags;       /* see gobj. prop. 'pending-send-flags' */
   gboolean hold_state;            /* see gobj. prop. 'hold-state' */
   gboolean created_locally;       /* see gobj. prop. 'created-locally' */
-
-  GValue native_codecs;           /* intersected codec list */
-  GValue native_candidates;
-
-  const sdp_media_t *remote_media; /* pointer to the SDP media structure
-                                    *  owned by the session object */
 
   guint remote_candidate_counter;
   gchar *remote_candidate_id;
@@ -163,13 +161,9 @@ struct _RakiaMediaStreamPrivate
 
 static void push_remote_codecs (RakiaMediaStream *stream);
 static void push_remote_candidates (RakiaMediaStream *stream);
-static void push_active_candidate_pair (RakiaMediaStream *stream);
 static void priv_update_sending (RakiaMediaStream *stream,
                                  TpMediaStreamDirection direction);
 static void priv_emit_local_ready (RakiaMediaStream *stream);
-static const char *priv_get_preferred_native_candidate (
-    RakiaMediaStreamPrivate *priv,
-    const GPtrArray **transports);
 
 /***********************************************************************
  * Set: Gobject interface
@@ -182,14 +176,6 @@ rakia_media_stream_init (RakiaMediaStream *self)
       RAKIA_TYPE_MEDIA_STREAM, RakiaMediaStreamPrivate);
 
   self->priv = priv;
-
-  g_value_init (&priv->native_codecs, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST);
-  g_value_take_boxed (&priv->native_codecs,
-      dbus_g_type_specialized_construct (TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST));
-
-  g_value_init (&priv->native_candidates, TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CANDIDATE_LIST);
-  g_value_take_boxed (&priv->native_candidates,
-      dbus_g_type_specialized_construct (TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CANDIDATE_LIST));
 }
 
 static void
@@ -216,6 +202,11 @@ rakia_media_stream_constructed (GObject *obj)
       /* Block sending until the stream is remotely accepted */
       priv->pending_remote_receive = TRUE;
     }
+
+  g_signal_connect_object (priv->media, "remote-candidates-updated",
+      G_CALLBACK (push_remote_candidates), obj, G_CONNECT_SWAPPED);
+  g_signal_connect_object (priv->media, "remote-codecs-updated",
+      G_CALLBACK (push_remote_codecs), obj, G_CONNECT_SWAPPED);
 
   /* go for the bus */
   g_assert (TP_IS_DBUS_DAEMON (priv->dbus_daemon));
@@ -247,6 +238,9 @@ rakia_media_stream_get_property (GObject    *object,
       break;
     case PROP_MEDIA_TYPE:
       g_value_set_uint (value, priv->media_type);
+      break;
+    case PROP_SIP_MEDIA:
+      g_value_set_object (value, priv->media);
       break;
     case PROP_STATE:
       g_value_set_uint (value, priv->state);
@@ -305,6 +299,9 @@ rakia_media_stream_set_property (GObject      *object,
       break;
     case PROP_MEDIA_TYPE:
       priv->media_type = g_value_get_uint (value);
+      break;
+    case PROP_SIP_MEDIA:
+      priv->media = g_value_dup_object (value);
       break;
     case PROP_STATE:
       priv->state = g_value_get_uint (value);
@@ -393,6 +390,14 @@ rakia_media_stream_class_init (RakiaMediaStreamClass *klass)
       TP_MEDIA_STREAM_TYPE_AUDIO,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_MEDIA_TYPE, param_spec);
+
+
+  param_spec = g_param_spec_object ("sip-media", "RakiaSipMedia object",
+      "SIP media session object that owns this media stream object.",
+      RAKIA_TYPE_MEDIA_SESSION,
+      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_property (object_class, PROP_MEDIA_SESSION, param_spec);
+
 
   param_spec = g_param_spec_uint ("state", "Connection state",
       "Connection state of the media stream",
@@ -526,6 +531,7 @@ rakia_media_stream_dispose (GObject *object)
 
   priv->dispose_has_run = TRUE;
 
+  tp_clear_object (&priv->media);
   tp_clear_object (&priv->dbus_daemon);
 
   if (G_OBJECT_CLASS (rakia_media_stream_parent_class)->dispose)
@@ -543,8 +549,6 @@ rakia_media_stream_finalize (GObject *object)
   /* free any data held directly by the object here */
   g_free (priv->object_path);
 
-  g_value_unset (&priv->native_codecs);
-  g_value_unset (&priv->native_candidates);
 
   g_free (priv->native_candidate_id);
   g_free (priv->remote_candidate_id);
@@ -557,28 +561,6 @@ rakia_media_stream_finalize (GObject *object)
 /***********************************************************************
  * Set: Media.StreamHandler interface implementation (same for 0.12/0.13???)
  ***********************************************************************/
-
-/**
- * rakia_media_stream_codec_choice
- *
- * Implements DBus method CodecChoice
- * on interface org.freedesktop.Telepathy.Media.StreamHandler
- */
-static void
-rakia_media_stream_codec_choice (TpSvcMediaStreamHandler *iface,
-                                 guint codec_id,
-                                 DBusGMethodInvocation *context)
-{
-#ifdef ENABLE_DEBUG
-  RakiaMediaStream *self = RAKIA_MEDIA_STREAM (iface);
-#endif
-
-  /* Inform the connection manager of the current codec choice. */
-
-  STREAM_DEBUG (self, "stream engine has chosen codec %u (incoming packets received?)", codec_id);
-
-  tp_svc_media_stream_handler_return_from_codec_choice (context);
-}
 
 /**
  * rakia_media_stream_error
@@ -622,10 +604,10 @@ rakia_media_stream_native_candidates_prepared (TpSvcMediaStreamHandler *iface,
 
   priv->native_cands_prepared = TRUE;
 
+  rakia_sip_media_local_candidates_prepared (priv->media);
+
   if (priv->native_codecs_prepared)
     priv_emit_local_ready (obj);
-
-  push_active_candidate_pair (obj);
 
   tp_svc_media_stream_handler_return_from_native_candidates_prepared (context);
 }
@@ -680,46 +662,49 @@ rakia_media_stream_new_native_candidate (TpSvcMediaStreamHandler *iface,
 {
   RakiaMediaStream *obj = RAKIA_MEDIA_STREAM (iface);
   RakiaMediaStreamPrivate *priv;
-  GPtrArray *candidates;
-  GValue candidate = { 0, };
   GValue transport = { 0, };
-  gint tr_goodness;
+  guint i;
 
   priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (obj);
 
   g_return_if_fail (transports->len >= 1);
 
+
   /* Rate the preferability of the address */
   g_value_init (&transport, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT);
-  g_value_set_static_boxed (&transport, g_ptr_array_index (transports, 0));
-  tr_goodness = rakia_media_session_rate_native_transport (priv->session,
-                                                           &transport);
 
-  candidates = g_value_get_boxed (&priv->native_candidates);
-
-  if (tr_goodness > 0)
+  for (i = 0; i < transports->len; i++)
     {
-      STREAM_DEBUG (obj, "native candidate '%s' is rated as preferable", candidate_id);
-      g_free (priv->native_candidate_id);
-      priv->native_candidate_id = g_strdup (candidate_id);
+      RakiaSipCandidate *sipcandidate;
+      guint tr_component;
+      guint tr_proto = G_MAXUINT;
+      gchar *tr_ip;
+      guint tr_port;
+      gdouble tr_preference;
 
-      /* Drop the candidates received previously */
-      g_value_reset (&priv->native_candidates);
-      candidates = dbus_g_type_specialized_construct (
-                                TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CANDIDATE_LIST);
-      g_value_take_boxed (&priv->native_candidates, candidates);
+      g_value_set_static_boxed (&transport,
+          g_ptr_array_index (transports, i));
+
+      /* Find the RTP component */
+      dbus_g_type_struct_get (&transport,
+          0, &tr_component,
+          1, &tr_ip,
+          2, &tr_port,
+          3, &tr_proto,
+          6, &tr_preference,
+          G_MAXUINT);
+
+      if (tr_proto != TP_MEDIA_STREAM_BASE_PROTO_UDP)
+        continue;
+
+      sipcandidate = rakia_sip_candidate_new (tr_component,
+          tr_ip, tr_port, candidate_id, (guint) tr_preference * 65536);
+
+      g_free (tr_ip);
+
+      rakia_sip_media_take_local_candidate (priv->media, sipcandidate);
     }
 
-  g_value_init (&candidate, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CANDIDATE);
-  g_value_take_boxed (&candidate,
-      dbus_g_type_specialized_construct (TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CANDIDATE));
-
-  dbus_g_type_struct_set (&candidate,
-      0, candidate_id,
-      1, transports,
-      G_MAXUINT);
-
-  g_ptr_array_add (candidates, g_value_get_boxed (&candidate));
 
   STREAM_DEBUG(obj, "put native candidate '%s' into cache", candidate_id);
 
@@ -731,10 +716,56 @@ priv_set_local_codecs (RakiaMediaStream *self,
                        const GPtrArray *codecs)
 {
   RakiaMediaStreamPrivate *priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (self);
-
+  GPtrArray *sipcodecs = g_ptr_array_new_with_free_func (
+      (GDestroyNotify)rakia_sip_codec_free);
+  GValue codec = { 0, };
+  gchar *co_name = NULL;
+  guint co_id;
+  guint co_type;
+  guint co_clockrate;
+  guint co_channels;
+  GHashTable *co_params = NULL;
+  guint i;
   STREAM_DEBUG(self, "putting list of %d locally supported codecs into cache",
       codecs->len);
-  g_value_set_boxed (&priv->native_codecs, codecs);
+
+  g_value_init (&codec, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CODEC);
+
+  for (i = 0; i < codecs->len; i++)
+    {
+      RakiaSipCodec *sipcodec;
+      GHashTableIter iter;
+      gpointer key, value;
+
+      g_value_set_static_boxed (&codec, g_ptr_array_index (codecs, i));
+
+      dbus_g_type_struct_get (&codec,
+          0, &co_id,
+          1, &co_name,
+          2, &co_type,
+          3, &co_clockrate,
+          4, &co_channels,
+          5, &co_params,
+          G_MAXUINT);
+
+      sipcodec = rakia_sip_codec_new (co_id, co_name, co_clockrate,
+          co_channels);
+
+      g_hash_table_iter_init (&iter, co_params);
+      while (g_hash_table_iter_next (&iter, &key, &value))
+        {
+          rakia_sip_codec_add_param (sipcodec, key, value);
+        }
+
+      g_ptr_array_add (sipcodecs, sipcodec);
+
+      g_free (co_name);
+      co_name = NULL;
+      g_hash_table_unref (co_params);
+      co_params = NULL;
+    }
+
+  rakia_sip_media_take_local_codecs (priv->media, sipcodecs);
 
   priv->native_codecs_prepared = TRUE;
   if (priv->native_cands_prepared)
@@ -764,7 +795,7 @@ rakia_media_stream_codecs_updated (TpSvcMediaStreamHandler *iface,
     {
       STREAM_DEBUG (self, "putting list of %d locally supported "
           "codecs from CodecsUpdated into cache", codecs->len);
-      g_value_set_boxed (&priv->native_codecs, codecs);
+      priv_set_local_codecs (self, codecs);
 
       if (priv->native_cands_prepared)
         g_signal_emit (self, signals[SIG_LOCAL_MEDIA_UPDATED], 0);
@@ -826,9 +857,8 @@ rakia_media_stream_ready (TpSvcMediaStreamHandler *iface,
       push_remote_codecs (obj);
     }
 
-  /* note: for inbound sessions, emit active candidate pair once 
-           remote info is set */
-  push_active_candidate_pair (obj);
+
+  rakia_media_stream_set_playing (obj, TRUE);
 
   tp_svc_media_stream_handler_return_from_ready (context);
 }
@@ -904,7 +934,7 @@ rakia_media_stream_supported_codecs (TpSvcMediaStreamHandler *iface,
   /* Save the local codecs, but avoid triggering a new
    * session update at this point. If the stream engine have changed any codec
    * parameters, it is supposed to follow up with CodecsUpdated. */
-  g_value_set_boxed (&priv->native_codecs, codecs);
+  priv_set_local_codecs (self, codecs);
 
   if (priv->codec_intersect_pending)
     {
@@ -972,27 +1002,6 @@ rakia_media_stream_close (RakiaMediaStream *self)
   tp_svc_media_stream_handler_emit_close (self);
 }
 
-TpMediaStreamDirection
-rakia_media_stream_direction_from_remote_media (const sdp_media_t *media)
-{
-  sdp_mode_t mode = media->m_mode;
-  return ((mode & sdp_recvonly)? TP_MEDIA_STREAM_DIRECTION_SEND : 0)
-       | ((mode & sdp_sendonly)? TP_MEDIA_STREAM_DIRECTION_RECEIVE : 0);
-}
-
-static gboolean
-rakia_sdp_codecs_differ (const sdp_rtpmap_t *m1, const sdp_rtpmap_t *m2)
-{
-  while (m1 != NULL && m2 != NULL)
-    {
-      if (sdp_rtpmap_cmp (m1, m2) != 0)
-        return TRUE;
-      m1 = m1->rm_next;
-      m2 = m2->rm_next;
-    }
-  return m1 != NULL || m2 != NULL;
-}
-
 /*
  * Returns stream direction as requested by the latest local or remote
  * direction change.
@@ -1006,146 +1015,6 @@ priv_get_requested_direction (RakiaMediaStreamPrivate *priv)
   if ((priv->pending_send_flags & TP_MEDIA_STREAM_PENDING_LOCAL_SEND) != 0)
     direction |= TP_MEDIA_STREAM_DIRECTION_SEND;
   return direction;
-}
-
-/** 
- * Sets the remote candidates and codecs for this stream, as 
- * received via signaling.
- * 
- * Parses the SDP information, updates TP remote candidates and
- * codecs if the client is ready.
- * 
- * Note that the pointer to the media description structure is saved,
- * implying that the structure shall not go away for the lifetime of
- * the stream, preferably kept in the memory home attached to
- * the session object.
- *
- * @return TRUE if the remote information has been accepted,
- *         FALSE if the update is not acceptable.
- */
-gboolean
-rakia_media_stream_set_remote_media (RakiaMediaStream *stream,
-                                     const sdp_media_t *new_media,
-                                     guint direction_up_mask,
-                                     guint pending_send_mask)
-{
-  RakiaMediaStreamPrivate *priv;
-  sdp_connection_t *sdp_conn;
-  const sdp_media_t *old_media;
-  gboolean transport_changed = TRUE;
-  gboolean codecs_changed = TRUE;
-  guint old_direction;
-  guint new_direction;
-
-  DEBUG ("enter");
-
-  priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
-
-  /* Do sanity checks */
-
-  g_return_val_if_fail (new_media != NULL, FALSE);
-
-  if (new_media->m_rejected || new_media->m_port == 0)
-    {
-      STREAM_DEBUG (stream, "the stream is rejected remotely");
-      return FALSE;
-    }
-
-  if (new_media->m_proto != sdp_proto_rtp)
-    {
-      STREAM_MESSAGE (stream, "the remote protocol is not RTP/AVP");
-      return FALSE;
-    }
-
-  sdp_conn = sdp_media_connections (new_media);
-  if (sdp_conn == NULL)
-    {
-      STREAM_MESSAGE (stream, "no valid remote connections");
-      return FALSE;
-    }
-
-  if (new_media->m_rtpmaps == NULL)
-    {
-      STREAM_MESSAGE (stream, "no remote codecs");
-      return FALSE;
-    }
-
-  /* Note: always update the pointer to the current media structure
-   * because of memory management done in the session object */
-  old_media = priv->remote_media;
-  priv->remote_media = new_media;
-
-  /* Check if there was any media update at all */
-
-  if (sdp_media_cmp (old_media, new_media) == 0)
-    {
-      STREAM_DEBUG (stream, "no media changes detected for the stream");
-      return TRUE;
-    }
-
-  old_direction = priv_get_requested_direction (priv);
-  new_direction = rakia_media_stream_direction_from_remote_media (new_media);
-
-  /* Make sure the peer can only enable sending or receiving direction
-   * if it's allowed to */
-  new_direction &= old_direction | direction_up_mask;
-
-  if (old_media != NULL)
-    {
-      /* Check if the transport candidate needs to be changed */
-      if (!sdp_connection_cmp (sdp_media_connections (old_media), sdp_conn))
-        transport_changed = FALSE;
-
-      /* Check if the codec list needs to be updated */
-      codecs_changed = rakia_sdp_codecs_differ (old_media->m_rtpmaps,
-                                                new_media->m_rtpmaps);
-
-      /* Disable sending at this point if it will be disabled
-       * accordingly to the new direction */
-      priv_update_sending (stream,
-                           priv->direction & new_direction);
-    }
-
-  /* First add the new candidate, then update the codec set.
-   * The offerer isn't supposed to send us anything from the new transport
-   * until we accept; if it's the answer, both orderings have problems. */
-
-  if (transport_changed)
-    {
-      /* Make sure we stop sending before we use the new set of codecs
-       * intended for the new connection */
-      if (codecs_changed) 
-        rakia_media_stream_set_sending (stream, FALSE);
-
-      push_remote_candidates (stream);
-    }
-
-  if (codecs_changed)
-    {
-      if (!priv->codec_intersect_pending)
-        {
-          priv->codec_intersect_pending = TRUE;
-          push_remote_codecs (stream);
-        }
-      else
-        {
-          priv->push_remote_codecs_pending = TRUE;
-        }
-    }
-
-  /* TODO: this will go to session change commit code */
-
-  /* note: for outbound sessions (for which remote cands become
-   *       available at a later stage), emit active candidate pair 
-   *       (and playing status?) once remote info set */
-  push_active_candidate_pair (stream);
-
-  /* Set the final direction and update pending send flags */
-  rakia_media_stream_set_direction (stream,
-                                    new_direction,
-                                    pending_send_mask);
-
-  return TRUE;
 }
 
 /**
@@ -1164,6 +1033,7 @@ rakia_tp_media_type (sdp_media_e sip_mtype)
       default: return G_MAXUINT;
     }
 }
+
 
 /**
  * Sets the media state to playing or non-playing. When not playing,
@@ -1298,8 +1168,7 @@ rakia_media_stream_set_direction (RakiaMediaStream *stream,
   g_signal_emit (stream, signals[SIG_DIRECTION_CHANGED], 0,
                  priv->direction, priv->pending_send_flags);
 
-  if (priv->remote_media != NULL)
-    priv_update_sending (stream, priv->direction);
+  priv_update_sending (stream, priv->direction);
 
   if (priv->native_cands_prepared
       && priv->native_codecs_prepared
@@ -1324,8 +1193,8 @@ rakia_media_stream_apply_pending_direction (RakiaMediaStream *stream,
 
 
   /* Don't apply pending send for new streams that haven't been negotiated */
-  if (priv->remote_media == NULL)
-    return;
+  //if (priv->remote_media == NULL)
+  //  return;
 
   /* Remember the flags that got changes and then clear the set */
   flags = (priv->pending_send_flags & pending_send_mask);
@@ -1421,20 +1290,17 @@ static void push_remote_codecs (RakiaMediaStream *stream)
 {
   RakiaMediaStreamPrivate *priv;
   GPtrArray *codecs;
-  GHashTable *opt_params;
   GType codecs_type;
   GType codec_type;
-  const sdp_media_t *sdpmedia;
-  const sdp_rtpmap_t *rtpmap;
-  gchar *ptime = NULL;
-  gchar *max_ptime = NULL;
+  GPtrArray *sipcodecs;
+  guint i, j;
 
   DEBUG ("enter");
 
   priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  sdpmedia = priv->remote_media; 
-  if (sdpmedia == NULL)
+  sipcodecs = rakia_sip_media_get_remote_codecs (priv->media);
+  if (sipcodecs == NULL)
     {
       STREAM_DEBUG (stream, "remote media description is not received yet");
       return;
@@ -1447,78 +1313,53 @@ static void push_remote_codecs (RakiaMediaStream *stream)
       return;
     }
 
-  ptime = rakia_sdp_get_string_attribute (sdpmedia->m_attributes, "ptime");
-  if (ptime == NULL)
-    {
-      g_object_get (priv->session,
-          "remote-ptime", &ptime,
-          NULL);
-    }
-  max_ptime = rakia_sdp_get_string_attribute (sdpmedia->m_attributes, "maxptime");
-  if (max_ptime == NULL)
-    {
-      g_object_get (priv->session,
-          "remote-max-ptime", &max_ptime,
-          NULL);
-    }
-
   codec_type = TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CODEC;
   codecs_type = TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_CODEC_LIST;
 
   codecs = dbus_g_type_specialized_construct (codecs_type);
-  opt_params = g_hash_table_new_full (g_str_hash,
-                                      g_str_equal,
-                                      g_free,
-                                      g_free);
 
-  rtpmap = sdpmedia->m_rtpmaps;
-  while (rtpmap)
+  for (i = 0; i < sipcodecs->len; i++)
     {
       GValue codec = { 0, };
+      GHashTable *opt_params;
+      RakiaSipCodec *sipcodec = g_ptr_array_index (sipcodecs, i);
 
       g_value_init (&codec, codec_type);
       g_value_take_boxed (&codec,
                           dbus_g_type_specialized_construct (codec_type));
 
-      if (ptime != NULL)
-        g_hash_table_insert (opt_params,
-            g_strdup("ptime"), g_strdup (ptime));
-      if (max_ptime != NULL)
-        g_hash_table_insert (opt_params,
-            g_strdup("maxptime"), g_strdup (max_ptime));
+      opt_params = g_hash_table_new (g_str_hash, g_str_equal);
+      if (sipcodec->params)
+        {
+          for (j = 0; j < sipcodec->params->len; j++)
+            {
+              RakiaSipCodecParam *param =
+                  g_ptr_array_index (sipcodec->params, j);
 
-      rakia_codec_param_parse (priv->media_type, rtpmap->rm_encoding,
-          rtpmap->rm_fmtp, opt_params);
-
-      /* RFC2327: see "m=" line definition 
-       *  - note, 'encoding_params' is assumed to be channel
-       *    count (i.e. channels in farsight) */
+              g_hash_table_insert (opt_params, param->name, param->value);
+            }
+        }
 
       dbus_g_type_struct_set (&codec,
                               /* payload type: */
-                              0, rtpmap->rm_pt,
+                              0, sipcodec->id,
                               /* encoding name: */
-                              1, rtpmap->rm_encoding,
+                              1, sipcodec->encoding_name,
                               /* media type */
                               2, (guint)priv->media_type,
                               /* clock-rate */
-                              3, rtpmap->rm_rate,
+                              3, sipcodec->clock_rate,
                               /* number of supported channels: */
-                              4, rtpmap->rm_params ? atoi(rtpmap->rm_params) : 0,
+                              4, sipcodec->channels,
                               /* optional params: */
                               5, opt_params,
                               G_MAXUINT);
 
-      g_hash_table_remove_all (opt_params);
+      g_hash_table_unref (opt_params);
 
       g_ptr_array_add (codecs, g_value_get_boxed (&codec));
-
-      rtpmap = rtpmap->rm_next;
     }
 
-  g_hash_table_unref (opt_params);
-  g_free (ptime);
-  g_free (max_ptime);
 
   STREAM_DEBUG(stream, "emitting %d remote codecs to the handler",
       codecs->len);
@@ -1541,17 +1382,19 @@ static void push_remote_candidates (RakiaMediaStream *stream)
   GType candidates_type;
   GType transport_type;
   GType transports_type;
-  const sdp_media_t *media;
-  const sdp_connection_t *sdp_conn;
   gchar *candidate_id;
-  guint port;
+  GPtrArray *remote_candidates;
+  RakiaSipCandidate *rtp_cand = NULL;
+  RakiaSipCandidate *rtcp_cand = NULL;
+  guint i;
 
   DEBUG("enter");
 
   priv = RAKIA_MEDIA_STREAM_GET_PRIVATE (stream);
 
-  media = priv->remote_media; 
-  if (media == NULL)
+  remote_candidates = rakia_sip_media_get_remote_candidates (priv->media);
+
+  if (remote_candidates == NULL)
     {
       STREAM_DEBUG (stream, "remote media description is not received yet");
       return;
@@ -1564,12 +1407,26 @@ static void push_remote_candidates (RakiaMediaStream *stream)
       return;
     }
 
-  /* use the address from SDP c-line as the only remote candidate */
+  for (i = 0; i < remote_candidates->len; i++)
+    {
+      RakiaSipCandidate *tmpc = g_ptr_array_index (remote_candidates, i);
 
-  sdp_conn = sdp_media_connections (media);
-  g_return_if_fail (sdp_conn != NULL);
+      if (tmpc->component == 1)
+        {
+          rtp_cand = tmpc;
+        }
+      else if (tmpc->component == 2)
+        {
+          rtcp_cand = tmpc;
+        }
+    }
 
-  port = (guint) media->m_port;
+  if (rtp_cand == NULL)
+    {
+      STREAM_DEBUG (stream, "no rtp candidate");
+      priv->push_remote_cands_pending = TRUE;
+      return;
+    }
 
   transports_type = TP_ARRAY_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT_LIST;
   transports = dbus_g_type_specialized_construct (transports_type);
@@ -1580,8 +1437,8 @@ static void push_remote_candidates (RakiaMediaStream *stream)
                       dbus_g_type_specialized_construct (transport_type));
   dbus_g_type_struct_set (&transport,
                           0, 1,         /* component number */
-                          1, sdp_conn->c_address,
-                          2, port,
+                          1, rtp_cand->ip,
+                          2, rtp_cand->port,
                           3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
                           4, "RTP",
                           5, "AVP",
@@ -1591,59 +1448,31 @@ static void push_remote_candidates (RakiaMediaStream *stream)
                           /* 9, "", */
                           G_MAXUINT);
 
-  STREAM_DEBUG (stream, "remote RTP address=<%s>, port=<%u>", sdp_conn->c_address, port);
+  STREAM_DEBUG (stream, "remote RTP address=<%s>, port=<%u>", rtp_cand->ip,
+      rtp_cand->port);
   g_ptr_array_add (transports, g_value_get_boxed (&transport));
 
-  if (!rakia_sdp_rtcp_bandwidth_throttled (media->m_bandwidths))
+  if (rtcp_cand)
     {
-      gboolean session_rtcp_enabled = TRUE;
-      g_object_get (priv->session,
-                    "rtcp-enabled", &session_rtcp_enabled,
-                    NULL);
-      if (session_rtcp_enabled)
-        {
-          const sdp_attribute_t *rtcp_attr;
-          const char *rtcp_address;
-          guint rtcp_port;
+      g_value_init (&transport_rtcp, transport_type);
+      g_value_take_boxed (&transport_rtcp,
+          dbus_g_type_specialized_construct (transport_type));
+      dbus_g_type_struct_set (&transport_rtcp,
+          0, 2,         /* component number */
+          1, rtcp_cand->ip,
+          2, rtcp_cand->port,
+          3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
+          4, "RTP",
+          5, "AVP",
+          /* 6, 0.0f, */
+          7, TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
+          /* 8, "", */
+          /* 9, "", */
+          G_MAXUINT);
 
-          /* Get the port and optional address for RTCP accordingly to RFC 3605 */
-          rtcp_address = sdp_conn->c_address;
-          rtcp_attr = sdp_attribute_find (media->m_attributes, "rtcp");
-          if (rtcp_attr == NULL || rtcp_attr->a_value == NULL)
-            {
-              rtcp_port = port + 1;
-            }
-          else
-            {
-              const char *rest;
-              rtcp_port = (guint) g_ascii_strtoull (rtcp_attr->a_value,
-                                                    (gchar **) &rest,
-                                                    10);
-              if (rtcp_port != 0
-                  && (strncmp (rest, " IN IP4 ", 8) == 0
-                      || strncmp (rest, " IN IP6 ", 8) == 0))
-                rtcp_address = rest + 8;
-            }
-
-          g_value_init (&transport_rtcp, transport_type);
-          g_value_take_boxed (&transport_rtcp,
-                              dbus_g_type_specialized_construct (transport_type));
-          dbus_g_type_struct_set (&transport_rtcp,
-                                  0, 2,         /* component number */
-                                  1, rtcp_address,
-                                  2, rtcp_port,
-                                  3, TP_MEDIA_STREAM_BASE_PROTO_UDP,
-                                  4, "RTCP",
-                                  5, "AVP",
-                                  /* 6, 0.0f, */
-                                  7, TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
-                                  /* 8, "", */
-                                  /* 9, "", */
-                                  G_MAXUINT);
-
-          STREAM_DEBUG (stream, "remote RTCP address=<%s>, port=<%u>", rtcp_address, rtcp_port);
-          g_ptr_array_add (transports, g_value_get_boxed (&transport_rtcp));
-        }
+      STREAM_DEBUG (stream, "remote RTCP address=<%s>, port=<%u>",
+          rtcp_cand->ip, rtcp_cand->port);
+      g_ptr_array_add (transports, g_value_get_boxed (&transport_rtcp));
     }
 
   g_free (priv->remote_candidate_id);
@@ -1672,311 +1501,6 @@ static void push_remote_candidates (RakiaMediaStream *stream)
   g_boxed_free (transports_type, transports);
 }
 
-static void
-push_active_candidate_pair (RakiaMediaStream *stream)
-{
-  RakiaMediaStreamPrivate *priv = stream->priv;
-
-  if (priv->ready_received && priv->native_cands_prepared
-      && priv->remote_candidate_id != NULL)
-    {
-      const char *native_candidate_id;
-
-      native_candidate_id = priv_get_preferred_native_candidate (priv, NULL);
-      STREAM_DEBUG (stream, "emitting SetActiveCandidatePair for %s-%s",
-          native_candidate_id, priv->remote_candidate_id);
-      tp_svc_media_stream_handler_emit_set_active_candidate_pair (stream,
-          native_candidate_id, priv->remote_candidate_id);
-    }
-}
-
-static const char* priv_media_type_to_str(guint media_type)
-{
-switch (media_type)
-  {
-  case TP_MEDIA_STREAM_TYPE_AUDIO: return "audio";
-  case TP_MEDIA_STREAM_TYPE_VIDEO: return "video";
-  default: g_assert_not_reached ();
-    ;
-  }
-return "-";
-}
-
-static void
-priv_append_rtpmaps (const GPtrArray *codecs, GString *mline, GString *alines)
-{
-  GValue codec = { 0, };
-  gchar *co_name = NULL;
-  guint co_id;
-  guint co_type;
-  guint co_clockrate;
-  guint co_channels;
-  GHashTable *co_params = NULL;
-  guint i;
-
-  g_value_init (&codec, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_CODEC);
-
-  for (i = 0; i < codecs->len; i++)
-    {
-      g_value_set_static_boxed (&codec, g_ptr_array_index (codecs, i));
-
-      dbus_g_type_struct_get (&codec,
-                              0, &co_id,
-                              1, &co_name,
-                              2, &co_type,
-                              3, &co_clockrate,
-                              4, &co_channels,
-                              5, &co_params,
-                              G_MAXUINT);
-
-      /* g_return_if_fail (co_type == priv->media_type); */
-
-      /* Add rtpmap entry to the a= lines */
-      g_string_append_printf (alines,
-                              "a=rtpmap:%u %s/%u",
-                              co_id,
-                              co_name,
-                              co_clockrate);
-      if (co_channels > 1)
-        g_string_append_printf (alines, "/%u", co_channels);
-      g_string_append (alines, "\r\n");
-
-      /* Marshal parameters into the fmtp attribute */
-      if (g_hash_table_size (co_params) != 0)
-        {
-          GString *fmtp_value;
-          g_string_append_printf (alines, "a=fmtp:%u ", co_id);
-          fmtp_value = g_string_new (NULL);
-          rakia_codec_param_format (co_type, co_name,
-              co_params, fmtp_value);
-          g_string_append (alines, fmtp_value->str);
-          g_string_free (fmtp_value, TRUE);
-          g_string_append (alines, "\r\n");
-        }
-
-      /* Add PT id to the m= line */
-      g_string_append_printf (mline, " %u", co_id);
-
-      g_free (co_name);
-      co_name = NULL;
-      g_hash_table_unref (co_params);
-      co_params = NULL;
-    }
-}
-
-/**
-* Refreshes the local SDP based on Farsight stream, and current
-* object, state.
-*/
-static const char *
-priv_get_preferred_native_candidate (RakiaMediaStreamPrivate *priv,
-                                     const GPtrArray **transports)
-{
-  const GPtrArray *candidates;
-  const gchar *candidate_id = NULL;
-  const GPtrArray *ca_tports = NULL;
-  GValue transport = { 0 };
-  int i;
-
-  candidates = g_value_get_boxed (&priv->native_candidates);
-
-  g_value_init (&transport, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT);
-
-  /* Find the preferred candidate, if defined,
-   * else the last acceptable candidate */
-
-  for (i = candidates->len - 1; i >= 0; --i)
-    {
-      GValueArray *candidate;
-      guint tr_proto = (guint) -1;
-      guint j;
-
-      candidate = g_ptr_array_index (candidates, i);
-      candidate_id =
-                g_value_get_string (g_value_array_get_nth (candidate, 0));
-      ca_tports = g_value_get_boxed (g_value_array_get_nth (candidate, 1));
-
-      if (ca_tports->len == 0)
-        {
-          WARNING ("candidate '%s' lists no transports, skipping", candidate_id);
-          continue;
-        }
-
-      for (j = 0; j < ca_tports->len; j++)
-        {
-          guint tr_component = 0;
-
-          g_value_set_static_boxed (&transport,
-                                    g_ptr_array_index (ca_tports, j));
-
-          /* Find the RTP component */
-          dbus_g_type_struct_get (&transport,
-                                  0, &tr_component,
-                                  3, &tr_proto,
-                                  G_MAXUINT);
-          if (tr_component == 1)
-            break;
-        }
-
-      if (priv->native_candidate_id != NULL)
-        {
-          if (!strcmp (candidate_id, priv->native_candidate_id))
-            break;
-        }
-      else if (tr_proto == TP_MEDIA_STREAM_BASE_PROTO_UDP)
-        {
-          break;
-        }
-    }
-
-  if (i < 0)
-    {
-      WARNING ("preferred candidate not found");
-      return NULL;
-    }
-
-  if (transports != NULL)
-    *transports = ca_tports;
-
-  return candidate_id;
-}
-
-/**
- * Produces the SDP description of the stream based on Farsight state and
- * current object state.
- *
- * @param stream The stream object
- * @param signal_update If true, emit the signal "local-media-updated".
- */
-void
-rakia_media_stream_generate_sdp (RakiaMediaStream *stream, GString *out)
-{
-  RakiaMediaStreamPrivate *priv = stream->priv;
-  GString *alines;
-  GValue transport = { 0 };
-  const GPtrArray *transports = NULL;
-  gchar *tr_addr = NULL;
-  /* gchar *tr_user = NULL; */
-  /* gchar *tr_pass = NULL; */
-  gchar *tr_subtype = NULL;
-  gchar *tr_profile = NULL;
-  guint tr_port;
-  /* guint tr_type; */
-  /* gdouble tr_pref; */
-  guint rtcp_port = 0;
-  gchar *rtcp_address = NULL;
-  const gchar *dirline;
-  guint j;
-
-  priv_get_preferred_native_candidate (priv, &transports);
-
-  g_return_if_fail (transports != NULL);
-
-  g_value_init (&transport, TP_STRUCT_TYPE_MEDIA_STREAM_HANDLER_TRANSPORT);
-
-  for (j = 0; j != transports->len; j++)
-    {
-      guint tr_component;
-
-      g_value_set_static_boxed (&transport,
-                                g_ptr_array_index (transports, j));
-
-      dbus_g_type_struct_get (&transport,
-                              0, &tr_component,
-                              G_MAXUINT);
-      switch (tr_component)
-        {
-        case 1:     /* RTP */
-          dbus_g_type_struct_get (&transport,
-                                  1, &tr_addr,
-                                  2, &tr_port,
-                                  4, &tr_subtype,
-                                  5, &tr_profile,
-                                  /* 6, &tr_pref, */
-                                  /* 7, &tr_type, */
-                                  /* 8, &tr_user, */
-                                  /* 9, &tr_pass, */
-                                  G_MAXUINT);
-          break;
-        case 2:     /* RTCP */
-          dbus_g_type_struct_get (&transport,
-                                  1, &rtcp_address,
-                                  2, &rtcp_port,
-                                  G_MAXUINT);
-          break;
-        }
-    }
-
-  g_return_if_fail (tr_addr != NULL);
-  g_return_if_fail (tr_subtype != NULL);
-  g_return_if_fail (tr_profile != NULL);
-
-  g_string_append (out, "m=");
-  g_string_append_printf (out,
-                          "%s %u %s/%s",
-                          priv_media_type_to_str (priv->media_type),
-                          tr_port,
-                          tr_subtype,
-                          tr_profile);
-
-  switch (priv_get_requested_direction (priv))
-    {
-    case TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL:
-      dirline = "";
-      break;
-    case TP_MEDIA_STREAM_DIRECTION_SEND:
-      dirline = "a=sendonly\r\n";
-      break;
-    case TP_MEDIA_STREAM_DIRECTION_RECEIVE:
-      dirline = "a=recvonly\r\n";
-      break;
-    case TP_MEDIA_STREAM_DIRECTION_NONE:
-      dirline = "a=inactive\r\n";
-      break;
-    default:
-      g_assert_not_reached();
-    }
-
-  alines = g_string_new (dirline);
-
-  if (rtcp_address != NULL)
-    {
-      /* Add RTCP attribute as per RFC 3605 */
-      if (strcmp (rtcp_address, tr_addr) != 0)
-        {
-          g_string_append_printf (alines,
-                                  "a=rtcp:%u IN %s %s\r\n",
-                                  rtcp_port,
-                                  (strchr (rtcp_address, ':') == NULL)
-                                        ? "IP4" : "IP6",
-                                  rtcp_address);
-        }
-      else if (rtcp_port != tr_port + 1)
-        {
-          g_string_append_printf (alines,
-                                  "a=rtcp:%u\r\n",
-                                  rtcp_port);
-        }
-    }
-
-  priv_append_rtpmaps (g_value_get_boxed (&priv->native_codecs),
-                       out, alines);
-
-  g_string_append_printf (out, "\r\nc=IN %s %s\r\n",
-                          (strchr (tr_addr, ':') == NULL)? "IP4" : "IP6",
-                          tr_addr);
-
-  g_string_append (out, alines->str);
-
-  g_free (tr_addr);
-  g_free (tr_profile);
-  g_free (tr_subtype);
-  /* g_free (tr_user); */
-  /* g_free (tr_pass); */
-  g_free (rtcp_address);
-
-  g_string_free (alines, TRUE);
-}
 
 static void
 stream_handler_iface_init (gpointer g_iface, gpointer iface_data)
@@ -1985,7 +1509,6 @@ stream_handler_iface_init (gpointer g_iface, gpointer iface_data)
 
 #define IMPLEMENT(x) tp_svc_media_stream_handler_implement_##x (\
     klass, (tp_svc_media_stream_handler_##x##_impl) rakia_media_stream_##x)
-  IMPLEMENT(codec_choice);
   IMPLEMENT(error);
   IMPLEMENT(native_candidates_prepared);
   IMPLEMENT(new_active_candidate_pair);
@@ -1998,4 +1521,12 @@ stream_handler_iface_init (gpointer g_iface, gpointer iface_data)
   IMPLEMENT(hold_state);
   IMPLEMENT(unhold_failure);
 #undef IMPLEMENT
+}
+
+RakiaSipMedia *
+rakia_media_stream_get_media (RakiaMediaStream *stream)
+{
+  RakiaMediaStreamPrivate *priv = stream->priv;
+
+  return priv->media;
 }

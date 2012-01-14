@@ -27,6 +27,43 @@
 #define DEBUG_FLAG RAKIA_DEBUG_UTILITIES
 #include "debug.h"
 
+
+/**
+ * RakiaCodecParamFormatFunc:
+ * @params: the map of codec parameters
+ * @out: a #GString for the output
+ *
+ * Defines the function pointer signature for codec parameter formatters.
+ * A formatter takes a codec parameter map as passed in
+ * a org.freedesktop.Telepathy.Media.StreamHandler codec structure,
+ * and outputs its SDP representation, as per the value for an
+ * <literal>a=fmtp</literal> attribute, into the string buffer @out.
+ *
+ * <note>
+ *   <para>The function is allowed to delete pairs from the @params hash table.
+ *   This is useful to implement a custom formatter that processes the
+ *   few parameters treated specially, removes them from the map, and 
+ *   calls a more generic formatter such as rakia_codec_param_format_generic().
+ *   </para>
+ * </note>
+ */
+typedef void (* RakiaCodecParamFormatFunc) (RakiaSipCodec *codec,
+    RakiaMediaType media_type,
+    GString *out);
+
+/**
+ * RakiaCodecParamParseFunc:
+ * @str: a string value with format-specific parameter description
+ * @out: the parameter map to populate
+ *
+ * Defines the function pointer signature for codec parameter parsers.
+ * A parser takes the string value coming from an <literal>a=fmtp</literal>
+ * SDP attribute, and populates the parameter hash table.
+ */
+typedef void (* RakiaCodecParamParseFunc) (const gchar *str,
+    RakiaMediaType media_type,
+    RakiaSipCodec *codec);
+
 /* Regexps for the name and the value parts of the parameter syntax */
 #define FMTP_TOKEN_PARAM "[-A-Za-z0-9!#$%&'*+.^_`{|}~]+"
 #define FMTP_TOKEN_VALUE "[^;\"\\s]+|\"([^\"\\\\]|\\\\.)*\""
@@ -46,9 +83,25 @@ static GHashTable *codec_param_formats[NUM_TP_MEDIA_STREAM_TYPES];
 
 static void rakia_codec_param_formats_init ();
 
+
+static void rakia_codec_param_format_generic (RakiaSipCodec *codec,
+    RakiaMediaType media_type,
+    GString *out);
+
+static void rakia_codec_param_parse_generic (const gchar *str,
+    RakiaMediaType media_type,
+    RakiaSipCodec *codec);
+
+
+static void rakia_codec_param_register_format (
+    RakiaMediaType media,
+    const char *name,
+    RakiaCodecParamFormatFunc format,
+    RakiaCodecParamParseFunc parse);
+
 /**
  * rakia_codec_param_format:
- * @media: the media type
+ * @media_type: the media type
  * @name: name of the codec, as per its MIME subtype registration
  * @params: the map of codec parameters
  * @out: a #GString for the output
@@ -58,36 +111,37 @@ static void rakia_codec_param_formats_init ();
  * as specified for the media type defined by @media and @name.
  */
 void
-rakia_codec_param_format (TpMediaStreamType media, const char *name,
-                          GHashTable *params, GString *out)
+rakia_codec_param_format (RakiaMediaType media_type, RakiaSipCodec *codec,
+    GString *out)
 {
   RakiaCodecParamFormatting *fmt;
 
   rakia_codec_param_formats_init ();
 
   /* XXX: thread unsafe, we don't care for now */
-  fmt = g_hash_table_lookup (codec_param_formats[media], name);
+  fmt = g_hash_table_lookup (codec_param_formats[media_type],
+      codec->encoding_name);
 
   if (fmt != NULL && fmt->format != NULL)
-    fmt->format (params, out);
+    fmt->format (codec, media_type, out);
   else
-    rakia_codec_param_format_generic (params, out);
+    rakia_codec_param_format_generic (codec, media_type, out);
 }
 
 /**
  * rakia_codec_param_parse:
- * @media: the media type
+ * @media_type: the media type
  * @name: name of the codec, as per its MIME subtype registration
  * @fmtp: a string with the codec-specific parameter data. May be #NULL.
  * @out: the parameter map to populate
  *
  * Parses the payload-specific parameter description as coming from an
  * <literal>a=fmtp</literal> attribute of an RTP payload description.
- * The media type is defined by @media and @name.
+ * The media type is defined by @media_type and @name.
  */
 void
-rakia_codec_param_parse (TpMediaStreamType media, const char *name,
-                         const gchar *fmtp, GHashTable *out)
+rakia_codec_param_parse (RakiaMediaType media_type, RakiaSipCodec *codec,
+                         const gchar *fmtp)
 {
   RakiaCodecParamFormatting *fmt;
 
@@ -97,17 +151,18 @@ rakia_codec_param_parse (TpMediaStreamType media, const char *name,
   rakia_codec_param_formats_init ();
 
   /* XXX: thread unsafe, we don't care for now */
-  fmt = g_hash_table_lookup (codec_param_formats[media], name);
+  fmt = g_hash_table_lookup (codec_param_formats[media_type],
+      codec->encoding_name);
 
   if (fmt != NULL && fmt->parse != NULL)
-    fmt->parse (fmtp, out);
+    fmt->parse (fmtp, media_type, codec);
   else
-    rakia_codec_param_parse_generic (fmtp, out);
+    rakia_codec_param_parse_generic (fmtp, media_type, codec);
 }
 
 /**
  * rakia_codec_param_register_format:
- * @media: the media type
+ * @media_type: the media type
  * @name: name of the codec, as per its MIME subtype registration. Must be a static string.
  * @format: pointer to the formatting function
  * @parse: pointer to the parsing function
@@ -115,8 +170,8 @@ rakia_codec_param_parse (TpMediaStreamType media, const char *name,
  * Registers custom SDP payload parameter formatting routines for a media
  * type.
  */
-void
-rakia_codec_param_register_format (TpMediaStreamType media, const char *name,
+static void
+rakia_codec_param_register_format (RakiaMediaType media_type, const char *name,
                                    RakiaCodecParamFormatFunc format,
                                    RakiaCodecParamParseFunc parse)
 {
@@ -129,31 +184,7 @@ rakia_codec_param_register_format (TpMediaStreamType media, const char *name,
   fmt->parse = parse;
 
   /* XXX: thread unsafe, we don't care for now */
-  g_hash_table_insert (codec_param_formats[media], (gpointer) name, fmt);
-}
-
-static void
-format_param_generic (gpointer key, gpointer val, gpointer user_data)
-{
-  const gchar *name = key;
-  const gchar *value = val;
-  GString *out = user_data;
-
-  /* Ignore freaky parameters */
-  g_return_if_fail (name != NULL && name[0]);
-  g_return_if_fail (value != NULL && value[0]);
-
-  if (out->len != 0)
-    g_string_append_c (out, ';');
-
-  if (strpbrk (value, "; \t") == NULL)
-    g_string_append_printf (out, "%s=%s", name, value);
-  else
-    {
-      g_string_append (out, name);
-      g_string_append_c (out, '=');
-      rakia_string_append_quoted (out, value);
-    }
+  g_hash_table_insert (codec_param_formats[media_type], (gpointer) name, fmt);
 }
 
 /**
@@ -165,10 +196,38 @@ format_param_generic (gpointer key, gpointer val, gpointer user_data)
  * <replaceable>parameter</replaceable><literal>=</literal><replaceable>value</replaceable>
  * pairs, as recommended in IETF RFC 4855 Section 3.
  */
-void
-rakia_codec_param_format_generic (GHashTable *params, GString *out)
+static void
+rakia_codec_param_format_generic (RakiaSipCodec *codec,
+    RakiaMediaType media_type, GString *out)
 {
-  g_hash_table_foreach (params, format_param_generic, out);
+  guint i;
+
+  if (codec->params == NULL)
+    return;
+
+  for (i = 0; i < codec->params->len; i++)
+    {
+      RakiaSipCodecParam *param = g_ptr_array_index (codec->params, i);
+      RakiaCodecParamFormatting *fmt;
+
+      /* Ignore the ones with special functions */
+      fmt = g_hash_table_lookup (codec_param_formats[media_type],
+          codec->encoding_name);
+      if (fmt != NULL && fmt->format != NULL)
+        continue;
+
+      if (out->len != 0)
+        g_string_append_c (out, ';');
+
+      if (strpbrk (param->value, "; \t") == NULL)
+        g_string_append_printf (out, "%s=%s", param->name, param->value);
+      else
+        {
+          g_string_append (out, param->name);
+          g_string_append_c (out, '=');
+          rakia_string_append_quoted (out, param->value);
+        }
+    }
 }
 
 /**
@@ -180,8 +239,9 @@ rakia_codec_param_format_generic (GHashTable *params, GString *out)
  * <replaceable>parameter</replaceable><literal>=</literal><replaceable>value</replaceable>
  * pairs, as recommended in IETF RFC 4855 Section 3.
  */
-void
-rakia_codec_param_parse_generic (const gchar *fmtp, GHashTable *out)
+static void
+rakia_codec_param_parse_generic (const gchar *fmtp, RakiaMediaType media_type,
+    RakiaSipCodec *codec)
 {
   GMatchInfo *match = NULL;
   gint pos;
@@ -226,7 +286,7 @@ rakia_codec_param_parse_generic (const gchar *fmtp, GHashTable *out)
                              value_end - value_start);
         }
 
-      g_hash_table_insert (out, name, value);
+      rakia_sip_codec_add_param (codec, name, value);
 
       g_match_info_fetch_pos (match, 0, NULL, &pos);
       if (!fmtp[pos])
@@ -242,27 +302,50 @@ rakia_codec_param_parse_generic (const gchar *fmtp, GHashTable *out)
                " as an attribute-value list: %s", &fmtp[pos]);
 }
 
+RakiaSipCodecParam *
+find_param_by_name (RakiaSipCodec *codec, const gchar *name)
+{
+  guint i;
+
+  if (codec->params == NULL)
+    return NULL;
+
+  for (i = 0; i < codec->params->len; i++)
+    {
+      RakiaSipCodecParam *param = g_ptr_array_index (codec->params, i);
+
+      if (!strcmp (param->name, name))
+        return param;
+    }
+
+  return NULL;
+}
+
+
 /* Custom format for audio/telephone-event */
 
 static void
-rakia_codec_param_format_telephone_event (GHashTable *params, GString *out)
+rakia_codec_param_format_telephone_event (RakiaSipCodec *codec,
+    RakiaMediaType media_type,
+    GString *out)
 {
-  const gchar *events;
+  RakiaSipCodecParam *events;
 
   /* events parameter value comes first without the parameter name */
-  events = g_hash_table_lookup (params, "events");
+  events = find_param_by_name (codec, "events");
   if (events != NULL)
     {
-      g_string_append (out, events);
-      g_hash_table_remove (params, "events");
+      g_string_append (out, events->value);
     }
 
   /* format the rest of the parameters, if any */
-  rakia_codec_param_format_generic (params, out);
+  rakia_codec_param_format_generic (codec, media_type, out);
 }
 
 static void
-rakia_codec_param_parse_telephone_event (const gchar *fmtp, GHashTable *out)
+rakia_codec_param_parse_telephone_event (const gchar *fmtp,
+    RakiaMediaType media_type,
+    RakiaSipCodec *codec)
 {
   GMatchInfo *match = NULL;
   gint end_pos = 0;
@@ -278,15 +361,15 @@ rakia_codec_param_parse_telephone_event (const gchar *fmtp, GHashTable *out)
       gchar *events;
 
       events = g_match_info_fetch (match, 1);
-      g_hash_table_insert (out, g_strdup ("events"), events);
-
+      rakia_sip_codec_add_param (codec, "events", events);
+      g_free (events);
       g_match_info_fetch_pos (match, 0, NULL, &end_pos);
     }
 
   g_match_info_free (match);
 
   /* Parse the remaining parameters, if any */
-  rakia_codec_param_parse_generic (fmtp + end_pos, out);
+  rakia_codec_param_parse_generic (fmtp + end_pos, media_type, codec);
 }
 
 /*
