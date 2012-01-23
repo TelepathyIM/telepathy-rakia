@@ -34,7 +34,13 @@ BUILT_SOURCES = \
 librakia_la_SOURCES = \
 	base-connection.c \
 	base-connection-sofia.c \
-	connection-aliasing.c \
+	connection-aliasing.c \	
+	call-channel.h \
+	call-channel.c \
+	call-content.h \
+	call-content.c \
+	call-stream.h \
+	call-stream.c \
 	codec-param-formats.c \
 	event-target.c \
 	handles.c \
@@ -48,24 +54,6 @@ librakia_la_SOURCES = \
 	text-channel.c \
 	text-manager.c \
 	util.c
-
-if ENABLE_CHANNEL_TYPE_CALL
-librakia_la_SOURCES += \
-	call-channel.h \
-	call-channel.c \
-	call-content.h \
-	call-content.c \
-	call-stream.h \
-	call-stream.c
-else
-librakia_la_SOURCES += \
-	media-channel.h \
-	media-channel.c \
-	media-session.h \
-	media-session.c \
-	media-stream.h \
-	media-stream.c
-endif
 
 nodist_librakia_la_SOURCES = \
 	signals-marshal.h \

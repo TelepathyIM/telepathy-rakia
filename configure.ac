@@ -129,18 +129,6 @@ else
   AM_CONDITIONAL([WANT_TWISTED_TESTS], false)
 fi
 
-AC_ARG_ENABLE(channel-type-call,
-  AC_HELP_STRING([--enable-channel-type-call],
-                 [enable support for the draft Channel.Type.Call]),
-    [enable_channel_type_call=$enableval], [enable_channel_type_call=no])
-
-if test x$enable_channel_type_call = xyes; then
-  AC_DEFINE(ENABLE_CHANNEL_TYPE_CALL, [], [Enable Channel.Type.Call])
-fi
-
-AM_CONDITIONAL(ENABLE_CHANNEL_TYPE_CALL, test x$enable_channel_type_call = xyes)
-
-
 AC_CONFIG_FILES([
   Makefile
   rakia/Makefile
