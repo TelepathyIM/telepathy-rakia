@@ -28,13 +28,8 @@
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/interfaces.h>
 
-#if 1
-#include "rakia/call-channel.h"
-#else
-#include "rakia/media-channel.h"
-#endif
-
 #include "rakia/base-connection.h"
+#include "rakia/call-channel.h"
 #include "rakia/handles.h"
 #include "rakia/sip-session.h"
 
@@ -238,13 +233,8 @@ rakia_media_manager_close_all (RakiaMediaManager *fac)
  * Signal callback for when a media channel is closed. Removes the references
  * that #RakiaMediaManager holds to them.
  */
-#if 1
 static void
-media_channel_closed_cb (RakiaCallChannel *chan, gpointer user_data)
-#else
-static void
-media_channel_closed_cb (RakiaMediaChannel *chan, gpointer user_data)
-#endif
+call_channel_closed_cb (RakiaCallChannel *chan, gpointer user_data)
 {
   RakiaMediaManager *fac = RAKIA_MEDIA_MANAGER (user_data);
   RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
@@ -259,56 +249,40 @@ media_channel_closed_cb (RakiaMediaChannel *chan, gpointer user_data)
 }
 
 /**
- * new_media_channel
+ * new_call_channel
  *
- * Creates a new empty RakiaMediaChannel.
+ * Creates a new empty RakiaCallChannel.
  */
-#if 1
 static RakiaCallChannel *
-#else
-static RakiaMediaChannel *
-#endif
-new_media_channel (RakiaMediaManager *fac,
+new_call_channel (RakiaMediaManager *fac,
                    TpHandle initiator,
                    TpHandle maybe_peer,
                    GHashTable *request_properties,
                    RakiaSipSession *session)
 {
   RakiaMediaManagerPrivate *priv;
-#if 1
   RakiaCallChannel *chan = NULL;
-#else
-  RakiaMediaChannel *chan = NULL;
-#endif
   gchar *object_path;
   const gchar *nat_traversal = "none";
   gboolean initial_audio = FALSE;
   gboolean initial_video = FALSE;
   gboolean immutable_streams = FALSE;
   const gchar *dtmf_initial_tones = NULL;
-#if 1
   const gchar *initial_audio_name = NULL;
   const gchar *initial_video_name = NULL;
   TpStreamTransportType initial_transport = TP_STREAM_TRANSPORT_TYPE_RAW_UDP;
-#endif
 
   g_assert (initiator != 0);
 
   priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
-#if 1
   object_path = g_strdup_printf ("%s/CallChannel%u", priv->conn->object_path,
       priv->channel_index++);
-#else
-  object_path = g_strdup_printf ("%s/MediaChannel%u", priv->conn->object_path,
-      priv->channel_index++);
-#endif
 
   DEBUG("channel object path %s", object_path);
 
   if (request_properties != NULL)
     {
-#if 1
       initial_audio = tp_asv_get_boolean (request_properties,
           TP_PROP_CHANNEL_TYPE_CALL_INITIAL_AUDIO, NULL);
       initial_video = tp_asv_get_boolean (request_properties,
@@ -321,15 +295,6 @@ new_media_channel (RakiaMediaManager *fac,
           TP_PROP_CHANNEL_INTERFACE_DTMF_INITIAL_TONES);
       initial_transport = tp_asv_get_uint32 (request_properties,
           TP_PROP_CHANNEL_TYPE_CALL_INITIAL_TRANSPORT, NULL);
-
-#else
-      initial_audio = tp_asv_get_boolean (request_properties,
-          TP_PROP_CHANNEL_TYPE_STREAMED_MEDIA_INITIAL_AUDIO, NULL);
-      initial_video = tp_asv_get_boolean (request_properties,
-          TP_PROP_CHANNEL_TYPE_STREAMED_MEDIA_INITIAL_VIDEO, NULL);
-      dtmf_initial_tones = tp_asv_get_string (request_properties,
-          TP_PROP_CHANNEL_INTERFACE_DTMF_INITIAL_TONES);
-#endif
     }
 
   g_object_get (priv->conn,
@@ -341,7 +306,6 @@ new_media_channel (RakiaMediaManager *fac,
       nat_traversal = "stun";
     }
 
-#if 1
   chan = g_object_new (RAKIA_TYPE_CALL_CHANNEL,
                        "connection", priv->conn,
                        "object-path", object_path,
@@ -357,20 +321,6 @@ new_media_channel (RakiaMediaManager *fac,
                        "nat-traversal", nat_traversal,
                        "sip-session", session,
                        NULL);
-#else
-  chan = g_object_new (RAKIA_TYPE_MEDIA_CHANNEL,
-                       "connection", priv->conn,
-                       "object-path", object_path,
-                       "handle", maybe_peer,
-                       "initiator", initiator,
-                       "initial-audio", initial_audio,
-                       "initial-video", initial_video,
-                       "immutable-streams", immutable_streams,
-                       "nat-traversal", nat_traversal,
-                       "initial-tones", dtmf_initial_tones,
-                       "sip-session", session,
-                       NULL);
-#endif
 
   g_free (object_path);
 
@@ -381,7 +331,7 @@ new_media_channel (RakiaMediaManager *fac,
         g_object_set ((GObject *) chan, "stun-port", priv->stun_port, NULL);
     }
 
-  g_signal_connect (chan, "closed", G_CALLBACK (media_channel_closed_cb), fac);
+  g_signal_connect (chan, "closed", G_CALLBACK (call_channel_closed_cb), fac);
 
   g_ptr_array_add (priv->channels, chan);
 
@@ -430,24 +380,15 @@ static void
 incoming_call_cb (RakiaSipSession *session,
     struct InviteData *idata)
 {
-#if 1
   RakiaCallChannel *channel;
-#else
-  RakiaMediaChannel *channel;
-#endif
   RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (idata->fac);
 
 
   g_signal_handlers_disconnect_by_func (session,
       G_CALLBACK (incoming_call_cb), idata);
 
-#if 1
-  channel = new_media_channel (idata->fac, idata->handle, idata->handle, NULL,
+  channel = new_call_channel (idata->fac, idata->handle, idata->handle, NULL,
       session);
-#else
-  channel = new_media_channel (idata->fac, idata->handle, idata->handle, NULL,
-      session);
-#endif
 
   g_object_unref (session);
   rakia_handle_unref (priv->conn, idata->handle);
@@ -579,16 +520,11 @@ static const gchar * const media_channel_fixed_properties[] = {
 static const gchar * const named_channel_allowed_properties[] = {
     TP_PROP_CHANNEL_TARGET_HANDLE,
     TP_PROP_CHANNEL_TARGET_ID,
-#if 1
     TP_PROP_CHANNEL_TYPE_CALL_INITIAL_AUDIO,
     TP_PROP_CHANNEL_TYPE_CALL_INITIAL_VIDEO,
     TP_PROP_CHANNEL_TYPE_CALL_INITIAL_AUDIO_NAME,
     TP_PROP_CHANNEL_TYPE_CALL_INITIAL_VIDEO_NAME,
     TP_PROP_CHANNEL_TYPE_CALL_INITIAL_TRANSPORT,
-#else
-    TP_PROP_CHANNEL_TYPE_STREAMED_MEDIA_INITIAL_AUDIO,
-    TP_PROP_CHANNEL_TYPE_STREAMED_MEDIA_INITIAL_VIDEO,
-#endif
     TP_PROP_CHANNEL_INTERFACE_DTMF_INITIAL_TONES,
     NULL
 };
@@ -609,11 +545,7 @@ rakia_media_manager_type_foreach_channel_class (GType type,
   GValue *value, *handle_type_value;
 
   value = tp_g_value_slice_new (G_TYPE_STRING);
-#if 1
   g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_CALL);
-#else
-  g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA);
-#endif
   g_hash_table_insert (table, TP_PROP_CHANNEL_CHANNEL_TYPE, value);
 
   handle_type_value = tp_g_value_slice_new (G_TYPE_UINT);
@@ -646,19 +578,11 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
   TpHandleType handle_type;
   TpHandle handle;
   RakiaSipSession *session;
-#if 1
   RakiaCallChannel *channel = NULL;
-#else
-  RakiaMediaChannel *channel = NULL;
-#endif
   GError *error = NULL;
   GSList *request_tokens;
-  gboolean add_peer_to_remote_pending;
 
   /* Supported modes of operation:
-   * - RequestChannel(None, 0):
-   *     channel is anonymous;
-   *     caller uses RequestStreams to set the peer and start the call.
    * - RequestChannel(Contact, n) where n != 0:
    *     channel has TargetHandle=n;
    *     n is in remote pending;
@@ -672,28 +596,10 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
    *       whatever properties and group membership it has;
    *     otherwise the same as into CreateChannel
    */
-  switch (method)
-    {
-    case METHOD_REQUEST:
-      add_peer_to_remote_pending = TRUE;
-      break;
-    case METHOD_CREATE:
-    case METHOD_ENSURE:
-      add_peer_to_remote_pending = FALSE;
-      break;
-    default:
-      g_assert_not_reached ();
-    }
 
-#if 1
   if (tp_strdiff (tp_asv_get_string (request_properties,
           TP_PROP_CHANNEL_CHANNEL_TYPE),
         TP_IFACE_CHANNEL_TYPE_CALL))
-#else
-  if (tp_strdiff (tp_asv_get_string (request_properties,
-          TP_PROP_CHANNEL_CHANNEL_TYPE),
-        TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA))
-#endif
     return FALSE;
 
   handle_type = tp_asv_get_uint32 (request_properties,
@@ -702,86 +608,55 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
   handle = tp_asv_get_uint32 (request_properties,
       TP_IFACE_CHANNEL ".TargetHandle", NULL);
 
-  switch (handle_type)
+  if (handle_type != TP_HANDLE_TYPE_CONTACT)
+    return FALSE;
+
+  g_assert (handle != 0);
+
+  if (tp_channel_manager_asv_has_unknown_properties (request_properties,
+          media_channel_fixed_properties, named_channel_allowed_properties,
+          &error))
+    goto error;
+
+  /* Calls to self are problematic in terms of StreamedMedia channel
+   * interface and its semantically required Group member changes;
+   * we disable them until a better API is available through
+   * Call channel type */
+  if (handle == conn->self_handle)
     {
-    case TP_HANDLE_TYPE_CONTACT:
-      g_assert (handle != 0);
-
-      if (tp_channel_manager_asv_has_unknown_properties (request_properties,
-              media_channel_fixed_properties, named_channel_allowed_properties,
-              &error))
-        goto error;
-
-      /* Calls to self are problematic in terms of StreamedMedia channel
-       * interface and its semantically required Group member changes;
-       * we disable them until a better API is available through
-       * Call channel type */
-      if (handle == conn->self_handle)
-        {
-          g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
-              "Cannot call self");
-          goto error;
-        }
-
-      if (method == METHOD_ENSURE)
-        {
-          guint i;
-          TpHandle peer = 0;
-
-          for (i = 0; i < priv->channels->len; i++)
-            {
-              channel = g_ptr_array_index (priv->channels, i);
-              g_object_get (channel, "peer", &peer, NULL);
-
-              if (peer == handle)
-                {
-                  tp_channel_manager_emit_request_already_satisfied (self,
-                      request_token, TP_EXPORTABLE_CHANNEL (channel));
-                  return TRUE;
-                }
-            }
-        }
-
-      session = new_session (self, NULL, handle);
-#if 1
-      new_media_channel (self, conn->self_handle, handle,
-          request_properties, session);
-#else
-      channel = new_media_channel (self, conn->self_handle, handle,
-          request_properties, session);
-#endif
-      g_object_unref (session);
-
-      if (add_peer_to_remote_pending)
-        {
-#if 0
-          if (!_rakia_media_channel_add_member ((GObject *) channel, handle,
-                "", &error))
-            {
-              /* FIXME: do we really want to emit Closed in this case?
-               * There wasn't a NewChannel/NewChannels emission */
-              rakia_media_channel_close (channel);
-              goto error;
-            }
-#endif
-        }
-
-      break;
-
-    default:
-      return FALSE;
+      g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+          "Cannot call self");
+      goto error;
     }
 
-  g_assert (channel != NULL);
+  if (method == METHOD_ENSURE)
+    {
+      guint i;
+      TpHandle peer = 0;
+
+      for (i = 0; i < priv->channels->len; i++)
+        {
+          channel = g_ptr_array_index (priv->channels, i);
+          g_object_get (channel, "peer", &peer, NULL);
+
+          if (peer == handle)
+            {
+              tp_channel_manager_emit_request_already_satisfied (self,
+                  request_token, TP_EXPORTABLE_CHANNEL (channel));
+              return TRUE;
+            }
+        }
+    }
+
+  session = new_session (self, NULL, handle);
+  new_call_channel (self, conn->self_handle, handle,
+      request_properties, session);
+  g_object_unref (session);
 
   request_tokens = g_slist_prepend (NULL, request_token);
   tp_channel_manager_emit_new_channel (self,
       TP_EXPORTABLE_CHANNEL (channel), request_tokens);
   g_slist_free (request_tokens);
-
-#if 0
-  rakia_media_channel_create_initial_streams (channel);
-#endif
 
   return TRUE;
 
