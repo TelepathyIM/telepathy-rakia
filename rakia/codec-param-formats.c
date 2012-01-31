@@ -48,7 +48,7 @@
  * </note>
  */
 typedef void (* RakiaCodecParamFormatFunc) (RakiaSipCodec *codec,
-    RakiaMediaType media_type,
+    TpMediaStreamType media_type,
     GString *out);
 
 /**
@@ -61,7 +61,7 @@ typedef void (* RakiaCodecParamFormatFunc) (RakiaSipCodec *codec,
  * SDP attribute, and populates the parameter hash table.
  */
 typedef void (* RakiaCodecParamParseFunc) (const gchar *str,
-    RakiaMediaType media_type,
+    TpMediaStreamType media_type,
     RakiaSipCodec *codec);
 
 /* Regexps for the name and the value parts of the parameter syntax */
@@ -85,16 +85,16 @@ static void rakia_codec_param_formats_init ();
 
 
 static void rakia_codec_param_format_generic (RakiaSipCodec *codec,
-    RakiaMediaType media_type,
+    TpMediaStreamType media_type,
     GString *out);
 
 static void rakia_codec_param_parse_generic (const gchar *str,
-    RakiaMediaType media_type,
+    TpMediaStreamType media_type,
     RakiaSipCodec *codec);
 
 
 static void rakia_codec_param_register_format (
-    RakiaMediaType media,
+    TpMediaStreamType media,
     const char *name,
     RakiaCodecParamFormatFunc format,
     RakiaCodecParamParseFunc parse);
@@ -111,7 +111,7 @@ static void rakia_codec_param_register_format (
  * as specified for the media type defined by @media and @name.
  */
 void
-rakia_codec_param_format (RakiaMediaType media_type, RakiaSipCodec *codec,
+rakia_codec_param_format (TpMediaStreamType media_type, RakiaSipCodec *codec,
     GString *out)
 {
   RakiaCodecParamFormatting *fmt;
@@ -140,7 +140,7 @@ rakia_codec_param_format (RakiaMediaType media_type, RakiaSipCodec *codec,
  * The media type is defined by @media_type and @name.
  */
 void
-rakia_codec_param_parse (RakiaMediaType media_type, RakiaSipCodec *codec,
+rakia_codec_param_parse (TpMediaStreamType media_type, RakiaSipCodec *codec,
                          const gchar *fmtp)
 {
   RakiaCodecParamFormatting *fmt;
@@ -171,7 +171,7 @@ rakia_codec_param_parse (RakiaMediaType media_type, RakiaSipCodec *codec,
  * type.
  */
 static void
-rakia_codec_param_register_format (RakiaMediaType media_type, const char *name,
+rakia_codec_param_register_format (TpMediaStreamType media_type, const char *name,
                                    RakiaCodecParamFormatFunc format,
                                    RakiaCodecParamParseFunc parse)
 {
@@ -198,7 +198,7 @@ rakia_codec_param_register_format (RakiaMediaType media_type, const char *name,
  */
 static void
 rakia_codec_param_format_generic (RakiaSipCodec *codec,
-    RakiaMediaType media_type, GString *out)
+    TpMediaStreamType media_type, GString *out)
 {
   guint i;
 
@@ -240,7 +240,7 @@ rakia_codec_param_format_generic (RakiaSipCodec *codec,
  * pairs, as recommended in IETF RFC 4855 Section 3.
  */
 static void
-rakia_codec_param_parse_generic (const gchar *fmtp, RakiaMediaType media_type,
+rakia_codec_param_parse_generic (const gchar *fmtp, TpMediaStreamType media_type,
     RakiaSipCodec *codec)
 {
   GMatchInfo *match = NULL;
@@ -326,7 +326,7 @@ find_param_by_name (RakiaSipCodec *codec, const gchar *name)
 
 static void
 rakia_codec_param_format_telephone_event (RakiaSipCodec *codec,
-    RakiaMediaType media_type,
+    TpMediaStreamType media_type,
     GString *out)
 {
   RakiaSipCodecParam *events;
@@ -344,7 +344,7 @@ rakia_codec_param_format_telephone_event (RakiaSipCodec *codec,
 
 static void
 rakia_codec_param_parse_telephone_event (const gchar *fmtp,
-    RakiaMediaType media_type,
+    TpMediaStreamType media_type,
     RakiaSipCodec *codec)
 {
   GMatchInfo *match = NULL;

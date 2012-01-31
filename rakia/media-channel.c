@@ -412,9 +412,9 @@ rakia_media_channel_constructed (GObject *obj)
     {
       /* Incoming */
       priv->initial_audio = rakia_sip_session_has_media (priv->sipsession,
-          RAKIA_MEDIA_TYPE_AUDIO);
+          TP_MEDIA_STREAM_TYPE_AUDIO);
       priv->initial_video = rakia_sip_session_has_media (priv->sipsession,
-          RAKIA_MEDIA_TYPE_VIDEO);
+          TP_MEDIA_STREAM_TYPE_VIDEO);
       priv_create_session (chan, priv->initiator);
 
       g_assert (priv->session != NULL);

@@ -24,18 +24,17 @@
 #include <glib-object.h>
 #include <sofia-sip/sdp.h>
 
+#include <telepathy-glib/telepathy-glib.h>
+
 G_BEGIN_DECLS
 
 
-typedef enum {
-  RAKIA_MEDIA_TYPE_UNKNOWN,
-  RAKIA_MEDIA_TYPE_AUDIO,
-  RAKIA_MEDIA_TYPE_VIDEO
-} RakiaMediaType;
 
 typedef struct _RakiaSipMedia RakiaSipMedia;
 typedef struct _RakiaSipMediaClass RakiaSipMediaClass;
 typedef struct _RakiaSipMediaPrivate RakiaSipMediaPrivate;
+
+typedef struct _RakiaSipSession RakiaSipSession;
 
 struct _RakiaSipMediaClass {
     GObjectClass parent_class;
@@ -91,11 +90,46 @@ GType rakia_sip_media_get_type(void);
 #define RAKIA_SIP_MEDIA_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), RAKIA_TYPE_SIP_MEDIA, RakiaSipMediaClass))
 
+/* For RakiaSipSession */
 
-void rakia_sip_media_generate_sdp (RakiaSipMedia *media, GString *out);
+gchar * rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs,
+                                        const char *name);
+
+gboolean rakia_sip_media_set_remote_media (RakiaSipMedia *media,
+    const sdp_media_t *new_media,
+    guint direction_up_mask);
+
+void rakia_sip_media_generate_sdp (RakiaSipMedia *media, GString *out,
+    gboolean authoritative);
+
+gboolean rakia_sip_media_is_ready (RakiaSipMedia *self);
+
+gboolean rakia_sip_media_is_codec_intersect_pending (RakiaSipMedia *self);
+
+RakiaDirection rakia_direction_from_remote_media (const sdp_media_t *media);
+
+void rakia_sip_media_local_updated (RakiaSipMedia *self); /* ?? */
+
+void rakia_sip_media_set_hold_requested (RakiaSipMedia *media,
+    gboolean hold_requested);
+gboolean rakia_sip_media_is_held (RakiaSipMedia *media);
+
+RakiaSipMedia *rakia_sip_media_new (RakiaSipSession *session,
+    TpMediaStreamType media_type,
+    const gchar *name,
+    RakiaDirection requested_direction,
+    gboolean created_locally,
+    gboolean hold_requested);
 
 
-RakiaMediaType rakia_sip_media_get_media_type (RakiaSipMedia *self);
+const gchar * sip_media_get_media_type_str (RakiaSipMedia *self);
+
+/* Functions for both */
+
+TpMediaStreamType rakia_sip_media_get_media_type (RakiaSipMedia *self);
+
+/* Functions for the upper layers */
+
 
 RakiaSipCodec* rakia_sip_codec_new (guint id, const gchar *encoding_name,
     guint clock_rate, guint channels);
@@ -108,36 +142,30 @@ RakiaSipCandidate* rakia_sip_candidate_new (guint component,
     const gchar *foundation, guint priority);
 void rakia_sip_candidate_free (RakiaSipCandidate *candidate);
 
-gchar * rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs,
-                                        const char *name);
-
-gboolean rakia_sip_media_set_remote_media (RakiaSipMedia *media,
-    const sdp_media_t *new_media,
-    guint direction_up_mask,
-    guint pending_send_mask);
-
-RakiaDirection rakia_sip_media_get_requested_direction (
-    RakiaSipMedia *self);
-
-void rakia_sip_media_set_requested_direction (RakiaSipMedia *media,
-    RakiaDirection direction);
-
-RakiaDirection rakia_direction_from_remote_media (const sdp_media_t *media);
-
-gboolean rakia_sip_media_is_codec_intersect_pending (RakiaSipMedia *self);
-
-gboolean rakia_sip_media_is_ready (RakiaSipMedia *self);
-
 void rakia_sip_media_take_local_codecs (RakiaSipMedia *self,
     GPtrArray *local_codecs);
 void rakia_sip_media_take_local_candidate (RakiaSipMedia *self,
     RakiaSipCandidate *candidate);
-void rakia_sip_media_local_candidates_prepared (RakiaSipMedia *self);
+gboolean rakia_sip_media_local_candidates_prepared (RakiaSipMedia *self);
 
 GPtrArray *rakia_sip_media_get_remote_codecs (RakiaSipMedia *self);
 GPtrArray *rakia_sip_media_get_remote_candidates (RakiaSipMedia *self);
 
-void rakia_sip_media_local_updated (RakiaSipMedia *self);
+const gchar *rakia_sip_media_get_name (RakiaSipMedia *media);
+
+RakiaSipSession *rakia_sip_media_get_session (RakiaSipMedia *media);
+
+void rakia_sip_media_codecs_rejected (RakiaSipMedia *media);
+
+gboolean rakia_sip_media_is_created_locally (RakiaSipMedia *self);
+
+void rakia_sip_media_set_requested_direction (RakiaSipMedia *media,
+    RakiaDirection direction);
+
+RakiaDirection rakia_sip_media_get_direction (RakiaSipMedia *media);
+
+RakiaDirection rakia_sip_media_get_requested_direction (
+    RakiaSipMedia *self);
 
 
 G_END_DECLS

@@ -73,48 +73,69 @@ GType rakia_sip_session_get_type(void);
 #define RAKIA_SIP_SESSION_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), RAKIA_TYPE_SIP_SESSION, RakiaSipSessionClass))
 
-RakiaSipSession *
-rakia_sip_session_new (nua_handle_t *nh, RakiaBaseConnection *conn,
-    gboolean incoming, gboolean immutable_streams);
 
-void rakia_sip_session_terminate (RakiaSipSession *session);
-RakiaSipSessionState rakia_sip_session_get_state (RakiaSipSession *session);
-void rakia_sip_session_change_state (RakiaSipSession *session,
-    RakiaSipSessionState new_state);
-gboolean rakia_sip_session_set_remote_sip (RakiaSipSession *chan,
-    const sdp_session_t* r_sdp);
-
-RakiaSipMedia* rakia_sip_session_add_media (RakiaSipSession *self,
-    guint media_type,
-    RakiaDirection direction,
-    gboolean created_locally);
-
-gboolean rakia_sip_session_remove_media (RakiaSipSession *self,
-    RakiaSipMedia *media);
-
-void rakia_sip_session_accept (RakiaSipSession *self);
-gboolean rakia_sip_session_is_accepted (RakiaSipSession *self);
-void rakia_sip_session_ringing (RakiaSipSession *self);
-
-gboolean rakia_sip_session_has_media (RakiaSipSession *self,
-    RakiaMediaType media_type);
-
-gint rakia_sip_session_rate_native_transport (RakiaSipSession *session,
-    const GValue *transport);
+/* For use by RakiaSipMedia */
 
 gboolean rakia_sdp_rtcp_bandwidth_throttled (const sdp_bandwidth_t *b);
 
 gchar * rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs,
     const char *name);
 
-void rakia_sip_session_respond (RakiaSipSession *self,
-    gint status,
-    const char *message);
+
+/* For use by the upper layers */
+
+RakiaSipSession *
+rakia_sip_session_new (nua_handle_t *nh, RakiaBaseConnection *conn,
+    gboolean incoming, gboolean immutable_streams);
+
+void rakia_sip_session_terminate (RakiaSipSession *session, guint status,
+    const gchar *reason);
+RakiaSipSessionState rakia_sip_session_get_state (RakiaSipSession *session);
+
+
+RakiaSipMedia* rakia_sip_session_add_media (RakiaSipSession *self,
+    TpMediaStreamType media_type,
+    const gchar *name,
+    RakiaDirection direction,
+    gboolean created_locally);
+
+gboolean rakia_sip_session_remove_media (RakiaSipSession *self,
+    RakiaSipMedia *media,
+    guint status,
+    const gchar *reason);
+
+void rakia_sip_session_ringing (RakiaSipSession *self);
+void rakia_sip_session_queued (RakiaSipSession *self);
+void rakia_sip_session_accept (RakiaSipSession *self);
 
 void rakia_sip_session_media_changed (RakiaSipSession *self);
 
+GPtrArray *rakia_sip_session_get_medias (RakiaSipSession *self);
+
+
+/* What is for ? */
 gboolean rakia_sip_session_pending_offer (RakiaSipSession *self);
 
+/* Should be private */
+
+void rakia_sip_session_change_state (RakiaSipSession *session,
+    RakiaSipSessionState new_state);
+
+/* Obsolete */
+
+void rakia_sip_session_respond (RakiaSipSession *self,    gint status,
+    const char *message);
+
+gboolean rakia_sip_session_is_accepted (RakiaSipSession *self);
+
+gboolean rakia_sip_session_has_media (RakiaSipSession *self,
+    TpMediaStreamType media_type);
+
+gint rakia_sip_session_rate_native_transport (RakiaSipSession *session,
+    const GValue *transport);
+
+void rakia_sip_session_set_hold_requested (RakiaSipSession *session,
+    gboolean hold_requested);
 
 G_END_DECLS
 

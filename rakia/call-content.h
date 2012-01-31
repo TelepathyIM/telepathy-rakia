@@ -25,6 +25,10 @@
 
 #include <telepathy-glib/base-media-call-content.h>
 
+#include "rakia/call-channel.h"
+#include "rakia/sip-session.h"
+#include "rakia/sip-media.h"
+
 G_BEGIN_DECLS
 
 typedef struct _RakiaCallContent RakiaCallContent;
@@ -59,6 +63,19 @@ GType rakia_call_content_get_type (void);
 #define RAKIA_CALL_CONTENT_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), \
     RAKIA_TYPE_CALL_CONTENT, RakiaCallContentClass))
+
+RakiaCallContent *rakia_call_content_new (RakiaCallChannel *channel,
+    RakiaSipMedia *media,
+    const gchar *object_path,
+    TpBaseConnection *connection,
+    const gchar *name,
+    TpMediaStreamType media_type,
+    TpHandle creator,
+    TpCallContentDisposition disposition);
+
+RakiaSipMedia *rakia_call_content_get_media (RakiaCallContent *self);
+
+void rakia_call_content_add_stream (RakiaCallContent *self);
 
 G_END_DECLS
 

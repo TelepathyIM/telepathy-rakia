@@ -30,10 +30,10 @@
 G_BEGIN_DECLS
 
 
-void rakia_codec_param_format (RakiaMediaType media_type, RakiaSipCodec *codec,
+void rakia_codec_param_format (TpMediaStreamType media_type, RakiaSipCodec *codec,
     GString *out);
 
-void rakia_codec_param_parse (RakiaMediaType media_type, RakiaSipCodec *codec,
+void rakia_codec_param_parse (TpMediaStreamType media_type, RakiaSipCodec *codec,
     const gchar *fmtp);
 
 

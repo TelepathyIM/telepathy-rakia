@@ -25,6 +25,9 @@
 
 #include <telepathy-glib/base-media-call-stream.h>
 
+#include "rakia/call-channel.h"
+#include "rakia/sip-media.h"
+
 G_BEGIN_DECLS
 
 typedef struct _RakiaCallStream RakiaCallStream;
@@ -58,6 +61,14 @@ GType rakia_call_stream_get_type (void);
 #define RAKIA_CALL_STREAM_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), RAKIA_TYPE_CALL_STREAM, \
     RakiaCallStreamClass))
+
+RakiaCallStream * rakia_call_stream_new (RakiaCallChannel *channel,
+    RakiaSipMedia *media,
+    const gchar *object_path,
+    TpStreamTransportType transport,
+    TpBaseConnection *connection,
+    TpSendingState local_sending_state);
+
 
 G_END_DECLS
 

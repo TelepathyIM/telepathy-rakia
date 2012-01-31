@@ -7,35 +7,18 @@ import dbus
 
 from sofiatest import exec_test
 from servicetest import (
-    wrap_channel, EventPattern, call_async,
-    assertEquals, assertContains, assertLength, assertSameSets
+    wrap_channel, EventPattern, call_async, ProxyWrapper,
+    assertEquals, assertContains, assertLength, assertSameSets,
+    assertNotEquals
     )
 import constants as cs
 from voip_test import VoipTestContext
 
-# There are various deprecated APIs for requesting calls, documented at
-# <http://telepathy.freedesktop.org/wiki/Requesting StreamedMedia channels>.
-# These are ordered from most recent to most deprecated.
 CREATE = 0 # CreateChannel({TargetHandleType: Contact, TargetHandle: h});
            # RequestStreams()
-REQUEST_ANONYMOUS = 1 # RequestChannel(HandleTypeNone, 0); RequestStreams()
-REQUEST_ANONYMOUS_AND_ADD = 2 # RequestChannel(HandleTypeNone, 0);
-                              # AddMembers([h], ...); RequestStreams(h,...)
-REQUEST_NONYMOUS = 3 # RequestChannel(HandleTypeContact, h);
-                     # RequestStreams(h, ...)
 
 def create(q, bus, conn, sip_proxy, peer='foo@bar.com'):
     worker(q, bus, conn, sip_proxy, CREATE, peer)
-
-def request_anonymous(q, bus, conn, sip_proxy, peer='publish@foo.com'):
-    worker(q, bus, conn, sip_proxy, REQUEST_ANONYMOUS, peer)
-
-def request_anonymous_and_add(q, bus, conn, sip_proxy,
-        peer='publish-subscribe@foo.com/Res'):
-    worker(q, bus, conn, sip_proxy, REQUEST_ANONYMOUS_AND_ADD, peer)
-
-def request_nonymous(q, bus, conn, sip_proxy, peer='subscribe@foo.com'):
-    worker(q, bus, conn, sip_proxy, REQUEST_NONYMOUS, peer)
 
 def worker(q, bus, conn, sip_proxy, variant, peer):
     conn.Connect()
@@ -47,18 +30,13 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
     self_handle = conn.GetSelfHandle()
     remote_handle = conn.RequestHandles(1, [context.peer])[0]
 
-    if variant == REQUEST_NONYMOUS:
-        path = conn.RequestChannel(cs.CHANNEL_TYPE_STREAMED_MEDIA,
-            cs.HT_CONTACT, remote_handle, True)
-    elif variant == CREATE:
-        path = conn.Requests.CreateChannel({
-            cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_STREAMED_MEDIA,
+    path = conn.Requests.CreateChannel({
+            cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_CALL,
             cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
             cs.TARGET_HANDLE: remote_handle,
+            cs.INITIAL_AUDIO: True,
+            cs.INITIAL_AUDIO_NAME: "audiocontent",
             })[0]
-    else:
-        path = conn.RequestChannel(cs.CHANNEL_TYPE_STREAMED_MEDIA,
-            cs.HT_NONE, 0, True)
 
     old_sig, new_sig = q.expect_many(
         EventPattern('dbus-signal', signal='NewChannel',
@@ -68,171 +46,199 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
                 cs.CHANNEL_TYPE_CONTACT_LIST not in e.args[0][0][1].values()),
         )
 
-    if variant == REQUEST_NONYMOUS or variant == CREATE:
-        assertEquals( [path, cs.CHANNEL_TYPE_STREAMED_MEDIA, cs.HT_CONTACT,
-            remote_handle, True], old_sig.args)
-    else:
-        assertEquals( [path, cs.CHANNEL_TYPE_STREAMED_MEDIA, cs.HT_NONE, 0,
-            True], old_sig.args)
+    assertEquals( [path, cs.CHANNEL_TYPE_CALL, cs.HT_CONTACT,
+                   remote_handle, True], old_sig.args)
 
     assertLength(1, new_sig.args)
     assertLength(1, new_sig.args[0])       # one channel
     assertLength(2, new_sig.args[0][0])    # two struct members
     emitted_props = new_sig.args[0][0][1]
 
-    assertEquals(
-        cs.CHANNEL_TYPE_STREAMED_MEDIA, emitted_props[cs.CHANNEL_TYPE])
+    assertEquals(cs.CHANNEL_TYPE_CALL, emitted_props[cs.CHANNEL_TYPE])
 
-    if variant == REQUEST_NONYMOUS or variant == CREATE:
-        assertEquals(remote_handle, emitted_props[cs.TARGET_HANDLE])
-        assertEquals(cs.HT_CONTACT, emitted_props[cs.TARGET_HANDLE_TYPE])
-        assertEquals(context.peer_id, emitted_props[cs.TARGET_ID])
-    else:
-        assertEquals(0, emitted_props[cs.TARGET_HANDLE])
-        assertEquals(cs.HT_NONE, emitted_props[cs.TARGET_HANDLE_TYPE])
-        assertEquals('', emitted_props[cs.TARGET_ID])
+    assertEquals(remote_handle, emitted_props[cs.TARGET_HANDLE])
+    assertEquals(cs.HT_CONTACT, emitted_props[cs.TARGET_HANDLE_TYPE])
+    assertEquals(context.peer_id, emitted_props[cs.TARGET_ID])
 
     assertEquals(True, emitted_props[cs.REQUESTED])
     assertEquals(self_handle, emitted_props[cs.INITIATOR_HANDLE])
     assertEquals('sip:testacc@127.0.0.1', emitted_props[cs.INITIATOR_ID])
 
-    chan = wrap_channel(bus.get_object(conn.bus_name, path), 'StreamedMedia',
-        ['MediaSignalling'])
+    chan = wrap_channel(bus.get_object(conn.bus_name, path), 'Call1')
 
     # Exercise basic Channel Properties
     channel_props = chan.Properties.GetAll(cs.CHANNEL)
 
-    assertEquals(cs.CHANNEL_TYPE_STREAMED_MEDIA,
+    assertEquals(cs.CHANNEL_TYPE_CALL,
         channel_props.get('ChannelType'))
 
-    if variant == REQUEST_NONYMOUS or variant == CREATE:
-        assertEquals(remote_handle, channel_props['TargetHandle'])
-        assertEquals(cs.HT_CONTACT, channel_props['TargetHandleType'])
-        assertEquals(context.peer_id, channel_props['TargetID'])
-        assertEquals((cs.HT_CONTACT, remote_handle), chan.GetHandle())
-    else:
-        assertEquals(0, channel_props['TargetHandle'])
-        assertEquals(cs.HT_NONE, channel_props['TargetHandleType'])
-        assertEquals('', channel_props['TargetID'])
-        assertEquals((cs.HT_NONE, 0), chan.GetHandle())
+    assertEquals(remote_handle, channel_props['TargetHandle'])
+    assertEquals(cs.HT_CONTACT, channel_props['TargetHandleType'])
+    assertEquals(context.peer_id, channel_props['TargetID'])
+    assertEquals((cs.HT_CONTACT, remote_handle), chan.GetHandle())
 
-    for interface in [
-            cs.CHANNEL_IFACE_GROUP, cs.CHANNEL_IFACE_MEDIA_SIGNALLING,
-            cs.TP_AWKWARD_PROPERTIES, cs.CHANNEL_IFACE_HOLD]:
+
+    for interface in [cs.CHANNEL_IFACE_HOLD, cs.CHANNEL_IFACE_DTMF]:
         assertContains(interface, channel_props['Interfaces'])
 
     assertEquals(True, channel_props['Requested'])
     assertEquals('sip:testacc@127.0.0.1', channel_props['InitiatorID'])
     assertEquals(conn.GetSelfHandle(), channel_props['InitiatorHandle'])
 
-    # Exercise Group Properties
-    group_props = chan.Properties.GetAll(cs.CHANNEL_IFACE_GROUP)
+    call_props = chan.Properties.GetAll(cs.CHANNEL_TYPE_CALL)
+    assertEquals(cs.CALL_STATE_PENDING_INITIATOR, call_props['CallState'])
+    assertEquals(0, call_props['CallFlags'])
+    assertEquals(False, call_props['HardwareStreaming'])
+    assertEquals(True, call_props['MutableContents'])
+    assertEquals(True, call_props['InitialAudio'])
+    assertEquals("audiocontent", call_props['InitialAudioName'])
+    assertEquals(False, call_props['InitialVideo'])
+    assertEquals("", call_props['InitialVideoName'])
+    assertEquals(cs.CALL_STREAM_TRANSPORT_RAW_UDP,
+                 call_props['InitialTransport'])
+    assertEquals({remote_handle: 0}, call_props['CallMembers'])
 
-    assertEquals([self_handle], group_props['Members'])
-    assertEquals([], group_props['LocalPendingMembers'])
+    assertLength(1, call_props['Contents'])
 
-    if variant == REQUEST_NONYMOUS:
-        # In this variant, they're meant to be in RP even though we've sent
-        # nothing
-        assertEquals([remote_handle], group_props['RemotePendingMembers'])
-    else:
-        # For an anonymous channel, the peer isn't yet known; for a Create-d
-        # channel, the peer only appears in RP when we actually send them the
-        # session-initiate
-        assertEquals([], group_props['RemotePendingMembers'])
+    content = bus.get_object (conn.bus_name, call_props['Contents'][0])
 
-        if variant == REQUEST_ANONYMOUS_AND_ADD:
-            # but we should be allowed to add the peer.
-            chan.Group.AddMembers([remote_handle], 'I love backwards compat')
+    content_props = content.GetAll(cs.CALL_CONTENT)
+    assertEquals(cs.CALL_DISPOSITION_INITIAL, content_props['Disposition'])
+    assertEquals("audiocontent", content_props['Name'])
+    assertLength(1, content_props['Streams'])
 
-    base_flags = cs.GF_PROPERTIES | cs.GF_CAN_REMOVE | cs.GF_CAN_RESCIND | cs.GF_MEMBERS_CHANGED_DETAILED
+    cmedia_props = content.GetAll(cs.CALL_CONTENT_IFACE_MEDIA)
+    assertLength(0, cmedia_props['RemoteMediaDescriptions'])
+    assertLength(0, cmedia_props['LocalMediaDescriptions'])
+    assertNotEquals('/', cmedia_props['MediaDescriptionOffer'][0])
+    assertEquals(cs.CALL_CONTENT_PACKETIZATION_RTP,
+                 cmedia_props['Packetization'])
+    assertEquals(cs.CALL_SENDING_STATE_NONE, cmedia_props['CurrentDTMFState'])
+    
+    
+    stream = bus.get_object (conn.bus_name, content_props['Streams'][0])
 
-    if variant in [REQUEST_ANONYMOUS_AND_ADD, REQUEST_ANONYMOUS, CREATE]:
-        expected_flags = base_flags | cs.GF_CAN_ADD
-    else:
-        expected_flags = base_flags
+    stream = ProxyWrapper (stream, cs.CALL_STREAM,
+                           {'Media': cs.CALL_STREAM_IFACE_MEDIA})
 
-    assertEquals(bin(expected_flags), bin(group_props['GroupFlags']))
-    assertEquals({}, group_props['HandleOwners'])
+    stream_props = stream.Properties.GetAll(cs.CALL_STREAM)
+    assertEquals(True, stream_props['CanRequestReceiving'])
+    assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND,
+                 stream_props['LocalSendingState'])
 
-    assertEquals([], chan.StreamedMedia.ListStreams())
-    streams = chan.StreamedMedia.RequestStreams(remote_handle,
-        [cs.MEDIA_STREAM_TYPE_AUDIO])
-    assertEquals(streams, chan.StreamedMedia.ListStreams())
-    assertLength(1, streams)
+    smedia_props = stream.Properties.GetAll(cs.CALL_STREAM_IFACE_MEDIA)
+    assertEquals(cs.CALL_SENDING_STATE_NONE, smedia_props['SendingState'])
+    assertEquals(cs.CALL_SENDING_STATE_NONE, smedia_props['ReceivingState'])
+    assertEquals(cs.CALL_STREAM_TRANSPORT_RAW_UDP, smedia_props['Transport'])
+    assertEquals([], smedia_props['LocalCandidates'])
+    assertEquals(("",""), smedia_props['LocalCredentials'])
+    assertEquals([], smedia_props['STUNServers'])
+    assertEquals([], smedia_props['RelayInfo'])
+    assertEquals(True, smedia_props['HasServerInfo'])
+    assertEquals([], smedia_props['Endpoints'])        
+    assertEquals(False, smedia_props['ICERestartPending'])
 
-    # streams[0][0] is the stream identifier, which in principle we can't
-    # make any assertion about (although in practice it's probably 1)
+    chan.Call1.Accept()
 
-    assertEquals((
-        remote_handle,
-        cs.MEDIA_STREAM_TYPE_AUDIO,
-        # We haven't connected yet
-        cs.MEDIA_STREAM_STATE_DISCONNECTED,
-        # In Gabble, requested streams start off bidirectional
-        cs.MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
-        cs.MEDIA_STREAM_PENDING_REMOTE_SEND),
-        streams[0][1:])
+    q.expect ('dbus-signal', signal='ReceivingStateChanged',
+              args=[cs.CALL_STREAM_FLOW_STATE_PENDING_START])
 
-    stream_handler = context.handle_audio_session(chan)
+    stream.Media.CompleteReceivingStateChange(cs.CALL_STREAM_FLOW_STATE_STARTED)
 
-    sh_props = stream_handler.GetAll(
-        cs.STREAM_HANDLER, dbus_interface=dbus.PROPERTIES_IFACE)
-    assertEquals('none', sh_props['NATTraversal'])
-    assertEquals(True, sh_props['CreatedLocally'])
+    md = bus.get_object (conn.bus_name, cmedia_props['MediaDescriptionOffer'][0])
+    md.Accept(context.get_audio_md_dbus(remote_handle))
+    q.expect_many(
+        EventPattern('dbus-signal', signal='MediaDescriptionOfferDone'),
+        EventPattern('dbus-signal', signal='LocalMediaDescriptionChanged'),
+        EventPattern('dbus-signal', signal='RemoteMediaDescriptionsChanged'))
 
-    if variant == CREATE:
-        # When we actually send INVITE to the peer, they should pop up in remote
-        # pending.
-        invite_event, _ = q.expect_many(
-            EventPattern('sip-invite'),
-            EventPattern('dbus-signal', signal='MembersChanged',
-                args=["", [], [], [], [remote_handle], self_handle,
-                      cs.GC_REASON_INVITED]),
-            )
-    else:
-        invite_event = q.expect('sip-invite')
+    mdo = content.Get(cs.CALL_CONTENT_IFACE_MEDIA, 'MediaDescriptionOffer')
+    assertEquals(('/', {}), mdo)
+    
+    
+    stream.Media.AddCandidates(context.get_remote_candidates_dbus())
+    stream.Media.FinishInitialCandidates()
+    
+    q.expect('dbus-signal', signal='LocalCandidatesAdded')
 
-    # Check the Group interface's properties again. Regardless of the call
-    # requesting API in use, the state should be the same here:
-    group_props = chan.Properties.GetAll(cs.CHANNEL_IFACE_GROUP)
-    assertContains('HandleOwners', group_props)
-    assertEquals([self_handle], group_props['Members'])
-    assertEquals([], group_props['LocalPendingMembers'])
-    assertEquals([remote_handle], group_props['RemotePendingMembers'])
+    invite_event = q.expect('sip-invite')
+
+    
+    # Send Ringing
+    context.pr_respond(invite_event, 180)
+    o = q.expect('dbus-signal', signal='CallMembersChanged')
+    assertEquals(cs.CALL_MEMBER_FLAG_RINGING, o.args[0][remote_handle])
 
     context.check_call_sdp(invite_event.sip_message.body)
     context.accept(invite_event.sip_message)
 
     ack_cseq = "%s ACK" % invite_event.cseq.split()[0]
-    q.expect_many(
+
+    o = q.expect_many(
         EventPattern('sip-ack', cseq=ack_cseq),
         # Call accepted
-        EventPattern('dbus-signal', signal='MembersChanged',
-            args=['', [remote_handle], [], [], [], remote_handle,
-                  cs.GC_REASON_NONE]),
-        EventPattern('dbus-signal', signal='SetRemoteCodecs'),
-        ),
+        EventPattern('dbus-signal', signal='NewMediaDescriptionOffer'))
 
-    stream_handler.SupportedCodecs(context.get_audio_codecs_dbus())
-    stream_handler.StreamState(cs.MEDIA_STREAM_STATE_CONNECTED)
+    md = bus.get_object (conn.bus_name, o[1].args[0])
+    md.Accept(context.get_audio_md_dbus(remote_handle))
+
+    o = q.expect_many(
+        # Call accepted
+        EventPattern('dbus-signal', signal='CallStateChanged'),
+        EventPattern('dbus-signal', signal='EndpointsChanged'),
+        EventPattern('dbus-signal', signal='MediaDescriptionOfferDone'),
+        EventPattern('dbus-signal', signal='SendingStateChanged',
+                     args=[cs.CALL_STREAM_FLOW_STATE_PENDING_START]),
+        EventPattern('dbus-signal', signal='LocalMediaDescriptionChanged'),
+        EventPattern('dbus-signal', signal='RemoteMediaDescriptionsChanged'))
+
+    mdo = content.Get(cs.CALL_CONTENT_IFACE_MEDIA, 'MediaDescriptionOffer')
+    assertEquals(('/', {}), mdo)
+
+    assertEquals(cs.CALL_STATE_ACCEPTED, o[0].args[0])
+    assertLength(0, o[1].args[1])
+
+    endpoint = bus.get_object(conn.bus_name, o[1].args[0][0])
+    endpoint_props = endpoint.GetAll(cs.CALL_STREAM_ENDPOINT)
+    assertEquals(('',''), endpoint_props['RemoteCredentials'])
+    assertEquals(context.get_remote_candidates_dbus(),
+                 endpoint_props['RemoteCandidates'])
+    assertLength(0, endpoint_props['EndpointState'])
+    assertEquals(cs.CALL_STREAM_TRANSPORT_RAW_UDP,
+                 endpoint_props['Transport'])
+    assertEquals(False, endpoint_props['IsICELite'])
+
+    endpoint.SetEndpointState(1,
+                              cs.CALL_STREAM_ENDPOINT_STATE_FULLY_CONNECTED,
+                              dbus_interface=cs.CALL_STREAM_ENDPOINT)
+    endpoint.SetEndpointState(2,
+                              cs.CALL_STREAM_ENDPOINT_STATE_FULLY_CONNECTED,
+                              dbus_interface=cs.CALL_STREAM_ENDPOINT)
+
+    assertEquals({1: cs.CALL_STREAM_ENDPOINT_STATE_FULLY_CONNECTED,
+                  2: cs.CALL_STREAM_ENDPOINT_STATE_FULLY_CONNECTED},
+                 endpoint.Get(cs.CALL_STREAM_ENDPOINT, 'EndpointState'))
+
+    o = q.expect('dbus-signal', signal='CallStateChanged')
+    assertEquals(cs.CALL_STATE_ACTIVE, o.args[0])
 
     # Time passes ... afterwards we close the chan
 
-    chan.Group.RemoveMembers([self_handle], 'closed')
-
-
-    mc_event, _, bye_event = q.expect_many(
-        EventPattern('dbus-signal', signal='MembersChanged'),
-        EventPattern('dbus-signal', signal='Close'),
-        EventPattern('sip-bye', call_id=context.call_id),
-        )
+    chan.Call1.Hangup(cs.CALL_SCR_USER_REQUESTED, "", "User hangs up")
+    ended_event, bye_event = q.expect_many(
+        EventPattern('dbus-signal', signal='CallStateChanged'),
+        EventPattern('sip-bye', call_id=context.call_id))
     # Check that we're the actor
-    assertEquals(self_handle, mc_event.args[5])
+    assertEquals(cs.CALL_STATE_ENDED, ended_event.args[0])
+    assertEquals(0, ended_event.args[1])
+    assertEquals((self_handle, cs.CALL_SCR_USER_REQUESTED, "",
+                  "User hangs up"), ended_event.args[2])
     
     # For completeness, reply to the BYE.
     bye_response = sip_proxy.responseFromRequest(200, bye_event.sip_message)
     sip_proxy.deliverResponse(bye_response)
+
+    chan.Close()
 
 def rccs(q, bus, conn, stream):
     """
@@ -241,44 +247,43 @@ def rccs(q, bus, conn, stream):
     """
     conn.Connect()
 
-    q.expect('dbus-signal', signal='StatusChanged',
-        args=[cs.CONN_STATUS_CONNECTED, cs.CSR_REQUESTED])
+
+    a = q.expect('dbus-signal', signal='StatusChanged',
+                 args=[cs.CONN_STATUS_CONNECTING, cs.CSR_REQUESTED])
+
+    a = q.expect('dbus-signal', signal='StatusChanged',
+                 args=[cs.CONN_STATUS_CONNECTED, cs.CSR_REQUESTED])
 
     rccs = conn.Properties.Get(cs.CONN_IFACE_REQUESTS,
         'RequestableChannelClasses')
 
     # Test Channel.Type.StreamedMedia
     media_classes = [ rcc for rcc in rccs
-        if rcc[0][cs.CHANNEL_TYPE] == cs.CHANNEL_TYPE_STREAMED_MEDIA ]
+        if rcc[0][cs.CHANNEL_TYPE] == cs.CHANNEL_TYPE_CALL ]
 
-    assertLength(1, media_classes)
+    assertLength(2, media_classes)
 
-    fixed, allowed = media_classes[0]
+    for media_class in media_classes:
+        fixed, allowed = media_class
 
-    assertEquals(cs.HT_CONTACT, fixed[cs.TARGET_HANDLE_TYPE])
+        assertEquals(cs.HT_CONTACT, fixed[cs.TARGET_HANDLE_TYPE])
+        assert fixed.has_key(cs.INITIAL_AUDIO) or fixed.has_key(cs.INITIAL_VIDEO)
 
-    expected_allowed = [
-        cs.TARGET_ID, cs.TARGET_HANDLE,
-        cs.INITIAL_VIDEO, cs.INITIAL_AUDIO,
-        cs.DTMF_INITIAL_TONES
-    ]
+        expected_allowed = [
+            cs.TARGET_ID, cs.TARGET_HANDLE,
+            cs.INITIAL_VIDEO, cs.INITIAL_AUDIO,
+            cs.INITIAL_VIDEO_NAME, cs.INITIAL_AUDIO_NAME,
+            cs.INITIAL_TRANSPORT,
+            cs.DTMF_INITIAL_TONES,
+            ]
 
-    allowed.sort()
-    expected_allowed.sort()
-    assertSameSets(expected_allowed, allowed)
+        allowed.sort()
+        expected_allowed.sort()
+        assertSameSets(expected_allowed, allowed)
 
 if __name__ == '__main__':
     
     exec_test(rccs)
     exec_test(create)
-    exec_test(request_anonymous)
-    exec_test(request_anonymous_and_add)
-    exec_test(request_nonymous)
     exec_test(lambda q, b, c, s:
             create(q, b, c, s, peer='foo@gw.bar.com'))
-    exec_test(lambda q, b, c, s:
-            request_anonymous(q, b, c, s, peer='foo@gw.bar.com'))
-    exec_test(lambda q, b, c, s:
-            request_anonymous_and_add(q, b, c, s, peer='foo@gw.bar.com'))
-    exec_test(lambda q, b, c, s:
-            request_nonymous(q, b, c, s, peer='foo@gw.bar.com'))

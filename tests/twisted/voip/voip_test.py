@@ -8,6 +8,7 @@ from servicetest import (
     make_channel_proxy,
     assertContains,
     )
+import constants as cs
 
 class VoipTestContext(object):
     # Default audio codecs for the remote end
@@ -17,21 +18,23 @@ class VoipTestContext(object):
 
     # Default video codecs for the remote end. I have no idea what's
     # a suitable value here...
-    video_codecs = [ ('WTF', 42, 80000, {}) ]
+    video_codecs = [ ('H264', 96, 90000, {}) ]
 
     # Default candidates for the remote end
-    remote_transports = [
-          ( "192.168.0.1", # host
-            666, # port
-            0, # protocol = TP_MEDIA_STREAM_BASE_PROTO_UDP
-            "RTP", # protocol subtype
-            "AVP", # profile
-            1.0, # preference
-            0, # transport type = TP_MEDIA_STREAM_TRANSPORT_TYPE_LOCAL,
-            "username",
-            "password" ) ]
+    remote_candidates = [
+        (1, # Component
+         "192.168.0.1", # ip
+         2222, # port
+         {'protocol': cs.MEDIA_STREAM_BASE_PROTO_UDP,
+          'priority': 0}),
+        (2, # Component
+         "192.168.0.1", # ip
+         2223, # port
+         {'protocol': cs.MEDIA_STREAM_BASE_PROTO_UDP,
+          'priority': 0})
+        ]
 
-    _mline_template = 'm=audio %(port)s %(subtype)s/%(profile)s %(codec_ids)s'
+    _mline_template = 'm=audio %(port)s RTP/AVP %(codec_ids)s'
     _aline_template = 'a=rtpmap:%(codec_id)s %(name)s/%(rate)s'
 
     def __init__(self, q, conn, bus, sip_proxy, our_uri, peer):
@@ -45,60 +48,31 @@ class VoipTestContext(object):
         self._cseq_id = 1
       
     def dbusify_codecs(self, codecs):
-        dbussed_codecs = [ (id, name, 0, rate, 0, params )
+        dbussed_codecs = [ (id, name, rate, 1, False, params )
                             for (name, id, rate, params) in codecs ]
-        return dbus.Array(dbussed_codecs, signature='(usuuua{ss})')
+        return dbus.Array(dbussed_codecs, signature='(usuuba{ss})')
 
     def dbusify_codecs_with_params (self, codecs):
         return self.dbusify_codecs(codecs)
 
-    def get_audio_codecs_dbus(self):
-        return self.dbusify_codecs(self.audio_codecs)
+    def get_md_dbus(self, codecs, remote_contact):
+        return dbus.Dictionary(
+            {cs.CALL_CONTENT_MEDIA_DESCRIPTION + ".Codecs": self.dbusify_codecs(codecs),
+             cs.CALL_CONTENT_MEDIA_DESCRIPTION + ".RemoteContact":
+                 dbus.UInt32(remote_contact)},
+            signature='sv')
 
-    def get_video_codecs_dbus(self):
-        return self.dbusify_codecs(self.video_codecs)
+    def get_audio_md_dbus(self, remote_contact):
+        return self.get_md_dbus(self.audio_codecs, remote_contact)
 
-    def dbusify_call_codecs(self, codecs):
-        dbussed_codecs = [ (id, name, rate, 0, params)
-                            for (name, id, rate, params) in codecs ]
-        return dbus.Array(dbussed_codecs, signature='(usuua{ss})')
+    def get_video_md_dbus(self, remote_contact):
+        return self.get_md_dbus(self.video_codecs, remote_contact)
 
-    def dbusify_call_codecs_with_params(self, codecs):
-        return dbusify_call_codecs (self, codecs)
-
-    def get_call_audio_codecs_dbus(self):
-        return self.dbusify_call_codecs(self.audio_codecs)
-
-    def get_call_video_codecs_dbus(self):
-        return self.dbusify_call_codecs(self.video_codecs)
-
-
-    def get_remote_transports_dbus(self):
-        return dbus.Array([
-            (dbus.UInt32(1 + i), host, port, proto, subtype,
-                profile, pref, transtype, user, pwd)
-                for i, (host, port, proto, subtype, profile,
-                    pref, transtype, user, pwd)
-                in enumerate(self.remote_transports) ],
-            signature='(usuussduss)')
-
-    def get_call_remote_transports_dbus(self):
-        return dbus.Array([
-            (1 , host, port,
-                { "Type": transtype,
-                  "Foundation": "",
-                  "Protocol": proto,
-                  "Priority": int((1+i) * 65536),
-                  "Username": user,
-                  "Password": pwd }
-             ) for i, (host, port, proto, subtype, profile,
-                    pref, transtype, user, pwd)
-                in enumerate(self.remote_transports) ],
-            signature='(usqa{sv})')
+    def get_remote_candidates_dbus(self):
+        return dbus.Array(self.remote_candidates, signature='(usua{sv})')
         
     def get_call_sdp(self):
-        (ip, port, protocol, subtype, profile, preference, 
-                transport, username, password) = self.remote_transports[0]
+        (component, ip, port, info) = self.remote_candidates[0]
 
         codec_id_list = []
         codec_list = []
@@ -124,8 +98,7 @@ class VoipTestContext(object):
             codec_id_list.append(str(codec_id))
         codec_ids = ' '.join(codec_id_list)
 
-        (ip, port, protocol, subtype, profile, preference, 
-                transport, username, password) = self.remote_transports[0]
+        (component, ip, port, info) = self.remote_candidates[0]
         assert self._mline_template % locals() in sdp_string
         
     def send_message(self, message_type, body='', to_=None, from_=None, 
@@ -161,6 +134,12 @@ class VoipTestContext(object):
         response.addHeader('content-length', '%d' % len(response.body))
         self.sip_proxy.deliverResponse(response)
         return response
+
+    def pr_respond(self, invite_message, number):
+        self.call_id = invite_message.headers['call-id'][0]
+        response = self.sip_proxy.responseFromRequest(number, invite_message)
+        self.sip_proxy.deliverResponse(response)
+        return response
     
     def ack(self, ok_message):
         cseq = '%s ACK' % ok_message.headers['cseq'][0].split()[0]
@@ -181,28 +160,3 @@ class VoipTestContext(object):
         
     def terminate(self):
         return self.send_message('BYE', call_id=self.call_id)
-
-    def handle_audio_session(self, chan):
-        """
-        Serves a SessionHandler and a StreamHandler for the MediaSignalling
-        channel. Returns the interface proxy for StreamHandler.
-        """
-        session_handlers = chan.MediaSignalling.GetSessionHandlers()
-        sh_path, sh_type = session_handlers[0]
-
-        assert sh_type == 'rtp'
-
-        session_handler = make_channel_proxy(self.conn, sh_path,
-                'Media.SessionHandler')
-        session_handler.Ready()
-
-        e = self.q.expect('dbus-signal', signal='NewStreamHandler')
-
-        stream_handler = make_channel_proxy(self.conn, e.args[0],
-                'Media.StreamHandler')
-
-        stream_handler.NewNativeCandidate("fake", self.get_remote_transports_dbus())
-        stream_handler.NativeCandidatesPrepared()
-        stream_handler.Ready(self.get_audio_codecs_dbus())
-
-        return stream_handler

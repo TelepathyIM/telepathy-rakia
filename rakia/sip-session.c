@@ -119,9 +119,8 @@ enum
   SIG_RINGING,
   SIG_QUEUED,
   SIG_IN_PROGRESS,
-  SIG_ESTABLISHED,
   SIG_INCOMING_CALL,
-  SIG_NEW_MEDIA,
+  SIG_MEDIA_ADDED,
   SIG_MEDIA_REMOVED,
   SIG_STATE_CHANGED,
   SIG_START_RECEIVING,
@@ -172,7 +171,7 @@ struct _RakiaSipSessionPrivate
 static void rakia_sip_session_dispose (GObject *object);
 static void rakia_sip_session_finalize (GObject *object);
 
-static RakiaMediaType rakia_media_type (sdp_media_e sip_mtype);
+static TpMediaStreamType rakia_media_type (sdp_media_e sip_mtype);
 
 
 static void priv_session_invite (RakiaSipSession *session, gboolean reinvite);
@@ -221,6 +220,9 @@ static void rakia_sip_session_get_property (GObject    *object,
       break;
     case PROP_HOLD_STATE:
       g_value_set_uint (value, priv->hold_state);
+      break;
+    case PROP_REMOTE_HELD:
+      g_value_set_boolean (value, priv->remote_held);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -313,15 +315,6 @@ rakia_sip_session_class_init (RakiaSipSessionClass *klass)
           g_cclosure_marshal_generic,
           G_TYPE_NONE, 0);
 
-  signals[SIG_ESTABLISHED] =
-      g_signal_new ("established",
-          G_OBJECT_CLASS_TYPE (klass),
-          G_SIGNAL_RUN_LAST,
-          0,
-          NULL, NULL,
-          g_cclosure_marshal_generic,
-          G_TYPE_NONE, 0);
-
   signals[SIG_INCOMING_CALL] =
       g_signal_new ("incoming-call",
           G_OBJECT_CLASS_TYPE (klass),
@@ -330,6 +323,15 @@ rakia_sip_session_class_init (RakiaSipSessionClass *klass)
           NULL, NULL,
           g_cclosure_marshal_generic,
           G_TYPE_NONE, 0);
+
+  signals[SIG_MEDIA_ADDED] =
+      g_signal_new ("media-added",
+          G_OBJECT_CLASS_TYPE (klass),
+          G_SIGNAL_RUN_LAST,
+          0,
+          NULL, NULL,
+          g_cclosure_marshal_generic,
+          G_TYPE_NONE, 1, RAKIA_TYPE_SIP_MEDIA);
 
   signals[SIG_MEDIA_REMOVED] =
       g_signal_new ("media-removed",
@@ -593,6 +595,17 @@ rakia_sip_session_ringing (RakiaSipSession *self)
   nua_respond (priv->nua_op, SIP_180_RINGING, TAG_END());
 }
 
+
+void
+rakia_sip_session_queued (RakiaSipSession *self)
+{
+  RakiaSipSessionPrivate *priv = RAKIA_SIP_SESSION_GET_PRIVATE (self);
+
+  g_return_if_fail (priv->state == RAKIA_SIP_SESSION_STATE_INVITE_RECEIVED);
+
+  nua_respond (priv->nua_op, SIP_182_QUEUED, TAG_END());
+}
+
 static void
 rakia_sip_session_receive_invite (RakiaSipSession *self)
 {
@@ -601,7 +614,8 @@ rakia_sip_session_receive_invite (RakiaSipSession *self)
   g_return_if_fail (priv->state == RAKIA_SIP_SESSION_STATE_CREATED);
   g_return_if_fail (priv->nua_op != NULL);
 
-  nua_respond (priv->nua_op, SIP_183_SESSION_PROGRESS, TAG_END());
+  /* We'll do Ringing later instead */
+  /* nua_respond (priv->nua_op, SIP_183_SESSION_PROGRESS, TAG_END()); */
 
   rakia_sip_session_change_state (self,
       RAKIA_SIP_SESSION_STATE_INVITE_RECEIVED);
@@ -666,12 +680,12 @@ rakia_sdp_rtcp_bandwidth_throttled (const sdp_bandwidth_t *b)
 
 
 static gboolean
-rakia_sip_session_supports_media_type (RakiaMediaType media_type)
+rakia_sip_session_supports_media_type (TpMediaStreamType media_type)
 {
   switch (media_type)
     {
-    case RAKIA_MEDIA_TYPE_AUDIO:
-    case RAKIA_MEDIA_TYPE_VIDEO:
+    case TP_MEDIA_STREAM_TYPE_AUDIO:
+    case TP_MEDIA_STREAM_TYPE_VIDEO:
       return TRUE;
     default:
       return FALSE;
@@ -695,7 +709,7 @@ priv_session_rollback (RakiaSipSession *session)
     }
   if (priv->backup_remote_sdp == NULL)
     {
-      rakia_sip_session_terminate (session);
+      rakia_sip_session_terminate (session, 0, NULL);
       return;
     }
 
@@ -739,7 +753,8 @@ priv_media_local_negotiation_complete_cb (RakiaSipMedia *media,
         case RAKIA_SIP_SESSION_STATE_RESPONSE_RECEIVED:
         case RAKIA_SIP_SESSION_STATE_INVITE_RECEIVED:
           SESSION_DEBUG (self, "no codec intersection, closing the stream");
-          rakia_sip_session_remove_media (self, media);
+          rakia_sip_session_remove_media (self, media, 488,
+              "No codec intersection");
           break;
         case RAKIA_SIP_SESSION_STATE_REINVITE_RECEIVED:
           /* In this case, we have the stream negotiated already,
@@ -769,7 +784,11 @@ priv_has_all_media_ready (RakiaSipSession *self)
 
   for (i = 0; i < self->priv->medias->len; i++)
     {
-      if (!rakia_sip_media_is_ready (g_ptr_array_index (self->priv->medias, i)))
+      RakiaSipMedia *media = g_ptr_array_index (self->priv->medias, i);;;;
+
+      if (media == NULL)
+        continue;
+      if (!rakia_sip_media_is_ready (media))
         return FALSE;
     }
 
@@ -825,7 +844,8 @@ rakia_sip_session_media_changed (RakiaSipSession *self)
 
 RakiaSipMedia*
 rakia_sip_session_add_media (RakiaSipSession *self,
-    RakiaMediaType media_type,
+    TpMediaStreamType media_type,
+    const gchar *name,
     RakiaDirection direction,
     gboolean created_locally)
 {
@@ -835,25 +855,8 @@ rakia_sip_session_add_media (RakiaSipSession *self,
   SESSION_DEBUG (self, "enter");
 
   if (rakia_sip_session_supports_media_type (media_type)) {
-    guint pending_send_flags;
-
-    pending_send_flags = created_locally
-        ? TP_MEDIA_STREAM_PENDING_REMOTE_SEND
-        : TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
-
-    if (!created_locally)
-      direction &= ~TP_MEDIA_STREAM_DIRECTION_SEND;
-
-    if (priv->hold_requested)
-      direction &= ~TP_MEDIA_STREAM_DIRECTION_RECEIVE;
-
-    media = g_object_new (RAKIA_TYPE_SIP_MEDIA,
-			   "sip-session", self,
-			   "media-type", media_type,
-                           "direction", direction,
-                           "pending-send-flags", pending_send_flags,
-                           "created-locally", created_locally,
-			   NULL);
+    media = rakia_sip_media_new (self, media_type, name, direction,
+        created_locally, priv->hold_requested);
 
     g_signal_connect_object (media, "local-negotiation-complete",
         G_CALLBACK (priv_media_local_negotiation_complete_cb), self, 0);
@@ -861,7 +864,7 @@ rakia_sip_session_add_media (RakiaSipSession *self,
         G_CALLBACK (rakia_sip_session_media_changed), self,
         G_CONNECT_SWAPPED);
 
-    g_signal_emit (self, signals[SIG_NEW_MEDIA], 0, media);
+    g_signal_emit (self, signals[SIG_MEDIA_ADDED], 0, media);
   }
 
   /* note: we add an entry even for unsupported media types */
@@ -889,7 +892,7 @@ priv_update_remote_hold (RakiaSipSession *self)
       media = g_ptr_array_index(priv->medias, i);
       if (media != NULL)
         {
-          direction = rakia_sip_media_get_requested_direction (media);
+          direction = rakia_sip_media_get_direction (media);
 
           if ((direction & RAKIA_DIRECTION_SEND) != 0)
             remote_held = FALSE;
@@ -916,7 +919,6 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
   const sdp_media_t *sdp_media;
   gboolean has_supported_media = FALSE;
   guint direction_up_mask;
-  guint pending_send_mask;
   guint i;
 
   g_return_val_if_fail (sdp != NULL, FALSE);
@@ -947,9 +949,11 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
    * Also, if there have been any local media updates pending a re-INVITE,
    * keep or bump the pending remote send flag on the medias: it will
    * be resolved in the next re-INVITE transaction */
+#if 0
   pending_send_mask = TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
   if (priv->pending_offer)
     pending_send_mask |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
+#endif
 
   sdp_media = sdp->sdp_media;
 
@@ -960,7 +964,7 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
   for (i = 0; sdp_media != NULL; sdp_media = sdp_media->m_next, i++)
     {
       RakiaSipMedia *media = NULL;
-      RakiaMediaType media_type;
+      TpMediaStreamType media_type;
 
       media_type = rakia_media_type (sdp_media->m_type);
 
@@ -968,6 +972,8 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
         media = rakia_sip_session_add_media (
                         self,
                         media_type,
+                        NULL,
+                        /* Don't start sending unless requested by the user */
                         rakia_direction_from_remote_media (sdp_media),
                         FALSE);
       else
@@ -990,15 +996,15 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
         }
       else if (rakia_sip_media_set_remote_media (media,
               sdp_media,
-              direction_up_mask,
-              pending_send_mask))
+              direction_up_mask))
         {
           has_supported_media = TRUE;
           continue;
         }
 
       /* There have been problems with the media update, kill the media */
-      rakia_sip_session_remove_media (self, media);
+      rakia_sip_session_remove_media (self, media, 488,
+          "Can not process this media type");
     }
   g_assert(sdp_media == NULL);
   g_assert(i <= priv->medias->len);
@@ -1024,7 +1030,8 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
           if (media != NULL)
             {
               SESSION_MESSAGE (self, "removing a mismatched media %u", i);
-              rakia_sip_session_remove_media (self, media);
+              rakia_sip_session_remove_media (self, media,
+                  488, "Media type mismatch");
             }
         }
       while (++i < priv->medias->len);
@@ -1064,7 +1071,7 @@ priv_session_generate_sdp (RakiaSipSession *session,
     {
       RakiaSipMedia *media = g_ptr_array_index (priv->medias, i);
       if (media)
-        rakia_sip_media_generate_sdp (media, user_sdp);
+        rakia_sip_media_generate_sdp (media, user_sdp, authoritative);
       else
         g_string_append (user_sdp, "m=audio 0 RTP/AVP 0\r\n");
     }
@@ -1388,7 +1395,7 @@ priv_nua_i_state_cb (RakiaSipSession *self,
       g_return_val_if_fail (answer_recv || offer_recv, FALSE);
       if (!rakia_sip_session_set_remote_media (self, r_sdp))
         {
-          rakia_sip_session_terminate (self);
+          rakia_sip_session_terminate (self, 0, NULL);
           return TRUE;
         }
     }
@@ -1430,7 +1437,6 @@ priv_nua_i_state_cb (RakiaSipSession *self,
 
       if (status < 300)
         {
-          g_signal_emit (self, signals[SIG_ESTABLISHED], 0);
           rakia_sip_session_accept (self);
         }
       else if (status == 491)
@@ -1439,7 +1445,7 @@ priv_nua_i_state_cb (RakiaSipSession *self,
         {
           /* Was something wrong with our re-INVITE? We can't cope anyway. */
           MESSAGE ("can't handle non-fatal response %d %s", status, ev->text);
-          rakia_sip_session_terminate (self);
+          rakia_sip_session_terminate (self, 480, "Re-invite rejected");
         }
       break;
 
@@ -1519,24 +1525,28 @@ rakia_sip_session_new (nua_handle_t *nh, RakiaBaseConnection *conn,
  *
  * @return G_MAXUINT if the media type cannot be mapped
  */
-static RakiaMediaType
+static TpMediaStreamType
 rakia_media_type (sdp_media_e sip_mtype)
 {
   switch (sip_mtype)
     {
     case sdp_media_audio:
-      return RAKIA_MEDIA_TYPE_AUDIO;
+      return TP_MEDIA_STREAM_TYPE_AUDIO;
     case sdp_media_video:
-      return RAKIA_MEDIA_TYPE_VIDEO;
+      return TP_MEDIA_STREAM_TYPE_VIDEO;
     default:
-      return RAKIA_MEDIA_TYPE_UNKNOWN;
+      /* some invalid value */
+      return G_MAXINT;
     }
 }
 
 gboolean
-rakia_sip_session_remove_media (RakiaSipSession *self, RakiaSipMedia *media)
+rakia_sip_session_remove_media (RakiaSipSession *self, RakiaSipMedia *media,
+    guint status, const gchar *reason)
 {
   guint i;
+  gboolean has_removed_media = FALSE;
+  gboolean has_media = TRUE;
 
   g_return_val_if_fail (RAKIA_IS_SIP_MEDIA (media), FALSE);
 
@@ -1545,20 +1555,25 @@ rakia_sip_session_remove_media (RakiaSipSession *self, RakiaSipMedia *media)
       if (media == g_ptr_array_index (self->priv->medias, i))
         {
           g_object_ref (media);
-          g_ptr_array_remove_index_fast (self->priv->medias, i);
+          g_ptr_array_index (self->priv->medias, i) = NULL;
           g_signal_emit (self, signals[SIG_MEDIA_REMOVED], 0, media);
           g_object_unref (media);
-          return TRUE;
+          has_removed_media = TRUE;
         }
+      else if (g_ptr_array_index (self->priv->medias, i) != NULL)
+        has_media = TRUE;
     }
 
-  return FALSE;
+  if (!has_media)
+    rakia_sip_session_terminate (self, status, reason);
+
+  return has_removed_media;
 }
 
 
 gboolean
 rakia_sip_session_has_media (RakiaSipSession *self,
-    RakiaMediaType media_type)
+    TpMediaStreamType media_type)
 {
   RakiaSipSessionPrivate *priv = RAKIA_SIP_SESSION_GET_PRIVATE (self);
   guint i;
@@ -1618,7 +1633,8 @@ rakia_sip_session_is_accepted (RakiaSipSession *self)
 
 
 void
-rakia_sip_session_terminate (RakiaSipSession *session)
+rakia_sip_session_terminate (RakiaSipSession *session, guint status,
+    const gchar *reason)
 {
   RakiaSipSessionPrivate *priv = RAKIA_SIP_SESSION_GET_PRIVATE (session);
 
@@ -1627,6 +1643,11 @@ rakia_sip_session_terminate (RakiaSipSession *session)
   if (priv->state == RAKIA_SIP_SESSION_STATE_ENDED)
     return;
 
+  if (status == 0)
+    {
+      status = SIP_480_TEMPORARILY_UNAVAILABLE;
+      reason = "Terminated";
+    }
 
   if (priv->nua_op != NULL)
     {
@@ -1646,14 +1667,14 @@ rakia_sip_session_terminate (RakiaSipSession *session)
           nua_cancel (priv->nua_op, TAG_END());
           break;
         case RAKIA_SIP_SESSION_STATE_INVITE_RECEIVED:
-          SESSION_DEBUG (session, "sending the 480 response to an incoming INVITE");
-          nua_respond (priv->nua_op, 480, "Terminated", TAG_END());
+          SESSION_DEBUG (session, "sending the %d response to an incoming INVITE", status);
+          nua_respond (priv->nua_op, status, reason, TAG_END());
           break;
         case RAKIA_SIP_SESSION_STATE_REINVITE_RECEIVED:
           if (priv->saved_event[0])
             {
-              SESSION_DEBUG (session, "sending the 480 response to an incoming re-INVITE");
-              nua_respond (priv->nua_op, 480, "Terminated",
+              SESSION_DEBUG (session, "sending the %d response to an incoming re-INVITE", status);
+              nua_respond (priv->nua_op, status, reason,
                            NUTAG_WITH(nua_saved_event_request (priv->saved_event)),
                            TAG_END());
               nua_destroy_event (priv->saved_event);
@@ -1681,4 +1702,53 @@ RakiaSipSessionState
 rakia_sip_session_get_state (RakiaSipSession *session)
 {
   return session->priv->state;
+}
+
+gboolean
+rakia_sip_session_is_held (RakiaSipSession *session)
+{
+  RakiaSipSessionPrivate *priv = RAKIA_SIP_SESSION_GET_PRIVATE (session);
+  guint i;
+
+  for (i = 0; i < priv->medias->len; i++)
+    {
+      RakiaSipMedia *media = g_ptr_array_index (priv->medias, i);
+
+      if (!media)
+        continue;
+
+      if (!rakia_sip_media_is_held (media))
+        return FALSE;
+    }
+
+  return TRUE;
+}
+
+void
+rakia_sip_session_set_hold_requested (RakiaSipSession *session,
+    gboolean hold_requested)
+{
+  RakiaSipSessionPrivate *priv = RAKIA_SIP_SESSION_GET_PRIVATE (session);
+  guint i;
+
+  if (session->priv->hold_requested == hold_requested)
+    return;
+
+  session->priv->hold_requested = hold_requested;
+
+  for (i = 0; i < priv->medias->len; i++)
+    {
+      RakiaSipMedia *media = g_ptr_array_index (priv->medias, i);
+
+      if (!media)
+        continue;
+
+      rakia_sip_media_set_hold_requested (media, hold_requested);
+    }
+}
+
+GPtrArray *
+rakia_sip_session_get_medias (RakiaSipSession *self)
+{
+  return self->priv->medias;
 }
