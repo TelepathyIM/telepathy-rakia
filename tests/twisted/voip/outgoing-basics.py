@@ -240,50 +240,9 @@ def worker(q, bus, conn, sip_proxy, variant, peer):
 
     chan.Close()
 
-def rccs(q, bus, conn, stream):
-    """
-    Tests that the connection's RequestableChannelClasses for StreamedMedia are
-    sane.
-    """
-    conn.Connect()
-
-
-    a = q.expect('dbus-signal', signal='StatusChanged',
-                 args=[cs.CONN_STATUS_CONNECTING, cs.CSR_REQUESTED])
-
-    a = q.expect('dbus-signal', signal='StatusChanged',
-                 args=[cs.CONN_STATUS_CONNECTED, cs.CSR_REQUESTED])
-
-    rccs = conn.Properties.Get(cs.CONN_IFACE_REQUESTS,
-        'RequestableChannelClasses')
-
-    # Test Channel.Type.StreamedMedia
-    media_classes = [ rcc for rcc in rccs
-        if rcc[0][cs.CHANNEL_TYPE] == cs.CHANNEL_TYPE_CALL ]
-
-    assertLength(2, media_classes)
-
-    for media_class in media_classes:
-        fixed, allowed = media_class
-
-        assertEquals(cs.HT_CONTACT, fixed[cs.TARGET_HANDLE_TYPE])
-        assert fixed.has_key(cs.INITIAL_AUDIO) or fixed.has_key(cs.INITIAL_VIDEO)
-
-        expected_allowed = [
-            cs.TARGET_ID, cs.TARGET_HANDLE,
-            cs.INITIAL_VIDEO, cs.INITIAL_AUDIO,
-            cs.INITIAL_VIDEO_NAME, cs.INITIAL_AUDIO_NAME,
-            cs.INITIAL_TRANSPORT,
-            cs.DTMF_INITIAL_TONES,
-            ]
-
-        allowed.sort()
-        expected_allowed.sort()
-        assertSameSets(expected_allowed, allowed)
 
 if __name__ == '__main__':
     
-    exec_test(rccs)
     exec_test(create)
     exec_test(lambda q, b, c, s:
             create(q, b, c, s, peer='foo@gw.bar.com'))
