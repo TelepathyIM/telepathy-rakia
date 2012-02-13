@@ -71,7 +71,7 @@ class VoipTestContext(object):
     def get_remote_candidates_dbus(self):
         return dbus.Array(self.remote_candidates, signature='(usua{sv})')
         
-    def get_call_sdp(self, audio, video):
+    def get_call_sdp(self, medias):
         (component, ip, port, info) = self.remote_candidates[0]
         codec_id_list = []
         codec_list = []
@@ -85,14 +85,12 @@ class VoipTestContext(object):
             'o=- 7047265765596858314 2813734028456100815 IN IP4 %(ip)s\r\n' + \
             's=-\r\n' + \
             't=0 0\r\n'
-        if audio:
-            sdp_string += 'm=audio %(port)s RTP/AVP 3 8 0\r\n' \
+        for m in medias:
+            sdp_string += 'm=' + m[0] + ' %(port)s RTP/AVP 3 8 0\r\n' \
                 'c=IN IP4 %(ip)s\r\n' \
                 '%(codecs)s\r\n'
-        if video:
-            sdp_string += 'm=audio %(port)s RTP/AVP 3 8 0\r\n' \
-                'c=IN IP4 %(ip)s\r\n' \
-                '%(codecs)s\r\n'
+            if m[1]:
+                sdp_string += 'a=' + m[1] + '\r\n'
 
         return sdp_string % locals()
 
@@ -150,15 +148,15 @@ class VoipTestContext(object):
         cseq = '%s ACK' % ok_message.headers['cseq'][0].split()[0]
         self.send_message('ACK', call_id=self.call_id, cseq=cseq)
         
-    def incoming_call(self):
+    def incoming_call(self, medias=[('audio',None)]):
         self.call_id = uuid.uuid4().hex
-        body = self.get_call_sdp(True, False)
+        body = self.get_call_sdp(medias)
         return self.send_message('INVITE', body, content_type='application/sdp',
                    supported='timer, 100rel', call_id=self.call_id)
         
     def incoming_call_from_self(self):
         self.call_id = uuid.uuid4().hex
-        body = self.get_call_sdp(True, False)
+        body = self.get_call_sdp([('audio',None)])
         return self.send_message('INVITE', body, content_type='application/sdp',
                    supported='timer, 100rel', call_id=self.call_id, 
                    from_='<sip:testacc@127.0.0.1>')

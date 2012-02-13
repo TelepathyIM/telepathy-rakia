@@ -359,29 +359,40 @@ class CallTest:
             # Call accepted
             *self.content_dbus_signal_event('NewMediaDescriptionOffer'))
 
-        md = self.bus.get_object (self.conn.bus_name, o[1].args[0])
-        md.Accept(self.context.get_audio_md_dbus(self.remote_handle))
+        for i in o:
+            if i.type != 'dbus-signal' or \
+                    i.signal != 'NewMediaDescriptionOffer':
+                continue
+            md = self.bus.get_object (self.conn.bus_name, i.args[0])
+            md.Accept(self.context.get_audio_md_dbus(self.remote_handle))
 
         o = self.q.expect_many(
             # Call accepted
             EventPattern('dbus-signal', signal='CallStateChanged'),
-            EventPattern('dbus-signal', signal='EndpointsChanged'),
-            EventPattern('dbus-signal', signal='MediaDescriptionOfferDone'),
-            EventPattern('dbus-signal', signal='SendingStateChanged',
-                         args=[cs.CALL_STREAM_FLOW_STATE_PENDING_START]),
-            EventPattern('dbus-signal', signal='LocalMediaDescriptionChanged'),
-            EventPattern('dbus-signal', signal='RemoteMediaDescriptionsChanged'))
+            *(self.stream_dbus_signal_event('SendingStateChanged') +
+              self.stream_dbus_signal_event('EndpointsChanged') +
+              self.content_dbus_signal_event('MediaDescriptionOfferDone') +
+              self.content_dbus_signal_event('LocalMediaDescriptionChanged') +
+              self.content_dbus_signal_event('RemoteMediaDescriptionsChanged')))
+
+        assertEquals(cs.CALL_STATE_ACCEPTED, o[0].args[0])
 
         for c in self.contents:
             mdo = c.Get(cs.CALL_CONTENT_IFACE_MEDIA, 'MediaDescriptionOffer')
             assertEquals(('/', {}), mdo)
 
-        assertEquals(cs.CALL_STATE_ACCEPTED, o[0].args[0])
-        assertLength(1, o[1].args[0])
-        assertLength(0, o[1].args[1])
 
         for c in self.contents:
-            self.connect_endpoint(c, o[1].args[0][0])
+            c.stream.Media.CompleteSendingStateChange(
+                cs.CALL_STREAM_FLOW_STATE_STARTED)
+            self.q.expect('dbus-signal', signal='SendingStateChanged',
+                          args=[cs.CALL_STREAM_FLOW_STATE_STARTED],
+                          path=c.stream.__dbus_object_path__)
+            for i in o:
+                if i.type == 'dbus-signal' and i.signal == 'EndpointsChanged':
+                    assertLength(1, i.args[0])
+                    assertLength(0, i.args[1])
+                    self.connect_endpoint(c, i.args[0][0])
 
         o = self.q.expect('dbus-signal', signal='CallStateChanged')
         assertEquals(cs.CALL_STATE_ACTIVE, o.args[0])
