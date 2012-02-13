@@ -298,12 +298,51 @@ class CallTest:
         
         self.q.expect('dbus-signal', signal='LocalCandidatesAdded',
                  path=stream.__dbus_object_path__)
-            
 
-    def add_local_candidates(self):
-        stream.Media.AddCandidates(context.get_remote_candidates_dbus())
-        stream.Media.FinishInitialCandidates()
+    def accept_incoming(self):
+        if not self.incoming:
+            return
 
+        self.chan.Call1.Accept()
+
+        events = self.stream_dbus_signal_event(
+            'ReceivingStateChanged',
+            args=[cs.CALL_STREAM_FLOW_STATE_PENDING_START]) + \
+            self.stream_dbus_signal_event(
+                'SendingStateChanged',
+                args=[cs.CALL_STREAM_FLOW_STATE_PENDING_START])
+        o = self.q.expect_many(
+            EventPattern('dbus-signal', signal='CallStateChanged'),
+            EventPattern('dbus-signal', signal='CallStateChanged'),
+            *events)
+        assertEquals(cs.CALL_STATE_ACCEPTED, o[0].args[0])
+        assertEquals(cs.CALL_STATE_ACTIVE, o[1].args[0])
+
+
+        for c in self.contents:
+            c.stream.Media.CompleteReceivingStateChange(
+                cs.CALL_STREAM_FLOW_STATE_STARTED)
+            c.stream.Media.CompleteSendingStateChange(
+            cs.CALL_STREAM_FLOW_STATE_STARTED)
+
+            o = self.q.expect_many(
+                EventPattern('dbus-signal', signal='ReceivingStateChanged',
+                             args=[cs.CALL_STREAM_FLOW_STATE_STARTED],
+                             path=c.stream.__dbus_object_path__),
+                EventPattern('dbus-signal', signal='SendingStateChanged',
+                             args=[cs.CALL_STREAM_FLOW_STATE_STARTED],
+                             path=c.stream.__dbus_object_path__),
+                EventPattern('dbus-signal', signal='LocalSendingStateChanged',
+                             path=c.stream.__dbus_object_path__))
+            assertEquals(cs.CALL_SENDING_STATE_SENDING, o[2].args[0])
+
+            self.add_candidates(c.stream)
+
+        acc = self.q.expect('sip-response', call_id=self.context.call_id,
+                            code=200)
+
+        self.context.check_call_sdp(acc.sip_message.body)
+        self.context.ack(acc.sip_message)
 
     def accept_outgoing(self):
         if self.incoming:
@@ -347,6 +386,11 @@ class CallTest:
         o = self.q.expect('dbus-signal', signal='CallStateChanged')
         assertEquals(cs.CALL_STATE_ACTIVE, o.args[0])
 
+    def accept(self):
+        if self.incoming:
+            return self.accept_incoming()
+        else:
+            return self.accept_outgoing()
 
     def hangup(self):
         if self.incoming:
@@ -383,7 +427,7 @@ class CallTest:
     def run(self):
         self.connect()
         self.initiate()
-        self.accept_outgoing()
+        self.accept()
         self.during_call()
         self.hangup()
         self.chan.Close()
@@ -391,19 +435,17 @@ class CallTest:
     
 
 
-def run_call_test(q, bus, conn, sip_proxy, klass=CallTest, incoming=False,
+def run_call_test(q, bus, conn, sip_proxy, incoming=False, klass=CallTest,
         **params):
     test = klass(q, bus, conn, sip_proxy, incoming, **params)
     test.run()
 
+def run(**params):
+    exec_test(lambda q, b, c, s:
+                  run_call_test(q, b, c, s, True, **params))
+    exec_test(lambda q, b, c, s:
+                  run_call_test(q, b, c, s, False,   **params))
+
 if __name__ == '__main__':
-    exec_test(run_call_test)
-    exec_test(lambda q, b, c, s:
-                  run_call_test(q, b, c, s, incoming=True))
-
-    exec_test(lambda q, b, c, s:
-                  run_call_test(q, b, c, s, peer='foo@sip.bar.com'))
-    exec_test(lambda q, b, c, s:
-                  run_call_test(q, b, c, s, incoming=True,
-                                peer='foo@sip.bar.com'))
-
+    run()
+    run(peer='foo@sip.bar.com')

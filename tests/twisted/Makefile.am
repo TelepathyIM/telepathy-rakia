@@ -11,9 +11,8 @@ TWISTED_TESTS = \
 	test-self-alias.py \
 	text/initiate-requestotron.py \
 	voip/calltest.py \
-	voip/incoming-basics.py \
-	voip/outgoing-basics.py \
 	voip/requestable-classes.py \
+	voip/ringing-queued.py \
 	$(NULL)
 
 TESTS =
