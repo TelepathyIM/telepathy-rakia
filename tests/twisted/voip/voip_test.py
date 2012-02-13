@@ -71,9 +71,8 @@ class VoipTestContext(object):
     def get_remote_candidates_dbus(self):
         return dbus.Array(self.remote_candidates, signature='(usua{sv})')
         
-    def get_call_sdp(self):
+    def get_call_sdp(self, audio, video):
         (component, ip, port, info) = self.remote_candidates[0]
-
         codec_id_list = []
         codec_list = []
         for name, codec_id, rate, _misc in self.audio_codecs:
@@ -82,14 +81,20 @@ class VoipTestContext(object):
         codec_ids = ' '.join(codec_id_list)
         codecs = '\r\n'.join(codec_list)
 
-        sdp_string = ('v=0\r\n'
-            'o=- 7047265765596858314 2813734028456100815 IN IP4 %(ip)s\r\n'
-            's=-\r\n'
+        sdp_string = 'v=0\r\n' + \
+            'o=- 7047265765596858314 2813734028456100815 IN IP4 %(ip)s\r\n' + \
+            's=-\r\n' + \
             't=0 0\r\n'
-            'm=audio %(port)s RTP/AVP 3 8 0\r\n'
-            'c=IN IP4 %(ip)s\r\n'
-            '%(codecs)s\r\n') % locals()
-        return sdp_string
+        if audio:
+            sdp_string += 'm=audio %(port)s RTP/AVP 3 8 0\r\n' \
+                'c=IN IP4 %(ip)s\r\n' \
+                '%(codecs)s\r\n'
+        if video:
+            sdp_string += 'm=audio %(port)s RTP/AVP 3 8 0\r\n' \
+                'c=IN IP4 %(ip)s\r\n' \
+                '%(codecs)s\r\n'
+
+        return sdp_string % locals()
 
     def check_call_sdp(self, sdp_string):
         codec_id_list = []
@@ -147,13 +152,13 @@ class VoipTestContext(object):
         
     def incoming_call(self):
         self.call_id = uuid.uuid4().hex
-        body = self.get_call_sdp()
+        body = self.get_call_sdp(True, False)
         return self.send_message('INVITE', body, content_type='application/sdp',
                    supported='timer, 100rel', call_id=self.call_id)
         
     def incoming_call_from_self(self):
         self.call_id = uuid.uuid4().hex
-        body = self.get_call_sdp()
+        body = self.get_call_sdp(True, False)
         return self.send_message('INVITE', body, content_type='application/sdp',
                    supported='timer, 100rel', call_id=self.call_id, 
                    from_='<sip:testacc@127.0.0.1>')

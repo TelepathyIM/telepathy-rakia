@@ -10,6 +10,7 @@ TWISTED_TESTS = \
 	test-message.py \
 	test-self-alias.py \
 	text/initiate-requestotron.py \
+	voip/calltest.py \
 	voip/incoming-basics.py \
 	voip/outgoing-basics.py \
 	voip/requestable-classes.py \
