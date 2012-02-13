@@ -899,9 +899,9 @@ priv_update_remote_hold (RakiaSipSession *self)
       media = g_ptr_array_index(priv->medias, i);
       if (media != NULL)
         {
-          direction = rakia_sip_media_get_direction (media);
-
-          if ((direction & RAKIA_DIRECTION_SEND) != 0)
+          if (rakia_sip_media_get_direction (media) & RAKIA_DIRECTION_SEND ||
+              !(rakia_sip_media_get_requested_direction (media) &
+                  RAKIA_DIRECTION_SEND))
             remote_held = FALSE;
 
           has_medias = TRUE;
