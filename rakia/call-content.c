@@ -192,6 +192,7 @@ rakia_call_content_deinit (TpBaseCallContent *base)
   rakia_sip_session_remove_media (rakia_sip_media_get_session (priv->media),
       priv->media, 0, NULL );
 
+  tp_clear_object (&priv->stream);
   tp_clear_object (&priv->channel);
 
   TP_BASE_CALL_CONTENT_CLASS (
