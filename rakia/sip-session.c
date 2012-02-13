@@ -185,6 +185,13 @@ event_target_init(gpointer g_iface, gpointer iface_data)
 }
 
 static void
+null_safe_unref (gpointer data)
+{
+  if (data)
+    g_object_unref (data);
+}
+
+static void
 rakia_sip_session_init (RakiaSipSession *self)
 {
   RakiaSipSessionPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (self,
@@ -196,7 +203,7 @@ rakia_sip_session_init (RakiaSipSession *self)
   priv->rtcp_enabled = TRUE;
 
   /* allocate any data required by the object here */
-  priv->medias = g_ptr_array_new_with_free_func (g_object_unref);
+  priv->medias = g_ptr_array_new_with_free_func (null_safe_unref);
 }
 
 static void rakia_sip_session_get_property (GObject    *object,
