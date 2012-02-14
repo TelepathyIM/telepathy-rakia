@@ -455,7 +455,7 @@ def run(**params):
     exec_test(lambda q, b, c, s:
                   run_call_test(q, b, c, s, True, **params))
     exec_test(lambda q, b, c, s:
-                  run_call_test(q, b, c, s, False,   **params))
+                  run_call_test(q, b, c, s, False, **params))
 
 if __name__ == '__main__':
     run()

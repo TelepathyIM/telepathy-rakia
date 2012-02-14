@@ -510,7 +510,8 @@ rakia_sip_session_receive_reinvite (RakiaSipSession *self)
 
   priv_save_event (self);
 
-  rakia_sip_session_change_state (self, RAKIA_SIP_SESSION_STATE_REINVITE_RECEIVED);
+  rakia_sip_session_change_state (self,
+      RAKIA_SIP_SESSION_STATE_REINVITE_RECEIVED);
 }
 
 
@@ -616,10 +617,7 @@ rakia_sip_session_queued (RakiaSipSession *self)
 static void
 rakia_sip_session_receive_invite (RakiaSipSession *self)
 {
-  RakiaSipSessionPrivate *priv = RAKIA_SIP_SESSION_GET_PRIVATE (self);
-
-  g_return_if_fail (priv->state == RAKIA_SIP_SESSION_STATE_CREATED);
-  g_return_if_fail (priv->nua_op != NULL);
+  g_return_if_fail (self->priv->nua_op != NULL);
 
   /* We'll do Ringing later instead */
   /* nua_respond (priv->nua_op, SIP_183_SESSION_PROGRESS, TAG_END()); */
@@ -890,7 +888,6 @@ priv_update_remote_hold (RakiaSipSession *self)
   RakiaSipMedia *media;
   gboolean has_medias = FALSE;
   gboolean remote_held = TRUE;
-  guint direction;
   guint i;
 
   /* The call is remotely unheld if there's at least one sending media */
@@ -1408,7 +1405,8 @@ priv_nua_i_state_cb (RakiaSipSession *self,
     }
 
 
-  if (ss_state == nua_callstate_received)
+  if (ss_state == nua_callstate_received &&
+      priv->state == RAKIA_SIP_SESSION_STATE_CREATED)
     {
       /* Let's announce the new call now that the initial streams have
        * been created

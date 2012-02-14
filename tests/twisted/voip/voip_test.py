@@ -46,6 +46,7 @@ class VoipTestContext(object):
         self.peer_id = "sip:" + peer
         self.sip_proxy = sip_proxy
         self._cseq_id = 1
+        self.to = None
       
     def dbusify_codecs(self, codecs):
         dbussed_codecs = [ (id, name, rate, 1, False, params )
@@ -112,7 +113,7 @@ class VoipTestContext(object):
             msg.body = body
             msg.addHeader('content-length', '%d' % len(msg.body))
         msg.addHeader('from', from_ or '<%s>;tag=XYZ' % self.peer_id)
-        msg.addHeader('to', to_ or '<sip:testacc@127.0.0.1>')
+        msg.addHeader('to', to_ or self.to or '<sip:testacc@127.0.0.1>')
         self._cseq_id += 1
         additional_headers.setdefault('cseq', '%d %s' % (self._cseq_id, message_type))
         for key, vals in additional_headers.items():
@@ -128,12 +129,14 @@ class VoipTestContext(object):
         self.sip_proxy.sendMessage(destination, msg)
         return msg
     
-    def accept(self, invite_message):
+    def accept(self, invite_message, body=None):
         self.call_id = invite_message.headers['call-id'][0]
+        if invite_message.headers['from'][0].find('tag='):
+            self.to = invite_message.headers['from'][0]
         response = self.sip_proxy.responseFromRequest(200, invite_message)
         # Echo rakia's SDP back to it. It doesn't care.
         response.addHeader('content-type', 'application/sdp')
-        response.body = invite_message.body
+        response.body = body or invite_message.body
         response.addHeader('content-length', '%d' % len(response.body))
         self.sip_proxy.deliverResponse(response)
         return response
@@ -147,6 +150,11 @@ class VoipTestContext(object):
     def ack(self, ok_message):
         cseq = '%s ACK' % ok_message.headers['cseq'][0].split()[0]
         self.send_message('ACK', call_id=self.call_id, cseq=cseq)
+    
+    def reinvite(self, medias=[('audio',None)]):
+        body = self.get_call_sdp(medias)
+        return self.send_message('INVITE', body, content_type='application/sdp',
+                   supported='timer, 100rel', call_id=self.call_id)
         
     def incoming_call(self, medias=[('audio',None)]):
         self.call_id = uuid.uuid4().hex

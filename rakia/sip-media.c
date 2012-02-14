@@ -580,9 +580,7 @@ rakia_sip_media_set_direction (RakiaSipMedia *media,
 {
   RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
 
-  direction &= priv->requested_direction;
-
-  media->priv->direction = direction;
+  priv->direction = direction;
 
   g_signal_emit (media, signals[SIG_DIRECTION_CHANGED], 0);
 }
@@ -785,7 +783,6 @@ static void push_remote_candidates (RakiaSipMedia *media)
 }
 
 
-
 /*
  * Sets the remote candidates and codecs for this stream, as
  * received via signaling.
@@ -856,6 +853,8 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
   if (sdp_media_cmp (old_media, new_media) == 0)
     {
       MEDIA_DEBUG (media, "no media changes detected for the media");
+      /* Emit direct change anyway */
+      g_signal_emit (media, signals[SIG_DIRECTION_CHANGED], 0);
       return TRUE;
     }
 

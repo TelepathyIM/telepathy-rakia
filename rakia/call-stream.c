@@ -351,12 +351,16 @@ rakia_call_stream_set_sending (TpBaseMediaCallStream *stream,
   RakiaDirection current_direction =
       rakia_sip_media_get_requested_direction (priv->media);
 
-  if (current_direction & RAKIA_DIRECTION_SEND)
+  if (!!(current_direction & RAKIA_DIRECTION_SEND) == sending)
     return TRUE;
 
 
-  rakia_sip_media_set_requested_direction (priv->media,
-      current_direction | RAKIA_DIRECTION_SEND);
+  if (sending)
+    rakia_sip_media_set_requested_direction (priv->media,
+        current_direction | RAKIA_DIRECTION_SEND);
+  else
+    rakia_sip_media_set_requested_direction (priv->media,
+        current_direction & ~RAKIA_DIRECTION_SEND);
 
   return TRUE;
 }
@@ -426,25 +430,37 @@ static void
 media_direction_changed_cb (RakiaSipMedia *media, RakiaCallStream *self)
 {
   TpBaseCallStream *bcs = TP_BASE_CALL_STREAM (self);
-#if 0
+  TpBaseMediaCallStream *bmcs = TP_BASE_MEDIA_CALL_STREAM (self);
   RakiaCallStreamPrivate *priv = self->priv;
   TpHandle contact = tp_base_channel_get_target_handle (
       TP_BASE_CHANNEL (priv->channel));
-  TpSendingState local_sending =
-      tp_base_call_stream_get_local_sending_state (bcs);
-  TpSendingState remote_sending =
-      tp_base_call_stream_get_remote_sending_state (bcs, contact);
-#endif
-  TpSendingState local_sending = TP_SENDING_STATE_NONE;
+  TpHandle self_handle = tp_base_channel_get_self_handle (
+      TP_BASE_CHANNEL (priv->channel));
   RakiaDirection direction = rakia_sip_media_get_direction (media);
   RakiaDirection requested_direction =
       rakia_sip_media_get_requested_direction (media);
 
   if (requested_direction & RAKIA_DIRECTION_SEND)
-    local_sending = TP_SENDING_STATE_SENDING;
+    {
+      tp_base_call_stream_update_local_sending_state (bcs,
+          TP_SENDING_STATE_SENDING, self_handle,
+          TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED, "", "User requested");
+    }
   else if (direction & RAKIA_DIRECTION_SEND)
-    local_sending = TP_SENDING_STATE_PENDING_SEND;
+    {
+      tp_base_call_stream_update_local_sending_state (bcs,
+          TP_SENDING_STATE_PENDING_SEND, contact,
+          TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "",
+          "Remote requested that we start sending");
+    }
+  else
+    {
+      tp_base_call_stream_update_local_sending_state (bcs,
+          TP_SENDING_STATE_NONE, self_handle,
+          TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED, "", "User requested");
+    }
 
-  tp_base_call_stream_update_local_sending_state (bcs,
-      local_sending, 0, TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");
+  if (requested_direction & RAKIA_DIRECTION_SEND &&
+      direction & RAKIA_DIRECTION_SEND)
+    tp_base_media_call_stream_set_local_sending (bmcs, TRUE);
 }
