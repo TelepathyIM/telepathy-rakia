@@ -49,6 +49,7 @@ static TpBaseCallContent * rakia_call_channel_add_content (
     TpBaseCallChannel *base,
     const gchar *name,
     TpMediaStreamType type,
+    TpMediaStreamDirection initial_direction,
     GError **error);
 static void rakia_call_channel_hangup (
     TpBaseCallChannel *base,
@@ -364,6 +365,7 @@ rakia_call_channel_add_content (
     TpBaseCallChannel *base,
     const gchar *name,
     TpMediaStreamType type,
+    TpMediaStreamDirection initial_direction,
     GError **error)
 {
   RakiaCallChannel *self = RAKIA_CALL_CHANNEL (base);
@@ -372,7 +374,7 @@ rakia_call_channel_add_content (
   RakiaSipMedia *media;
 
   media = rakia_sip_session_add_media (priv->session,
-      type, name, RAKIA_DIRECTION_BIDIRECTIONAL, TRUE);
+      type, name, initial_direction, TRUE);
 
   content = rakia_call_channel_get_content_by_media (self, media);
 
