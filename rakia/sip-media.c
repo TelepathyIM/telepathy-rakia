@@ -355,6 +355,18 @@ priv_get_preferred_local_candidates (RakiaSipMedia *media,
 }
 
 
+static void
+rakia_sip_media_set_direction (RakiaSipMedia *media,
+    RakiaDirection direction)
+{
+  RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
+
+  priv->direction = direction;
+
+  g_signal_emit (media, signals[SIG_DIRECTION_CHANGED], 0);
+}
+
+
 static RakiaDirection
 priv_get_sdp_direction (RakiaSipMedia *media, gboolean authoritative)
 {
@@ -363,11 +375,14 @@ priv_get_sdp_direction (RakiaSipMedia *media, gboolean authoritative)
   RakiaDirection direction = priv->requested_direction;
 
   if (!authoritative)
-    direction &= priv->direction;
+    direction &= rakia_sip_media_get_remote_direction (media);
 
   /* Don't allow send, only receive if a hold is requested */
   if (priv->hold_requested)
     direction &= RAKIA_DIRECTION_RECEIVE;
+
+  if (!authoritative)
+    rakia_sip_media_set_direction (media, direction);
 
   return direction;
 }
@@ -574,17 +589,6 @@ rakia_sip_media_get_remote_direction (RakiaSipMedia *media)
   return rakia_direction_from_remote_media (priv->remote_media);
 }
 
-static void
-rakia_sip_media_set_direction (RakiaSipMedia *media,
-    RakiaDirection direction)
-{
-  RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
-
-  priv->direction = direction;
-
-  g_signal_emit (media, signals[SIG_DIRECTION_CHANGED], 0);
-}
-
 
 static void
 priv_update_sending (RakiaSipMedia *media, RakiaDirection send_direction)
@@ -612,6 +616,9 @@ rakia_sip_media_set_requested_direction (RakiaSipMedia *media,
     return;
 
   priv->requested_direction = direction;
+
+  if (priv->requested_direction == priv->direction)
+    return;
 
   rakia_sip_media_local_updated (media);
 }
@@ -801,7 +808,7 @@ static void push_remote_candidates (RakiaSipMedia *media)
 gboolean
 rakia_sip_media_set_remote_media (RakiaSipMedia *media,
     const sdp_media_t *new_media,
-    guint direction_up_mask)
+    gboolean authoritative)
 {
   RakiaSipMediaPrivate *priv;
   sdp_connection_t *sdp_conn;
@@ -809,6 +816,7 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
   gboolean transport_changed = TRUE;
   gboolean codecs_changed = TRUE;
   guint new_direction;
+  RakiaDirection direction_up_mask;
 
   DEBUG ("enter");
 
@@ -850,19 +858,33 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
 
   /* Check if there was any media update at all */
 
-  if (sdp_media_cmp (old_media, new_media) == 0)
-    {
-      MEDIA_DEBUG (media, "no media changes detected for the media");
-      /* Emit direct change anyway */
-      g_signal_emit (media, signals[SIG_DIRECTION_CHANGED], 0);
-      return TRUE;
-    }
+  if (old_media)
+    g_debug ("old m %d new m %d", old_media->m_mode, new_media->m_mode);
 
   new_direction = rakia_direction_from_remote_media (new_media);
+
+
+  /*
+   * Do not allow:
+   * 1) an answer to bump up directions beyond what's been offered;
+   * 2) an offer to remove the local hold.
+   */
+  if (authoritative)
+    direction_up_mask = priv->hold_requested ?
+        RAKIA_DIRECTION_SEND : RAKIA_DIRECTION_BIDIRECTIONAL;
+  else
+    direction_up_mask = 0;
 
   /* Make sure the peer can only enable sending or receiving direction
    * if it's allowed to */
   new_direction &= priv->requested_direction | direction_up_mask;
+
+
+  if (sdp_media_cmp (old_media, new_media) == 0)
+    {
+      MEDIA_DEBUG (media, "no media changes detected for the media");
+      goto done;
+    }
 
   if (old_media != NULL)
     {
@@ -907,6 +929,8 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
     }
 
   /* TODO: this will go to session change commit code */
+
+ done:
 
   /* Set the final direction */
   rakia_sip_media_set_direction (media, new_direction);

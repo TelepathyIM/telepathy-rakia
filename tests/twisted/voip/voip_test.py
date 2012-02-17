@@ -171,3 +171,11 @@ class VoipTestContext(object):
         
     def terminate(self):
         return self.send_message('BYE', call_id=self.call_id)
+
+    def options_ping(self, q):
+        self.send_message('OPTIONS',
+                          supported='timer, 100rel', call_id=self.call_id)
+        acc = q.expect('sip-response', call_id=self.call_id, code=200,
+                        cseq='%s OPTIONS' % (self._cseq_id))
+        print acc.__dict__
+        self.ack(acc.sip_message)

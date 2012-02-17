@@ -922,7 +922,6 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
   const sdp_session_t *sdp = priv->remote_sdp;
   const sdp_media_t *sdp_media;
   gboolean has_supported_media = FALSE;
-  guint direction_up_mask;
   guint i;
 
   g_return_val_if_fail (sdp != NULL, FALSE);
@@ -938,16 +937,6 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
   priv->rtcp_enabled = !rakia_sdp_rtcp_bandwidth_throttled (
       sdp->sdp_bandwidths);
 
-  /*
-   * Do not allow:
-   * 1) an answer to bump up directions beyond what's been offered;
-   * 2) an offer to remove the local hold.
-   */
-  if (authoritative)
-    direction_up_mask = priv->hold_requested ?
-        RAKIA_DIRECTION_SEND : RAKIA_DIRECTION_BIDIRECTIONAL;
-  else
-    direction_up_mask = 0;
 
   /* A remote media requesting to enable sending would need local approval.
    * Also, if there have been any local media updates pending a re-INVITE,
@@ -998,9 +987,8 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
           /* XXX: close this media and create a new one in its place? */
           WARNING ("The peer has changed the media type, don't know what to do");
         }
-      else if (rakia_sip_media_set_remote_media (media,
-              sdp_media,
-              direction_up_mask))
+      else if (rakia_sip_media_set_remote_media (media, sdp_media,
+              authoritative))
         {
           has_supported_media = TRUE;
           continue;

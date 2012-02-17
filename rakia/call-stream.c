@@ -336,9 +336,52 @@ rakia_call_stream_finish_initial_candidates (TpBaseMediaCallStream *stream,
   return TRUE;
 }
 
-static void rakia_call_stream_request_receiving (TpBaseMediaCallStream *stream,
-    TpHandle contact, gboolean receive)
+static void rakia_call_stream_request_receiving (
+    TpBaseMediaCallStream *stream,
+    TpHandle contact,
+    gboolean receive)
 {
+  RakiaCallStream *self = RAKIA_CALL_STREAM (stream);
+  TpBaseCallStream *bcs = TP_BASE_CALL_STREAM (stream);
+  RakiaCallStreamPrivate *priv = self->priv;
+  RakiaDirection current_requested_direction =
+      rakia_sip_media_get_requested_direction (priv->media);
+  RakiaDirection current_direction =
+      rakia_sip_media_get_direction (priv->media);
+  TpBaseChannel *bchan = TP_BASE_CHANNEL (priv->channel);
+
+  g_debug ("receive: %d req: %d dir:%d", receive,
+      current_requested_direction, current_direction);
+
+  if ((!!(current_requested_direction & RAKIA_DIRECTION_RECEIVE)) == receive)
+    return;
+
+  if (receive)
+    {
+      rakia_sip_media_set_requested_direction (priv->media,
+          current_requested_direction | RAKIA_DIRECTION_RECEIVE);
+
+      if (current_direction & RAKIA_DIRECTION_RECEIVE)
+           tp_base_call_stream_update_remote_sending_state (bcs,
+               tp_base_channel_get_target_handle (bchan),
+               TP_SENDING_STATE_SENDING,
+               tp_base_channel_get_self_handle (bchan),
+               TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED, "",
+               "User requested to start receiving");
+    }
+  else
+    {
+      rakia_sip_media_set_requested_direction (priv->media,
+          current_requested_direction & ~RAKIA_DIRECTION_RECEIVE);
+
+      if (!(current_direction & RAKIA_DIRECTION_RECEIVE))
+        tp_base_call_stream_update_remote_sending_state (bcs,
+            tp_base_channel_get_target_handle (bchan),
+            TP_SENDING_STATE_NONE,
+            tp_base_channel_get_self_handle (bchan),
+            TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED, "",
+            "User requested to stop receiving");
+    }
 }
 
 static gboolean
@@ -437,21 +480,29 @@ media_direction_changed_cb (RakiaSipMedia *media, RakiaCallStream *self)
   TpHandle self_handle = tp_base_channel_get_self_handle (
       TP_BASE_CHANNEL (priv->channel));
   RakiaDirection direction = rakia_sip_media_get_direction (media);
+  RakiaDirection remote_direction =
+      rakia_sip_media_get_remote_direction (media);
   RakiaDirection requested_direction =
       rakia_sip_media_get_requested_direction (media);
 
-  if (requested_direction & RAKIA_DIRECTION_SEND)
+  g_debug ("req: %d remote: %d dir: %d",
+      requested_direction, remote_direction, direction);
+
+  if (direction & requested_direction & RAKIA_DIRECTION_SEND)
     {
       tp_base_call_stream_update_local_sending_state (bcs,
           TP_SENDING_STATE_SENDING, self_handle,
           TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED, "", "User requested");
+      tp_base_media_call_stream_set_local_sending (bmcs, TRUE);
     }
-  else if (direction & RAKIA_DIRECTION_SEND)
+  else if (remote_direction & RAKIA_DIRECTION_SEND)
     {
-      tp_base_call_stream_update_local_sending_state (bcs,
-          TP_SENDING_STATE_PENDING_SEND, contact,
-          TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "",
-          "Remote requested that we start sending");
+      if (tp_base_call_stream_get_local_sending_state (bcs) !=
+          TP_SENDING_STATE_SENDING)
+        tp_base_call_stream_update_local_sending_state (bcs,
+            TP_SENDING_STATE_PENDING_SEND, contact,
+            TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "",
+            "Remote requested that we start sending");
     }
   else
     {
@@ -460,7 +511,15 @@ media_direction_changed_cb (RakiaSipMedia *media, RakiaCallStream *self)
           TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED, "", "User requested");
     }
 
-  if (requested_direction & RAKIA_DIRECTION_SEND &&
-      direction & RAKIA_DIRECTION_SEND)
-    tp_base_media_call_stream_set_local_sending (bmcs, TRUE);
+
+  if ((direction & RAKIA_DIRECTION_RECEIVE) &&
+      (requested_direction & RAKIA_DIRECTION_RECEIVE))
+    tp_base_call_stream_update_remote_sending_state (bcs, contact,
+        TP_SENDING_STATE_SENDING, 0,
+        TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");
+  else if (!(direction & RAKIA_DIRECTION_RECEIVE) &&
+      !(requested_direction & RAKIA_DIRECTION_RECEIVE))
+    tp_base_call_stream_update_remote_sending_state (bcs, contact,
+        TP_SENDING_STATE_NONE, 0,
+        TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");
 }

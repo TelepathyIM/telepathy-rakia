@@ -96,8 +96,7 @@ gchar * rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs,
                                         const char *name);
 
 gboolean rakia_sip_media_set_remote_media (RakiaSipMedia *media,
-    const sdp_media_t *new_media,
-    guint direction_up_mask);
+    const sdp_media_t *new_media, gboolean authoritative);
 
 void rakia_sip_media_generate_sdp (RakiaSipMedia *media, GString *out,
     gboolean authoritative);
@@ -163,6 +162,8 @@ void rakia_sip_media_set_requested_direction (RakiaSipMedia *media,
     RakiaDirection direction);
 
 RakiaDirection rakia_sip_media_get_direction (RakiaSipMedia *media);
+
+RakiaDirection rakia_sip_media_get_remote_direction (RakiaSipMedia *media);
 
 RakiaDirection rakia_sip_media_get_requested_direction (
     RakiaSipMedia *self);
