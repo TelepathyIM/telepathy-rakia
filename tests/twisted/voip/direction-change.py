@@ -318,7 +318,6 @@ class DirectionChange(calltest.CallTest):
         #assertEquals(self.remote_handle, o[1].args[3][0])
         #assertEquals(cs.CALL_SCR_USER_REQUESTED, o[1].args[3][1])
 
-        
 
     def stop_start_receiving_user_requested(self, content):
         self.stop_receiving(content)

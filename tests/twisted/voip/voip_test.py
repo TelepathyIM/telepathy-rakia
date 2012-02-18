@@ -34,7 +34,7 @@ class VoipTestContext(object):
           'priority': 0})
         ]
 
-    _mline_template = 'm=audio %(port)s RTP/AVP %(codec_ids)s'
+    _mline_template = 'm=%(mediatype)s %(port)s RTP/AVP %(codec_ids)s'
     _aline_template = 'a=rtpmap:%(codec_id)s %(name)s/%(rate)s'
 
     def __init__(self, q, conn, bus, sip_proxy, our_uri, peer):
@@ -95,7 +95,7 @@ class VoipTestContext(object):
 
         return sdp_string % locals()
 
-    def check_call_sdp(self, sdp_string):
+    def check_call_sdp(self, sdp_string, medias=[('audio',None)]):
         codec_id_list = []
         for name, codec_id, rate, _misc in self.audio_codecs:
             assertContains (self._aline_template % locals(), sdp_string)
@@ -103,7 +103,9 @@ class VoipTestContext(object):
         codec_ids = ' '.join(codec_id_list)
 
         (component, ip, port, info) = self.remote_candidates[0]
-        assert self._mline_template % locals() in sdp_string
+        for m in medias:
+            mediatype = m[0]
+            assert self._mline_template % locals() in sdp_string
         
     def send_message(self, message_type, body='', to_=None, from_=None, 
                      **additional_headers):
@@ -177,5 +179,4 @@ class VoipTestContext(object):
                           supported='timer, 100rel', call_id=self.call_id)
         acc = q.expect('sip-response', call_id=self.call_id, code=200,
                         cseq='%s OPTIONS' % (self._cseq_id))
-        print acc.__dict__
         self.ack(acc.sip_message)

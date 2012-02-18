@@ -19,21 +19,31 @@ class CallTest:
         self.sip_proxy = sip_proxy
         self.incoming = incoming
         self.peer = peer
+        self.content_count = 0;
         if audio:
+            self.content_count += 1
             if incoming:
-                self.initial_audio_content_name = 'initial_audio_1'
+                self.initial_audio_content_name = 'initial_audio_' + str(self.content_count)
             else:
                 self.initial_audio_content_name = 'initialaudio'
         else:
             self.initial_audio_content_name = None
         if video:
+            self.content_count += 1
             if incoming:
-                self.initial_video_content_name = 'initial_video_1'
+                self.initial_video_content_name = 'initial_video_' + str(self.content_count)
             else:
                 self.initial_video_content_name = 'initialvideo'
         else:
             self.initial_video_content_name = None
         self.contents = []
+
+        self.medias = []
+        if self.initial_audio_content_name:
+            self.medias += [('audio', None)]
+        if self.initial_video_content_name:
+            self.medias += [('video', None)]
+
 
     def connect(self):
         self.conn.Connect()
@@ -71,8 +81,7 @@ class CallTest:
         assertEquals(True, props[cs.CHANNEL_TYPE_CALL + '.MutableContents'])
         assertEquals(False, props[cs.CHANNEL_TYPE_CALL + '.HardwareStreaming'])
 
-    def connect_endpoint(self, content, endpoint_path):
-        
+    def connect_endpoint(self, content, endpoint_path):        
         endpoint = self.bus.get_object(self.conn.bus_name, endpoint_path)
         endpoint_props = endpoint.GetAll(cs.CALL_STREAM_ENDPOINT)
         assertEquals(('',''), endpoint_props['RemoteCredentials'])
@@ -178,7 +187,6 @@ class CallTest:
                 EventPattern('dbus-signal', signal='RemoteMediaDescriptionsChanged'))
             assertLength(1, o[0].args[0])
             assertEquals([], o[0].args[1])
-            
             self.connect_endpoint(content, o[0].args[0][0])
 
                        
@@ -207,12 +215,13 @@ class CallTest:
                      call_props['InitialTransport'])
         assertEquals({self.remote_handle: 0}, call_props['CallMembers'])
 
-        assertLength(1, call_props['Contents'])
+
+        assertLength(self.content_count, call_props['Contents'])
 
 
     def initiate(self):
         if self.incoming:
-            self.context.incoming_call()
+            self.context.incoming_call(self.medias)
         else:
             self.chan_path = self.conn.Requests.CreateChannel({
                     cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_CALL,
@@ -237,7 +246,8 @@ class CallTest:
             
         call_props = self.chan.Properties.GetAll(cs.CHANNEL_TYPE_CALL)
         self.check_call_properties(call_props)
-        self.__add_content(call_props['Contents'][0], True)
+        for c in call_props['Contents']:
+            self.__add_content(c, True)
 
         if self.incoming:
             o = self.q.expect('dbus-signal', signal='CallStateChanged')
@@ -253,7 +263,6 @@ class CallTest:
                 c.stream.Media.CompleteReceivingStateChange(
                     cs.CALL_STREAM_FLOW_STATE_STARTED)
 
-            for c in self.contents:
                 mdo = c.Get(cs.CALL_CONTENT_IFACE_MEDIA,
                             'MediaDescriptionOffer')
                 md = self.bus.get_object (self.conn.bus_name, mdo[0])
@@ -274,7 +283,7 @@ class CallTest:
 
                 self.add_candidates(c.stream)
                 
-                self.invite_event = self.q.expect('sip-invite')
+            self.invite_event = self.q.expect('sip-invite')
 
     def content_dbus_signal_event(self, s, **kwparams):
         return map(
@@ -322,33 +331,39 @@ class CallTest:
         for c in self.contents:
             c.stream.Media.CompleteReceivingStateChange(
                 cs.CALL_STREAM_FLOW_STATE_STARTED)
+
+            #self.q.expect('dbus-signal', signal='ReceivingStateChanged',
+            #         args=[cs.CALL_STREAM_FLOW_STATE_STARTED],
+            #         path=c.stream.__dbus_object_path__)
+
+        self.q.expect_many(
+            *self.stream_dbus_signal_event(
+                'LocalSendingStateChanged',
+                predicate=lambda e: cs.CALL_SENDING_STATE_SENDING == e.args[0]))
+
+        for c in self.contents:
             c.stream.Media.CompleteSendingStateChange(
             cs.CALL_STREAM_FLOW_STATE_STARTED)
 
-            o = self.q.expect_many(
-                EventPattern('dbus-signal', signal='ReceivingStateChanged',
-                             args=[cs.CALL_STREAM_FLOW_STATE_STARTED],
-                             path=c.stream.__dbus_object_path__),
-                EventPattern('dbus-signal', signal='SendingStateChanged',
-                             args=[cs.CALL_STREAM_FLOW_STATE_STARTED],
-                             path=c.stream.__dbus_object_path__),
-                EventPattern('dbus-signal', signal='LocalSendingStateChanged',
-                             path=c.stream.__dbus_object_path__))
-            assertEquals(cs.CALL_SENDING_STATE_SENDING, o[2].args[0])
+            self.q.expect('dbus-signal', signal='SendingStateChanged',
+                          args=[cs.CALL_STREAM_FLOW_STATE_STARTED],
+                          path=c.stream.__dbus_object_path__)
 
             self.add_candidates(c.stream)
+
 
         acc = self.q.expect('sip-response', call_id=self.context.call_id,
                             code=200)
 
-        self.context.check_call_sdp(acc.sip_message.body)
+        self.context.check_call_sdp(acc.sip_message.body, self.medias)
         self.context.ack(acc.sip_message)
 
     def accept_outgoing(self):
         if self.incoming:
             return
 
-        self.context.check_call_sdp(self.invite_event.sip_message.body)
+        self.context.check_call_sdp(self.invite_event.sip_message.body,
+                                    self.medias)
         self.context.accept(self.invite_event.sip_message)
 
         ack_cseq = "%s ACK" % self.invite_event.cseq.split()[0]
@@ -369,11 +384,7 @@ class CallTest:
         o = self.q.expect_many(
             # Call accepted
             EventPattern('dbus-signal', signal='CallStateChanged'),
-            *(self.stream_dbus_signal_event('SendingStateChanged') +
-              self.stream_dbus_signal_event('EndpointsChanged') +
-              self.content_dbus_signal_event('MediaDescriptionOfferDone') +
-              self.content_dbus_signal_event('LocalMediaDescriptionChanged') +
-              self.content_dbus_signal_event('RemoteMediaDescriptionsChanged')))
+            *self.stream_dbus_signal_event('EndpointsChanged'))
 
         assertEquals(cs.CALL_STATE_ACCEPTED, o[0].args[0])
 
@@ -388,11 +399,11 @@ class CallTest:
             self.q.expect('dbus-signal', signal='SendingStateChanged',
                           args=[cs.CALL_STREAM_FLOW_STATE_STARTED],
                           path=c.stream.__dbus_object_path__)
-            for i in o:
-                if i.type == 'dbus-signal' and i.signal == 'EndpointsChanged':
-                    assertLength(1, i.args[0])
-                    assertLength(0, i.args[1])
-                    self.connect_endpoint(c, i.args[0][0])
+        for i in o:
+            if i.type == 'dbus-signal' and i.signal == 'EndpointsChanged':
+                assertLength(1, i.args[0])
+                assertLength(0, i.args[1])
+                self.connect_endpoint(c, i.args[0][0])
 
         o = self.q.expect('dbus-signal', signal='CallStateChanged')
         assertEquals(cs.CALL_STATE_ACTIVE, o.args[0])
@@ -453,10 +464,12 @@ def run_call_test(q, bus, conn, sip_proxy, incoming=False, klass=CallTest,
 
 def run(**params):
     exec_test(lambda q, b, c, s:
-                  run_call_test(q, b, c, s, True, **params))
+                  run_call_test(q, b, c, s, incoming=True, **params))
     exec_test(lambda q, b, c, s:
-                  run_call_test(q, b, c, s, False, **params))
+                  run_call_test(q, b, c, s, incoming=False, **params))
 
 if __name__ == '__main__':
     run()
     run(peer='foo@sip.bar.com')
+    run(video=True)
+    run(video=True,audio=False)
