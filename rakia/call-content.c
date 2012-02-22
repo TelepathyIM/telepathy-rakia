@@ -397,6 +397,9 @@ rakia_call_content_add_stream (RakiaCallContent *self)
       TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");
 
   tp_base_call_content_add_stream (bcc, TP_BASE_CALL_STREAM (priv->stream));
+
+  tp_base_media_call_stream_update_receiving_state (
+      TP_BASE_MEDIA_CALL_STREAM (priv->stream));
 }
 
 static void

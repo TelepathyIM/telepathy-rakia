@@ -113,6 +113,8 @@ struct _RakiaSipMediaPrivate
 
   GPtrArray *remote_codec_offer;
   GPtrArray *remote_candidates;
+
+  gboolean can_receive;
 };
 
 
@@ -856,9 +858,6 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
 
   /* Check if there was any media update at all */
 
-  if (old_media)
-    g_debug ("old m %d new m %d", old_media->m_mode, new_media->m_mode);
-
   new_direction = rakia_direction_from_remote_media (new_media);
 
 
@@ -954,7 +953,14 @@ rakia_sip_media_is_codec_intersect_pending (RakiaSipMedia *self)
 gboolean
 rakia_sip_media_is_ready (RakiaSipMedia *self)
 {
-  return (self->priv->local_candidates_prepared && self->priv->local_codecs);
+  RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (self);
+
+  if (priv->requested_direction & RAKIA_DIRECTION_RECEIVE && !priv->can_receive)
+    return FALSE;
+
+  return (self->priv->local_candidates_prepared &&
+      self->priv->local_codecs &&
+      !priv->codec_intersect_pending);
 }
 
 void
@@ -966,18 +972,38 @@ rakia_sip_media_take_local_codecs (RakiaSipMedia *self, GPtrArray *local_codecs)
     g_ptr_array_unref (priv->local_codecs);
   priv->local_codecs = local_codecs;
 
-  if (priv->codec_intersect_pending)
+  MEDIA_DEBUG (self, "New local codecs intersect_pending: %d "
+      "push_candidates: %d candidates_prepared: %d",
+      priv->codec_intersect_pending, priv->push_candidates_on_new_codecs,
+      priv->local_candidates_prepared);
+
+
+  if (priv->push_remote_codecs_pending)
+    {
+      priv->push_remote_codecs_pending = FALSE;
+      push_remote_codecs (self);
+    }
+  else if (priv->codec_intersect_pending)
     {
       if (priv->push_candidates_on_new_codecs)
         {
           /* Push the new candidates now that we have new codecs */
+          priv->push_candidates_on_new_codecs = FALSE;
           push_remote_candidates (self);
         }
-      priv->codec_intersect_pending = FALSE;
 
-      if (priv->local_candidates_prepared)
-        g_signal_emit (self, signals[SIG_LOCAL_NEGOTIATION_COMPLETE], 0,
+      priv->codec_intersect_pending = FALSE;
+      if (rakia_sip_media_is_ready (self))
+        {
+          g_signal_emit (self, signals[SIG_LOCAL_NEGOTIATION_COMPLETE], 0,
             TRUE);
+          g_ptr_array_unref (priv->remote_codec_offer);
+          priv->remote_codec_offer = NULL;
+        }
+    }
+  else
+    {
+      rakia_sip_media_local_updated (self);
     }
 }
 
@@ -1013,9 +1039,11 @@ rakia_sip_media_local_candidates_prepared (RakiaSipMedia *self)
 
   self->priv->local_candidates_prepared = TRUE;
 
-  if (self->priv->local_codecs)
-    g_signal_emit (self, signals[SIG_LOCAL_NEGOTIATION_COMPLETE], 0,
-        TRUE);
+  if (rakia_sip_media_is_ready (self))
+    {
+      g_signal_emit (self, signals[SIG_LOCAL_NEGOTIATION_COMPLETE], 0,
+          TRUE);
+    }
 
   return TRUE;
 }
@@ -1090,7 +1118,20 @@ rakia_sip_media_get_session (RakiaSipMedia *media)
 void
 rakia_sip_media_codecs_rejected (RakiaSipMedia *media)
 {
-  g_signal_emit (media, signals[SIG_LOCAL_NEGOTIATION_COMPLETE], 0, FALSE);
+  RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
+
+  if (priv->push_remote_codecs_pending)
+    {
+      priv->push_remote_codecs_pending = FALSE;
+      push_remote_codecs (media);
+    }
+  else
+    {
+      priv->codec_intersect_pending = FALSE;
+      g_signal_emit (media, signals[SIG_LOCAL_NEGOTIATION_COMPLETE], 0, FALSE);
+      g_ptr_array_unref (priv->remote_codec_offer);
+      priv->remote_codec_offer = NULL;
+    }
 }
 
 RakiaDirection
@@ -1117,4 +1158,25 @@ gboolean
 rakia_sip_media_is_held (RakiaSipMedia *media)
 {
   return !(media->priv->direction & RAKIA_DIRECTION_SEND);
+}
+
+void
+rakia_sip_media_set_can_receive (RakiaSipMedia *media, gboolean can_receive)
+{
+  RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
+
+  if (priv->can_receive == can_receive)
+    return;
+
+  priv->can_receive = can_receive;
+
+  if (rakia_sip_media_is_ready (media))
+    {
+      g_signal_emit (media, signals[SIG_LOCAL_NEGOTIATION_COMPLETE], 0, TRUE);
+      if (priv->remote_codec_offer)
+        {
+          g_ptr_array_unref (priv->remote_codec_offer);
+          priv->remote_codec_offer = NULL;
+        }
+    }
 }

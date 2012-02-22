@@ -14,6 +14,7 @@ TWISTED_TESTS = \
 	voip/ringing-queued.py \
 	voip/requestable-classes.py \
 	voip/direction-change.py
+	voip/add-remote-content.py \
 	$(NULL)
 
 TESTS =

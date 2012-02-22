@@ -118,8 +118,12 @@ class CallTest:
         smedia_props = content.stream.Properties.GetAll(
             cs.CALL_STREAM_IFACE_MEDIA)
         assertEquals(cs.CALL_SENDING_STATE_NONE, smedia_props['SendingState'])
-        assertEquals(cs.CALL_SENDING_STATE_NONE,
-                     smedia_props['ReceivingState'])
+        if initial:
+            assertEquals(cs.CALL_SENDING_STATE_NONE,
+                         smedia_props['ReceivingState'])
+        else:
+            assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND,
+                         smedia_props['ReceivingState'])
         assertEquals(cs.CALL_STREAM_TRANSPORT_RAW_UDP,
                      smedia_props['Transport'])
         assertEquals([], smedia_props['LocalCandidates'])
@@ -138,7 +142,12 @@ class CallTest:
         else:
             assert False
 
-    def __add_content(self, content_path, initial):
+    def add_content(self, content_path, initial, incoming = None):
+
+        if initial:
+            incoming = self.incoming
+        else:
+            assert incoming is not None
         
         content = self.bus.get_object (self.conn.bus_name, content_path)
         
@@ -164,7 +173,7 @@ class CallTest:
         cmedia_props = content.GetAll(cs.CALL_CONTENT_IFACE_MEDIA)
         assertLength(0, cmedia_props['RemoteMediaDescriptions'])
         assertLength(0, cmedia_props['LocalMediaDescriptions'])
-        if self.incoming:
+        if incoming:
             assertNotEquals('/', cmedia_props['MediaDescriptionOffer'][0])
         else:
             assertNotEquals('/', cmedia_props['MediaDescriptionOffer'][0])
@@ -176,7 +185,7 @@ class CallTest:
 
         self.__add_stream(content, content_props['Streams'][0], initial)
 
-        if self.incoming:
+        if incoming:
             md = self.bus.get_object (self.conn.bus_name,
                                  cmedia_props['MediaDescriptionOffer'][0])
             md.Accept(self.context.get_audio_md_dbus(self.remote_handle))
@@ -189,10 +198,7 @@ class CallTest:
             assertEquals([], o[0].args[1])
             self.connect_endpoint(content, o[0].args[0][0])
 
-                       
-            
-
-                   
+        return content                   
 
     def check_call_properties(self, call_props):
         if self.incoming:
@@ -247,7 +253,7 @@ class CallTest:
         call_props = self.chan.Properties.GetAll(cs.CHANNEL_TYPE_CALL)
         self.check_call_properties(call_props)
         for c in call_props['Contents']:
-            self.__add_content(c, True)
+            self.add_content(c, True)
 
         if self.incoming:
             o = self.q.expect('dbus-signal', signal='CallStateChanged')

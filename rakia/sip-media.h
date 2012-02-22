@@ -168,6 +168,8 @@ RakiaDirection rakia_sip_media_get_remote_direction (RakiaSipMedia *media);
 RakiaDirection rakia_sip_media_get_requested_direction (
     RakiaSipMedia *self);
 
+void rakia_sip_media_set_can_receive (RakiaSipMedia *media,
+    gboolean can_receive);
 
 G_END_DECLS
 

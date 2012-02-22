@@ -63,6 +63,8 @@ static void media_remote_candidates_updated_cb (RakiaSipMedia *media,
     RakiaCallStream *self);
 static void media_direction_changed_cb (RakiaSipMedia *media,
     RakiaCallStream *self);
+static void receiving_updated_cb (RakiaCallStream *self);
+
 
 G_DEFINE_TYPE (RakiaCallStream, rakia_call_stream,
     TP_TYPE_BASE_MEDIA_CALL_STREAM)
@@ -199,6 +201,10 @@ rakia_call_stream_constructed (GObject *object)
   relay_array = g_ptr_array_new ();
   tp_base_media_call_stream_set_relay_info (bmcs, relay_array);
   g_ptr_array_unref (relay_array);
+
+  g_signal_connect (self, "notify::receiving-state",
+      G_CALLBACK (receiving_updated_cb), NULL);
+  receiving_updated_cb (self);
 
   G_OBJECT_CLASS (rakia_call_stream_parent_class)->constructed (object);
 }
@@ -522,4 +528,15 @@ media_direction_changed_cb (RakiaSipMedia *media, RakiaCallStream *self)
     tp_base_call_stream_update_remote_sending_state (bcs, contact,
         TP_SENDING_STATE_NONE, 0,
         TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");
+}
+
+static void
+receiving_updated_cb (RakiaCallStream *self)
+{
+  RakiaCallStreamPrivate *priv = self->priv;
+  TpBaseMediaCallStream *bmcs = TP_BASE_MEDIA_CALL_STREAM (self);
+
+  rakia_sip_media_set_can_receive (priv->media,
+      tp_base_media_call_stream_get_receiving_state (bmcs) ==
+      TP_STREAM_FLOW_STATE_STARTED);
 }

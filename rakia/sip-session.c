@@ -750,6 +750,8 @@ priv_media_local_negotiation_complete_cb (RakiaSipMedia *media,
 {
   RakiaSipSessionPrivate *priv = RAKIA_SIP_SESSION_GET_PRIVATE (self);
 
+  SESSION_DEBUG (self, "negotiation complete %d", success);
+
   if (!success)
     {
      /* This remote media description got no codec intersection. */
@@ -804,6 +806,8 @@ void
 rakia_sip_session_media_changed (RakiaSipSession *self)
 {
   RakiaSipSessionPrivate *priv = RAKIA_SIP_SESSION_GET_PRIVATE (self);
+
+  SESSION_DEBUG (self, "media changed");
 
   switch (priv->state)
     {
