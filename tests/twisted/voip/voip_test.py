@@ -1,6 +1,7 @@
 
 import dbus
 import uuid
+import re
 
 import twisted.protocols.sip
 
@@ -103,9 +104,14 @@ class VoipTestContext(object):
         codec_ids = ' '.join(codec_id_list)
 
         (component, ip, port, info) = self.remote_candidates[0]
+        pattern = '.*'
         for m in medias:
             mediatype = m[0]
-            assert self._mline_template % locals() in sdp_string
+            pattern += self._mline_template  % locals()
+            pattern += '.*'
+            if m[1]:
+                pattern += 'a=' + m[1] + '.*'
+        assert re.search(pattern, sdp_string, re.MULTILINE | re.DOTALL)
         
     def send_message(self, message_type, body='', to_=None, from_=None, 
                      **additional_headers):
