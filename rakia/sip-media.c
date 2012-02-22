@@ -73,7 +73,7 @@ G_DEFINE_TYPE(RakiaSipMedia,
 enum
 {
   SIG_LOCAL_NEGOTIATION_COMPLETE,
-  SIG_REMOTE_CODECS_UPDATED,
+  SIG_REMOTE_CODEC_OFFER_UPDATED,
   SIG_REMOTE_CANDIDATES_UPDATED,
   SIG_LOCAL_UPDATED,
   SIG_DIRECTION_CHANGED,
@@ -109,11 +109,9 @@ struct _RakiaSipMediaPrivate
 
   gboolean codec_intersect_pending;     /* codec intersection is pending */
   gboolean push_remote_codecs_pending;  /* SetRemoteCodecs emission is pending */
-  gboolean stop_sending_before_codecs;  /* Stop sending before changing codecs */
-
   gboolean push_candidates_on_new_codecs;
 
-  GPtrArray *remote_codecs;
+  GPtrArray *remote_codec_offer;
   GPtrArray *remote_candidates;
 };
 
@@ -157,8 +155,8 @@ rakia_sip_media_class_init (RakiaSipMediaClass *klass)
           G_TYPE_NONE, 1, G_TYPE_BOOLEAN);
 
 
-  signals[SIG_REMOTE_CODECS_UPDATED] =
-      g_signal_new ("remote-codecs-updated",
+  signals[SIG_REMOTE_CODEC_OFFER_UPDATED] =
+      g_signal_new ("remote-codec-offer-updated",
           G_OBJECT_CLASS_TYPE (klass),
           G_SIGNAL_RUN_LAST,
           0,
@@ -223,8 +221,8 @@ rakia_sip_media_finalize (GObject *object)
     g_ptr_array_unref (priv->local_codecs);
   if (priv->remote_candidates)
     g_ptr_array_unref (priv->remote_candidates);
-  if (priv->remote_codecs)
-    g_ptr_array_unref (priv->remote_codecs);
+  if (priv->remote_codec_offer)
+    g_ptr_array_unref (priv->remote_codec_offer);
 
   g_free (priv->name);
 
@@ -690,12 +688,12 @@ static void push_remote_codecs (RakiaSipMedia *media)
   g_free (ptime);
   g_free (max_ptime);
 
-  if (priv->remote_codecs)
-    g_ptr_array_unref (priv->remote_codecs);
+  if (priv->remote_codec_offer)
+    g_ptr_array_unref (priv->remote_codec_offer);
 
-  priv->remote_codecs = codecs;
+  priv->remote_codec_offer = codecs;
 
-  g_signal_emit (media, signals[SIG_REMOTE_CODECS_UPDATED], 0,
+  g_signal_emit (media, signals[SIG_REMOTE_CODEC_OFFER_UPDATED], 0,
       priv->codec_intersect_pending);
 
   MEDIA_DEBUG(media, "emitting %d remote codecs to the handler",
@@ -1023,11 +1021,11 @@ rakia_sip_media_local_candidates_prepared (RakiaSipMedia *self)
 }
 
 GPtrArray *
-rakia_sip_media_get_remote_codecs (RakiaSipMedia *self)
+rakia_sip_media_get_remote_codec_offer (RakiaSipMedia *self)
 {
   RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (self);
 
-  return priv->remote_codecs;
+  return priv->remote_codec_offer;
 }
 
 GPtrArray *

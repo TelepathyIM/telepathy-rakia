@@ -139,7 +139,7 @@ rakia_call_content_constructed (GObject *object)
   TpHandle creator;
   gchar *object_path;
 
-  g_signal_connect_object (priv->media, "remote-codecs-updated",
+  g_signal_connect_object (priv->media, "remote-codec-offer-updated",
       G_CALLBACK (media_remote_codecs_updated_cb), self, 0);
 
   g_signal_connect (self, "local-media-description-updated",
@@ -311,7 +311,7 @@ media_remote_codecs_updated_cb (RakiaSipMedia *media, gboolean is_offer,
   TpBaseMediaCallContent *bmcc = TP_BASE_MEDIA_CALL_CONTENT (self);
   RakiaCallContentPrivate *priv = self->priv;
   GPtrArray *remote_codecs =
-      rakia_sip_media_get_remote_codecs (priv->media);
+      rakia_sip_media_get_remote_codec_offer (priv->media);
   TpCallContentMediaDescription *md;
   TpDBusDaemon *bus = tp_base_connection_get_dbus_daemon (
       tp_base_call_content_get_connection (bcc));

@@ -147,7 +147,7 @@ void rakia_sip_media_take_local_candidate (RakiaSipMedia *self,
     RakiaSipCandidate *candidate);
 gboolean rakia_sip_media_local_candidates_prepared (RakiaSipMedia *self);
 
-GPtrArray *rakia_sip_media_get_remote_codecs (RakiaSipMedia *self);
+GPtrArray *rakia_sip_media_get_remote_codec_offer (RakiaSipMedia *self);
 GPtrArray *rakia_sip_media_get_remote_candidates (RakiaSipMedia *self);
 
 const gchar *rakia_sip_media_get_name (RakiaSipMedia *media);
