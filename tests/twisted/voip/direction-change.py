@@ -67,7 +67,8 @@ class DirectionChange(calltest.CallTest):
             assertDoesNotContain('a=recvonly',
                                  reinvite_event.sip_message.body)
         else:
-            assertContains('a=recvonly', reinvite_event.sip_message.body)
+            self.context.check_call_sdp(reinvite_event.sip_message.body,
+                                        [('audio','recvonly')])
 
 
         self.context.check_call_sdp(reinvite_event.sip_message.body)
@@ -107,9 +108,9 @@ class DirectionChange(calltest.CallTest):
 
         acc = self.q.expect('sip-response', call_id=self.context.call_id,
                             code=200)
-        assertContains('a=recvonly', acc.sip_message.body)
 
-        self.context.check_call_sdp(acc.sip_message.body)
+        self.context.check_call_sdp(acc.sip_message.body,
+                                    [('audio','recvonly')])
         self.context.ack(acc.sip_message)
 
         self.q.unforbid_events(lss_event)
@@ -122,7 +123,8 @@ class DirectionChange(calltest.CallTest):
             EventPattern('dbus-signal', signal='LocalSendingStateChanged'))
         assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND, lss.args[0])
         assertEquals(self.remote_handle, lss.args[1][0])
-        assertContains('a=recvonly', acc.sip_message.body)
+        self.context.check_call_sdp(acc.sip_message.body,
+                                    [('audio','recvonly')])
 
         assertEquals(cs.CALL_STREAM_FLOW_STATE_STOPPED,
                      content.stream.Properties.Get(cs.CALL_STREAM_IFACE_MEDIA,
@@ -155,8 +157,9 @@ class DirectionChange(calltest.CallTest):
         assertEquals(cs.CALL_SCR_USER_REQUESTED, o[1].args[3][1])
         reinvite_event = o[2]
 
-        assertContains('a=sendonly', reinvite_event.sip_message.body)
-        self.context.check_call_sdp(reinvite_event.sip_message.body)
+
+        self.context.check_call_sdp(reinvite_event.sip_message.body,
+                                    [('audio','sendonly')])
         if self.sending:
             body = reinvite_event.sip_message.body.replace('sendonly',
                                                            'sendrecv')
@@ -243,8 +246,8 @@ class DirectionChange(calltest.CallTest):
         assertEquals(cs.CALL_SCR_USER_REQUESTED, o[1].args[3][1])
         reinvite_event = o[2]
 
-        assertContains('a=sendonly', reinvite_event.sip_message.body)
-        self.context.check_call_sdp(reinvite_event.sip_message.body)
+        self.context.check_call_sdp(reinvite_event.sip_message.body,
+                                    [('audio','sendonly')])
         body = reinvite_event.sip_message.body.replace(
             'sendonly', self.sending and 'recvonly' or 'inactive')
         
