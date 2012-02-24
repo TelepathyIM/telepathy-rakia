@@ -270,7 +270,8 @@ class CallTest:
         self.check_channel_props(props, True)
                 
         self.chan = wrap_channel(
-            self.bus.get_object(self.conn.bus_name, self.chan_path), 'Call1')
+            self.bus.get_object(self.conn.bus_name, self.chan_path), 'Call1',
+            ['Hold'])
             
         call_props = self.chan.Properties.GetAll(cs.CHANNEL_TYPE_CALL)
         self.check_call_properties(call_props)

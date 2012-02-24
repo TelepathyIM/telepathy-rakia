@@ -1734,17 +1734,22 @@ rakia_sip_session_set_hold_requested (RakiaSipSession *session,
   if (session->priv->hold_requested == hold_requested)
     return;
 
+  SESSION_DEBUG (session, "set hold: %d", hold_requested);
+
   session->priv->hold_requested = hold_requested;
 
   for (i = 0; i < priv->medias->len; i++)
     {
       RakiaSipMedia *media = g_ptr_array_index (priv->medias, i);
 
-      if (!media)
+      if (media == NULL)
         continue;
 
       rakia_sip_media_set_hold_requested (media, hold_requested);
     }
+
+  rakia_sip_session_media_changed (session);
+
 }
 
 GPtrArray *

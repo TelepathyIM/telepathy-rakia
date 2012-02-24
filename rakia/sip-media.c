@@ -371,7 +371,6 @@ static RakiaDirection
 priv_get_sdp_direction (RakiaSipMedia *media, gboolean authoritative)
 {
   RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
-
   RakiaDirection direction = priv->requested_direction;
 
   if (!authoritative)
@@ -379,7 +378,7 @@ priv_get_sdp_direction (RakiaSipMedia *media, gboolean authoritative)
 
   /* Don't allow send, only receive if a hold is requested */
   if (priv->hold_requested)
-    direction &= RAKIA_DIRECTION_RECEIVE;
+    direction &= RAKIA_DIRECTION_SEND;
 
   if (!authoritative)
     rakia_sip_media_set_direction (media, direction);
@@ -1156,8 +1155,6 @@ rakia_sip_media_set_hold_requested (RakiaSipMedia *media,
     return;
 
   media->priv->hold_requested = hold_requested;
-
-  rakia_sip_media_local_updated (media);
 }
 
 

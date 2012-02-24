@@ -367,14 +367,98 @@ class DirectionChange(calltest.CallTest):
 
 
     def hold(self):
+
+        self.chan.Hold.RequestHold(True)
+
+        events = self.stream_dbus_signal_event (
+            'ReceivingStateChanged',
+            args=[cs.CALL_STREAM_FLOW_STATE_PENDING_STOP])
+        events += self.stream_dbus_signal_event(
+            'SendingStateChanged',
+                args=[cs.CALL_STREAM_FLOW_STATE_PENDING_STOP])
+        o = self.q.expect_many(
+            EventPattern('sip-invite'),
+            EventPattern('dbus-signal', signal='HoldStateChanged',
+                         args=[cs.HS_PENDING_HOLD, cs.HSR_REQUESTED]),
+            *events)
+        reinvite_event = o[0]
+        for c in self.contents:
+            c.stream.Media.CompleteReceivingStateChange(
+                cs.CALL_STREAM_FLOW_STATE_STOPPED)
+            c.stream.Media.CompleteSendingStateChange(
+                cs.CALL_STREAM_FLOW_STATE_STOPPED)
+
+        events = self.stream_dbus_signal_event (
+            'ReceivingStateChanged',
+            args=[cs.CALL_STREAM_FLOW_STATE_STOPPED])
+        events += self.stream_dbus_signal_event(
+            'SendingStateChanged',
+            args=[cs.CALL_STREAM_FLOW_STATE_STOPPED])
+        self.q.expect_many(
+            EventPattern('dbus-signal', signal='HoldStateChanged',
+                         args=[cs.HS_HELD, cs.HSR_REQUESTED]),
+            *events)
+        medias = map(lambda x: (x[0], x[1] == 'recvonly' and 'inactive' or 'sendonly'), self.medias)
+        self.context.check_call_sdp(reinvite_event.sip_message.body, medias)
+
+        body = reinvite_event.sip_message.body.replace('sendonly', 'recvonly')
+        self.context.accept(reinvite_event.sip_message, body)
+
+        ack_cseq = "%s ACK" % reinvite_event.cseq.split()[0]
+        self.q.expect('sip-ack', cseq=ack_cseq)
+
+
+    def unhold_fail(self):
+        # TODO!!
         pass
 
-    def unhold(self):
-        pass
+    def unhold_succeed(self):
+        self.chan.Hold.RequestHold(False)
+
+        events = self.stream_dbus_signal_event (
+            'ReceivingStateChanged',
+            args=[cs.CALL_STREAM_FLOW_STATE_PENDING_START])
+        events += self.stream_dbus_signal_event(
+            'SendingStateChanged',
+                args=[cs.CALL_STREAM_FLOW_STATE_PENDING_START])
+        o = self.q.expect_many(
+            EventPattern('dbus-signal', signal='HoldStateChanged',
+                         args=[cs.HS_PENDING_UNHOLD, cs.HSR_REQUESTED]),
+            *events)
+        for c in self.contents:
+            c.stream.Media.CompleteReceivingStateChange(
+                cs.CALL_STREAM_FLOW_STATE_STARTED)
+            c.stream.Media.CompleteSendingStateChange(
+                cs.CALL_STREAM_FLOW_STATE_STARTED)
+
+        events = self.stream_dbus_signal_event (
+            'ReceivingStateChanged',
+            args=[cs.CALL_STREAM_FLOW_STATE_STARTED])
+        events += self.stream_dbus_signal_event(
+            'SendingStateChanged',
+            args=[cs.CALL_STREAM_FLOW_STATE_STARTED])
+        o = self.q.expect_many(
+            EventPattern('sip-invite'),
+            EventPattern('dbus-signal', signal='HoldStateChanged',
+                         args=[cs.HS_UNHELD, cs.HSR_REQUESTED]),
+            *events)
+        reinvite_event = o[0]
+        medias = map(lambda x: (x[0], None), self.medias)
+        assertDoesNotContain('a=sendonly', reinvite_event.sip_message.body)
+        assertDoesNotContain('a=inactive', reinvite_event.sip_message.body)
+        self.context.check_call_sdp(reinvite_event.sip_message.body, medias)
+
+        self.context.accept(reinvite_event.sip_message)
+
+        ack_cseq = "%s ACK" % reinvite_event.cseq.split()[0]
+        self.q.expect('sip-ack', cseq=ack_cseq)
+
 
     def hold_unhold(self):
         self.hold()
-        self.unhold()
+        self.unhold_fail()
+        self.unhold_succeed()
+
 
     def during_call(self):
         content = self.contents[0]
@@ -395,8 +479,6 @@ class DirectionChange(calltest.CallTest):
         self.q.unforbid_events(remote_hold_event)
 
         self.hold_unhold()
-
-        
 
         return calltest.CallTest.during_call(self)
 

@@ -101,7 +101,7 @@ class AddRemoveContent(calltest.CallTest):
 
         self.context.check_call_sdp(reinvite_event.sip_message.body,
                                    self.medias + [('audio', None, None)])
-        res =  re.match('(.*)(m=.*)', reinvite_event.sip_message.body,
+        res = re.match('(.*)(m=.*)', reinvite_event.sip_message.body,
                        re.MULTILINE | re.DOTALL)
 
         body = res.group(1) + 'm=audio 0 RTP/AVP 0'

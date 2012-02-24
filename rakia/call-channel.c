@@ -432,9 +432,9 @@ rakia_call_channel_hold_state_changed (TpBaseMediaCallChannel *bmcc,
     {
     case TP_LOCAL_HOLD_STATE_PENDING_HOLD:
     case TP_LOCAL_HOLD_STATE_HELD:
+    case TP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
       rakia_sip_session_set_hold_requested (self->priv->session, TRUE);
       break;
-    case TP_LOCAL_HOLD_STATE_PENDING_UNHOLD:
     case TP_LOCAL_HOLD_STATE_UNHELD:
       rakia_sip_session_set_hold_requested (self->priv->session, FALSE);
       break;
