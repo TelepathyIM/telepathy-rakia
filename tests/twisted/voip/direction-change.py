@@ -104,18 +104,18 @@ class DirectionChange(calltest.CallTest):
         self.q.forbid_events(lss_event)
         self.q.forbid_events(direction_events)
 
-        self.context.reinvite([('audio','sendonly')])
+        self.context.reinvite([('audio', None, 'sendonly')])
 
         acc = self.q.expect('sip-response', call_id=self.context.call_id,
                             code=200)
 
         self.context.check_call_sdp(acc.sip_message.body,
-                                    [('audio','recvonly')])
+                                    [('audio', None, 'recvonly')])
         self.context.ack(acc.sip_message)
 
         self.q.unforbid_events(lss_event)
 
-        self.context.reinvite([('audio','')])
+        self.context.reinvite([('audio',None, None)])
 
         acc, lss = self.q.expect_many(
             EventPattern('sip-response', call_id=self.context.call_id,
@@ -124,7 +124,7 @@ class DirectionChange(calltest.CallTest):
         assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND, lss.args[0])
         assertEquals(self.remote_handle, lss.args[1][0])
         self.context.check_call_sdp(acc.sip_message.body,
-                                    [('audio','recvonly')])
+                                    [('audio', None, 'recvonly')])
 
         assertEquals(cs.CALL_STREAM_FLOW_STATE_STOPPED,
                      content.stream.Properties.Get(cs.CALL_STREAM_IFACE_MEDIA,
@@ -159,7 +159,7 @@ class DirectionChange(calltest.CallTest):
 
 
         self.context.check_call_sdp(reinvite_event.sip_message.body,
-                                    [('audio','sendonly')])
+                                    [('audio', None, 'sendonly')])
         if self.sending:
             body = reinvite_event.sip_message.body.replace('sendonly',
                                                            'sendrecv')
@@ -247,7 +247,7 @@ class DirectionChange(calltest.CallTest):
         reinvite_event = o[2]
 
         self.context.check_call_sdp(reinvite_event.sip_message.body,
-                                    [('audio','sendonly')])
+                                    [('audio', None, 'sendonly')])
         body = reinvite_event.sip_message.body.replace(
             'sendonly', self.sending and 'recvonly' or 'inactive')
         
@@ -365,7 +365,16 @@ class DirectionChange(calltest.CallTest):
         ack_cseq = "%s ACK" % reinvite_event.cseq.split()[0]
         self.q.expect('sip-ack', cseq=ack_cseq)
 
-        
+
+    def hold(self):
+        pass
+
+    def unhold(self):
+        pass
+
+    def hold_unhold(self):
+        self.hold()
+        self.unhold()
 
     def during_call(self):
         content = self.contents[0]
@@ -384,6 +393,11 @@ class DirectionChange(calltest.CallTest):
         self.reject_start_receiving(content)
 
         self.q.unforbid_events(remote_hold_event)
+
+        self.hold_unhold()
+
+        
+
         return calltest.CallTest.during_call(self)
 
 

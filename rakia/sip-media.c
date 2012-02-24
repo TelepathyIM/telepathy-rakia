@@ -907,22 +907,30 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
       /* Make sure we stop sending before we use the new set of codecs
        * intended for the new connection */
       if (codecs_changed)
-        priv->push_candidates_on_new_codecs = TRUE;
+        {
+          priv->push_candidates_on_new_codecs = TRUE;
+          if (priv->remote_candidates != NULL)
+            {
+              g_ptr_array_unref (priv->remote_candidates);
+              priv->remote_candidates = NULL;
+              g_signal_emit (media, signals[SIG_REMOTE_CANDIDATES_UPDATED], 0);
+            }
+        }
       else
-        push_remote_candidates (media);
+        {
+          push_remote_candidates (media);
+        }
     }
 
   if (codecs_changed)
     {
-      if (!priv->codec_intersect_pending)
-        {
-          priv->codec_intersect_pending = TRUE;
-          push_remote_codecs (media);
-        }
+      if (authoritative)
+        priv->codec_intersect_pending = TRUE;
+
+      if (priv->remote_codec_offer == NULL)
+        push_remote_codecs (media);
       else
-        {
-          priv->push_remote_codecs_pending = TRUE;
-        }
+        priv->push_remote_codecs_pending = TRUE;
     }
 
   /* TODO: this will go to session change commit code */
@@ -972,19 +980,14 @@ rakia_sip_media_take_local_codecs (RakiaSipMedia *self, GPtrArray *local_codecs)
     g_ptr_array_unref (priv->local_codecs);
   priv->local_codecs = local_codecs;
 
-  MEDIA_DEBUG (self, "New local codecs intersect_pending: %d "
-      "push_candidates: %d candidates_prepared: %d",
-      priv->codec_intersect_pending, priv->push_candidates_on_new_codecs,
-      priv->local_candidates_prepared);
-
-
   if (priv->push_remote_codecs_pending)
     {
       priv->push_remote_codecs_pending = FALSE;
       push_remote_codecs (self);
     }
-  else if (priv->codec_intersect_pending)
+  else
     {
+
       if (priv->push_candidates_on_new_codecs)
         {
           /* Push the new candidates now that we have new codecs */
@@ -992,18 +995,22 @@ rakia_sip_media_take_local_codecs (RakiaSipMedia *self, GPtrArray *local_codecs)
           push_remote_candidates (self);
         }
 
-      priv->codec_intersect_pending = FALSE;
-      if (rakia_sip_media_is_ready (self))
+      if (priv->codec_intersect_pending)
         {
-          g_signal_emit (self, signals[SIG_LOCAL_NEGOTIATION_COMPLETE], 0,
-            TRUE);
-          g_ptr_array_unref (priv->remote_codec_offer);
-          priv->remote_codec_offer = NULL;
+
+          priv->codec_intersect_pending = FALSE;
+          if (rakia_sip_media_is_ready (self))
+            {
+              g_signal_emit (self, signals[SIG_LOCAL_NEGOTIATION_COMPLETE], 0,
+                  TRUE);
+              g_ptr_array_unref (priv->remote_codec_offer);
+              priv->remote_codec_offer = NULL;
+            }
         }
-    }
-  else
-    {
-      rakia_sip_media_local_updated (self);
+      else
+        {
+          rakia_sip_media_local_updated (self);
+        }
     }
 }
 

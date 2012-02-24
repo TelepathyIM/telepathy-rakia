@@ -13,8 +13,8 @@ TWISTED_TESTS = \
 	voip/calltest.py \
 	voip/ringing-queued.py \
 	voip/requestable-classes.py \
-	voip/direction-change.py
-	voip/add-remote-content.py \
+	voip/direction-change.py \
+	voip/add-remove-content.py \
 	$(NULL)
 
 TESTS =

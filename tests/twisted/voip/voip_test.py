@@ -72,7 +72,7 @@ class VoipTestContext(object):
 
     def get_remote_candidates_dbus(self):
         return dbus.Array(self.remote_candidates, signature='(usua{sv})')
-        
+
     def get_call_sdp(self, medias):
         (component, ip, port, info) = self.remote_candidates[0]
         codec_id_list = []
@@ -88,15 +88,19 @@ class VoipTestContext(object):
             's=-\r\n' + \
             't=0 0\r\n'
         for m in medias:
-            sdp_string += 'm=' + m[0] + ' %(port)s RTP/AVP 3 8 0\r\n' \
-                'c=IN IP4 %(ip)s\r\n' \
-                '%(codecs)s\r\n'
-            if m[1]:
-                sdp_string += 'a=' + m[1] + '\r\n'
+            if m[0]:
+                sdp_string += 'm=' + m[0] + ' %(port)s RTP/AVP 3 8 0\r\n' \
+                    'c=IN IP4 %(ip)s\r\n' \
+                    '%(codecs)s\r\n'
+                if m[1]:
+                    sdp_string += 'a=' + m[1] + '\r\n'
+            else:
+                sdp_string += 'm=audio 0 RTP/AVP\r\n'
+
 
         return sdp_string % locals()
 
-    def check_call_sdp(self, sdp_string, medias=[('audio',None)]):
+    def check_call_sdp(self, sdp_string, medias=[('audio', None)]):
         codec_id_list = []
         for name, codec_id, rate, _misc in self.audio_codecs:
             assertContains (self._aline_template % locals(), sdp_string)
@@ -106,11 +110,14 @@ class VoipTestContext(object):
         (component, ip, port, info) = self.remote_candidates[0]
         pattern = '.*'
         for m in medias:
-            mediatype = m[0]
-            pattern += self._mline_template  % locals()
-            pattern += '.*'
-            if m[1]:
-                pattern += 'a=' + m[1] + '.*'
+            if m[0]:
+                mediatype = m[0]
+                pattern += self._mline_template  % locals()
+                pattern += '.*'
+                if m[1]:
+                    pattern += 'a=' + m[1] + '.*'
+            else:
+                pattern += 'm=audio 0 RTP/AVP .*'
         assert re.search(pattern, sdp_string, re.MULTILINE | re.DOTALL)
         
     def send_message(self, message_type, body='', to_=None, from_=None, 
@@ -159,12 +166,12 @@ class VoipTestContext(object):
         cseq = '%s ACK' % ok_message.headers['cseq'][0].split()[0]
         self.send_message('ACK', call_id=self.call_id, cseq=cseq)
     
-    def reinvite(self, medias=[('audio',None)]):
+    def reinvite(self, medias=[('audio', None)]):
         body = self.get_call_sdp(medias)
         return self.send_message('INVITE', body, content_type='application/sdp',
                    supported='timer, 100rel', call_id=self.call_id)
         
-    def incoming_call(self, medias=[('audio',None)]):
+    def incoming_call(self, medias=[('audio', None)]):
         self.call_id = uuid.uuid4().hex
         body = self.get_call_sdp(medias)
         return self.send_message('INVITE', body, content_type='application/sdp',
@@ -172,7 +179,7 @@ class VoipTestContext(object):
         
     def incoming_call_from_self(self):
         self.call_id = uuid.uuid4().hex
-        body = self.get_call_sdp([('audio',None)])
+        body = self.get_call_sdp([('audio', None)])
         return self.send_message('INVITE', body, content_type='application/sdp',
                    supported='timer, 100rel', call_id=self.call_id, 
                    from_='<sip:testacc@127.0.0.1>')

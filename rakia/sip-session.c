@@ -85,12 +85,12 @@ static const char *const session_states[NUM_RAKIA_SIP_SESSION_STATES] =
 };
 
 #define SESSION_DEBUG(session, format, ...) \
-  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "session [%-17s]: " format, \
-      session_states[(session)->priv->state],##__VA_ARGS__)
+  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "%s [%-17s]: " format, \
+      G_STRFUNC, session_states[(session)->priv->state],##__VA_ARGS__)
 
 #define SESSION_MESSAGE(session, format, ...) \
-  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_MESSAGE, "session [%-17s]: " format, \
-      session_states[(session)->priv->state],##__VA_ARGS__)
+  rakia_log (DEBUG_FLAG, G_LOG_LEVEL_MESSAGE, "%s [%-17s]: " format, \
+      G_STRFUNC, session_states[(session)->priv->state],##__VA_ARGS__)
 
 #else /* !ENABLE_DEBUG */
 
@@ -845,6 +845,9 @@ rakia_sip_session_media_changed (RakiaSipSession *self)
       else
         priv->pending_offer = TRUE;
       break;
+    case RAKIA_SIP_SESSION_STATE_ENDED:
+      /* We've already ended the call, ignore any change request */
+      break;
     default:
       g_assert_not_reached();
     }
@@ -1104,6 +1107,7 @@ priv_session_invite (RakiaSipSession *session, gboolean reinvite)
                   SOATAG_USER_SDP_STR(priv->local_sdp),
                   SOATAG_RTP_SORT(SOA_RTP_SORT_REMOTE),
                   SOATAG_RTP_SELECT(SOA_RTP_SELECT_ALL),
+                  SOATAG_ORDERED_USER(1),
                   NUTAG_AUTOANSWER(0),
                   TAG_IF(reinvite,
                          NUTAG_INVITE_TIMER (RAKIA_REINVITE_TIMEOUT)),
@@ -1136,7 +1140,6 @@ priv_session_respond (RakiaSipSession *session)
     g_free (priv->local_sdp);
     priv->local_sdp = g_string_free (user_sdp, FALSE);
   }
-
 
   /* We need to be prepared to receive media right after the
    * answer is sent, so we must set the streams to playing */

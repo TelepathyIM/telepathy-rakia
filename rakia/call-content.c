@@ -188,9 +188,16 @@ rakia_call_content_deinit (TpBaseCallContent *base)
 {
   RakiaCallContent *self = RAKIA_CALL_CONTENT (base);
   RakiaCallContentPrivate *priv = self->priv;
+  RakiaSipSession *session;
 
-  rakia_sip_session_remove_media (rakia_sip_media_get_session (priv->media),
-      priv->media, 0, NULL );
+  session = rakia_sip_media_get_session (priv->media);
+
+  /* If the media was removed, it means it's by user request, so we must
+   * do a re-invite
+   */
+  if (rakia_sip_session_remove_media (session, priv->media, 0, NULL))
+    rakia_sip_session_media_changed (session);
+
 
   tp_clear_object (&priv->stream);
   tp_clear_object (&priv->channel);
@@ -371,9 +378,18 @@ rakia_call_content_add_stream (RakiaCallContent *self)
 
   if (rakia_sip_media_get_requested_direction (priv->media) &
       RAKIA_DIRECTION_SEND)
-    local_sending_state = TP_SENDING_STATE_PENDING_SEND;
+    {
+      if (!tp_base_call_channel_is_accepted (
+              TP_BASE_CALL_CHANNEL (priv->channel)) &&
+          !tp_base_channel_is_requested (TP_BASE_CHANNEL (priv->channel)))
+        local_sending_state = TP_SENDING_STATE_PENDING_SEND;
+      else
+        local_sending_state = TP_SENDING_STATE_SENDING;
+    }
   else
-    local_sending_state = TP_SENDING_STATE_NONE;
+    {
+      local_sending_state = TP_SENDING_STATE_NONE;
+    }
 
 
   if (rakia_sip_media_get_requested_direction (priv->media) &

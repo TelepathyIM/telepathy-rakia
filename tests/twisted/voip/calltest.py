@@ -40,10 +40,17 @@ class CallTest:
 
         self.medias = []
         if self.initial_audio_content_name:
-            self.medias += [('audio', None)]
+            self.add_to_medias('audio')
         if self.initial_video_content_name:
-            self.medias += [('video', None)]
+            self.add_to_medias('video')
 
+
+    def add_to_medias(self, mediatype, direction=None):
+        for i in range(0, len(self.medias)):
+            if self.medias[i][1] == 0:
+                self.medias[i] = (mediatype, direction)
+                return
+        self.medias += [(mediatype, direction)]
 
     def connect(self):
         self.conn.Connect()
@@ -104,7 +111,7 @@ class CallTest:
                      endpoint.Get(cs.CALL_STREAM_ENDPOINT, 'EndpointState'))
 
 
-    def __add_stream (self, content, stream_path, initial):
+    def __add_stream (self, content, stream_path, initial, incoming):
         tmpstream = self.bus.get_object (self.conn.bus_name, stream_path)
 
         content.stream = ProxyWrapper (tmpstream, cs.CALL_STREAM,
@@ -112,8 +119,22 @@ class CallTest:
 
         stream_props = content.stream.Properties.GetAll(cs.CALL_STREAM)
         assertEquals(True, stream_props['CanRequestReceiving'])
-        assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND,
-                     stream_props['LocalSendingState'])
+        if incoming:
+            assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND,
+                         stream_props['LocalSendingState'])
+        else:
+            assertEquals(cs.CALL_SENDING_STATE_SENDING,
+                         stream_props['LocalSendingState'])
+
+        if initial or not incoming:
+            assertEquals(
+                {self.remote_handle: cs.CALL_SENDING_STATE_PENDING_SEND},
+                stream_props['RemoteMembers'])
+        else:
+            assertEquals(
+                {self.remote_handle: cs.CALL_SENDING_STATE_SENDING},
+                stream_props['RemoteMembers'])
+                      
 
         smedia_props = content.stream.Properties.GetAll(
             cs.CALL_STREAM_IFACE_MEDIA)
@@ -183,7 +204,8 @@ class CallTest:
         
         self.contents.append(content)
 
-        self.__add_stream(content, content_props['Streams'][0], initial)
+        self.__add_stream(content, content_props['Streams'][0], initial,
+                          incoming)
 
         if incoming:
             md = self.bus.get_object (self.conn.bus_name,
