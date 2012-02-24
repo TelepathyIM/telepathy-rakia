@@ -88,7 +88,7 @@ class CallTest:
         assertEquals(True, props[cs.CHANNEL_TYPE_CALL + '.MutableContents'])
         assertEquals(False, props[cs.CHANNEL_TYPE_CALL + '.HardwareStreaming'])
 
-    def connect_endpoint(self, content, endpoint_path):        
+    def check_endpoint(self, content, endpoint_path):        
         endpoint = self.bus.get_object(self.conn.bus_name, endpoint_path)
         endpoint_props = endpoint.GetAll(cs.CALL_STREAM_ENDPOINT)
         assertEquals(('',''), endpoint_props['RemoteCredentials'])
@@ -98,17 +98,6 @@ class CallTest:
         assertEquals(cs.CALL_STREAM_TRANSPORT_RAW_UDP,
                      endpoint_props['Transport'])
         assertEquals(False, endpoint_props['IsICELite'])
-
-        endpoint.SetEndpointState(1,
-                                  cs.CALL_STREAM_ENDPOINT_STATE_FULLY_CONNECTED,
-                                  dbus_interface=cs.CALL_STREAM_ENDPOINT)
-        endpoint.SetEndpointState(2,
-                                  cs.CALL_STREAM_ENDPOINT_STATE_FULLY_CONNECTED,
-                                  dbus_interface=cs.CALL_STREAM_ENDPOINT)
-
-        assertEquals({1: cs.CALL_STREAM_ENDPOINT_STATE_FULLY_CONNECTED,
-                      2: cs.CALL_STREAM_ENDPOINT_STATE_FULLY_CONNECTED},
-                     endpoint.Get(cs.CALL_STREAM_ENDPOINT, 'EndpointState'))
 
 
     def __add_stream (self, content, stream_path, initial, incoming):
@@ -218,13 +207,13 @@ class CallTest:
                 EventPattern('dbus-signal', signal='RemoteMediaDescriptionsChanged'))
             assertLength(1, o[0].args[0])
             assertEquals([], o[0].args[1])
-            self.connect_endpoint(content, o[0].args[0][0])
+            self.check_endpoint(content, o[0].args[0][0])
 
         return content                   
 
     def check_call_properties(self, call_props):
         if self.incoming:
-            assertEquals(cs.CALL_STATE_INITIALISING, call_props['CallState'])
+            assertEquals(cs.CALL_STATE_INITIALISED, call_props['CallState'])
         else:
             assertEquals(cs.CALL_STATE_PENDING_INITIATOR,
                          call_props['CallState'])
@@ -278,10 +267,7 @@ class CallTest:
         for c in call_props['Contents']:
             self.add_content(c, True)
 
-        if self.incoming:
-            o = self.q.expect('dbus-signal', signal='CallStateChanged')
-            assertEquals(cs.CALL_STATE_INITIALISED, o.args[0])
-        else:
+        if not self.incoming:
             self.chan.Call1.Accept()
 
             self.q.expect_many(
@@ -432,10 +418,7 @@ class CallTest:
             if i.type == 'dbus-signal' and i.signal == 'EndpointsChanged':
                 assertLength(1, i.args[0])
                 assertLength(0, i.args[1])
-                self.connect_endpoint(c, i.args[0][0])
-
-        o = self.q.expect('dbus-signal', signal='CallStateChanged')
-        assertEquals(cs.CALL_STATE_ACTIVE, o.args[0])
+                self.check_endpoint(c, i.args[0][0])
 
     def accept(self):
         if self.incoming:

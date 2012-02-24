@@ -962,6 +962,14 @@ rakia_sip_media_is_ready (RakiaSipMedia *self)
 {
   RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (self);
 
+  MEDIA_DEBUG (self, "is_ready, requested_recv: %d can_recv: %d "
+      "local_cand_prep: %d local_codecs: %p local_inter_pending: %d",
+      priv->requested_direction & RAKIA_DIRECTION_RECEIVE,
+      priv->can_receive,
+      self->priv->local_candidates_prepared,
+      self->priv->local_codecs,
+      priv->codec_intersect_pending);
+
   if (priv->requested_direction & RAKIA_DIRECTION_RECEIVE && !priv->can_receive)
     return FALSE;
 

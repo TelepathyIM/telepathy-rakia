@@ -356,9 +356,6 @@ static void rakia_call_stream_request_receiving (
       rakia_sip_media_get_direction (priv->media);
   TpBaseChannel *bchan = TP_BASE_CHANNEL (priv->channel);
 
-  g_debug ("receive: %d req: %d dir:%d", receive,
-      current_requested_direction, current_direction);
-
   if ((!!(current_requested_direction & RAKIA_DIRECTION_RECEIVE)) == receive)
     return;
 

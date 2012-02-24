@@ -63,6 +63,8 @@ static void rakia_call_channel_accept (TpBaseMediaCallChannel *channel);
 static void rakia_call_channel_hold_state_changed (TpBaseMediaCallChannel *self,
     TpLocalHoldState hold_state, TpLocalHoldStateReason hold_state_reason);
 
+static gboolean rakia_call_channel_is_connected (TpBaseCallChannel *self);
+
 static void ended_cb (RakiaSipSession *session, gboolean self_actor,
     guint status, const gchar *message, RakiaCallChannel *self);
 static void ringing_cb (RakiaSipSession *session, RakiaCallChannel *self);
@@ -165,6 +167,7 @@ rakia_call_channel_class_init (
   base_call_class->hangup = rakia_call_channel_hangup;
   base_call_class->set_ringing = rakia_call_channel_set_ringing;
   base_call_class->set_queued = rakia_call_channel_set_queued;
+  base_call_class->is_connected = rakia_call_channel_is_connected;
 
   base_media_call_class->accept = rakia_call_channel_accept;
   base_media_call_class->hold_state_changed =
@@ -662,4 +665,13 @@ remote_held_changed_cb (RakiaSipSession *session, GParamSpec *pspec,
   tp_base_call_channel_update_member_flags (bcc, remote_contact, member_flags,
       remote_contact, TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "",
       remote_held ? "Held by remote side" : "Unheld by remote side");
+}
+
+static gboolean
+rakia_call_channel_is_connected (TpBaseCallChannel *self)
+{
+  /* We don't support ICE, so we don'T have the concept of connected-ness
+   * yet.
+   */
+  return TRUE;
 }
