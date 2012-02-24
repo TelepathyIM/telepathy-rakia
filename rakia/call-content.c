@@ -299,11 +299,17 @@ md_offer_cb (GObject *obj, GAsyncResult *res, gpointer user_data)
     }
   else
     {
-      g_assert (!is_initial_offer);
+      /* Only reject if the codecs where rejected */
+      if (error->domain == TP_ERRORS &&
+          error->code == TP_ERROR_MEDIA_CODECS_INCOMPATIBLE)
+        {
+          g_assert (!is_initial_offer);
 
-      rakia_sip_media_codecs_rejected (priv->media);
+          rakia_sip_media_codecs_rejected (priv->media);
 
-      DEBUG ("Codecs rejected: %s", error->message);
+          DEBUG ("Codecs rejected: %s", error->message);
+
+        }
 
       /* FIXME: We need to allow for partial failures */
       g_clear_error (&error);
