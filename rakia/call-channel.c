@@ -677,3 +677,19 @@ rakia_call_channel_is_connected (TpBaseCallChannel *self)
    */
   return TRUE;
 }
+
+void
+rakia_call_channel_hangup_error (RakiaCallChannel *self,
+    TpCallStateChangeReason reason,
+    const gchar *dbus_reason,
+    const gchar *message)
+{
+  TpHandle self_handle = tp_base_channel_get_self_handle (
+      TP_BASE_CHANNEL (self));
+
+  rakia_call_channel_hangup (TP_BASE_CALL_CHANNEL (self),
+      reason, dbus_reason, message);
+
+  tp_base_call_channel_set_state (TP_BASE_CALL_CHANNEL (self),
+      TP_CALL_STATE_ENDED, self_handle, reason, dbus_reason, message);
+}

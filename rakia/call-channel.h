@@ -60,6 +60,12 @@ GType rakia_call_channel_get_type (void);
   (G_TYPE_INSTANCE_GET_CLASS ((obj), \
    RAKIA_TYPE_CALL_CHANNEL, RakiaCallChannelClass))
 
+void
+rakia_call_channel_hangup_error (RakiaCallChannel *self,
+    TpCallStateChangeReason reason,
+    const gchar *dbus_reason,
+    const gchar *message);
+
 G_END_DECLS
 
 #endif /* #ifndef __RAKIA_CALL_CHANNEL_H__*/

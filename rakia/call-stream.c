@@ -306,7 +306,10 @@ rakia_call_stream_report_receiving_failure (TpBaseMediaCallStream *bmcs,
   g_object_get (self, "can-request-receiving", &can_request_receiving, NULL);
   if (!can_request_receiving)
     {
-      g_warning ("We should fail the whole call now");
+      /* Failing the whole call because we can't stop receivingt */
+      DEBUG ("Closing channel because of error: %s", message);
+      rakia_call_channel_hangup_error (priv->channel, reason, dbus_reason,
+          message);
       return;
     }
 
