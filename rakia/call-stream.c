@@ -75,6 +75,7 @@ enum
 {
   PROP_CHANNEL = 1,
   PROP_SIP_MEDIA,
+  PROP_CAN_REQUEST_RECEIVING,
   LAST_PROPERTY
 };
 
@@ -125,6 +126,33 @@ rakia_call_stream_set_property (GObject *object,
 }
 
 static void
+rakia_call_stream_get_property (GObject *object,
+    guint property_id,
+    GValue *value,
+    GParamSpec *pspec)
+{
+  RakiaCallStream *self = RAKIA_CALL_STREAM (object);
+  RakiaCallStreamPrivate *priv = self->priv;
+
+  switch (property_id)
+    {
+    case PROP_CAN_REQUEST_RECEIVING:
+      {
+        gboolean mutable_contents;
+
+        g_object_get (priv->channel,
+            "mutable-contents", &mutable_contents,
+            NULL);
+        g_value_set_boolean (value, mutable_contents);
+      }
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+      break;
+    }
+}
+
+static void
 rakia_call_stream_class_init (RakiaCallStreamClass *rakia_call_stream_class)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (rakia_call_stream_class);
@@ -137,6 +165,7 @@ rakia_call_stream_class_init (RakiaCallStreamClass *rakia_call_stream_class)
 
   object_class->constructed = rakia_call_stream_constructed;
   object_class->set_property = rakia_call_stream_set_property;
+  object_class->get_property = rakia_call_stream_get_property;
   object_class->dispose = rakia_call_stream_dispose;
   object_class->finalize = rakia_call_stream_finalize;
 
@@ -148,6 +177,9 @@ rakia_call_stream_class_init (RakiaCallStreamClass *rakia_call_stream_class)
       rakia_call_stream_finish_initial_candidates;
   bmcs_class->request_receiving = rakia_call_stream_request_receiving;
   bmcs_class->set_sending = rakia_call_stream_set_sending;
+
+  g_object_class_override_property (object_class, PROP_CAN_REQUEST_RECEIVING,
+      "can-request-receiving");
 
   param_spec = g_param_spec_pointer ("channel", "RakiaCallChannel object",
       "Call Channel",
