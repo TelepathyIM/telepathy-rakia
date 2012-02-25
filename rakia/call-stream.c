@@ -166,13 +166,11 @@ rakia_call_stream_constructed (GObject *object)
 {
   RakiaCallStream *self = RAKIA_CALL_STREAM (object);
   RakiaCallStreamPrivate *priv = self->priv;
-  TpBaseCallStream *bcs = TP_BASE_CALL_STREAM (object);
   TpBaseMediaCallStream *bmcs = TP_BASE_MEDIA_CALL_STREAM (object);
   GPtrArray *stun_array;
   GPtrArray *relay_array;
   gchar *stun_server = NULL;
   guint stun_port = 0;
-  TpBaseConnection *conn;
 
   g_signal_connect_object (priv->media, "remote-candidates-updated",
       G_CALLBACK (media_remote_candidates_updated_cb), self, 0);
@@ -186,14 +184,16 @@ rakia_call_stream_constructed (GObject *object)
   stun_array = g_ptr_array_new_with_free_func (
       (GDestroyNotify) g_value_array_free);
 
-  conn = tp_base_call_stream_get_connection (bcs);
-  g_object_get (conn, "stun-server", &stun_server,
+  g_object_get (priv->channel, "stun-server", &stun_server,
       "stun-port", &stun_port, NULL);
   if (stun_server && stun_port)
-    g_ptr_array_add (stun_array, tp_value_array_build (2,
-            G_TYPE_STRING, stun_server,
-            G_TYPE_UINT, stun_port,
-            G_TYPE_INVALID));
+    {
+      g_ptr_array_add (stun_array, tp_value_array_build (2,
+              G_TYPE_STRING, stun_server,
+              G_TYPE_UINT, stun_port,
+              G_TYPE_INVALID));
+      g_free (stun_server);
+    }
   tp_base_media_call_stream_set_stun_servers (bmcs, stun_array);
   g_ptr_array_unref (stun_array);
 
