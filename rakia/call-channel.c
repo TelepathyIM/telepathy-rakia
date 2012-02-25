@@ -360,7 +360,7 @@ rakia_call_channel_close (TpBaseChannel *base)
   if (priv->session)
     rakia_sip_session_terminate (priv->session, 480, "Terminated");
 
-  g_debug ("CLOSED: %s", tp_base_channel_get_object_path (base));
+  DEBUG ("Closed: %s", tp_base_channel_get_object_path (base));
 
   TP_BASE_CHANNEL_CLASS (rakia_call_channel_parent_class)->close (base);
 }

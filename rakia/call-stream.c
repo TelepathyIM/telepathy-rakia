@@ -584,9 +584,6 @@ media_direction_changed_cb (RakiaSipMedia *media, RakiaCallStream *self)
   RakiaDirection requested_direction =
       rakia_sip_media_get_requested_direction (media);
 
-  g_debug ("req: %d remote: %d dir: %d",
-      requested_direction, remote_direction, direction);
-
   if (direction & requested_direction & RAKIA_DIRECTION_SEND)
     {
       tp_base_call_stream_update_local_sending_state (bcs,
