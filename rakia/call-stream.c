@@ -192,8 +192,8 @@ rakia_call_stream_constructed (GObject *object)
               G_TYPE_STRING, stun_server,
               G_TYPE_UINT, stun_port,
               G_TYPE_INVALID));
-      g_free (stun_server);
     }
+  g_free (stun_server);
   tp_base_media_call_stream_set_stun_servers (bmcs, stun_array);
   g_ptr_array_unref (stun_array);
 
@@ -449,6 +449,7 @@ media_remote_candidates_updated_cb (RakiaSipMedia *media, RakiaCallStream *self)
 
       tp_call_stream_endpoint_add_new_candidate (priv->endpoint,
           candidate->component, candidate->ip, candidate->port, info);
+      g_hash_table_unref (info);
     }
 
   tp_base_media_call_stream_add_endpoint (bmcs, priv->endpoint);

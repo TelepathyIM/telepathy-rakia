@@ -390,6 +390,22 @@ rakia_sip_session_dispose (GObject *object)
 
   tp_clear_object (&self->priv->conn);
 
+  if (self->priv->remote_sdp != NULL)
+    {
+      self->priv->remote_sdp = NULL;
+      g_assert (self->priv->home != NULL);
+      su_home_unref (self->priv->home);
+      self->priv->home = NULL;
+    }
+
+  if (self->priv->backup_remote_sdp != NULL)
+    {
+      self->priv->backup_remote_sdp = NULL;
+      g_assert (self->priv->backup_home != NULL);
+      su_home_unref (self->priv->backup_home);
+      self->priv->backup_home = NULL;
+    }
+
   if (G_OBJECT_CLASS (rakia_sip_session_parent_class)->dispose)
     G_OBJECT_CLASS (rakia_sip_session_parent_class)->dispose (object);
 

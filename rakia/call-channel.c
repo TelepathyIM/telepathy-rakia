@@ -245,13 +245,15 @@ rakia_call_channel_constructed (GObject *obj)
       for (i = 0; i < medias->len; i++)
         {
           RakiaSipMedia *media = g_ptr_array_index (medias, i);
+          gchar *name;
+
           if (media)
             {
-              const gchar *name = g_strdup_printf ("initial_%s_%u",
+              name = g_strdup_printf ("initial_%s_%u",
                   sip_media_get_media_type_str (media), i + 1);
-
               new_content (self, name, media,
                   TP_CALL_CONTENT_DISPOSITION_INITIAL);
+              g_free (name);
             }
         }
 
