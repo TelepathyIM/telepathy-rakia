@@ -1,6 +1,6 @@
 /*
  * call-content.c - RakiaCallContent
- * Copyright (C) 2011 Collabora Ltd.
+ * Copyright (C) 2011-2012 Collabora Ltd.
  * @author Olivier Crete <olivier.crete@collabora.com>
  *
  * This library is free software; you can redistribute it and/or

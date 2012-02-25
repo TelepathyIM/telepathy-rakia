@@ -1,6 +1,6 @@
 /*
  * rakia-sip-session.c - Source for RakiaSipSession
- * Copyright (C) 2005-2011 Collabora Ltd.
+ * Copyright (C) 2005-2012 Collabora Ltd.
  *   @author Olivier Crete <olivier.crete@collabora.com>
  * Copyright (C) 2005-2010 Nokia Corporation
  *   @author Kai Vehmanen <first.surname@nokia.com>
