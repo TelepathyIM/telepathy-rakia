@@ -473,10 +473,25 @@ rakia_call_stream_set_sending (TpBaseMediaCallStream *stream,
   RakiaCallStreamPrivate *priv = self->priv;
   RakiaDirection current_direction =
       rakia_sip_media_get_requested_direction (priv->media);
+  gboolean mutable_contents;
 
   if (!!(current_direction & RAKIA_DIRECTION_SEND) == sending)
     return TRUE;
 
+  /* Can't change the actual direction of a stream if we disable modifying
+   * the SDP, except if we're starting a call.
+   * In that case, we stop sending, but we don't inform the other side.
+   */
+  g_object_get (priv->channel,
+      "mutable-contents", &mutable_contents,
+      NULL);
+
+  if (!mutable_contents &&
+      !(tp_base_channel_is_requested (TP_BASE_CHANNEL (priv->channel)) &&
+          tp_base_call_channel_get_state (
+              TP_BASE_CALL_CHANNEL (priv->channel)) ==
+          TP_CALL_STATE_PENDING_INITIATOR))
+    return TRUE;
 
   if (sending)
     rakia_sip_media_set_requested_direction (priv->media,
