@@ -273,7 +273,7 @@ class DirectionChange(calltest.CallTest):
                       args=[cs.CALL_STREAM_FLOW_STATE_STOPPED],
                       path=content.stream.__dbus_object_path__),
 
-    def start_receiving(self, content):
+    def start_receiving(self, content, already_receiving=False):
         self.receiving = True
 
         content.stream.RequestReceiving(self.remote_handle, True)
@@ -359,15 +359,27 @@ class DirectionChange(calltest.CallTest):
         assertDoesNotContain('a=inactive', reinvite_event.sip_message.body)
 
         self.context.check_call_sdp(reinvite_event.sip_message.body)
-        body = reinvite_event.sip_message.body + 'a=sendonly\r\r'
+        body = reinvite_event.sip_message.body + 'a=recvonly\r\r'
         self.context.accept(reinvite_event.sip_message, body)
 
         ack_cseq = "%s ACK" % reinvite_event.cseq.split()[0]
-        self.q.expect('sip-ack', cseq=ack_cseq)
+        self.q.expect_many(
+            EventPattern('sip-ack', cseq=ack_cseq))
+
+        # Now let's restart receiving for real
+        self.context.reinvite()
+
+        acc , rmb = self.q.expect_many(
+            EventPattern('sip-response', code=200),
+            EventPattern('dbus-signal', signal='RemoteMembersChanged',
+                         path=content.stream.__dbus_object_path__,
+                         predicate=lambda e: e.args[0] == {self.remote_handle: cs.CALL_SENDING_STATE_SENDING}))
+
+        self.context.check_call_sdp(acc.sip_message.body, self.medias)
+        self.context.ack(acc.sip_message)
 
 
     def hold(self):
-
         self.chan.Hold.RequestHold(True)
 
         events = self.stream_dbus_signal_event (
@@ -408,9 +420,41 @@ class DirectionChange(calltest.CallTest):
         self.q.expect('sip-ack', cseq=ack_cseq)
 
 
-    def unhold_fail(self):
-        # TODO!!
-        pass
+    def unhold_fail(self, receiving=True):
+        self.chan.Hold.RequestHold(False)
+
+
+        events = self.stream_dbus_signal_event (
+            'ReceivingStateChanged',
+            args=[cs.CALL_STREAM_FLOW_STATE_PENDING_START])
+        events += self.stream_dbus_signal_event(
+            'SendingStateChanged',
+                args=[cs.CALL_STREAM_FLOW_STATE_PENDING_START])
+        o = self.q.expect_many(
+            EventPattern('dbus-signal', signal='HoldStateChanged',
+                         args=[cs.HS_PENDING_UNHOLD, cs.HSR_REQUESTED]),
+            *events)
+
+        if receiving:
+            self.contents[0].stream.Media.ReportReceivingFailure(
+                cs.CALL_SCR_MEDIA_ERROR, "", "")
+            events = self.stream_dbus_signal_event(
+                'SendingStateChanged',
+                args=[cs.CALL_STREAM_FLOW_STATE_PENDING_STOP])
+        else:
+             self.contents[0].stream.Media.ReportSendingFailure(
+                cs.CALL_SCR_MEDIA_ERROR, "", "")
+             events = self.stream_dbus_signal_event(
+                 'ReceivingStateChanged',
+                 args=[cs.CALL_STREAM_FLOW_STATE_PENDING_STOP])
+
+        o = self.q.expect_many(
+            EventPattern('dbus-signal', signal='HoldStateChanged',
+                         args=[cs.HS_PENDING_HOLD,
+                               cs.HSR_RESOURCE_NOT_AVAILABLE]),
+            *events)
+
+
 
     def unhold_succeed(self):
         self.chan.Hold.RequestHold(False)
@@ -454,12 +498,6 @@ class DirectionChange(calltest.CallTest):
         self.q.expect('sip-ack', cseq=ack_cseq)
 
 
-    def hold_unhold(self):
-        self.hold()
-        self.unhold_fail()
-        self.unhold_succeed()
-
-
     def during_call(self):
         content = self.contents[0]
 
@@ -476,9 +514,20 @@ class DirectionChange(calltest.CallTest):
         self.stop_start_receiving_user_requested(content)
         self.reject_start_receiving(content)
 
-        self.q.unforbid_events(remote_hold_event)
 
-        self.hold_unhold()
+        direction_change_event = [
+            EventPattern('dbus-signal', signal='LocalSendingStateChanged'),
+            EventPattern('dbus-signal', signal='RemoteMembersChanged')]
+
+        self.q.forbid_events(direction_change_event)
+        self.hold()
+        self.unhold_fail(receiving=True)
+        self.unhold_fail(receiving=False)
+        self.unhold_succeed()
+        self.q.unforbid_events(direction_change_event)
+
+
+        self.q.unforbid_events(remote_hold_event)
 
         return calltest.CallTest.during_call(self)
 
