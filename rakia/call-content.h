@@ -77,6 +77,8 @@ RakiaSipMedia *rakia_call_content_get_media (RakiaCallContent *self);
 
 void rakia_call_content_add_stream (RakiaCallContent *self);
 
+void rakia_call_content_remote_accept (RakiaCallContent *content);
+
 G_END_DECLS
 
 #endif /* #ifndef __RAKIA_CALL_CONTENT_H__*/

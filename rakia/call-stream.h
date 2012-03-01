@@ -69,6 +69,7 @@ RakiaCallStream * rakia_call_stream_new (RakiaCallChannel *channel,
     TpBaseConnection *connection,
     TpSendingState local_sending_state);
 
+void rakia_call_stream_update_direction (RakiaCallStream *self);
 
 G_END_DECLS
 

@@ -430,3 +430,9 @@ local_media_description_updated (RakiaCallContent *self, TpHandle contact,
 {
   set_telepathy_codecs (self, properties);
 }
+
+void
+rakia_call_content_remote_accept (RakiaCallContent *content)
+{
+  rakia_call_stream_update_direction (content->priv->stream);
+}

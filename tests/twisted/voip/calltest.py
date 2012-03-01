@@ -3,7 +3,7 @@ import dbus
 from sofiatest import exec_test
 
 from servicetest import (
-    make_channel_proxy, wrap_channel,
+    make_channel_proxy, wrap_channel, sync_dbus,
     EventPattern, call_async, ProxyWrapper,
     assertEquals, assertNotEquals, assertContains, assertLength,
     )
@@ -422,9 +422,27 @@ class CallTest:
 
     def accept(self):
         if self.incoming:
-            return self.accept_incoming()
+            self.accept_incoming()
         else:
-            return self.accept_outgoing()
+            self.accept_outgoing()
+
+    def running_check(self):
+        self.context.options_ping(self.q)
+        sync_dbus(self.bus, self.q, self.conn)
+
+        for c in self.contents:
+            props = c.stream.Properties.GetAll(cs.CALL_STREAM)
+            assertEquals(cs.CALL_SENDING_STATE_SENDING,
+                         props['LocalSendingState'])
+            assertEquals({self.remote_handle: cs.CALL_SENDING_STATE_SENDING},
+                         props['RemoteMembers'])
+
+            props = c.stream.Properties.GetAll(cs.CALL_STREAM_IFACE_MEDIA)
+            assertEquals(cs.CALL_STREAM_FLOW_STATE_STARTED,
+                         props['SendingState'])
+            assertEquals(cs.CALL_STREAM_FLOW_STATE_STARTED,
+                         props['ReceivingState'])
+
 
     def hangup(self):
         if self.incoming:
@@ -462,6 +480,7 @@ class CallTest:
         self.connect()
         self.initiate()
         self.accept()
+        self.running_check()
         self.during_call()
         self.hangup()
         self.chan.Close()

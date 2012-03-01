@@ -433,6 +433,8 @@ rakia_call_channel_hold_state_changed (TpBaseMediaCallChannel *bmcc,
 {
   RakiaCallChannel *self = RAKIA_CALL_CHANNEL (bmcc);
 
+  DEBUG ("hold state changed to %d", hold_state);
+
   switch (hold_state)
     {
     case TP_LOCAL_HOLD_STATE_PENDING_HOLD:
@@ -627,8 +629,21 @@ state_changed_cb (RakiaSipSession *session, RakiaSipSessionState old_state,
     case RAKIA_SIP_SESSION_STATE_ACTIVE:
 
       if (tp_base_channel_is_requested (TP_BASE_CHANNEL (self)))
-        tp_base_call_channel_remote_accept (TP_BASE_CALL_CHANNEL (self));
-      break;
+        {
+          GList *e;
+
+          tp_base_call_channel_remote_accept (TP_BASE_CALL_CHANNEL (self));
+
+          for (e = tp_base_call_channel_get_contents (
+                  TP_BASE_CALL_CHANNEL (self));
+               e != NULL;
+               e = e->next)
+            {
+              RakiaCallContent *content = e->data;
+              if (content)
+                rakia_call_content_remote_accept (content);
+            }
+        }
 
     case RAKIA_SIP_SESSION_STATE_ENDED:
       /* the ended callback is used to get more information */

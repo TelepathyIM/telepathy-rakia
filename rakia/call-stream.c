@@ -61,8 +61,6 @@ static void rakia_call_stream_finalize (GObject *object);
 
 static void media_remote_candidates_updated_cb (RakiaSipMedia *media,
     RakiaCallStream *self);
-static void media_direction_changed_cb (RakiaSipMedia *media,
-    RakiaCallStream *self);
 static void receiving_updated_cb (RakiaCallStream *self);
 
 
@@ -207,7 +205,7 @@ rakia_call_stream_constructed (GObject *object)
   g_signal_connect_object (priv->media, "remote-candidates-updated",
       G_CALLBACK (media_remote_candidates_updated_cb), self, 0);
   g_signal_connect_object (priv->media, "direction-changed",
-      G_CALLBACK (media_direction_changed_cb), self, 0);
+      G_CALLBACK (rakia_call_stream_update_direction), self, G_CONNECT_SWAPPED);
 
   if (!rakia_sip_media_is_created_locally (priv->media))
     media_remote_candidates_updated_cb (priv->media, self);
@@ -568,8 +566,8 @@ rakia_call_stream_new (RakiaCallChannel *channel,
       NULL);
 }
 
-static void
-media_direction_changed_cb (RakiaSipMedia *media, RakiaCallStream *self)
+void
+rakia_call_stream_update_direction (RakiaCallStream *self)
 {
   TpBaseCallStream *bcs = TP_BASE_CALL_STREAM (self);
   TpBaseMediaCallStream *bmcs = TP_BASE_MEDIA_CALL_STREAM (self);
@@ -578,13 +576,18 @@ media_direction_changed_cb (RakiaSipMedia *media, RakiaCallStream *self)
       TP_BASE_CHANNEL (priv->channel));
   TpHandle self_handle = tp_base_channel_get_self_handle (
       TP_BASE_CHANNEL (priv->channel));
-  RakiaDirection direction = rakia_sip_media_get_direction (media);
+  RakiaDirection direction = rakia_sip_media_get_direction (priv->media);
   RakiaDirection remote_direction =
-      rakia_sip_media_get_remote_direction (media);
+      rakia_sip_media_get_remote_direction (priv->media);
   RakiaDirection requested_direction =
-      rakia_sip_media_get_requested_direction (media);
+      rakia_sip_media_get_requested_direction (priv->media);
+  TpLocalHoldState hold_state =
+      tp_base_media_call_channel_get_local_hold_state (
+          TP_BASE_MEDIA_CALL_CHANNEL (priv->channel), NULL);
 
-  if (direction & requested_direction & RAKIA_DIRECTION_SEND)
+  if ((direction & RAKIA_DIRECTION_SEND ||
+          hold_state != TP_LOCAL_HOLD_STATE_UNHELD) &&
+      requested_direction & RAKIA_DIRECTION_SEND)
     {
       tp_base_call_stream_update_local_sending_state (bcs,
           TP_SENDING_STATE_SENDING, self_handle,

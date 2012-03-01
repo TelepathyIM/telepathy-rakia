@@ -1165,6 +1165,12 @@ rakia_sip_media_set_hold_requested (RakiaSipMedia *media,
   media->priv->hold_requested = hold_requested;
 }
 
+gboolean
+rakia_sip_media_get_hold_requested (RakiaSipMedia *media)
+{
+  return media->priv->hold_requested;
+}
+
 
 gboolean
 rakia_sip_media_is_held (RakiaSipMedia *media)
