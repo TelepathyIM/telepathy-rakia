@@ -314,10 +314,10 @@ rakia_call_stream_report_receiving_failure (TpBaseMediaCallStream *bmcs,
   if (!(current_requested_direction & RAKIA_DIRECTION_RECEIVE))
     return;
 
-  if (!(current_direction & RAKIA_DIRECTION_RECEIVE))
+  if (current_direction & RAKIA_DIRECTION_RECEIVE)
     tp_base_call_stream_update_remote_sending_state (bcs,
         tp_base_channel_get_target_handle (bchan),
-        TP_SENDING_STATE_NONE,
+        TP_SENDING_STATE_PENDING_STOP_SENDING,
         tp_base_channel_get_self_handle (bchan),
         reason, dbus_reason, message);
 
