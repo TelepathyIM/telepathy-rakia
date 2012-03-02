@@ -970,7 +970,9 @@ rakia_sip_media_is_ready (RakiaSipMedia *self)
       self->priv->local_codecs,
       priv->codec_intersect_pending);
 
-  if (priv->requested_direction & RAKIA_DIRECTION_RECEIVE && !priv->can_receive)
+  if (priv->requested_direction & RAKIA_DIRECTION_RECEIVE &&
+      !priv->can_receive &&
+      !priv->hold_requested)
     return FALSE;
 
   return (self->priv->local_candidates_prepared &&
