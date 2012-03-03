@@ -1200,3 +1200,28 @@ rakia_sip_media_set_can_receive (RakiaSipMedia *media, gboolean can_receive)
         }
     }
 }
+
+gboolean
+rakia_sip_media_has_remote_media (RakiaSipMedia *media)
+{
+  return (media->priv->remote_media != NULL);
+}
+
+const gchar *
+rakia_direction_to_string (RakiaDirection direction)
+{
+  switch (direction)
+    {
+    case RAKIA_DIRECTION_NONE:
+      return "none";
+    case RAKIA_DIRECTION_SEND:
+      return "send";
+    case RAKIA_DIRECTION_RECEIVE:
+      return "recv";
+    case RAKIA_DIRECTION_BIDIRECTIONAL:
+      return "bidi";
+    default:
+      g_warning ("Invalid direction %d", direction);
+      return "broken";
+    }
+}
