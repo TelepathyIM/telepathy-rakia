@@ -115,15 +115,14 @@ class CallTest:
             assertEquals(cs.CALL_SENDING_STATE_SENDING,
                          stream_props['LocalSendingState'])
 
-        if initial or not incoming:
-            assertEquals(
-                {self.remote_handle: cs.CALL_SENDING_STATE_PENDING_SEND},
-                stream_props['RemoteMembers'])
-        else:
+        if incoming:
             assertEquals(
                 {self.remote_handle: cs.CALL_SENDING_STATE_SENDING},
                 stream_props['RemoteMembers'])
-                      
+        else:
+            assertEquals(
+                {self.remote_handle: cs.CALL_SENDING_STATE_PENDING_SEND},
+                stream_props['RemoteMembers'])
 
         smedia_props = content.stream.Properties.GetAll(
             cs.CALL_STREAM_IFACE_MEDIA)

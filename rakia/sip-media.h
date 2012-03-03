@@ -173,6 +173,8 @@ gboolean rakia_sip_media_get_hold_requested (RakiaSipMedia *media);
 void rakia_sip_media_set_can_receive (RakiaSipMedia *media,
     gboolean can_receive);
 
+gboolean rakia_sip_media_has_remote_media (RakiaSipMedia *media);
+
 const gchar *rakia_direction_to_string (RakiaDirection direction);
 
 G_END_DECLS

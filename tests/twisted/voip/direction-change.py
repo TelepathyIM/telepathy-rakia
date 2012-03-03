@@ -536,6 +536,9 @@ class DirectionChange(calltest.CallTest):
 
         self.receiving = False
 
+        assert self.contents[0].stream.Properties.Get(cs.CALL_STREAM_IFACE_MEDIA,
+                                                  'SendingState') == cs.CALL_STREAM_FLOW_STATE_STARTED
+
         content.stream.Media.ReportReceivingFailure(
             cs.CALL_SCR_MEDIA_ERROR, "", "receiving error")
 
@@ -553,7 +556,7 @@ class DirectionChange(calltest.CallTest):
         assertContains('a=sendonly', reinvite_event.sip_message.body)
         self.context.check_call_sdp(reinvite_event.sip_message.body)
         body = reinvite_event.sip_message.body.replace(
-            'sendonly', self.receiving and 'recvonly' or 'inactive')
+            'sendonly', self.sending and 'recvonly' or 'inactive')
 
         self.context.accept(reinvite_event.sip_message, body)
 
@@ -563,16 +566,17 @@ class DirectionChange(calltest.CallTest):
         self.start_receiving(content)
 
 
-    def add_content_during_hold(self):
-        incoming = False
-        content_path = self.chan.Call1.AddContent(
-            "NewContent", cs.MEDIA_STREAM_TYPE_AUDIO, 
-            cs.MEDIA_STREAM_DIRECTION_BIDIRECTIONAL)
+    def add_local_content_during_hold(self):
 
         media_unhold_events = [
             EventPattern('dbus-signal', signal='SendingStateChanged'),
             EventPattern('dbus-signal', signal='ReceivingStateChanged')]
         self.q.forbid_events(media_unhold_events)
+
+        content_path = self.chan.Call1.AddContent(
+            "NewContent", cs.MEDIA_STREAM_TYPE_AUDIO, 
+            cs.MEDIA_STREAM_DIRECTION_BIDIRECTIONAL)
+
 
         self.q.expect('dbus-signal', signal='ContentAdded',
                       args=[content_path])
@@ -594,19 +598,11 @@ class DirectionChange(calltest.CallTest):
 
         stream_props = stream.Properties.GetAll(cs.CALL_STREAM)
         assertEquals(True, stream_props['CanRequestReceiving'])
-        if incoming:
-            assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND,
-                         stream_props['LocalSendingState'])
-            assertEquals(
-                {self.remote_handle: cs.CALL_SENDING_STATE_SENDING},
-                stream_props['RemoteMembers'])
-                      
-        else: 
-            assertEquals(
-                {self.remote_handle: cs.CALL_SENDING_STATE_PENDING_SEND},
-                stream_props['RemoteMembers'])
-            assertEquals(cs.CALL_SENDING_STATE_SENDING,
-                         stream_props['LocalSendingState'])
+        assertEquals(
+            {self.remote_handle: cs.CALL_SENDING_STATE_PENDING_SEND},
+            stream_props['RemoteMembers'])
+        assertEquals(cs.CALL_SENDING_STATE_SENDING,
+                     stream_props['LocalSendingState'])
 
         smedia_props = stream.Properties.GetAll(
             cs.CALL_STREAM_IFACE_MEDIA)
@@ -652,6 +648,79 @@ class DirectionChange(calltest.CallTest):
                     
         self.q.unforbid_events(media_unhold_events)
 
+
+    def add_remote_content_during_hold(self):
+
+        media_unhold_events = [
+            EventPattern('dbus-signal', signal='SendingStateChanged'),
+            EventPattern('dbus-signal', signal='ReceivingStateChanged')]
+        self.q.forbid_events(media_unhold_events)
+
+        self.context.reinvite([('audio', 'recvonly'), ('audio', None)])
+
+        ca = self.q.expect('dbus-signal', signal='ContentAdded')
+
+        content = self.bus.get_object (self.conn.bus_name, ca.args[0])
+        
+        content_props = content.GetAll(cs.CALL_CONTENT)
+        assertEquals(cs.CALL_DISPOSITION_NONE, content_props['Disposition'])
+        assertEquals(cs.MEDIA_STREAM_TYPE_AUDIO, content_props['Type'])
+        
+        assertLength(1, content_props['Streams'])
+
+        tmpstream = self.bus.get_object (self.conn.bus_name,
+                                         content_props['Streams'][0])
+
+        stream = ProxyWrapper (tmpstream, cs.CALL_STREAM,
+                               {'Media': cs.CALL_STREAM_IFACE_MEDIA})
+
+        stream_props = stream.Properties.GetAll(cs.CALL_STREAM)
+        assertEquals(True, stream_props['CanRequestReceiving'])
+        assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND,
+                     stream_props['LocalSendingState'])
+        assertEquals(
+                {self.remote_handle: cs.CALL_SENDING_STATE_SENDING},
+                stream_props['RemoteMembers'])
+      
+        smedia_props = stream.Properties.GetAll(
+            cs.CALL_STREAM_IFACE_MEDIA)
+        assertEquals(cs.CALL_SENDING_STATE_NONE, smedia_props['SendingState'])
+        assertEquals(cs.CALL_SENDING_STATE_NONE,
+                     smedia_props['ReceivingState'])
+
+        mdo = content.Get(cs.CALL_CONTENT_IFACE_MEDIA,
+                          'MediaDescriptionOffer')
+        md = self.bus.get_object (self.conn.bus_name, mdo[0])
+        md.Accept(self.context.get_audio_md_dbus(
+                self.remote_handle))
+
+        self.add_candidates(stream)
+        
+        acc = self.q.expect('sip-response', code=200)
+        self.context.check_call_sdp(
+            acc.sip_message.body, 
+            [('audio', 'sendonly'), ('audio', 'inactive')])
+        self.context.ack(acc.sip_message)
+
+        content.Remove()
+
+
+        reinvite_event = self.q.expect('sip-invite')
+
+        self.context.check_call_sdp(reinvite_event.sip_message.body,
+                                    self.medias)
+        body = reinvite_event.sip_message.body.replace(
+            'sendonly', self.receiving and 'recvonly' or 'inactive')
+
+        self.context.accept(reinvite_event.sip_message, body)
+
+        ack_cseq = "%s ACK" % reinvite_event.cseq.split()[0]
+        self.q.expect('sip-ack', cseq=ack_cseq)
+
+                    
+        self.q.unforbid_events(media_unhold_events)
+
+
     def during_call(self):
         content = self.contents[0]
 
@@ -664,12 +733,18 @@ class DirectionChange(calltest.CallTest):
 
         self.stop_start_receiving_user_requested(content)
 
+        self.running_check()
+
         self.reject_stop_receiving(content)
         self.stop_start_receiving_user_requested(content)
         self.reject_start_receiving(content)
 
+        self.running_check()
+
         self.sending_failed(content)
         self.receiving_failed(content)
+
+        self.running_check()
 
         direction_change_events = \
             self.stream_dbus_signal_event('LocalSendingStateChanged') + \
@@ -677,7 +752,8 @@ class DirectionChange(calltest.CallTest):
 
         self.q.forbid_events(direction_change_events)
         self.hold()
-        self.add_content_during_hold()
+        self.add_local_content_during_hold()
+        self.add_remote_content_during_hold()
         self.unhold_fail(receiving=True)
         self.unhold_fail(receiving=False)
         self.unhold_succeed()

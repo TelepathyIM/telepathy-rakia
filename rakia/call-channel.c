@@ -554,6 +554,14 @@ new_content (RakiaCallChannel *self,
     name = free_name = g_strdup_printf ("%s %u", media_type_name,
         self->priv->last_content_no);
 
+  /* We already request bidi for initial media,
+   * the client can change it before accepting.
+   */
+  if (disposition == TP_CALL_CONTENT_DISPOSITION_INITIAL)
+    rakia_sip_media_set_requested_direction (media,
+        RAKIA_DIRECTION_BIDIRECTIONAL);
+
+
   content = rakia_call_content_new (self, media, object_path,
       tp_base_channel_get_connection (bchan), name,
       media_type, creator, disposition);

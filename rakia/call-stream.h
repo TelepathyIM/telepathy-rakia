@@ -25,7 +25,7 @@
 
 #include <telepathy-glib/base-media-call-stream.h>
 
-#include "rakia/call-channel.h"
+#include "rakia/call-content.h"
 #include "rakia/sip-media.h"
 
 G_BEGIN_DECLS
@@ -62,12 +62,12 @@ GType rakia_call_stream_get_type (void);
   (G_TYPE_INSTANCE_GET_CLASS ((obj), RAKIA_TYPE_CALL_STREAM, \
     RakiaCallStreamClass))
 
-RakiaCallStream * rakia_call_stream_new (RakiaCallChannel *channel,
+RakiaCallStream * rakia_call_stream_new (
+    RakiaCallContent *content,
     RakiaSipMedia *media,
     const gchar *object_path,
     TpStreamTransportType transport,
-    TpBaseConnection *connection,
-    TpSendingState local_sending_state);
+    TpBaseConnection *connection);
 
 void rakia_call_stream_update_direction (RakiaCallStream *self);
 

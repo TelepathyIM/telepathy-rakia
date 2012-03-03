@@ -375,53 +375,16 @@ rakia_call_content_add_stream (RakiaCallContent *self)
 {
   RakiaCallContentPrivate *priv = self->priv;
   TpBaseCallContent *bcc = TP_BASE_CALL_CONTENT (self);
-  TpHandle creator;
   gchar *object_path;
-  TpSendingState local_sending_state;
-  TpSendingState remote_sending_state;
-
-  g_object_get (self, "creator", &creator, NULL);
-
-  if (rakia_sip_media_get_requested_direction (priv->media) &
-      RAKIA_DIRECTION_SEND)
-    {
-      if (!tp_base_call_channel_is_accepted (
-              TP_BASE_CALL_CHANNEL (priv->channel)) &&
-          !tp_base_channel_is_requested (TP_BASE_CHANNEL (priv->channel)))
-        local_sending_state = TP_SENDING_STATE_PENDING_SEND;
-      else
-        local_sending_state = TP_SENDING_STATE_SENDING;
-    }
-  else
-    {
-      local_sending_state = TP_SENDING_STATE_NONE;
-    }
-
-
-  if (rakia_sip_media_get_requested_direction (priv->media) &
-      RAKIA_DIRECTION_RECEIVE)
-    remote_sending_state = TP_SENDING_STATE_PENDING_SEND;
-  else
-    remote_sending_state = TP_SENDING_STATE_NONE;
 
   object_path = g_strdup_printf ("%s/Stream",
       tp_base_call_content_get_object_path (bcc));
-  priv->stream = rakia_call_stream_new (priv->channel, priv->media,
+  priv->stream = rakia_call_stream_new (self, priv->media,
       object_path, TP_STREAM_TRANSPORT_TYPE_RAW_UDP,
-      tp_base_call_content_get_connection (bcc),
-      local_sending_state);
+      tp_base_call_content_get_connection (bcc));
   g_free (object_path);
 
-  tp_base_call_stream_update_remote_sending_state (
-      TP_BASE_CALL_STREAM (priv->stream),
-      tp_base_channel_get_target_handle (TP_BASE_CHANNEL (priv->channel)),
-      remote_sending_state, creator,
-      TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");
-
   tp_base_call_content_add_stream (bcc, TP_BASE_CALL_STREAM (priv->stream));
-
-  tp_base_media_call_stream_update_receiving_state (
-      TP_BASE_MEDIA_CALL_STREAM (priv->stream));
 }
 
 static void

@@ -71,8 +71,7 @@ G_DEFINE_TYPE (RakiaCallStream, rakia_call_stream,
 /* properties */
 enum
 {
-  PROP_CHANNEL = 1,
-  PROP_SIP_MEDIA,
+  PROP_SIP_MEDIA = 1,
   PROP_CAN_REQUEST_RECEIVING,
   LAST_PROPERTY
 };
@@ -111,9 +110,6 @@ rakia_call_stream_set_property (GObject *object,
 
   switch (property_id)
     {
-    case PROP_CHANNEL:
-      priv->channel = g_value_get_pointer (value);
-      break;
     case PROP_SIP_MEDIA:
       priv->media = g_value_dup_object (value);
       break;
@@ -179,11 +175,6 @@ rakia_call_stream_class_init (RakiaCallStreamClass *rakia_call_stream_class)
   g_object_class_override_property (object_class, PROP_CAN_REQUEST_RECEIVING,
       "can-request-receiving");
 
-  param_spec = g_param_spec_pointer ("channel", "RakiaCallChannel object",
-      "Call Channel",
-      G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_CHANNEL, param_spec);
-
   param_spec = g_param_spec_object ("sip-media", "RakiaSipMedia object",
       "SIP media object that is used for this SIP media channel object.",
       RAKIA_TYPE_SIP_MEDIA,
@@ -196,11 +187,16 @@ rakia_call_stream_constructed (GObject *object)
 {
   RakiaCallStream *self = RAKIA_CALL_STREAM (object);
   RakiaCallStreamPrivate *priv = self->priv;
+  TpBaseCallStream *bcs = TP_BASE_CALL_STREAM (object);
   TpBaseMediaCallStream *bmcs = TP_BASE_MEDIA_CALL_STREAM (object);
+  TpHandle contact;
   GPtrArray *stun_array;
   GPtrArray *relay_array;
   gchar *stun_server = NULL;
   guint stun_port = 0;
+
+  g_object_get (self, "channel", &priv->channel, NULL);
+  contact = tp_base_channel_get_target_handle (TP_BASE_CHANNEL (priv->channel));
 
   g_signal_connect_object (priv->media, "remote-candidates-updated",
       G_CALLBACK (media_remote_candidates_updated_cb), self, 0);
@@ -236,10 +232,23 @@ rakia_call_stream_constructed (GObject *object)
       G_CALLBACK (receiving_updated_cb), NULL);
   receiving_updated_cb (self);
 
+  /* Put the initial value */
+  if (rakia_sip_media_get_requested_direction (priv->media) &
+      RAKIA_DIRECTION_RECEIVE)
+    tp_base_call_stream_update_remote_sending_state (bcs, contact,
+        TP_SENDING_STATE_PENDING_SEND, 0,
+        TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");
+  else
+    tp_base_call_stream_update_remote_sending_state (bcs, contact,
+        TP_SENDING_STATE_NONE, 0,
+        TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");
+
+  rakia_call_stream_update_direction (self);
+  tp_base_media_call_stream_update_receiving_state (
+      TP_BASE_MEDIA_CALL_STREAM (self));
+
   G_OBJECT_CLASS (rakia_call_stream_parent_class)->constructed (object);
 }
-
-
 
 void
 rakia_call_stream_dispose (GObject *object)
@@ -549,20 +558,19 @@ media_remote_candidates_updated_cb (RakiaSipMedia *media, RakiaCallStream *self)
 }
 
 RakiaCallStream *
-rakia_call_stream_new (RakiaCallChannel *channel,
+rakia_call_stream_new (
+    RakiaCallContent *content,
     RakiaSipMedia *media,
     const gchar *object_path,
     TpStreamTransportType transport,
-    TpBaseConnection *connection,
-    TpSendingState local_sending_state)
+    TpBaseConnection *connection)
 {
   return g_object_new (RAKIA_TYPE_CALL_STREAM,
-      "channel", channel,
+      "content", content,
       "sip-media", media,
       "object-path", object_path,
       "transport", transport,
       "connection", connection,
-      "local-sending-state", local_sending_state,
       NULL);
 }
 
@@ -572,10 +580,9 @@ rakia_call_stream_update_direction (RakiaCallStream *self)
   TpBaseCallStream *bcs = TP_BASE_CALL_STREAM (self);
   TpBaseMediaCallStream *bmcs = TP_BASE_MEDIA_CALL_STREAM (self);
   RakiaCallStreamPrivate *priv = self->priv;
-  TpHandle contact = tp_base_channel_get_target_handle (
-      TP_BASE_CHANNEL (priv->channel));
-  TpHandle self_handle = tp_base_channel_get_self_handle (
-      TP_BASE_CHANNEL (priv->channel));
+  TpBaseChannel *bchan = TP_BASE_CHANNEL (priv->channel);
+  TpHandle contact = tp_base_channel_get_target_handle (bchan);
+  TpHandle self_handle = tp_base_channel_get_self_handle (bchan);
   RakiaDirection direction = rakia_sip_media_get_direction (priv->media);
   RakiaDirection remote_direction =
       rakia_sip_media_get_remote_direction (priv->media);
@@ -585,14 +592,22 @@ rakia_call_stream_update_direction (RakiaCallStream *self)
       tp_base_media_call_channel_get_local_hold_state (
           TP_BASE_MEDIA_CALL_CHANNEL (priv->channel), NULL);
 
+  DEBUG ("direction: %s requested: %s remote: %s hold: %d",
+      rakia_direction_to_string (direction),
+      rakia_direction_to_string (requested_direction),
+      rakia_direction_to_string (remote_direction),
+      hold_state != TP_LOCAL_HOLD_STATE_UNHELD);
+
   if ((direction & RAKIA_DIRECTION_SEND ||
+          !rakia_sip_media_has_remote_media (priv->media) ||
           hold_state != TP_LOCAL_HOLD_STATE_UNHELD) &&
       requested_direction & RAKIA_DIRECTION_SEND)
     {
       tp_base_call_stream_update_local_sending_state (bcs,
           TP_SENDING_STATE_SENDING, self_handle,
           TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED, "", "User requested");
-      tp_base_media_call_stream_set_local_sending (bmcs, TRUE);
+      if (rakia_sip_media_has_remote_media (priv->media))
+        tp_base_media_call_stream_set_local_sending (bmcs, TRUE);
     }
   else if (remote_direction & RAKIA_DIRECTION_SEND)
     {
