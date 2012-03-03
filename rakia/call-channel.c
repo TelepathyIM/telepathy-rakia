@@ -227,12 +227,12 @@ rakia_call_channel_constructed (GObject *obj)
       if (tp_base_call_channel_has_initial_audio (bcc, &initial_audio_name))
         rakia_sip_session_add_media (self->priv->session,
             TP_MEDIA_STREAM_TYPE_AUDIO, initial_audio_name,
-            RAKIA_DIRECTION_BIDIRECTIONAL, TRUE);
+            RAKIA_DIRECTION_BIDIRECTIONAL);
 
       if (tp_base_call_channel_has_initial_video (bcc, &initial_video_name))
         rakia_sip_session_add_media (self->priv->session,
             TP_MEDIA_STREAM_TYPE_VIDEO, initial_video_name,
-            RAKIA_DIRECTION_BIDIRECTIONAL, TRUE);
+            RAKIA_DIRECTION_BIDIRECTIONAL);
 
       actor = tp_base_channel_get_self_handle (bc);
       reason = TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED;
@@ -379,7 +379,7 @@ rakia_call_channel_add_content (
   RakiaSipMedia *media;
 
   media = rakia_sip_session_add_media (priv->session,
-      type, name, initial_direction, TRUE);
+      type, name, initial_direction);
 
   content = rakia_call_channel_get_content_by_media (self, media);
 

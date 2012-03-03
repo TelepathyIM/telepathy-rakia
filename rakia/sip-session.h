@@ -96,8 +96,7 @@ RakiaSipSessionState rakia_sip_session_get_state (RakiaSipSession *session);
 RakiaSipMedia* rakia_sip_session_add_media (RakiaSipSession *self,
     TpMediaStreamType media_type,
     const gchar *name,
-    RakiaDirection direction,
-    gboolean created_locally);
+    RakiaDirection direction);
 
 gboolean rakia_sip_session_remove_media (RakiaSipSession *self,
     RakiaSipMedia *media,

@@ -870,19 +870,23 @@ rakia_sip_session_media_changed (RakiaSipSession *self)
 }
 
 
-RakiaSipMedia*
-rakia_sip_session_add_media (RakiaSipSession *self,
+static RakiaSipMedia *
+rakia_sip_session_add_media_internal (RakiaSipSession *self,
     TpMediaStreamType media_type,
     const gchar *name,
     RakiaDirection direction,
-    gboolean created_locally)
+    const sdp_media_t *sdp_media,
+    gboolean authoritative,
+    gint slot)
 {
   RakiaSipSessionPrivate *priv = RAKIA_SIP_SESSION_GET_PRIVATE (self);
   RakiaSipMedia *media = NULL;
+  gboolean created_locally = (sdp_media == NULL);
 
   SESSION_DEBUG (self, "enter");
 
-  if (rakia_sip_session_supports_media_type (media_type)) {
+  if ((!sdp_media || !sdp_media->m_rejected) &&
+      rakia_sip_session_supports_media_type (media_type)) {
     media = rakia_sip_media_new (self, media_type, name, direction,
         created_locally, priv->hold_requested);
 
@@ -892,15 +896,51 @@ rakia_sip_session_add_media (RakiaSipSession *self,
         G_CALLBACK (rakia_sip_session_media_changed), self,
         G_CONNECT_SWAPPED);
 
-    g_signal_emit (self, signals[SIG_MEDIA_ADDED], 0, media);
+    if (sdp_media == NULL ||
+        rakia_sip_media_set_remote_media (media, sdp_media, authoritative))
+      {
+        g_signal_emit (self, signals[SIG_MEDIA_ADDED], 0, media);
+      }
+    else
+      {
+        rakia_sip_session_remove_media (self, media, 488,
+            "Can not process this SDP");
+        media = NULL;
+      }
   }
 
   /* note: we add an entry even for unsupported media types */
-  g_ptr_array_add (priv->medias, media);
+  if (slot >= 0)
+    {
+      if (slot < priv->medias->len)
+        {
+          g_assert (g_ptr_array_index (priv->medias, slot) == NULL);
+          g_ptr_array_index (priv->medias, slot) = media;
+        }
+      else
+        {
+          g_assert (slot == priv->medias->len);
+          g_ptr_array_add (priv->medias, media);
+        }
+    }
+  else
+    {
+      g_ptr_array_add (priv->medias, media);
+    }
 
   SESSION_DEBUG (self, "exit");
 
   return media;
+}
+
+RakiaSipMedia *
+rakia_sip_session_add_media (RakiaSipSession *self,
+    TpMediaStreamType media_type,
+    const gchar *name,
+    RakiaDirection direction)
+{
+  return rakia_sip_session_add_media_internal (self, media_type, name,
+      direction, NULL, TRUE, -1);
 }
 
 
@@ -984,16 +1024,37 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
 
       media_type = rakia_media_type (sdp_media->m_type);
 
-      if (i >= priv->medias->len)
-        media = rakia_sip_session_add_media (
-                        self,
-                        media_type,
-                        NULL,
-                        /* Don't start sending unless requested by the user */
-                        rakia_direction_from_remote_media (sdp_media),
-                        FALSE);
-      else
+      if (i < priv->medias->len)
         media = g_ptr_array_index(priv->medias, i);
+
+      /* Check if the media type has changed, if it has
+       * just replace the media with the new one.
+       */
+      if (media != NULL && rakia_sip_media_get_media_type (media) != media_type)
+        {
+          g_object_ref (media);
+          g_ptr_array_index (self->priv->medias, i) = NULL;
+          g_signal_emit (self, signals[SIG_MEDIA_REMOVED], 0, media);
+          g_object_unref (media);
+          media = NULL;
+        }
+
+      /* Add the new media if it hasn't been rejected */
+      if (media == NULL && !sdp_media->m_rejected)
+        {
+          media = rakia_sip_session_add_media_internal (
+              self,
+              media_type,
+              NULL,
+              /* Don't start sending unless requested by the user */
+              rakia_direction_from_remote_media (sdp_media) &
+              RAKIA_DIRECTION_RECEIVE,
+              sdp_media, authoritative, i);
+
+          if (media != NULL)
+            has_supported_media = TRUE;
+          continue;
+        }
 
       /* note: it is ok for the media to be NULL (unsupported media type) */
       if (media == NULL)
@@ -1001,25 +1062,23 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
 
       SESSION_DEBUG (self, "setting remote SDP for media %u", i);
 
+      /* Remove rejected medias */
       if (sdp_media->m_rejected)
         {
           SESSION_DEBUG (self, "the media has been rejected, closing");
-        }
-      else if (rakia_sip_media_get_media_type (media) != media_type)
-        {
-          /* XXX: close this media and create a new one in its place? */
-          WARNING ("The peer has changed the media type, don't know what to do");
-        }
-      else if (rakia_sip_media_set_remote_media (media, sdp_media,
-              authoritative))
-        {
-          has_supported_media = TRUE;
+          rakia_sip_session_remove_media (self, media, 488,
+              "Can not process this media type");
           continue;
         }
 
-      /* There have been problems with the media update, kill the media */
-      rakia_sip_session_remove_media (self, media, 488,
-          "Can not process this media type");
+      if (!rakia_sip_media_set_remote_media (media, sdp_media,
+              authoritative))
+        {
+          rakia_sip_session_remove_media (self, media, 488,
+              "Can not process this media type");
+          continue;
+        }
+      has_supported_media = TRUE;
     }
   g_assert(sdp_media == NULL);
   g_assert(i <= priv->medias->len);
