@@ -147,14 +147,61 @@ class AddRemoveContent(calltest.CallTest):
 
         self.q.expect('sip-ack', cseq=ack_cseq)
 
+    def remote_add(self):
+        self.add_to_medias('audio')
+
+        self.context.reinvite(self.medias)
+
+        ca = self.q.expect('dbus-signal', signal='ContentAdded')
+
+        content = self.add_content(ca.args[0], incoming=True)
+
+        self.add_candidates(content.stream)
+
+        content.stream.Media.CompleteReceivingStateChange(
+            cs.CALL_STREAM_FLOW_STATE_STARTED)
+
+        o = self.q.expect_many(
+            EventPattern('sip-response', code=200),
+            EventPattern('dbus-signal', signal='ReceivingStateChanged',
+                         args=[cs.CALL_STREAM_FLOW_STATE_STARTED],
+                         path=content.stream.__dbus_object_path__))
+
+        acc = o[0]
+        self.context.check_call_sdp(acc.sip_message.body, self.medias)
+        self.context.ack(acc.sip_message)
+
+        return content
+       
+
+    def remote_remove(self, index):
+        self.medias[index] = (None, None)
+
+        self.context.reinvite(self.medias)
+
+        ca = self.q.expect('dbus-signal', signal='ContentRemoved')
+
+        o = self.q.expect_many(
+            EventPattern('sip-response', code=200))
+
+
+        acc = o[0]
+        self.context.check_call_sdp(acc.sip_message.body, self.medias)
+        self.context.ack(acc.sip_message)       
+
 
     def during_call(self):
         self.add_content_succesful()
         self.add_content_succesful()
         self.add_content_rejected()
         self.add_content_succesful()
-        self.remove_content_successful(0)
+        self.remove_content_successful(1)
         self.add_content_succesful()
+        self.remote_add()
+        self.remote_remove(-1)
+        self.add_content_succesful()
+        self.remote_remove(-3)
+
 
         return calltest.CallTest.during_call(self)
 
@@ -163,4 +210,3 @@ class AddRemoveContent(calltest.CallTest):
 
 if __name__ == '__main__':
     calltest.run(klass=AddRemoveContent)
-    

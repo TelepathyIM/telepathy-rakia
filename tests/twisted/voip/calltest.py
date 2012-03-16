@@ -151,7 +151,7 @@ class CallTest:
         else:
             assert False
 
-    def add_content(self, content_path, initial, incoming = None):
+    def add_content(self, content_path, initial = False, incoming = None):
 
         if initial:
             incoming = self.incoming
