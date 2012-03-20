@@ -66,7 +66,7 @@ static void rakia_call_channel_hold_state_changed (TpBaseMediaCallChannel *self,
 static gboolean rakia_call_channel_is_connected (TpBaseCallChannel *self);
 
 static void ended_cb (RakiaSipSession *session, gboolean self_actor,
-    guint status, const gchar *message, RakiaCallChannel *self);
+    guint status, gchar *message, RakiaCallChannel *self);
 static void ringing_cb (RakiaSipSession *session, RakiaCallChannel *self);
 static void queued_cb (RakiaSipSession *session, RakiaCallChannel *self);
 static void in_progress_cb (RakiaSipSession *session, RakiaCallChannel *self);
@@ -452,11 +452,12 @@ rakia_call_channel_hold_state_changed (TpBaseMediaCallChannel *bmcc,
 
 static void
 ended_cb (RakiaSipSession *session, gboolean self_actor, guint status,
-    const gchar *message, RakiaCallChannel *self)
+    gchar *message, RakiaCallChannel *self)
 {
   TpHandle actor;
-  TpCallStateChangeReason reason = TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE;
+  TpCallStateChangeReason reason;
   const gchar *detailed_reason = "";
+  gchar *free_message = NULL;
 
   if (self_actor)
     actor = tp_base_channel_get_self_handle (TP_BASE_CHANNEL (self));
@@ -465,13 +466,70 @@ ended_cb (RakiaSipSession *session, gboolean self_actor, guint status,
 
   switch (status)
     {
+    case 400: /* Bad Request */
+    case 405: /* Method Not Allowed */
+    case 406: /* Not Acceptable */
+    case 413: /* Request Entity Too Large */
+    case 414: /* Request-URI Too Long */
+    case 415: /* Unsupported Media Type */
+    case 416: /* Unsupported URI Scheme */
+    case 420: /* Bad Extension */
+    case 421: /* Extension Required */
+    case 483: /* Too Many Hops */
+    case 484: /* Address incomplete */
+    case 485: /* Ambiguous */
+    case 493: /* Undecipherable */
+    case 606: /* Not Acceptable */
+      reason = TP_CALL_STATE_CHANGE_REASON_INTERNAL_ERROR;
+      detailed_reason = TP_ERROR_STR_CONFUSED;
+      break;
+    case 500: /* Server Internal Error */
+    case 501: /* Not Implemented */
+    case 502: /* Bad Gateway */
+    case 503: /* Service Unavailable */
+    case 504: /* Server Time-out */
+    case 505: /* Version Not Supported */
+    case 513: /* Message Too Large */
+      reason = TP_CALL_STATE_CHANGE_REASON_SERVICE_ERROR;
+      detailed_reason = TP_ERROR_STR_SERVICE_CONFUSED;
+      break;
+    case 401: /* Unauthorized */
+    case 403: /* Forbidden */
+      reason = TP_CALL_STATE_CHANGE_REASON_PERMISSION_DENIED;
+      detailed_reason = TP_ERROR_STR_PERMISSION_DENIED;
+      break;
+    case 404: /* Not Found */
+    case 410: /* Gone */
+    case 604: /* Does Not Exist Anywhere */
+      reason = TP_CALL_STATE_CHANGE_REASON_INVALID_CONTACT;
+      detailed_reason = TP_ERROR_STR_DOES_NOT_EXIST;
+      break;
+    case 480: /* Temporarily Unavaible */
+    case 408: /* Request Timeout */
+      reason = TP_CALL_STATE_CHANGE_REASON_NO_ANSWER;
+      detailed_reason = TP_ERROR_STR_NO_ANSWER;
+      break;
+    case 486: /* Busy Here */
+    case 600: /* Busy Everywhere */
+      reason = TP_CALL_STATE_CHANGE_REASON_BUSY;
+      detailed_reason = TP_ERROR_STR_BUSY;
+      break;
+    case 603: /* Decline */
+      reason = TP_CALL_STATE_CHANGE_REASON_REJECTED;
+      detailed_reason = TP_ERROR_STR_REJECTED;
+      break;
+
     default:
-      reason = TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE;
+      reason = TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED;
       break;
     }
 
+  if (message[0] == 0 && reason != 0)
+    free_message = message = g_strdup_printf ("SIP status code %d", status);
+
   tp_base_call_channel_set_state (TP_BASE_CALL_CHANNEL (self),
       TP_CALL_STATE_ENDED, actor, reason, detailed_reason, message);
+  g_free (free_message);
 }
 
 static void
@@ -615,7 +673,7 @@ media_removed_cb (RakiaSipSession *session, RakiaSipMedia *media,
   tp_base_call_channel_remove_content (TP_BASE_CALL_CHANNEL (self),
       TP_BASE_CALL_CONTENT (content),
       tp_base_channel_get_target_handle (TP_BASE_CHANNEL (self)),
-      TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "Removed by remote side");
+      TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED, "", "Removed by remote side");
 }
 
 static void
@@ -688,7 +746,7 @@ remote_held_changed_cb (RakiaSipSession *session, GParamSpec *pspec,
     member_flags &= ~TP_CALL_MEMBER_FLAG_HELD;
 
   tp_base_call_channel_update_member_flags (bcc, remote_contact, member_flags,
-      remote_contact, TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "",
+      remote_contact, TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED, "",
       remote_held ? "Held by remote side" : "Unheld by remote side");
 }
 
