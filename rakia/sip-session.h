@@ -44,7 +44,8 @@ typedef enum {
 } RakiaSipSessionState;
 
 
-typedef struct _RakiaSipSession RakiaSipSession;
+/* RakiaSipSession is defined in sip-media.h */
+/* typedef struct _RakiaSipSession RakiaSipSession; */
 typedef struct _RakiaSipSessionClass RakiaSipSessionClass;
 typedef struct _RakiaSipSessionPrivate RakiaSipSessionPrivate;
 
