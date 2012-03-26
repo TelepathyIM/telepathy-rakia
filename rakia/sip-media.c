@@ -911,8 +911,10 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
   if (transport_changed)
     {
       /* Make sure we stop sending before we use the new set of codecs
-       * intended for the new connection */
-      if (codecs_changed)
+       * intended for the new connection
+       * This only applies if we were already sending to somewhere else before.
+       */
+      if (codecs_changed && old_media)
         {
           priv->push_candidates_on_new_codecs = TRUE;
           if (priv->remote_candidates != NULL)

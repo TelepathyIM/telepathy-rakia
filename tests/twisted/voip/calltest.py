@@ -140,7 +140,12 @@ class CallTest:
         assertEquals([], smedia_props['STUNServers'])
         assertEquals([], smedia_props['RelayInfo'])
         assertEquals(True, smedia_props['HasServerInfo'])
-        assertEquals([], smedia_props['Endpoints'])        
+        if incoming:
+            assertLength(1, smedia_props['Endpoints'])
+            self.check_endpoint(content, smedia_props['Endpoints'][0])
+
+        else:
+            assertEquals([], smedia_props['Endpoints'])        
         assertEquals(False, smedia_props['ICERestartPending'])
 
     def get_md(self, content):
@@ -200,13 +205,9 @@ class CallTest:
                                  cmedia_props['MediaDescriptionOffer'][0])
             md.Accept(self.context.get_audio_md_dbus(self.remote_handle))
             o = self.q.expect_many(
-                EventPattern('dbus-signal', signal='EndpointsChanged'),
                 EventPattern('dbus-signal', signal='MediaDescriptionOfferDone'),
                 EventPattern('dbus-signal', signal='LocalMediaDescriptionChanged'),
                 EventPattern('dbus-signal', signal='RemoteMediaDescriptionsChanged'))
-            assertLength(1, o[0].args[0])
-            assertEquals([], o[0].args[1])
-            self.check_endpoint(content, o[0].args[0][0])
 
         return content                   
 
@@ -383,10 +384,12 @@ class CallTest:
         ack_cseq = "%s ACK" % self.invite_event.cseq.split()[0]
         del self.invite_event
 
+        events = self.content_dbus_signal_event('NewMediaDescriptionOffer') + \
+            self.stream_dbus_signal_event('EndpointsChanged')
         o = self.q.expect_many(
             EventPattern('sip-ack', cseq=ack_cseq),
             # Call accepted
-            *self.content_dbus_signal_event('NewMediaDescriptionOffer'))
+            *events)
 
         for i in o:
             if i.type != 'dbus-signal' or \
@@ -397,8 +400,7 @@ class CallTest:
 
         o = self.q.expect_many(
             # Call accepted
-            EventPattern('dbus-signal', signal='CallStateChanged'),
-            *self.stream_dbus_signal_event('EndpointsChanged'))
+            EventPattern('dbus-signal', signal='CallStateChanged'))
 
         assertEquals(cs.CALL_STATE_ACCEPTED, o[0].args[0])
 
