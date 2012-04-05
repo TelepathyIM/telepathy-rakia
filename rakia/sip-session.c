@@ -418,6 +418,8 @@ rakia_sip_session_finalize (GObject *object)
   RakiaSipSession *self = RAKIA_SIP_SESSION (object);
   RakiaSipSessionPrivate *priv = RAKIA_SIP_SESSION_GET_PRIVATE (self);
 
+  g_assert (priv->nua_op == NULL);
+
   g_free (priv->local_sdp);
 
   G_OBJECT_CLASS (rakia_sip_session_parent_class)->finalize (object);
