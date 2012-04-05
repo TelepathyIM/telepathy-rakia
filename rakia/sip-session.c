@@ -1003,16 +1003,6 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
       sdp->sdp_bandwidths);
 
 
-  /* A remote media requesting to enable sending would need local approval.
-   * Also, if there have been any local media updates pending a re-INVITE,
-   * keep or bump the pending remote send flag on the medias: it will
-   * be resolved in the next re-INVITE transaction */
-#if 0
-  pending_send_mask = TP_MEDIA_STREAM_PENDING_LOCAL_SEND;
-  if (priv->pending_offer)
-    pending_send_mask |= TP_MEDIA_STREAM_PENDING_REMOTE_SEND;
-#endif
-
   sdp_media = sdp->sdp_media;
 
   /* note: for each session, we maintain an ordered list of
