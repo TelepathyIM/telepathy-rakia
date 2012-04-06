@@ -22,11 +22,14 @@
 
 #include "rakia/call-channel.h"
 
+#include <string.h>
+
 #include "rakia/call-content.h"
 #include "rakia/sip-session.h"
 
 #define DEBUG_FLAG RAKIA_DEBUG_CALL
 #include "rakia/debug.h"
+
 
 #include <telepathy-glib/exportable-channel.h>
 
@@ -53,7 +56,7 @@ static TpBaseCallContent * rakia_call_channel_add_content (
     GError **error);
 static void rakia_call_channel_hangup (
     TpBaseCallChannel *base,
-    guint reason,
+    TpCallStateChangeReason reason,
     const gchar *detailed_reason,
     const gchar *message);
 static void rakia_call_channel_set_ringing (TpBaseCallChannel *base);
@@ -389,16 +392,66 @@ rakia_call_channel_add_content (
 static void
 rakia_call_channel_hangup (
     TpBaseCallChannel *base,
-    guint reason,
+    TpCallStateChangeReason reason,
     const gchar *detailed_reason,
     const gchar *message)
 {
   RakiaCallChannel *self = RAKIA_CALL_CHANNEL (base);
   RakiaCallChannelPrivate *priv = self->priv;
+  guint status = 486;
+  const gchar *sipmessage;
 
-  /* FIXME: We need to convert the dbus reason into a SIP status code */
+  switch (reason) {
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_NO_ANSWER:
+    status = 480;
+    sipmessage = "No answer";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_INVALID_CONTACT:
+    sipmessage = "Not Found";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_PERMISSION_DENIED:
+    sipmessage = "Permission denied";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_REJECTED:
+    sipmessage = "Rejected";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_BUSY:
+    sipmessage = "Busy";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_INTERNAL_ERROR:
+    status = 480;
+    sipmessage = "Internal Error";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_SERVICE_ERROR:
+    sipmessage = "Service Error";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_NETWORK_ERROR:
+    status = 480;
+    sipmessage = "Network error";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_MEDIA_ERROR:
+    status = 488;
+    if (!strcmp (detailed_reason, TP_ERROR_STR_MEDIA_UNSUPPORTED_TYPE))
+      sipmessage = "Unsupported type";
+    else if (!strcmp (detailed_reason, TP_ERROR_STR_MEDIA_CODECS_INCOMPATIBLE))
+      sipmessage = "Codecs Incompatible";
+    else
+      sipmessage = "Media error";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_CONNECTIVITY_ERROR:
+    sipmessage = "Connectivity Error";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_USER_REQUESTED:
+    sipmessage = "User ended call";
+    break;
+  case TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE:
+  case TP_CALL_STATE_CHANGE_REASON_UNKNOWN:
+  default:
+    sipmessage = "Terminated by unknown reason";
+  }
 
-  rakia_sip_session_terminate (priv->session, 480, "Terminated");
+  rakia_sip_session_terminate (priv->session, status, sipmessage);
 }
 
 static void
