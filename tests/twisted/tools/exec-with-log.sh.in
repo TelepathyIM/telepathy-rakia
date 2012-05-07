@@ -4,6 +4,8 @@ cd "@abs_top_builddir@/tests/twisted/tools"
 
 export RAKIA_DEBUG=all
 export TPORT_LOG=1
+G_MESSAGES_DEBUG=all
+export G_MESSAGES_DEBUG
 ulimit -c unlimited
 exec > rakia-testing.log 2>&1
 
