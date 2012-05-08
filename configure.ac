@@ -3,8 +3,8 @@ AC_PREREQ([2.59])
 m4_define([THIS_PACKAGE],[telepathy-rakia])
 m4_define([VERSION_MAJOR],[0])
 m4_define([VERSION_MINOR],[7])
-m4_define([VERSION_MICRO],[3])
-m4_define([VERSION_NANO],[1])
+m4_define([VERSION_MICRO],[4])
+m4_define([VERSION_NANO],[0])
 
 m4_define([BASE_VERSION],[VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO])
 m4_define([THIS_VERSION],
@@ -62,7 +62,7 @@ dnl GTK docs
 GTK_DOC_CHECK
 
 dnl Check for Glib 
-PKG_CHECK_MODULES(GLIB, gobject-2.0 >= 2.16, have_glib=yes, have_glib=no)
+PKG_CHECK_MODULES(GLIB, gobject-2.0 >= 2.30, have_glib=yes, have_glib=no)
 
 if test x$have_glib = xno ; then
     AC_MSG_ERROR([GLib development libraries not found])
@@ -86,7 +86,7 @@ AC_SUBST(SOFIA_SIP_UA_CFLAGS)
 AC_SUBST(SOFIA_SIP_UA_VERSION)
 
 dnl Check for telepathy-glib
-PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.17.6])
+PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.17.7])
 AC_SUBST(TELEPATHY_GLIB_CFLAGS)
 AC_SUBST(TELEPATHY_GLIB_LIBS)
 

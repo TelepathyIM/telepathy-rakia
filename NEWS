@@ -7,6 +7,15 @@ formerly known as Telepathy-SofiaSIP (most recent at the top).
 
 See also ChangeLog.
 
+telepathy-rakia 0.7.4 (2012-05-08)
+----------------------------------
+
+The "Call Me Maybe" release.
+
+New features:
+
+- The StreamedMedia Channel type has been replaced by Call1
+
 telepathy-rakia 0.7.3 (2011-10-27)
 ----------------------------------
 
