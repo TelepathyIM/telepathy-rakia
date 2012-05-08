@@ -34,18 +34,22 @@ BUILT_SOURCES = \
 librakia_la_SOURCES = \
 	base-connection.c \
 	base-connection-sofia.c \
-	connection-aliasing.c \
+	connection-aliasing.c \	
+	call-channel.h \
+	call-channel.c \
+	call-content.h \
+	call-content.c \
+	call-stream.h \
+	call-stream.c \
 	codec-param-formats.c \
 	event-target.c \
 	handles.c \
 	debug.c \
-	media-channel.h \
-	media-channel.c \
 	media-manager.c \
-	media-session.h \
-	media-session.c \
-	media-stream.h \
-	media-stream.c \
+	sip-media.c \
+	sip-media.h \
+	sip-session.c \
+	sip-session.h \
 	text-channel.h \
 	text-channel.c \
 	text-manager.c \

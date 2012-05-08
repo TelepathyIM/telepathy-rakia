@@ -1,0 +1,47 @@
+# GObject
+
+{
+   GType keeps its memory forever
+   Memcheck:Leak
+   fun:*alloc
+   ...
+   fun:g_type_class_ref
+}
+{
+   GType keeps its memory forever
+   Memcheck:Leak
+   fun:*alloc
+   ...
+   fun:g_type_add_interface_static
+}
+{
+   GType keeps its memory forever
+   Memcheck:Leak
+   fun:*alloc
+   ...
+   fun:g_type_init_with_debug_flags
+}
+
+# Sofia SIP
+
+{
+   Ignore all errors inside sofia sip
+   Memcheck:Addr8
+   fun:__strspn_sse42
+   ...
+   fun:nua_stack_respond
+}
+{
+   Ignore all errors inside sofia sip   
+   Memcheck:Addr8
+   fun:__strspn_sse42
+   ...
+   fun:sdp_parse
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr8
+   fun:__strspn_sse42
+   ...
+   fun:nua_client_init_request
+}

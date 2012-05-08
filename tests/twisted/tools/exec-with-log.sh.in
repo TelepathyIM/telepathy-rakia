@@ -13,6 +13,9 @@ if test -n "$RAKIA_TEST_VALGRIND"; then
 	export G_DEBUG=gc-friendly
 	export G_SLICE=always-malloc
 	RAKIA_WRAPPER="valgrind --leak-check=full"
+#	RAKIA_WRAPPER="$RAKIA_WRAPPER --gen-suppressions=all"
+	RAKIA_WRAPPER="$RAKIA_WRAPPER --suppressions=@abs_top_srcdir@/tests/suppressions/tp-glib.supp"
+	RAKIA_WRAPPER="$RAKIA_WRAPPER --suppressions=@abs_top_srcdir@/tests/suppressions/rakia.supp"
 fi
 
 exec $RAKIA_WRAPPER @abs_top_builddir@/src/telepathy-rakia

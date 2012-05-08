@@ -32,7 +32,7 @@ class SipProxy(sip.RegisterProxy):
 
     def handle_request(self, message, addr):
         if message.method == 'REGISTER':
-            return sip.RegisterProxy.handle_request(self, message, addr)
+            return sip.RegisterProxy.handle_REGISTER_request(self, message, addr)
         elif message.method == 'OPTIONS' and \
                 'REGISTRATION PROBE' == message.headers.get('subject','')[0]:
             self.deliverResponse(self.responseFromRequest(200, message))
@@ -58,7 +58,8 @@ def prepare_test(event_func, register_cb, params=None):
         'password': 'testpwd',
         'proxy-host': '127.0.0.1',
         'port': dbus.UInt16(random.randint(9090, 9999)),
-        'local-ip-address': '127.0.0.1'
+        'local-ip-address': '127.0.0.1',
+        'transport': 'udp'
     }
 
     if params is not None:

@@ -27,6 +27,7 @@ G_BEGIN_DECLS
 
 typedef struct _RakiaMediaManager RakiaMediaManager;
 typedef struct _RakiaMediaManagerClass RakiaMediaManagerClass;
+typedef struct _RakiaMediaManagerPrivate RakiaMediaManagerPrivate;
 
 struct _RakiaMediaManagerClass {
   GObjectClass parent_class;
@@ -34,6 +35,8 @@ struct _RakiaMediaManagerClass {
 
 struct _RakiaMediaManager {
   GObject parent;
+
+  RakiaMediaManagerPrivate *priv;
 };
 
 GType rakia_media_manager_get_type(void);

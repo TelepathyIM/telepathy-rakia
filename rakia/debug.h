@@ -34,6 +34,7 @@ typedef enum
   RAKIA_DEBUG_EVENTS        = 1 << 3,
   RAKIA_DEBUG_SOFIA         = 1 << 4,
   RAKIA_DEBUG_UTILITIES     = 1 << 5,
+  RAKIA_DEBUG_CALL          = 1 << 6,
 } RakiaDebugFlags;
 
 void rakia_debug_set_flags_from_env ();

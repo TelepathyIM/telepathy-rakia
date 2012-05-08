@@ -29,12 +29,13 @@
 static RakiaDebugFlags rakia_debug_flags = 0;
 
 static const GDebugKey rakia_debug_keys[] = {
-  { "media-channel", RAKIA_DEBUG_MEDIA },
+  { "media",         RAKIA_DEBUG_MEDIA },
   { "connection",    RAKIA_DEBUG_CONNECTION },
   { "im",            RAKIA_DEBUG_IM },
   { "events",        RAKIA_DEBUG_EVENTS },
   { "sofia",         RAKIA_DEBUG_SOFIA },
   { "utilities",     RAKIA_DEBUG_UTILITIES },
+  { "call",          RAKIA_DEBUG_CALL },
 };
 
 static GHashTable *flag_to_domains = NULL;
