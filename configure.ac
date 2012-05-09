@@ -15,7 +15,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 AS_VERSION(THIS_PACKAGE, TELEPATHY_SIP_VERSION,
            VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO,
-           WERROR="no", WERROR="yes")
+           IS_RELEASE="yes", IS_RELEASE="no")
 
 AM_INIT_AUTOMAKE([1.9 -Wno-portability])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
@@ -34,18 +34,41 @@ AC_PROG_LIBTOOL
 COMPILER_OPTIMISATIONS
 COMPILER_COVERAGE
 
-dnl decide on error flags
-AS_COMPILER_FLAG(-Wall, WALL="yes", WALL="no")
+AS_IF([test "x$IS_RELEASE" = xyes],
+[ # version x.y.z - "official release",
+  # disable extra checks by default
+  AC_ARG_ENABLE([fatal-warnings],
+    [AC_HELP_STRING([--enable-fatal-warnings],
+                    [make various warnings fatal])],
+    [],
+    [enable_fatal_warnings=no])
+],
+[ # tp-glib is version x.y.z.1 - development snapshot,
+  # enable extra checks by default
+  AC_ARG_ENABLE([fatal-warnings],
+    [AC_HELP_STRING([--disable-fatal-warnings],
+                    [make various warnings non-fatal])],
+    [],
+    [enable_fatal_warnings=yes])
+])
 
-if test "x$WALL" = "xyes"; then
-  ERROR_CFLAGS="-Wall"
-
-  if test "x$WERROR" = "xyes"; then
-    AS_COMPILER_FLAG(-Werror,ERROR_CFLAGS="$ERROR_CFLAGS -Werror",ERROR_CFLAGS="$ERROR_CFLAGS")
-  fi
-fi
-
-AC_SUBST(ERROR_CFLAGS)
+TP_COMPILER_WARNINGS([ERROR_CFLAGS], [test "x$enable_fatal_warnings" = xyes],
+  [all \
+   extra \
+   declaration-after-statement \
+   shadow \
+   missing-prototypes \
+   nested-externs \
+   pointer-arith \
+   format-security \
+   init-self],
+  dnl missing-prototypes, sign-compare and strict-prototypes are bugs really
+  [missing-field-initializers \
+   missing-prototypes \
+   sign-compare \
+   strict-prototypes \
+   unused-parameter])
+AC_SUBST([ERROR_CFLAGS])
 
 AC_ARG_ENABLE(debug,
   AS_HELP_STRING([--disable-debug],[omit debug code]),
