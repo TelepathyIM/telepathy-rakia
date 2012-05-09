@@ -35,7 +35,7 @@ BUILT_SOURCES = \
 librakia_la_SOURCES = \
 	base-connection.c \
 	base-connection-sofia.c \
-	connection-aliasing.c \	
+	connection-aliasing.c \
 	call-channel.h \
 	call-channel.c \
 	call-content.h \
