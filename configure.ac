@@ -60,12 +60,11 @@ TP_COMPILER_WARNINGS([ERROR_CFLAGS], [test "x$enable_fatal_warnings" = xyes],
    missing-prototypes \
    nested-externs \
    pointer-arith \
+   sign-compare \
    strict-prototypes \
    format-security \
    init-self],
-  dnl missing-prototypes, sign-compare and strict-prototypes are bugs really
   [missing-field-initializers \
-   sign-compare \
    unused-parameter])
 AC_SUBST([ERROR_CFLAGS])
 

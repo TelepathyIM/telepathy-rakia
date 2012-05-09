@@ -127,7 +127,7 @@ rakia_unquote_string (const gchar *src, gssize len)
 {
   gchar *res;
   gchar *p;
-  gsize i;
+  gssize i;
 
   g_return_val_if_fail (src != NULL, NULL);
 

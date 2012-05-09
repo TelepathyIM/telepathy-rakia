@@ -551,8 +551,8 @@ priv_stun_discover_cb (sres_context_t *ctx,
   RakiaConnection *conn = RAKIA_CONNECTION (ctx);
   RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (conn);
   sres_srv_record_t *sel = NULL;
-  int n_sel_items = 0;
-  int i;
+  guint n_sel_items = 0;
+  guint i;
 
   if (answers == NULL)
     return;

@@ -914,14 +914,14 @@ rakia_sip_session_add_media_internal (RakiaSipSession *self,
   /* note: we add an entry even for unsupported media types */
   if (slot >= 0)
     {
-      if (slot < priv->medias->len)
+      if ((guint) slot < priv->medias->len)
         {
           g_assert (g_ptr_array_index (priv->medias, slot) == NULL);
           g_ptr_array_index (priv->medias, slot) = media;
         }
       else
         {
-          g_assert (slot == priv->medias->len);
+          g_assert ((guint) slot == priv->medias->len);
           g_ptr_array_add (priv->medias, media);
         }
     }
