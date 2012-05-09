@@ -81,7 +81,7 @@ static GRegex *dtmf_events_regex = NULL;
 
 static GHashTable *codec_param_formats[NUM_TP_MEDIA_STREAM_TYPES];
 
-static void rakia_codec_param_formats_init ();
+static void rakia_codec_param_formats_init (void);
 
 
 static void rakia_codec_param_format_generic (RakiaSipCodec *codec,
@@ -302,7 +302,7 @@ rakia_codec_param_parse_generic (const gchar *fmtp, TpMediaStreamType media_type
                " as an attribute-value list: %s", &fmtp[pos]);
 }
 
-RakiaSipCodecParam *
+static RakiaSipCodecParam *
 find_param_by_name (RakiaSipCodec *codec, const gchar *name)
 {
   guint i;
@@ -380,7 +380,7 @@ rakia_codec_param_parse_telephone_event (const gchar *fmtp,
  * Calling the function more than once has no effect.
  */
 static void
-rakia_codec_param_formats_init ()
+rakia_codec_param_formats_init (void)
 {
   static volatile gsize been_here = 0;
 

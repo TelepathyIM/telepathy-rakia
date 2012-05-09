@@ -67,7 +67,8 @@ CLEANFILES = $(BUILT_SOURCES)
 CLEANFILES += *.gcno
 
 signals-marshal.c: ${srcdir}/signals-marshal.list
-	glib-genmarshal --body --prefix=_rakia_marshal $< >$@ || rm -f $@
+	( echo '#include "signals-marshal.h"' && \
+	glib-genmarshal --body --prefix=_rakia_marshal $< ) >$@ || rm -f $@
 
 signals-marshal.h: ${srcdir}/signals-marshal.list
 	glib-genmarshal --header --prefix=_rakia_marshal $< >$@ || rm -f $@

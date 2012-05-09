@@ -37,7 +37,7 @@ enum {
 };
 static guint signals[NUM_SIGNALS] = {0};
 
-static RakiaEventTarget * rakia_event_target_gone_instance ();
+static RakiaEventTarget * rakia_event_target_gone_instance (void);
 
 static void
 rakia_event_target_base_init (gpointer klass)
@@ -213,6 +213,8 @@ rakia_event_target_emit_nua_event (gpointer             instance,
 typedef struct _RakiaEventTargetGone RakiaEventTargetGone;
 typedef struct _RakiaEventTargetGoneClass RakiaEventTargetGoneClass;
 
+static GType rakia_event_target_gone_get_type (void);
+
 struct _RakiaEventTargetGone {
   GObject parent;
 };
@@ -264,7 +266,7 @@ _rakia_event_target_gone_new_instance (gpointer foo)
 }
 
 static RakiaEventTarget *
-rakia_event_target_gone_instance ()
+rakia_event_target_gone_instance (void)
 {
   static GOnce init_gone_once = G_ONCE_INIT;
 

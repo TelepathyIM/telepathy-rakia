@@ -37,7 +37,7 @@ typedef enum
   RAKIA_DEBUG_CALL          = 1 << 6,
 } RakiaDebugFlags;
 
-void rakia_debug_set_flags_from_env ();
+void rakia_debug_set_flags_from_env (void);
 void rakia_debug_set_flags (RakiaDebugFlags flags);
 gboolean rakia_debug_flag_is_set (RakiaDebugFlags flag);
 void rakia_log (RakiaDebugFlags flag, GLogLevelFlags level,

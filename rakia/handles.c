@@ -29,7 +29,7 @@
 #include "rakia/debug.h"
 
 static GQuark
-rakia_handle_url_quark ()
+rakia_handle_url_quark (void)
 {
   static GQuark quark = 0;
 

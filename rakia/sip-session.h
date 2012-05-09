@@ -137,6 +137,8 @@ gint rakia_sip_session_rate_native_transport (RakiaSipSession *session,
 void rakia_sip_session_set_hold_requested (RakiaSipSession *session,
     gboolean hold_requested);
 
+gboolean rakia_sip_session_is_held (RakiaSipSession *session);
+
 G_END_DECLS
 
 #endif /* #ifndef __RAKIA_SIP_SESSION_H__*/

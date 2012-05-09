@@ -47,7 +47,8 @@ static GString *sofia_log_buf = NULL;
 static void rakia_sofia_log_close (void);
 
 
-void rakia_debug_set_flags_from_env ()
+void
+rakia_debug_set_flags_from_env (void)
 {
   const gchar *flags_string;
 

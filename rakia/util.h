@@ -31,7 +31,7 @@ gchar * rakia_unquote_string (const gchar *src, gssize len);
 
 void rakia_string_append_quoted (GString *buf, const gchar *text);
 
-gchar const *rakia_version_string ();
+gchar const *rakia_version_string (void);
 
 G_END_DECLS
 

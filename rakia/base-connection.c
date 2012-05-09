@@ -93,7 +93,7 @@ rakia_base_connection_dispose(GObject *object)
   G_OBJECT_CLASS(rakia_base_connection_parent_class)->dispose(object);
 }
 
-void
+static void
 rakia_base_connection_finalize(GObject *object)
 {
   G_OBJECT_CLASS(rakia_base_connection_parent_class)->finalize(object);
