@@ -70,6 +70,12 @@ TP_COMPILER_WARNINGS([ERROR_CFLAGS], [test "x$enable_fatal_warnings" = xyes],
    unused-parameter])
 AC_SUBST([ERROR_CFLAGS])
 
+# these aren't really error flags but they serve a similar purpose for us -
+# making the toolchain stricter
+if test "x$enable_fatal_warnings" = xyes; then
+  TP_ADD_LINKER_FLAG([ERROR_LDFLAGS], [-Wl,--no-copy-dt-needed-entries])
+fi
+
 AC_ARG_ENABLE(debug,
   AS_HELP_STRING([--disable-debug],[omit debug code]),
     enable_debug=$enableval, enable_debug=yes )

@@ -5,6 +5,7 @@ AM_CFLAGS = \
     $(DBUS_CFLAGS) \
     $(GLIB_CFLAGS) \
     $(TELEPATHY_GLIB_CFLAGS)
+AM_LDFLAGS = $(ERROR_LDFLAGS)
 
 EXTRA_DIST = \
     all.xml \
