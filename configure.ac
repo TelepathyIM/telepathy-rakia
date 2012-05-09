@@ -61,34 +61,13 @@ AC_C_INLINE
 dnl GTK docs
 GTK_DOC_CHECK
 
-dnl Check for Glib 
-PKG_CHECK_MODULES(GLIB, [gobject-2.0 >= 2.30, gio-2.0 >= 2.30], have_glib=yes, have_glib=no)
-
-if test x$have_glib = xno ; then
-    AC_MSG_ERROR([GLib development libraries not found])
-fi
-
+PKG_CHECK_MODULES([GLIB], [gobject-2.0 >= 2.30, gio-2.0 >= 2.30])
 GLIB_GENMARSHAL=`$PKG_CONFIG --variable=glib_genmarshal glib-2.0`
-AC_SUBST(GLIB_CFLAGS)
-AC_SUBST(GLIB_LIBS)
-AC_SUBST(GLIB_GENMARSHAL)
+AC_SUBST([GLIB_GENMARSHAL])
 
-dnl Check for DBus
-PKG_CHECK_MODULES(DBUS, [dbus-1 >= 0.60, dbus-glib-1 >= 0.60], have_dbus=yes, have_dbus=no)
-
-AC_SUBST(DBUS_CFLAGS)
-AC_SUBST(DBUS_LIBS)
-
-dnl Check for sofia
-PKG_CHECK_MODULES(SOFIA_SIP_UA, sofia-sip-ua-glib >= 1.12.11)
-AC_SUBST(SOFIA_SIP_UA_LIBS)
-AC_SUBST(SOFIA_SIP_UA_CFLAGS)
-AC_SUBST(SOFIA_SIP_UA_VERSION)
-
-dnl Check for telepathy-glib
-PKG_CHECK_MODULES(TELEPATHY_GLIB, [telepathy-glib >= 0.17.7])
-AC_SUBST(TELEPATHY_GLIB_CFLAGS)
-AC_SUBST(TELEPATHY_GLIB_LIBS)
+PKG_CHECK_MODULES([DBUS], [dbus-1 >= 0.60, dbus-glib-1 >= 0.60])
+PKG_CHECK_MODULES([SOFIA_SIP_UA], [sofia-sip-ua-glib >= 1.12.11])
+PKG_CHECK_MODULES([TELEPATHY_GLIB], [telepathy-glib >= 0.17.7])
 
 dnl Check for optional IP heartbeat support
 AC_ARG_WITH(iphb,
