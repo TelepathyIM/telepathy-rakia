@@ -116,14 +116,7 @@ void
 rakia_handle_unref (TpBaseConnection *conn,
                     TpHandle handle)
 {
-  TpHandleRepoIface *repo;
-
-  g_return_if_fail (TP_IS_BASE_CONNECTION (conn));
-  g_return_if_fail (handle != 0);
-
-  repo = tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT);
-
-  tp_handle_unref (repo, handle);
+  /* no longer useful */
 }
 
 char const *

@@ -587,8 +587,6 @@ rakia_nua_i_message_cb (TpBaseConnection    *conn,
   rakia_text_channel_receive (channel,
       sip, handle, text, len);
 
-  rakia_handle_unref (conn, handle);
-
 end:
   g_free (allocated_text);
 

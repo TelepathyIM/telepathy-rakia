@@ -28,7 +28,6 @@ G_BEGIN_DECLS
 
 TpHandle rakia_handle_ensure (TpBaseConnection *, url_t const *, char const *);
 TpHandle rakia_handle_by_requestor (TpBaseConnection *, sip_t const *sip);
-void rakia_handle_unref (TpBaseConnection *, TpHandle handle);
 char const *rakia_handle_inspect (TpBaseConnection *, TpHandle handle);
 const url_t *rakia_handle_inspect_uri (TpBaseConnection *, TpHandle handle);
 
@@ -41,6 +40,10 @@ gchar *rakia_normalize_contact (const gchar *sipuri,
     const url_t *base_url,
     const gchar *transport,
     GError **error);
+
+/* no longer does anything */
+G_DEPRECATED
+void rakia_handle_unref (TpBaseConnection *, TpHandle handle);
 
 G_END_DECLS
 

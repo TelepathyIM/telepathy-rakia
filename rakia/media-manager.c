@@ -381,8 +381,6 @@ incoming_call_cb (RakiaSipSession *session,
     struct InviteData *idata)
 {
   RakiaCallChannel *channel;
-  RakiaMediaManagerPrivate *priv =
-      RAKIA_MEDIA_MANAGER_GET_PRIVATE (idata->fac);
 
   g_signal_handlers_disconnect_by_func (session,
       G_CALLBACK (incoming_call_cb), idata);
@@ -394,7 +392,6 @@ incoming_call_cb (RakiaSipSession *session,
       TP_EXPORTABLE_CHANNEL (channel), NULL);
 
   g_object_unref (session);
-  rakia_handle_unref (priv->conn, idata->handle);
   g_slice_free (struct InviteData, idata);
 }
 

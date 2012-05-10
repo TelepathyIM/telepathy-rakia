@@ -131,8 +131,8 @@ struct _RakiaTextChannelPrivate
 
 #define RAKIA_TEXT_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), RAKIA_TYPE_TEXT_CHANNEL, RakiaTextChannelPrivate))
 
-static void rakia_text_pending_free (RakiaTextPendingMessage *msg,
-                                     TpHandleRepoIface *contact_handles)
+static void
+rakia_text_pending_free (RakiaTextPendingMessage *msg)
 {
   if (msg->nh)
     nua_handle_unref (msg->nh);
@@ -161,7 +161,6 @@ rakia_text_channel_constructed (GObject *obj)
 {
   RakiaTextChannelPrivate *priv;
   TpBaseConnection *base_conn;
-  TpHandleRepoIface *contact_handles;
   TpDBusDaemon *bus;
   TpChannelTextMessageType types[] = {
       TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
@@ -178,13 +177,8 @@ rakia_text_channel_constructed (GObject *obj)
 
   priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE(RAKIA_TEXT_CHANNEL(obj));
   base_conn = (TpBaseConnection *) priv->conn;
-  contact_handles = tp_base_connection_get_handles (base_conn,
-      TP_HANDLE_TYPE_CONTACT);
-
-  tp_handle_ref (contact_handles, priv->handle);
 
   g_assert (priv->initiator != 0);
-  tp_handle_ref (contact_handles, priv->initiator);
 
   rakia_base_connection_add_auth_handler (priv->conn, RAKIA_EVENT_TARGET (obj));
 
@@ -452,7 +446,6 @@ rakia_text_channel_dispose(GObject *object)
 {
   RakiaTextChannel *self = RAKIA_TEXT_CHANNEL (object);
   RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
-  TpHandleRepoIface *contact_handles;
 
   if (priv->dispose_has_run)
     return;
@@ -465,24 +458,15 @@ rakia_text_channel_dispose(GObject *object)
       tp_svc_channel_emit_closed (self);
     }
 
-  contact_handles = tp_base_connection_get_handles (
-      (TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
-
-  tp_handle_unref (contact_handles, priv->handle);
-
-  if (priv->initiator != 0)
-    tp_handle_unref (contact_handles, priv->initiator);
-
   if (G_OBJECT_CLASS (rakia_text_channel_parent_class)->dispose)
     G_OBJECT_CLASS (rakia_text_channel_parent_class)->dispose (object);
 }
 
 static void
-zap_pending_messages (GQueue *pending_messages,
-                      TpHandleRepoIface *contact_handles)
+zap_pending_messages (GQueue *pending_messages)
 {
   g_queue_foreach (pending_messages,
-      (GFunc) rakia_text_pending_free, contact_handles);
+      (GFunc) rakia_text_pending_free, NULL);
   g_queue_clear (pending_messages);
 }
 
@@ -491,14 +475,10 @@ rakia_text_channel_finalize(GObject *object)
 {
   RakiaTextChannel *self = RAKIA_TEXT_CHANNEL (object);
   RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
-  TpHandleRepoIface *contact_handles;
-
-  contact_handles = tp_base_connection_get_handles (
-      (TpBaseConnection *)priv->conn, TP_HANDLE_TYPE_CONTACT);
 
   DEBUG ("%u pending outgoing message requests",
       g_queue_get_length (priv->sending_messages));
-  zap_pending_messages (priv->sending_messages, contact_handles);
+  zap_pending_messages (priv->sending_messages);
   g_queue_free (priv->sending_messages);
 
   g_free (priv->object_path);
@@ -548,15 +528,10 @@ rakia_text_channel_close (TpSvcChannel *iface,
 
           if (priv->initiator != priv->handle)
             {
-              TpHandleRepoIface *contact_repo = tp_base_connection_get_handles
-                  ((TpBaseConnection *) priv->conn, TP_HANDLE_TYPE_CONTACT);
-
               g_assert (priv->initiator != 0);
               g_assert (priv->handle != 0);
 
-              tp_handle_unref (contact_repo, priv->initiator);
               priv->initiator = priv->handle;
-              tp_handle_ref (contact_repo, priv->initiator);
             }
         }
       tp_svc_channel_emit_closed (self);
@@ -792,7 +767,6 @@ rakia_text_channel_nua_r_message_cb (RakiaTextChannel *self,
 {
   RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
   RakiaTextPendingMessage *msg;
-  TpHandleRepoIface *contact_repo;
   TpChannelTextSendError send_error;
   GList *node;
 
@@ -870,10 +844,7 @@ rakia_text_channel_nua_r_message_cb (RakiaTextChannel *self,
 
   g_queue_remove(priv->sending_messages, msg);
 
-  contact_repo = tp_base_connection_get_handles (
-      (TpBaseConnection *)(priv->conn), TP_HANDLE_TYPE_CONTACT);
-
-  rakia_text_pending_free(msg, contact_repo);
+  rakia_text_pending_free (msg);
 
   return TRUE;
 }
