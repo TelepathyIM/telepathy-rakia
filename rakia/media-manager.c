@@ -647,7 +647,7 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
    * Call channel type */
   if (handle == conn->self_handle)
     {
-      g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+      g_set_error (&error, TP_ERROR, TP_ERROR_NOT_IMPLEMENTED,
           "Cannot call self");
       goto error;
     }

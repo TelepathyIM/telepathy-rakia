@@ -657,7 +657,7 @@ rakia_text_channel_send_message (GObject *object,
 #define INVALID_ARGUMENT(msg, ...) \
   G_STMT_START { \
     DEBUG (msg , ## __VA_ARGS__); \
-    g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, \
+    g_set_error (&error, TP_ERROR, TP_ERROR_INVALID_ARGUMENT, \
         msg , ## __VA_ARGS__); \
     goto fail; \
   } G_STMT_END
@@ -692,7 +692,7 @@ rakia_text_channel_send_message (GObject *object,
   msg_nh = rakia_base_connection_create_handle (priv->conn, priv->handle);
   if (msg_nh == NULL)
     {
-      g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+      g_set_error (&error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
           "Request creation failed");
       goto fail;
     }

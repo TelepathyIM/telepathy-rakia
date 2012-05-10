@@ -1034,7 +1034,7 @@ rakia_connection_start_connecting (TpBaseConnection *base,
   priv->account_url = rakia_handle_inspect_uri (base, base->self_handle);
   if (priv->account_url == NULL)
     {
-      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+      g_set_error (error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
           "Failed to create the account URI");
       return FALSE;
     }
@@ -1063,7 +1063,7 @@ rakia_connection_start_connecting (TpBaseConnection *base,
       TAG_NULL());
   if (priv->sofia_nua == NULL)
     {
-      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+      g_set_error (error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
           "Unable to create SIP stack");
       return FALSE;
     }
@@ -1094,7 +1094,7 @@ rakia_connection_start_connecting (TpBaseConnection *base,
                                                          base->self_handle);
   if (priv->register_op == NULL)
     {
-      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+      g_set_error (error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
           "Unable to create registration handle for address %s", sip_address);
       return FALSE;
     }

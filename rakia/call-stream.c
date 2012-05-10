@@ -375,7 +375,7 @@ rakia_call_stream_add_local_candidates (TpBaseMediaCallStream *stream,
 
   if (accepted_candidates->len == 0)
     {
-      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+      g_set_error (error, TP_ERROR, TP_ERROR_INVALID_ARGUMENT,
           "No valid candidate passed");
       g_ptr_array_unref (accepted_candidates);
       return NULL;
@@ -421,7 +421,7 @@ rakia_call_stream_finish_initial_candidates (TpBaseMediaCallStream *stream,
 
   if (!rakia_sip_media_local_candidates_prepared (priv->media))
     {
-      g_set_error (error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+      g_set_error (error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
           "You need to set a candidate on component 1 first.");
       return FALSE;
     }

@@ -314,7 +314,7 @@ rakia_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
   if (alias == NULL || g_hash_table_size (aliases) > 1)
     {
       /* One of the handles (if there are any) cannot be the self handle */
-      GError err = { TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+      GError err = { TP_ERROR, TP_ERROR_INVALID_ARGUMENT,
           "Cannot set aliases for any contact except self" };
       dbus_g_method_return_error (context, &err);
       return;

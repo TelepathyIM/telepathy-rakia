@@ -300,7 +300,7 @@ md_offer_cb (GObject *obj, GAsyncResult *res, gpointer user_data)
   else
     {
       /* Only reject if the codecs where rejected */
-      if (error->domain == TP_ERRORS &&
+      if (error->domain == TP_ERROR &&
           error->code == TP_ERROR_MEDIA_CODECS_INCOMPATIBLE)
         {
           g_assert (!is_initial_offer);

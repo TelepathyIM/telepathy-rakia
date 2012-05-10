@@ -337,7 +337,7 @@ rakia_normalize_contact (const gchar *sipuri,
 
 error:
   if (retval == NULL)
-      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_HANDLE,
+      g_set_error (error, TP_ERROR, TP_ERROR_INVALID_HANDLE,
           "invalid SIP URI");
 
   su_home_deinit (home);
