@@ -761,7 +761,7 @@ delivery_report (RakiaTextChannel *self,
 
   base_conn = (TpBaseConnection *) priv->conn;
 
-  msg = tp_message_new (base_conn, 1, 1);
+  msg = tp_cm_message_new (base_conn, 1);
 
   tp_message_set_handle (msg, 0, "message-sender", TP_HANDLE_TYPE_CONTACT,
       priv->handle);
@@ -893,7 +893,7 @@ void rakia_text_channel_receive(RakiaTextChannel *chan,
   sip_date_t *hdr_date_sent;
 
   base_conn = (TpBaseConnection *) priv->conn;
-  msg = tp_message_new (base_conn, 2, 2);
+  msg = tp_cm_message_new (base_conn, 2);
 
   DEBUG ("Received message from contact %u: %s", sender, text);
 
