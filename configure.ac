@@ -1,4 +1,4 @@
-AC_PREREQ([2.59])
+AC_PREREQ([2.60])
 
 m4_define([THIS_PACKAGE],[telepathy-rakia])
 m4_define([VERSION_MAJOR],[0])
@@ -27,7 +27,7 @@ AC_CONFIG_HEADER([config.h])
 dnl check for tools
 AC_PROG_CC
 AC_PROG_CC_STDC
-AM_PROG_MKDIR_P
+AC_PROG_MKDIR_P
 
 AC_PROG_LIBTOOL
 

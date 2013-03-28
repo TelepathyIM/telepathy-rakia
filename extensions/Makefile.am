@@ -49,7 +49,7 @@ XSLTPROCFLAGS = --nonet --novalid
 # Generated files which can be generated for all categories simultaneously
 
 _gen/all.xml: all.xml $(wildcard *.xml)
-	$(mkdir_p) _gen
+	$(MKDIR_P) _gen
 	$(XSLTPROC) $(XSLTPROCFLAGS) --xinclude $(tools_dir)/identity.xsl \
 		$< > $@
 
@@ -105,7 +105,7 @@ _gen/interfaces-body.h: _gen/all.xml \
 # although you can subdivide further if you want.
 
 _gen/channel.xml: channel.xml $(wildcard *.xml)
-	$(mkdir_p) _gen
+	$(MKDIR_P) _gen
 	$(XSLTPROC) $(XSLTPROCFLAGS) --xinclude $(tools_dir)/identity.xsl \
 		$< > $@
 
