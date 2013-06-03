@@ -29,6 +29,9 @@
 #include "rakia/debug.h"
 
 #include "sip-connection-manager.h"
+
+#include <dbus/dbus.h>
+
 #include <telepathy-glib/run.h>
 #include <telepathy-glib/debug.h>
 
@@ -46,6 +49,9 @@ main (int argc, char** argv)
   int status;
   guint fatal_mask;
   const gchar *logfile_string;
+
+  if (!dbus_threads_init_default ())
+    g_error ("Unable to initialize libdbus thread-safety (out of memory?)");
 
   fatal_mask = g_log_set_always_fatal (G_LOG_FATAL_MASK);
   fatal_mask |= G_LOG_LEVEL_CRITICAL;
