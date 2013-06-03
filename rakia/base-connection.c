@@ -31,11 +31,15 @@
 #include <rakia/base-connection.h>
 
 #include <telepathy-glib/telepathy-glib.h>
+#include <rakia/debug.h>
 #include <rakia/sofia-decls.h>
+#include <stdlib.h>
 
 struct _RakiaBaseConnectionPrivate
 {
   su_root_t *sofia_root;
+  /* guint: handle => owned url_t */
+  GHashTable *uris;
 
   unsigned dispose_has_run:1; unsigned :0;
 };
@@ -67,6 +71,8 @@ rakia_base_connection_init (RakiaBaseConnection *self)
   self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, RAKIA_TYPE_BASE_CONNECTION,
       RakiaBaseConnectionPrivate);
 
+  self->priv->uris = g_hash_table_new_full (NULL, NULL, NULL, free);
+
   tp_contacts_mixin_init (object,
       G_STRUCT_OFFSET (RakiaBaseConnection, contacts_mixin));
 
@@ -96,6 +102,10 @@ rakia_base_connection_dispose(GObject *object)
 static void
 rakia_base_connection_finalize(GObject *object)
 {
+  RakiaBaseConnection *self = RAKIA_BASE_CONNECTION (object);
+
+  tp_clear_pointer (&self->priv->uris, g_hash_table_unref);
+
   G_OBJECT_CLASS(rakia_base_connection_parent_class)->finalize(object);
 }
 
@@ -141,12 +151,22 @@ rakia_base_connection_get_property (GObject *object,
     }
 }
 
+static void
+rakia_base_connection_disconnected (TpBaseConnection *base)
+{
+  RakiaBaseConnection *self = RAKIA_BASE_CONNECTION (base);
+
+  /* handles are no longer meaningful */
+  g_hash_table_remove_all (self->priv->uris);
+}
+
 /* -------------------------------------------------------------------------- */
 
 static void
 rakia_base_connection_class_init (RakiaBaseConnectionClass *klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  TpBaseConnectionClass *conn_class = (TpBaseConnectionClass *) klass;
 
   g_type_class_add_private (klass, sizeof (RakiaBaseConnectionPrivate));
 
@@ -155,6 +175,7 @@ rakia_base_connection_class_init (RakiaBaseConnectionClass *klass)
   object_class->finalize = rakia_base_connection_finalize;
   object_class->get_property = rakia_base_connection_get_property;
   object_class->set_property = rakia_base_connection_set_property;
+  conn_class->disconnected = rakia_base_connection_disconnected;
 
   g_object_class_install_property (object_class,
       PROP_SOFIA_ROOT,
@@ -202,4 +223,35 @@ rakia_base_connection_save_event (RakiaBaseConnection *self,
   g_object_get (self, "sofia-nua", &nua, NULL);
 
   nua_save_event (nua, ret_saved);
+}
+
+const url_t*
+rakia_base_connection_handle_to_uri (RakiaBaseConnection *self,
+    TpHandle handle)
+{
+  TpHandleRepoIface *repo;
+  url_t *url;
+  GError *error = NULL;
+
+  repo = tp_base_connection_get_handles (TP_BASE_CONNECTION (self),
+      TP_HANDLE_TYPE_CONTACT);
+
+  if (!tp_handle_is_valid (repo, handle, &error))
+    {
+      DEBUG ("invalid handle %u: %s", handle, error->message);
+      g_error_free (error);
+      return NULL;
+    }
+
+  url = g_hash_table_lookup (self->priv->uris, GUINT_TO_POINTER (handle));
+
+  if (url == NULL)
+    {
+      url = url_make (NULL, tp_handle_inspect (repo, handle));
+
+      g_hash_table_replace (self->priv->uris, GUINT_TO_POINTER (handle),
+          url);
+    }
+
+  return url;
 }

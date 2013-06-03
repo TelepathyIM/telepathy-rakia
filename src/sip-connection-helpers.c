@@ -64,7 +64,8 @@ priv_sip_to_url_make (RakiaConnection *conn,
 {
   const url_t *url;
 
-  url = rakia_handle_inspect_uri (TP_BASE_CONNECTION (conn), contact);
+  url = rakia_base_connection_handle_to_uri (
+      (RakiaBaseConnection *) conn, contact);
   return sip_to_create (home, (const url_string_t *) url);
 }
 

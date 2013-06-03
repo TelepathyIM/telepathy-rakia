@@ -28,49 +28,6 @@
 #define DEBUG_FLAG RAKIA_DEBUG_CONNECTION
 #include "rakia/debug.h"
 
-static GQuark
-rakia_handle_url_quark (void)
-{
-  static GQuark quark = 0;
-
-  if (G_UNLIKELY (quark == 0))
-    quark = g_quark_from_static_string ("rakia-handle-url");
-
-  return quark;
-}
-
-const url_t*
-rakia_handle_inspect_uri (TpBaseConnection *base,
-                          TpHandle handle)
-{
-  TpHandleRepoIface *repo;
-  GQuark url_quark;
-  url_t *url;
-  GError *error;
-
-  repo = tp_base_connection_get_handles (base, TP_HANDLE_TYPE_CONTACT);
-
-  if (!tp_handle_is_valid (repo, handle, &error))
-    {
-      DEBUG("invalid handle %u: %s", handle, error->message);
-      g_error_free (error);
-      return NULL;
-    }
-
-  url_quark = rakia_handle_url_quark ();
-
-  url = tp_handle_get_qdata (repo, handle, url_quark);
-
-  if (url == NULL)
-    {
-      url = url_make (NULL, tp_handle_inspect (repo, handle));
-
-      tp_handle_set_qdata (repo, handle, url_quark, url, free);
-    }
-
-  return url;
-}
-
 TpHandle
 rakia_handle_ensure (TpBaseConnection *conn,
                      url_t const *uri,
@@ -91,7 +48,8 @@ rakia_handle_ensure (TpBaseConnection *conn,
 
   su_free (NULL, str);
 
-  /* TODO: set qdata for the alias */
+  /* TODO: store the alias somehow (probably by moving this code
+   * into RakiaBaseConnection and using a hash table in priv) */
 
   return handle;
 }

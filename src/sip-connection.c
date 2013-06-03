@@ -1006,6 +1006,7 @@ rakia_connection_start_connecting (TpBaseConnection *base,
                                    GError **error)
 {
   RakiaConnection *self = RAKIA_CONNECTION (base);
+  RakiaBaseConnection *rbase = RAKIA_BASE_CONNECTION (self);
   RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (self);
   TpHandleRepoIface *contact_repo;
   const gchar *sip_address;
@@ -1031,7 +1032,8 @@ rakia_connection_start_connecting (TpBaseConnection *base,
 
   DEBUG("self_handle = %d, sip_address = %s", base->self_handle, sip_address);
 
-  priv->account_url = rakia_handle_inspect_uri (base, base->self_handle);
+  priv->account_url = rakia_base_connection_handle_to_uri (rbase,
+      tp_base_connection_get_self_handle (base));
   if (priv->account_url == NULL)
     {
       g_set_error (error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
@@ -1130,4 +1132,7 @@ rakia_connection_disconnected (TpBaseConnection *base)
       nua_handle_unref (priv->register_op);
       priv->register_op = NULL;
     }
+
+  /* we know that RakiaBaseConnection does implement this */
+  TP_BASE_CONNECTION_CLASS (rakia_connection_parent_class)->disconnected (base);
 }

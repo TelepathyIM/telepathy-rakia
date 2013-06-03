@@ -29,7 +29,6 @@ G_BEGIN_DECLS
 TpHandle rakia_handle_ensure (TpBaseConnection *, url_t const *, char const *);
 TpHandle rakia_handle_by_requestor (TpBaseConnection *, sip_t const *sip);
 char const *rakia_handle_inspect (TpBaseConnection *, TpHandle handle);
-const url_t *rakia_handle_inspect_uri (TpBaseConnection *, TpHandle handle);
 
 gchar * rakia_handle_normalize (TpHandleRepoIface *repo,
     const gchar *sipuri,

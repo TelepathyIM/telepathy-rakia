@@ -87,6 +87,9 @@ void rakia_base_connection_sofia_callback (nua_event_t event,
     sip_t const *sip,
     tagi_t tags[]);
 
+const url_t *rakia_base_connection_handle_to_uri (
+    RakiaBaseConnection *self, TpHandle handle);
+
 G_END_DECLS
 
 #endif /* #ifndef __RAKIA_BASE_CONNECTION_H__*/

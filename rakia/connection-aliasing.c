@@ -111,9 +111,8 @@ conn_get_default_alias (TpBaseConnection *base,
   const url_t *url;
   gchar *alias = NULL;
 
-  /* TODO: create our custom handle repo to be able to get the URL off it.
-   * Then we can reuse the contact_handles parameter */
-  url = rakia_handle_inspect_uri (base, handle);
+  url = rakia_base_connection_handle_to_uri (RAKIA_BASE_CONNECTION (base),
+      handle);
 
   switch (url->url_type)
     {
