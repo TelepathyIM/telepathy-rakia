@@ -58,8 +58,9 @@ extensions.html: _gen/all.xml $(tools_dir)/doc-generator.xsl
 		$(tools_dir)/doc-generator.xsl \
 		$< > $@
 
-_gen/gtypes.h _gen/gtypes-body.h: _gen/all.xml \
-	$(top_srcdir)/tools/glib-gtypes-generator.py
+_gen/gtypes.h: _gen/gtypes-body.h
+	@: # do nothing, output as a side-effect
+_gen/gtypes-body.h: _gen/all.xml $(top_srcdir)/tools/glib-gtypes-generator.py
 	$(PYTHON) $(top_srcdir)/tools/glib-gtypes-generator.py \
 		$< _gen/gtypes RAKIA
 
@@ -109,8 +110,9 @@ _gen/channel.xml: channel.xml $(wildcard *.xml)
 	$(XSLTPROC) $(XSLTPROCFLAGS) --xinclude $(tools_dir)/identity.xsl \
 		$< > $@
 
-_gen/svc-channel.c _gen/svc-channel.h: _gen/channel.xml \
-	$(tools_dir)/glib-ginterface-gen.py
+_gen/svc-channel.h: _gen/svc-channel.c
+	@: # do nothing, output as a side-effect
+_gen/svc-channel.c: _gen/channel.xml $(tools_dir)/glib-ginterface-gen.py
 	$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
 		--filename=_gen/svc-channel \
 		--signal-marshal-prefix=_rakia_ext \
