@@ -59,7 +59,9 @@ cleanup ()
 {
   pid=`head -n1 $me-$$.pid`
   if test -n "$pid" ; then
-    echo "Killing temporary bus daemon: $pid" >&2
+    if [ -n "$VERBOSE_TESTS" ]; then
+      echo "Killing temporary bus daemon: $pid" >&2
+    fi
     kill -INT "$pid"
   fi
   rm -f $me-$$.address
@@ -69,12 +71,22 @@ cleanup ()
 trap cleanup INT HUP TERM
 dbus-daemon $dbus_daemon_args
 
-{ echo -n "Temporary bus daemon is "; cat $me-$$.address; } >&2
-{ echo -n "Temporary bus daemon PID is "; head -n1 $me-$$.pid; } >&2
+if [ -n "$VERBOSE_TESTS" ]; then
+  { echo -n "Temporary bus daemon is "; cat $me-$$.address; } >&2
+  { echo -n "Temporary bus daemon PID is "; head -n1 $me-$$.pid; } >&2
+fi
 
 e=0
+
+# These might be non-null when run from e.g. gnome-terminal 3.8, which uses
+# an activatable service for its windows; we don't want to inherit them either
+unset DBUS_STARTER_ADDRESS
+unset DBUS_STARTER_BUS_TYPE
+
 DBUS_SESSION_BUS_ADDRESS="`cat $me-$$.address`"
 export DBUS_SESSION_BUS_ADDRESS
+DBUS_SESSION_BUS_PID="`cat $me-$$.pid`"
+export DBUS_SESSION_BUS_PID
 
 if [ -n "$WITH_SESSION_BUS_FORK_DBUS_MONITOR" ] ; then
   echo -n "Forking dbus-monitor $WITH_SESSION_BUS_FORK_DBUS_MONITOR_OPT" >&2
