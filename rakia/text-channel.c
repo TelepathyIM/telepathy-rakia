@@ -74,6 +74,7 @@ G_DEFINE_TYPE_WITH_CODE (RakiaTextChannel, rakia_text_channel, G_TYPE_OBJECT,
 
 static const char *rakia_text_channel_interfaces[] = {
     TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE,
+    TP_IFACE_CHANNEL_INTERFACE_MESSAGES,
     NULL
 };
 
