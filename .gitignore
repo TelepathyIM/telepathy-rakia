@@ -50,6 +50,7 @@ src/*-enumtypes.[ch]
 /m4/lt*.m4
 /missing
 /stamp-h1
+/test-driver
 Makefile.in
 Makefile
 
