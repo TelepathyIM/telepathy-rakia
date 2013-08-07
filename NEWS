@@ -7,6 +7,30 @@ formerly known as Telepathy-SofiaSIP (most recent at the top).
 
 See also ChangeLog.
 
+telepathy-rakia 0.7.5 (UNRELEASED)
+----------------------------------
+
+Enhancements:
+
+- Use the same compiler and linker warnings as telepathy-glib
+  (fd.o #49725, Simon)
+- Stop using deprecated telepathy-glib functionality
+  (fd.o #49732, Simon)
+- Stop using deprecated Automake functionality (fd.o #62839, Brian Pepple)
+
+Bugfixes:
+
+- Advertise support for the Messages interface so recent Empathy
+  will be willing to handle our Text channels (Alban)
+- Link successfully with strict linkers (Ionut Biru)
+- Compile and run tests successfully under Automake 1.13 (fd.o #49725, Simon)
+- Output the error message if GLib, GObject, GIO, libdbus or dbus-glib
+  is missing (fd.o #49725, Simon)
+- Fix highly-parallel builds (fd.o #64285, Simon)
+- Suppress deprecation warnings from GLib > 2.30 (fd.o #49725, Simon)
+- Isolate regression tests better (fd.o #63119, Simon)
+- Initialize libdbus to be thread-safe (fd.o #54972, Simon)
+
 telepathy-rakia 0.7.4 (2012-05-08)
 ----------------------------------
 
