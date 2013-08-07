@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from servicetest import tp_name_prefix, tp_path_prefix, unwrap
+from servicetest import (tp_name_prefix, tp_path_prefix, unwrap,
+        assertSameSets)
 from sofiatest import go, exec_test
+import constants as cs
 
 import twisted.protocols.sip
 
@@ -14,7 +16,6 @@ import uuid
 
 CHANNEL = tp_name_prefix + '.Channel'
 TEXT_TYPE = tp_name_prefix + '.Channel.Type.Text'
-DESTROYABLE_IFACE = tp_name_prefix + '.Channel.Interface.Destroyable'
 
 FROM_URL = 'sip:other.user@somewhere.else.com'
 
@@ -30,7 +31,8 @@ def test_new_channel(q, bus, conn, target_uri, initiator_uri, requested):
             dbus_interface='org.freedesktop.DBus.Properties')
     assert text_props['ChannelType'] == TEXT_TYPE, text_props
     assert 'Interfaces' in text_props, text_props
-    assert text_props['Interfaces'] == [DESTROYABLE_IFACE], text_props
+    assertSameSets((cs.CHANNEL_IFACE_MESSAGES, cs.CHANNEL_IFACE_DESTROYABLE),
+            text_props['Interfaces'])
     assert 'TargetHandle' in text_props, text_props
     assert text_props['TargetHandle'] == handle, \
             (text_props, handle)
@@ -131,7 +133,7 @@ def test(q, bus, conn, sip):
 
     conn.ReleaseHandles(1, [handle])
 
-    iface = dbus.Interface(incoming_obj, DESTROYABLE_IFACE)
+    iface = dbus.Interface(incoming_obj, cs.CHANNEL_IFACE_DESTROYABLE)
     iface.Destroy()
     del iface
     event = q.expect('dbus-signal', signal='Closed')
