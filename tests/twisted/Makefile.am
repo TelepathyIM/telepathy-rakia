@@ -17,25 +17,22 @@ TWISTED_TESTS = \
 	voip/add-remove-content.py \
 	$(NULL)
 
-TESTS =
-
-TESTS_ENVIRONMENT = \
-	PYTHONPATH=@abs_top_srcdir@/tests/twisted::@abs_top_builddir@/tests/twisted
-
 check-local: check-coding-style check-twisted
 
 CHECK_TWISTED_SLEEP=0
 
-check-twisted:
+check-twisted: $(BUILT_SOURCES)
 	$(MAKE) -C tools
-	rm -f tools/rakia-testing.log
-	sh $(srcdir)/tools/with-session-bus.sh \
-		--config-file=tools/tmp-session-bus.conf \
-		--sleep=$(CHECK_TWISTED_SLEEP) \
-		-- $(MAKE) check-TESTS \
-		TESTS="$(TWISTED_TESTS)" \
-		TESTS_ENVIRONMENT="$(TESTS_ENVIRONMENT) $(PYTHON)" 2>&1 | \
-		fgrep -v -e DeprecationWarning -e DigestAuthorizer
+	if test "x$(CHECK_TWISTED_SLEEP)" = x0; then \
+		rakia_test_sleep= ; \
+	else \
+		rakia_test_sleep=--sleep=$(CHECK_TWISTED_SLEEP); \
+	fi; \
+	RAKIA_TEST_UNINSTALLED=1 \
+	  RAKIA_ABS_TOP_SRCDIR=@abs_top_srcdir@ \
+	  RAKIA_ABS_TOP_BUILDDIR=@abs_top_builddir@ \
+	  RAKIA_TEST_SLEEP=$$rakia_test_sleep \
+	  ./run-test.sh "$(TWISTED_TESTS)"
 
 if ENABLE_DEBUG
 DEBUGGING_PYBOOL = True
@@ -49,7 +46,28 @@ config.py: Makefile
 		echo "DEBUGGING = $(DEBUGGING_PYBOOL)"; \
 	} > $@
 
-BUILT_SOURCES = config.py
+rakia-twisted-tests.list: Makefile
+	$(AM_V_GEN)echo $(TWISTED_TESTS) > $@
+
+BUILT_SOURCES = \
+	config.py \
+	rakia-twisted-tests.list \
+	run-test.sh \
+	$(NULL)
+
+# We don't really use rakiatestsdir yet - we only support uninstalled testing
+# so far - but I'm substituting it to keep the script more similar to Gabble's.
+# ${pkglibexecdir}/tests is what GNOME's InstalledTests goal recommends.
+#
+# Similarly, Gabble supports TEST_PYTHON differing from PYTHON for historical
+# reasons, but we don't do that here.
+run-test.sh: run-test.sh.in Makefile
+	$(AM_V_GEN)sed \
+			-e 's![@]rakiatestsdir[@]!${pkglibexecdir}/tests!' \
+			-e 's![@]TEST_PYTHON[@]!$(PYTHON)!' \
+			< $< > $@.tmp && \
+		chmod +x $@.tmp && \
+		mv $@.tmp $@
 
 EXTRA_DIST = \
 	$(TWISTED_TESTS) \
@@ -59,7 +77,12 @@ EXTRA_DIST = \
 	servicetest.py \
 	voip/voip_test.py
 
-CLEANFILES = rakia-[1-9]*.log *.pyc */*.pyc config.py
+CLEANFILES = \
+	$(BUILT_SOURCES) \
+	rakia-[1-9]*.log \
+	*.pyc \
+	*/*.pyc \
+	$(NULL)
 
 check_misc_sources = $(TESTS)
 
