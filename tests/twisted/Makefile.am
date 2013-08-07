@@ -54,6 +54,7 @@ BUILT_SOURCES = config.py
 EXTRA_DIST = \
 	$(TWISTED_TESTS) \
 	constants.py \
+	run-test.sh.in \
 	sofiatest.py \
 	servicetest.py \
 	voip/voip_test.py
