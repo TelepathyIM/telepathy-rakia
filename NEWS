@@ -7,8 +7,11 @@ formerly known as Telepathy-SofiaSIP (most recent at the top).
 
 See also ChangeLog.
 
-telepathy-rakia 0.7.5 (UNRELEASED)
+telepathy-rakia 0.7.5 (2013-09-10)
 ----------------------------------
+
+The “Superstition” release. This is a release candidate
+for telepathy-rakia 0.8.0, the first stable-branch under this name.
 
 Enhancements:
 
