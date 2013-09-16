@@ -98,7 +98,10 @@ AC_DEFINE([GLIB_VERSION_MAX_ALLOWED], [GLIB_VERSION_2_30], [Prevent post 2.30 AP
 
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 0.60, dbus-glib-1 >= 0.60])
 PKG_CHECK_MODULES([SOFIA_SIP_UA], [sofia-sip-ua-glib >= 1.12.11])
-PKG_CHECK_MODULES([TELEPATHY_GLIB], [telepathy-glib >= 0.17.7])
+
+AC_DEFINE([TP_VERSION_MIN_REQUIRED], [TP_VERSION_0_22], [Ignore post 0.22 deprecations])
+AC_DEFINE([TP_VERSION_MAX_ALLOWED], [TP_VERSION_0_22], [Prevent post 0.22 APIs])
+PKG_CHECK_MODULES([TELEPATHY_GLIB], [telepathy-glib >= 0.21.1])
 
 dnl Check for optional IP heartbeat support
 AC_ARG_WITH(iphb,
