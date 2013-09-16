@@ -268,7 +268,7 @@ new_call_channel (RakiaMediaManager *fac,
                    GHashTable *request_properties,
                    RakiaSipSession *session)
 {
-  RakiaMediaManagerPrivate *priv;
+  RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
   RakiaCallChannel *chan = NULL;
   gchar *object_path;
   gboolean initial_audio = FALSE;
@@ -277,13 +277,12 @@ new_call_channel (RakiaMediaManager *fac,
   const gchar *dtmf_initial_tones = NULL;
   const gchar *initial_audio_name = NULL;
   const gchar *initial_video_name = NULL;
+  TpHandle self_handle = tp_base_connection_get_self_handle (priv->conn);
 
   g_assert (initiator != 0);
 
-  priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
-
-  object_path = g_strdup_printf ("%s/CallChannel%u", priv->conn->object_path,
-      priv->channel_index++);
+  object_path = g_strdup_printf ("%s/CallChannel%u",
+      tp_base_connection_get_object_path (priv->conn), priv->channel_index++);
 
   DEBUG("channel object path %s", object_path);
 
@@ -321,7 +320,7 @@ new_call_channel (RakiaMediaManager *fac,
                        "stun-server", priv->stun_server ? priv->stun_server :
                        "",
                        "stun-port", priv->stun_port,
-                       "requested", (initiator == priv->conn->self_handle),
+                       "requested", (initiator == self_handle),
                        NULL);
 
   g_free (object_path);
@@ -417,7 +416,7 @@ rakia_nua_i_invite_cb (TpBaseConnection    *conn,
   DEBUG("Got incoming invite from <%s>",
         rakia_handle_inspect (conn, handle));
 
-  if (handle == conn->self_handle)
+  if (handle == tp_base_connection_get_self_handle (conn))
     {
       DEBUG("cannot handle calls from self");
       nua_respond (ev->nua_handle, 501, "Calls from self are not supported", TAG_END());
@@ -589,6 +588,7 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
   gboolean valid = FALSE;
   gboolean initial_audio = FALSE;
   gboolean initial_video = FALSE;
+  TpHandle self_handle = tp_base_connection_get_self_handle (conn);
 
   /* Supported modes of operation:
    * - RequestChannel(Contact, n) where n != 0:
@@ -640,7 +640,7 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
    * interface and its semantically required Group member changes;
    * we disable them until a better API is available through
    * Call channel type */
-  if (handle == conn->self_handle)
+  if (handle == self_handle)
     {
       g_set_error (&error, TP_ERROR, TP_ERROR_NOT_IMPLEMENTED,
           "Cannot call self");
@@ -667,7 +667,7 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
     }
 
   session = new_session (self, NULL, handle);
-  channel = new_call_channel (self, conn->self_handle, handle,
+  channel = new_call_channel (self, self_handle, handle,
       request_properties, session);
   g_object_unref (session);
 

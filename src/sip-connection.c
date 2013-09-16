@@ -417,6 +417,21 @@ rakia_connection_get_implemented_interfaces (void)
   return interfaces_always_present;
 }
 
+static GPtrArray *
+get_interfaces_always_present (TpBaseConnection *base)
+{
+  GPtrArray *arr;
+  const gchar **iter;
+
+  arr = TP_BASE_CONNECTION_CLASS (
+      rakia_connection_parent_class)->get_interfaces_always_present (base);
+
+  for (iter = interfaces_always_present; *iter != NULL; iter++)
+    g_ptr_array_add (arr, (gchar *) *iter);
+
+  return arr;
+}
+
 static nua_handle_t *rakia_connection_create_nua_handle (RakiaBaseConnection *,
     TpHandle);
 static void rakia_connection_add_auth_handler (RakiaBaseConnection *,
@@ -442,7 +457,7 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
   base_class->disconnected = rakia_connection_disconnected;
   base_class->start_connecting = rakia_connection_start_connecting;
   base_class->shut_down = rakia_connection_shut_down;
-  base_class->interfaces_always_present = interfaces_always_present;
+  base_class->get_interfaces_always_present = get_interfaces_always_present;
 
   g_type_class_add_private (klass, sizeof (RakiaConnectionPrivate));
 
@@ -889,7 +904,7 @@ rakia_connection_nua_r_register_cb (RakiaConnection     *self,
         }
       else /* if (ev->status == 200) */
         {
-          if (base->status != TP_CONNECTION_STATUS_CONNECTING)
+          if (tp_base_connection_get_status (base) != TP_CONNECTION_STATUS_CONNECTING)
             return TRUE;
 
           DEBUG("successfully registered to the network");
@@ -946,8 +961,8 @@ rakia_connection_dispose (GObject *object)
 
   /* the base class is responsible for unreffing the self handle when we
    * disconnect */
-  g_assert (base->status == TP_CONNECTION_STATUS_DISCONNECTED
-      || base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
+  g_assert (tp_base_connection_get_status (base) ==
+      TP_CONNECTION_STATUS_DISCONNECTED);
 
   /* the base class owns channel factories/managers,
    * here we just nullify the references */
@@ -1004,8 +1019,10 @@ rakia_connection_start_connecting (TpBaseConnection *base,
   const gchar *sip_address;
   const url_t *local_url;
   su_root_t *root = NULL;
+  TpHandle self_handle;
 
-  g_assert (base->status == TP_INTERNAL_CONNECTION_STATUS_NEW);
+  g_assert (tp_base_connection_get_status (base) ==
+      TP_CONNECTION_STATUS_DISCONNECTED);
 
   /* the construct parameters will be non-empty */
   g_object_get (self, "sofia-root", &root, NULL);
@@ -1013,16 +1030,18 @@ rakia_connection_start_connecting (TpBaseConnection *base,
   g_return_val_if_fail (priv->address != NULL, FALSE);
 
   contact_repo = tp_base_connection_get_handles (base, TP_HANDLE_TYPE_CONTACT);
-  base->self_handle = tp_handle_ensure (contact_repo, priv->address,
+  self_handle = tp_handle_ensure (contact_repo, priv->address,
       NULL, error);
-  if (base->self_handle == 0)
+  if (self_handle == 0)
     {
       return FALSE;
     }
 
-  sip_address = tp_handle_inspect(contact_repo, base->self_handle);
+  tp_base_connection_set_self_handle (base, self_handle);
 
-  DEBUG("self_handle = %d, sip_address = %s", base->self_handle, sip_address);
+  sip_address = tp_handle_inspect(contact_repo, self_handle);
+
+  DEBUG("self_handle = %d, sip_address = %s", self_handle, sip_address);
 
   priv->account_url = rakia_base_connection_handle_to_uri (rbase,
       tp_base_connection_get_self_handle (base));
@@ -1084,8 +1103,7 @@ rakia_connection_start_connecting (TpBaseConnection *base,
                     G_CALLBACK (rakia_connection_nua_r_register_cb),
                     NULL);
 
-  priv->register_op = rakia_conn_create_register_handle (self,
-                                                         base->self_handle);
+  priv->register_op = rakia_conn_create_register_handle (self, self_handle);
   if (priv->register_op == NULL)
     {
       g_set_error (error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,

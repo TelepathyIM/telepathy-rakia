@@ -360,7 +360,8 @@ rakia_text_channel_get_property(GObject *object,
       break;
 
     case PROP_REQUESTED:
-      g_value_set_boolean (value, (priv->initiator == base_conn->self_handle));
+      g_value_set_boolean (value, (priv->initiator ==
+            tp_base_connection_get_self_handle (base_conn)));
       break;
 
     case PROP_CHANNEL_DESTROYED:

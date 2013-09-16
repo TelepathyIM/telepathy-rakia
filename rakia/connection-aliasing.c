@@ -138,7 +138,7 @@ conn_get_alias (TpBaseConnection *base,
 {
   gchar *alias = NULL;
 
-  if (handle == base->self_handle)
+  if (handle == tp_base_connection_get_self_handle (base))
     {
       /* Get our user-settable alias from the connection property */
       g_object_get (base, "alias", &alias, NULL);
@@ -253,7 +253,7 @@ emit_self_alias_change (TpBaseConnection *base, const gchar *alias)
   g_value_take_boxed (&change_pair,
       dbus_g_type_specialized_construct (TP_STRUCT_TYPE_ALIAS_PAIR));
   dbus_g_type_struct_set (&change_pair,
-      0, base->self_handle,
+      0, tp_base_connection_get_self_handle (base),
       1, alias,
       G_MAXUINT);
   change_data = g_ptr_array_sized_new (1);
@@ -300,11 +300,12 @@ rakia_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
   const gchar *alias;
   gchar *default_alias;
   gchar *to_free = NULL;
+  TpHandle self_handle = tp_base_connection_get_self_handle (base);
 
   TP_BASE_CONNECTION_ERROR_IF_NOT_CONNECTED (base, context);
 
   /* We only care about the self alias */
-  alias = g_hash_table_lookup (aliases, GINT_TO_POINTER (base->self_handle));
+  alias = g_hash_table_lookup (aliases, GINT_TO_POINTER (self_handle));
 
   if (alias == NULL || g_hash_table_size (aliases) > 1)
     {
@@ -320,7 +321,7 @@ rakia_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
   contact_handles = tp_base_connection_get_handles (base,
       TP_HANDLE_TYPE_CONTACT);
   default_alias = conn_get_default_alias (base,
-      contact_handles, base->self_handle);
+      contact_handles, self_handle);
 
   if (strcmp (alias, default_alias) == 0)
     {

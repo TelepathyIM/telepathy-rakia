@@ -285,7 +285,7 @@ rakia_text_manager_new_channel (RakiaTextManager *fac,
   conn = priv->conn;
 
   object_path = g_strdup_printf ("%s/TextChannel%u",
-      conn->object_path, handle);
+      tp_base_connection_get_object_path (conn), handle);
 
   DEBUG ("object path %s", object_path);
 
@@ -389,7 +389,8 @@ rakia_text_manager_requestotron (RakiaTextManager *self,
   if (channel == NULL)
     {
       rakia_text_manager_new_channel (self,
-          handle, base_conn->self_handle, request_token);
+          handle, tp_base_connection_get_self_handle (base_conn),
+          request_token);
       return TRUE;
     }
 
