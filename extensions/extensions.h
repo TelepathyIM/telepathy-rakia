@@ -2,7 +2,7 @@
 #define __SIP_EXTENSIONS_H__
 
 #include <glib-object.h>
-#include <telepathy-glib/channel.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #include <extensions/_gen/enums.h>
 #include <extensions/_gen/svc-channel.h>

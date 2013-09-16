@@ -608,7 +608,7 @@ class Generator(object):
     def __call__(self):
         self.h('#include <glib-object.h>')
         self.h('#include <dbus/dbus-glib.h>')
-        self.h('#include <telepathy-glib/dbus-properties-mixin.h>')
+        self.h('#include <telepathy-glib/telepathy-glib.h>')
         self.h('')
         self.h('G_BEGIN_DECLS')
         self.h('')

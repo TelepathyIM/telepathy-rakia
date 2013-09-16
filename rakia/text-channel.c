@@ -32,13 +32,7 @@
 #include <time.h>
 
 #include <dbus/dbus-glib.h>
-#include <telepathy-glib/channel-iface.h>
-#include <telepathy-glib/dbus.h>
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/gtypes.h>
-#include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/svc-channel.h>
-#include <telepathy-glib/svc-generic.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #include "rakia/event-target.h"
 #include "rakia/base-connection.h"

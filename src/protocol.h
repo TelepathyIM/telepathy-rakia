@@ -21,7 +21,7 @@
 #define RAKIA_PROTOCOL_H
 
 #include <glib-object.h>
-#include <telepathy-glib/base-protocol.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #include <rakia/sofia-decls.h>
 #include <sofia-sip/su_glib.h>

@@ -21,7 +21,7 @@
 #ifndef RAKIA_HANDLE_H
 #define RAKIA_HANDLE_H
 
-#include <telepathy-glib/base-connection.h>
+#include <telepathy-glib/telepathy-glib.h>
 #include <sofia-sip/sip.h>
 
 G_BEGIN_DECLS

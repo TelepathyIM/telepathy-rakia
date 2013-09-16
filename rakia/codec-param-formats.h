@@ -23,7 +23,7 @@
 
 #include <glib.h>
 
-#include <telepathy-glib/enums.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #include <rakia/sip-media.h>
 

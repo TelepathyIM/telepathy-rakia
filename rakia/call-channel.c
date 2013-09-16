@@ -30,10 +30,6 @@
 #define DEBUG_FLAG RAKIA_DEBUG_CALL
 #include "rakia/debug.h"
 
-
-#include <telepathy-glib/exportable-channel.h>
-
-
 G_DEFINE_TYPE (RakiaCallChannel, rakia_call_channel,
     TP_TYPE_BASE_MEDIA_CALL_CHANNEL)
 

@@ -29,14 +29,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <telepathy-glib/enums.h>
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/dbus.h>
-#include <telepathy-glib/handle-repo-dynamic.h>
-#include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/svc-connection.h>
-#include <telepathy-glib/svc-generic.h>
-
 #include <rakia/event-target.h>
 #include <rakia/handles.h>
 #include <rakia/connection-aliasing.h>

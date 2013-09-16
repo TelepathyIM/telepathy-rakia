@@ -32,8 +32,7 @@
 
 #include <dbus/dbus.h>
 
-#include <telepathy-glib/run.h>
-#include <telepathy-glib/debug.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 static TpBaseConnectionManager *
 construct_cm (void)

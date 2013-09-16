@@ -22,9 +22,7 @@
 #define __RAKIA_TEXT_CHANNEL_H__
 
 #include <glib-object.h>
-#include <telepathy-glib/dbus-properties-mixin.h>
-#include <telepathy-glib/handle.h>
-#include <telepathy-glib/message-mixin.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #include <rakia/sofia-decls.h>
 

@@ -23,7 +23,7 @@
 
 #include <glib-object.h>
 
-#include <telepathy-glib/base-media-call-content.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #include "rakia/call-channel.h"
 #include "rakia/sip-session.h"

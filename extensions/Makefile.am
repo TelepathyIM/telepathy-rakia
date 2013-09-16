@@ -116,7 +116,7 @@ _gen/svc-channel.c: _gen/channel.xml $(tools_dir)/glib-ginterface-gen.py
 	$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
 		--filename=_gen/svc-channel \
 		--signal-marshal-prefix=_rakia_ext \
-		--include='<telepathy-glib/dbus.h>' \
+		--include='<telepathy-glib/telepathy-glib.h>' \
 		--include='"_gen/signals-marshal.h"' \
 		--not-implemented-func='tp_dbus_g_method_return_not_implemented' \
 		--allow-unstable \

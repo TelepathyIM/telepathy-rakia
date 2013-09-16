@@ -27,7 +27,7 @@
 #include <rakia/sofia-decls.h>
 #include <sofia-sip/sresolv.h>
 
-#include <telepathy-glib/simple-password-manager.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #ifdef HAVE_LIBIPHB
 #include <iphbd/libiphb.h>

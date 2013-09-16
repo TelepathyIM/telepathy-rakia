@@ -31,10 +31,6 @@
 
 #include <dbus/dbus-protocol.h>
 
-#include <telepathy-glib/debug-sender.h>
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/svc-connection-manager.h>
-
 #include <rakia/sofia-decls.h>
 #include <sofia-sip/su_glib.h>
 #include <sofia-sip/su_log.h>
