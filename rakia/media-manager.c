@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include <telepathy-glib/telepathy-glib.h>
+#include <telepathy-glib/telepathy-glib-dbus.h>
 
 #include "rakia/base-connection.h"
 #include "rakia/call-channel.h"

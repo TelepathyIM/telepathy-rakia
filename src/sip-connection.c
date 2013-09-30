@@ -29,6 +29,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <telepathy-glib/telepathy-glib-dbus.h>
+
 #include <rakia/event-target.h>
 #include <rakia/handles.h>
 #include <rakia/connection-aliasing.h>

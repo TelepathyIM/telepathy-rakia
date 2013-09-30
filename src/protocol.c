@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include <telepathy-glib/telepathy-glib.h>
+#include <telepathy-glib/telepathy-glib-dbus.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-glib.h>
 

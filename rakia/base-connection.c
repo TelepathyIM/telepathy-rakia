@@ -31,6 +31,7 @@
 #include <rakia/base-connection.h>
 
 #include <telepathy-glib/telepathy-glib.h>
+#include <telepathy-glib/telepathy-glib-dbus.h>
 #include <rakia/debug.h>
 #include <rakia/sofia-decls.h>
 #include <stdlib.h>

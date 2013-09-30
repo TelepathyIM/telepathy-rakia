@@ -33,6 +33,7 @@
 
 #include <dbus/dbus-glib.h>
 #include <telepathy-glib/telepathy-glib.h>
+#include <telepathy-glib/telepathy-glib-dbus.h>
 
 #include "rakia/event-target.h"
 #include "rakia/base-connection.h"

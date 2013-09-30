@@ -22,6 +22,8 @@
 
 #include "rakia/call-content.h"
 
+#include <telepathy-glib/telepathy-glib-dbus.h>
+
 #include "rakia/call-stream.h"
 
 #define DEBUG_FLAG RAKIA_DEBUG_MEDIA
