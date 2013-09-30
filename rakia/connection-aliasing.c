@@ -87,19 +87,6 @@ rakia_connection_aliasing_get_type (void)
   return type;
 }
 
-static void
-rakia_connection_get_alias_flags (TpSvcConnectionInterfaceAliasing *iface,
-                                  DBusGMethodInvocation *context)
-{
-  TpBaseConnection *base = TP_BASE_CONNECTION (iface);
-
-  TP_BASE_CONNECTION_ERROR_IF_NOT_CONNECTED (base, context);
-
-  /* No server-side aliasing yet */
-  tp_svc_connection_interface_aliasing_return_from_get_alias_flags (
-      context, 0);
-}
-
 static gchar *
 conn_get_default_alias (TpBaseConnection *base,
                         TpHandleRepoIface *contact_handles,
@@ -201,69 +188,19 @@ rakia_connection_request_aliases (TpSvcConnectionInterfaceAliasing *iface,
 }
 
 static void
-rakia_connection_get_aliases (TpSvcConnectionInterfaceAliasing *iface,
-                              const GArray *contacts,
-                              DBusGMethodInvocation *context)
-{
-  TpBaseConnection *base = TP_BASE_CONNECTION (iface);
-  TpHandleRepoIface *contact_handles;
-  GHashTable *result;
-  GError *error = NULL;
-  guint i;
-
-  TP_BASE_CONNECTION_ERROR_IF_NOT_CONNECTED (base, context);
-
-  contact_handles = tp_base_connection_get_handles (base,
-      TP_HANDLE_TYPE_CONTACT);
-
-  if (!tp_handles_are_valid (contact_handles, contacts, FALSE, &error))
-    {
-      dbus_g_method_return_error (context, error);
-      g_error_free (error);
-      return;
-    }
-
-  result = g_hash_table_new_full (g_direct_hash, g_direct_equal,
-      NULL, g_free);
-
-  for (i = 0; i < contacts->len; i++)
-    {
-      TpHandle handle;
-      gchar *alias;
-
-      handle = g_array_index (contacts, TpHandle, i);
-
-      alias = conn_get_alias (base, contact_handles, handle);
-
-      g_hash_table_insert (result, GUINT_TO_POINTER (handle), alias);
-    }
-
-  tp_svc_connection_interface_aliasing_return_from_get_aliases (context,
-      result);
-
-  g_hash_table_unref (result);
-}
-
-static void
 emit_self_alias_change (TpBaseConnection *base, const gchar *alias)
 {
-  GPtrArray *change_data;
-  GValue change_pair = { 0, };
+  GHashTable *change_data;
 
-  g_value_init (&change_pair, TP_STRUCT_TYPE_ALIAS_PAIR);
-  g_value_take_boxed (&change_pair,
-      dbus_g_type_specialized_construct (TP_STRUCT_TYPE_ALIAS_PAIR));
-  dbus_g_type_struct_set (&change_pair,
-      0, tp_base_connection_get_self_handle (base),
-      1, alias,
-      G_MAXUINT);
-  change_data = g_ptr_array_sized_new (1);
-  g_ptr_array_add (change_data, g_value_get_boxed (&change_pair));
+  change_data = g_hash_table_new (NULL, NULL);
+
+  g_hash_table_insert (change_data,
+      GUINT_TO_POINTER (tp_base_connection_get_self_handle (base)),
+      (gchar *) alias);
 
   tp_svc_connection_interface_aliasing_emit_aliases_changed (base, change_data);
 
-  g_ptr_array_unref (change_data);
-  g_value_unset (&change_pair);
+  g_hash_table_unref (change_data);
 }
 
 static const gchar *
@@ -388,9 +325,7 @@ rakia_connection_aliasing_svc_iface_init (gpointer g_iface, gpointer iface_data)
 
 #define IMPLEMENT(x) tp_svc_connection_interface_aliasing_implement_##x (\
     klass, rakia_connection_##x)
-  IMPLEMENT(get_alias_flags);
   IMPLEMENT(request_aliases);
-  IMPLEMENT(get_aliases);
   IMPLEMENT(set_aliases);
 #undef IMPLEMENT
 }
