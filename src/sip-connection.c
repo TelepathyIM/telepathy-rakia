@@ -455,7 +455,6 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
   base_class->get_unique_connection_name = rakia_connection_unique_name;
   base_class->create_channel_managers =
       rakia_connection_create_channel_managers;
-  base_class->create_channel_factories = NULL;
   base_class->disconnected = rakia_connection_disconnected;
   base_class->start_connecting = rakia_connection_start_connecting;
   base_class->shut_down = rakia_connection_shut_down;
