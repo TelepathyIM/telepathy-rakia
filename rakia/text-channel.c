@@ -49,29 +49,18 @@ rakia_text_channel_nua_r_message_cb (RakiaTextChannel *self,
                                      tagi_t            tags[],
                                      gpointer          foo);
 
-static void channel_iface_init (gpointer, gpointer);
 static void destroyable_iface_init (gpointer, gpointer);
 
-G_DEFINE_TYPE_WITH_CODE (RakiaTextChannel, rakia_text_channel, G_TYPE_OBJECT,
+G_DEFINE_TYPE_WITH_CODE (RakiaTextChannel, rakia_text_channel, TP_TYPE_BASE_CHANNEL,
     G_IMPLEMENT_INTERFACE (RAKIA_TYPE_EVENT_TARGET, NULL);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_DBUS_PROPERTIES,
       tp_dbus_properties_mixin_iface_init);
-    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL, channel_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_TEXT,
       tp_message_mixin_text_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES,
       tp_message_mixin_messages_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE,
-      destroyable_iface_init);
-    G_IMPLEMENT_INTERFACE (TP_TYPE_EXPORTABLE_CHANNEL, NULL);
-    G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_IFACE, NULL));
-
-static const char *rakia_text_channel_interfaces[] = {
-    TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE,
-    TP_IFACE_CHANNEL_INTERFACE_MESSAGES,
-    NULL
-};
-
+      destroyable_iface_init));
 
 /* properties */
 enum
@@ -107,11 +96,6 @@ typedef struct _RakiaTextChannelPrivate RakiaTextChannelPrivate;
 
 struct _RakiaTextChannelPrivate
 {
-  RakiaBaseConnection *conn;
-  gchar *object_path;
-  TpHandle handle;
-  TpHandle initiator;
-
   guint sent_id;
   GQueue  *sending_messages;
 
@@ -154,9 +138,8 @@ static void rakia_text_channel_send_message (GObject *object,
 static void
 rakia_text_channel_constructed (GObject *obj)
 {
-  RakiaTextChannelPrivate *priv;
-  TpBaseConnection *base_conn;
-  TpDBusDaemon *bus;
+  TpBaseConnection *base_conn = tp_base_channel_get_connection (
+      TP_BASE_CHANNEL (obj));
   TpChannelTextMessageType types[] = {
       TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
   };
@@ -170,12 +153,10 @@ rakia_text_channel_constructed (GObject *obj)
   if (parent_object_class->constructed != NULL)
     parent_object_class->constructed (obj);
 
-  priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE(RAKIA_TEXT_CHANNEL(obj));
-  base_conn = (TpBaseConnection *) priv->conn;
+  g_assert (tp_base_channel_get_initiator (TP_BASE_CHANNEL (obj)) != 0);
 
-  g_assert (priv->initiator != 0);
-
-  rakia_base_connection_add_auth_handler (priv->conn, RAKIA_EVENT_TARGET (obj));
+  rakia_base_connection_add_auth_handler (RAKIA_BASE_CONNECTION (base_conn),
+      RAKIA_EVENT_TARGET (obj));
 
   g_signal_connect (obj,
                     "nua-event::nua_r_message",
@@ -191,25 +172,58 @@ rakia_text_channel_constructed (GObject *obj)
       TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_SUCCESSES,
       supported_content_types);
 
-  bus = tp_base_connection_get_dbus_daemon (base_conn);
-  tp_dbus_daemon_register_object (bus, priv->object_path, obj);
+  tp_base_channel_register (TP_BASE_CHANNEL (obj));
 }
 
 
-static void rakia_text_channel_get_property(GObject    *object,
-					  guint       property_id,
-					  GValue     *value,
-					  GParamSpec *pspec);
-static void rakia_text_channel_set_property(GObject     *object,
-					  guint        property_id,
-					  const GValue *value,
-					  GParamSpec   *pspec);
 static void rakia_text_channel_dispose(GObject *object);
 static void rakia_text_channel_finalize(GObject *object);
+
+static void rakia_text_channel_close (TpBaseChannel *base);
+
+static void
+rakia_text_channel_fill_immutable_properties (TpBaseChannel *chan,
+    GHashTable *properties)
+{
+  TpBaseChannelClass *cls = TP_BASE_CHANNEL_CLASS (
+      rakia_text_channel_parent_class);
+
+  cls->fill_immutable_properties (chan, properties);
+
+  tp_dbus_properties_mixin_fill_properties_hash (
+      G_OBJECT (chan), properties,
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessagePartSupportFlags",
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "DeliveryReportingSupport",
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "SupportedContentTypes",
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessageTypes",
+      NULL);
+}
+
+static gchar *
+rakia_text_channel_get_object_path_suffix (TpBaseChannel *chan)
+{
+  return g_strdup_printf ("TextChannel%u",
+      tp_base_channel_get_target_handle (chan));
+}
+
+static GPtrArray *
+rakia_text_channel_get_interfaces (TpBaseChannel *base)
+{
+  GPtrArray *interfaces;
+
+  interfaces = TP_BASE_CHANNEL_CLASS (
+      rakia_text_channel_parent_class)->get_interfaces (base);
+
+  g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_MESSAGES);
+  g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE);
+
+  return interfaces;
+}
 
 static void
 rakia_text_channel_class_init(RakiaTextChannelClass *klass)
 {
+  TpBaseChannelClass *base_class = TP_BASE_CHANNEL_CLASS (klass);
   static TpDBusPropertiesMixinPropImpl channel_props[] = {
       { "ChannelType", "channel-type", NULL },
       { "Interfaces", "interfaces", NULL },
@@ -231,69 +245,24 @@ rakia_text_channel_class_init(RakiaTextChannelClass *klass)
   };
 
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
-  GParamSpec *param_spec;
 
   DEBUG("enter");
 
   g_type_class_add_private (klass, sizeof (RakiaTextChannelPrivate));
-
-  object_class->get_property = rakia_text_channel_get_property;
-  object_class->set_property = rakia_text_channel_set_property;
 
   object_class->constructed = rakia_text_channel_constructed;
 
   object_class->dispose = rakia_text_channel_dispose;
   object_class->finalize = rakia_text_channel_finalize;
 
-  g_object_class_override_property (object_class, PROP_HANDLE_TYPE,
-      "handle-type");
-  g_object_class_override_property (object_class, PROP_HANDLE, "handle");
-  g_object_class_override_property (object_class, PROP_OBJECT_PATH,
-      "object-path");
-  g_object_class_override_property (object_class, PROP_CHANNEL_TYPE,
-      "channel-type");
-
-  g_object_class_override_property (object_class, PROP_CHANNEL_DESTROYED,
-      "channel-destroyed");
-  g_object_class_override_property (object_class, PROP_CHANNEL_PROPERTIES,
-      "channel-properties");
-
-  param_spec = g_param_spec_object("connection", "RakiaConnection object",
-      "SIP connection object that owns this SIP media channel object.",
-      RAKIA_TYPE_BASE_CONNECTION,
-      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
-
-  param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
-      "Addition Channel.Interface.* interfaces", G_TYPE_STRV,
-      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
-
-  param_spec = g_param_spec_string ("target-id", "Peer's SIP URI",
-      "The URI string obtained by inspecting the peer handle",
-      NULL,
-      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_TARGET_ID, param_spec);
-
-  param_spec = g_param_spec_uint ("initiator-handle", "Initiator's handle",
-      "The contact who initiated the channel",
-      0, G_MAXUINT32, 0,
-      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_INITIATOR_HANDLE,
-      param_spec);
-
-  param_spec = g_param_spec_string ("initiator-id", "Initiator's URI",
-      "The string obtained by inspecting the initiator-handle",
-      NULL,
-      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_INITIATOR_ID,
-      param_spec);
-
-  param_spec = g_param_spec_boolean ("requested", "Requested?",
-      "True if this channel was requested by the local user",
-      FALSE,
-      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
+  base_class->channel_type = TP_IFACE_CHANNEL_TYPE_TEXT;
+  base_class->get_interfaces = rakia_text_channel_get_interfaces;
+  base_class->target_handle_type = TP_HANDLE_TYPE_CONTACT;
+  base_class->close = rakia_text_channel_close;
+  base_class->fill_immutable_properties =
+    rakia_text_channel_fill_immutable_properties;
+  base_class->get_object_path_suffix =
+    rakia_text_channel_get_object_path_suffix;
 
   klass->dbus_props_class.interfaces =
       prop_interfaces;
@@ -301,140 +270,6 @@ rakia_text_channel_class_init(RakiaTextChannelClass *klass)
       G_STRUCT_OFFSET (RakiaTextChannelClass, dbus_props_class));
 
   tp_message_mixin_init_dbus_properties (object_class);
-}
-
-static void
-rakia_text_channel_get_property(GObject *object,
-				guint property_id,
-				GValue *value,
-				GParamSpec *pspec)
-{
-  RakiaTextChannel *chan = RAKIA_TEXT_CHANNEL(object);
-  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE(chan);
-  TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
-
-  switch (property_id)
-    {
-    case PROP_CONNECTION:
-      g_value_set_object(value, priv->conn);
-      break;
-
-    case PROP_OBJECT_PATH:
-      g_value_set_string(value, priv->object_path);
-      break;
-
-    case PROP_CHANNEL_TYPE:
-      g_value_set_string(value, TP_IFACE_CHANNEL_TYPE_TEXT);
-      break;
-
-    case PROP_HANDLE_TYPE:
-      g_value_set_uint(value, TP_HANDLE_TYPE_CONTACT);
-      break;
-
-    case PROP_HANDLE:
-      g_value_set_uint(value, priv->handle);
-      break;
-
-    case PROP_TARGET_ID:
-      {
-        TpHandleRepoIface *repo = tp_base_connection_get_handles (
-            base_conn, TP_HANDLE_TYPE_CONTACT);
-
-        g_value_set_string (value, tp_handle_inspect (repo, priv->handle));
-      }
-      break;
-
-    case PROP_INITIATOR_HANDLE:
-      g_value_set_uint (value, priv->initiator);
-      break;
-
-    case PROP_INITIATOR_ID:
-      {
-        TpHandleRepoIface *repo = tp_base_connection_get_handles (
-            base_conn, TP_HANDLE_TYPE_CONTACT);
-
-        g_assert (priv->initiator != 0);
-        g_value_set_string (value,
-            tp_handle_inspect (repo, priv->initiator));
-      }
-      break;
-
-    case PROP_REQUESTED:
-      g_value_set_boolean (value, (priv->initiator ==
-            tp_base_connection_get_self_handle (base_conn)));
-      break;
-
-    case PROP_CHANNEL_DESTROYED:
-      g_value_set_boolean (value, priv->closed);
-      break;
-
-    case PROP_CHANNEL_PROPERTIES:
-      g_value_take_boxed (value,
-          tp_dbus_properties_mixin_make_properties_hash (object,
-              TP_IFACE_CHANNEL, "ChannelType",
-              TP_IFACE_CHANNEL, "TargetHandleType",
-              TP_IFACE_CHANNEL, "TargetHandle",
-              TP_IFACE_CHANNEL, "TargetID",
-              TP_IFACE_CHANNEL, "InitiatorHandle",
-              TP_IFACE_CHANNEL, "InitiatorID",
-              TP_IFACE_CHANNEL, "Requested",
-              TP_IFACE_CHANNEL, "Interfaces",
-              TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessagePartSupportFlags",
-              TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "DeliveryReportingSupport",
-              TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "SupportedContentTypes",
-              TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessageTypes",
-              NULL));
-      break;
-
-    case PROP_INTERFACES:
-      g_value_set_static_boxed (value, rakia_text_channel_interfaces);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-    }
-}
-
-static void
-rakia_text_channel_set_property(GObject *object,
-			        guint property_id,
-			        const GValue *value,
-			        GParamSpec *pspec)
-{
-  RakiaTextChannel *chan = RAKIA_TEXT_CHANNEL (object);
-  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (chan);
-
-  switch (property_id)
-    {
-    case PROP_CONNECTION:
-      priv->conn = g_value_get_object (value);
-      break;
-
-    case PROP_OBJECT_PATH:
-      g_assert (priv->object_path == NULL);
-      priv->object_path = g_value_dup_string (value);
-      break;
-
-    case PROP_CHANNEL_TYPE:
-    case PROP_HANDLE_TYPE:
-      /* this property is writable in the interface, but not actually
-       * meaningfully changable on this channel, so we do nothing */
-      break;
-
-    case PROP_HANDLE:
-      /* we don't ref it here because we don't necessarily have access to the
-       * contact repo yet - instead we ref it in the constructed */
-      priv->handle = g_value_get_uint(value);
-      break;
-
-    case PROP_INITIATOR_HANDLE:
-      /* similarly we can't ref this yet */
-      priv->initiator = g_value_get_uint (value);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    }
 }
 
 static void
@@ -477,8 +312,6 @@ rakia_text_channel_finalize(GObject *object)
   zap_pending_messages (priv->sending_messages);
   g_queue_free (priv->sending_messages);
 
-  g_free (priv->object_path);
-
   tp_message_mixin_finalize (object);
 
   G_OBJECT_CLASS (rakia_text_channel_parent_class)->finalize (object);
@@ -492,17 +325,10 @@ static gint rakia_acknowledged_messages_compare(gconstpointer msg,
   return (message->nh != nh);
 }
 
-/**
- * rakia_text_channel_close
- *
- * Implements DBus method Close
- * on interface org.freedesktop.Telepathy.Channel
- */
 static void
-rakia_text_channel_close (TpSvcChannel *iface,
-                          DBusGMethodInvocation *context)
+rakia_text_channel_close (TpBaseChannel *base)
 {
-  RakiaTextChannel *self = RAKIA_TEXT_CHANNEL (iface);
+  RakiaTextChannel *self = RAKIA_TEXT_CHANNEL (base);
   RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE(self);
 
   if (priv->closed)
@@ -515,6 +341,7 @@ rakia_text_channel_close (TpSvcChannel *iface,
         {
           DEBUG ("actually closing, no pending messages");
           priv->closed = TRUE;
+          tp_base_channel_destroyed (base);
         }
       else
         {
@@ -522,17 +349,10 @@ rakia_text_channel_close (TpSvcChannel *iface,
 
           tp_message_mixin_set_rescued ((GObject *) self);
 
-          if (priv->initiator != priv->handle)
-            {
-              g_assert (priv->initiator != 0);
-              g_assert (priv->handle != 0);
-
-              priv->initiator = priv->handle;
-            }
+          tp_base_channel_reopened (base,
+              tp_base_channel_get_target_handle (base));
         }
-      tp_svc_channel_emit_closed (self);
     }
-  tp_svc_channel_return_from_close (context);
 }
 
 /**
@@ -545,67 +365,11 @@ static void
 rakia_text_channel_destroy (TpSvcChannelInterfaceDestroyable *iface,
                             DBusGMethodInvocation *context)
 {
-  RakiaTextChannel *self = RAKIA_TEXT_CHANNEL (iface);
-
   tp_message_mixin_clear ((GObject *) iface);
 
-  /* Close() and Destroy() have the same signature, so we can safely
-   * chain to the other function now */
-  rakia_text_channel_close ((TpSvcChannel *) self, context);
-}
+  rakia_text_channel_close (TP_BASE_CHANNEL (iface));
 
-/**
- * rakia_text_channel_get_channel_type
- *
- * Implements DBus method GetChannelType
- * on interface org.freedesktop.Telepathy.Channel
- */
-static void
-rakia_text_channel_get_channel_type (TpSvcChannel *iface,
-                                   DBusGMethodInvocation *context)
-{
-  DEBUG("enter");
-
-  tp_svc_channel_return_from_get_channel_type (context,
-      TP_IFACE_CHANNEL_TYPE_TEXT);
-}
-
-
-/**
- * rakia_text_channel_get_handle
- *
- * Implements DBus method GetHandle
- * on interface org.freedesktop.Telepathy.Channel
- */
-static void
-rakia_text_channel_get_handle (TpSvcChannel *iface,
-                             DBusGMethodInvocation *context)
-{
-  RakiaTextChannel *obj = RAKIA_TEXT_CHANNEL (iface);
-  RakiaTextChannelPrivate *priv;
-
-  DEBUG("enter");
-
-  priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE(obj);
-
-  tp_svc_channel_return_from_get_handle (context, TP_HANDLE_TYPE_CONTACT,
-      priv->handle);
-}
-
-
-/**
- * rakia_text_channel_get_interfaces
- *
- * Implements DBus method GetInterfaces
- * on interface org.freedesktop.Telepathy.Channel
- */
-static void
-rakia_text_channel_get_interfaces(TpSvcChannel *iface,
-                                DBusGMethodInvocation *context)
-{
-  DEBUG("enter");
-  tp_svc_channel_return_from_get_interfaces (context,
-      rakia_text_channel_interfaces);
+  tp_svc_channel_interface_destroyable_return_from_destroy (context);
 }
 
 static void
@@ -614,6 +378,8 @@ rakia_text_channel_send_message (GObject *object,
     TpMessageSendingFlags flags)
 {
   RakiaTextChannel *self = RAKIA_TEXT_CHANNEL(object);
+  TpBaseConnection *conn = tp_base_channel_get_connection (
+      TP_BASE_CHANNEL (object));
   RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
   RakiaTextPendingMessage *msg = NULL;
   nua_handle_t *msg_nh = NULL;
@@ -660,7 +426,8 @@ rakia_text_channel_send_message (GObject *object,
 
   /* Okay, it's valid. Let's send it. */
 
-  msg_nh = rakia_base_connection_create_handle (priv->conn, priv->handle);
+  msg_nh = rakia_base_connection_create_handle (RAKIA_BASE_CONNECTION (conn),
+      tp_base_channel_get_target_handle (TP_BASE_CHANNEL (object)));
   if (msg_nh == NULL)
     {
       g_set_error (&error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
@@ -726,15 +493,14 @@ delivery_report (RakiaTextChannel *self,
     TpDeliveryStatus status,
     TpChannelTextSendError send_error)
 {
-  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (self);
-  TpBaseConnection *base_conn;
+  TpBaseConnection *conn = tp_base_channel_get_connection (
+      TP_BASE_CHANNEL (self));
   TpMessage *msg;
 
-  base_conn = (TpBaseConnection *) priv->conn;
+  msg = tp_cm_message_new (conn, 1);
 
-  msg = tp_cm_message_new (base_conn, 1);
-
-  tp_cm_message_set_sender (msg, priv->handle);
+  tp_cm_message_set_sender (msg, tp_base_channel_get_target_handle (
+        TP_BASE_CHANNEL (self)));
 
   tp_message_set_uint32 (msg, 0, "message-type",
       TP_CHANNEL_TEXT_MESSAGE_TYPE_DELIVERY_REPORT);
@@ -851,15 +617,14 @@ void rakia_text_channel_receive(RakiaTextChannel *chan,
                                 const char *text,
                                 gsize len)
 {
-  RakiaTextChannelPrivate *priv = RAKIA_TEXT_CHANNEL_GET_PRIVATE (chan);
+  TpBaseConnection *conn = tp_base_channel_get_connection (
+      TP_BASE_CHANNEL (chan));
   TpMessage *msg;
-  TpBaseConnection *base_conn;
   sip_call_id_t *hdr_call_id;
   sip_cseq_t *hdr_cseq;
   sip_date_t *hdr_date_sent;
 
-  base_conn = (TpBaseConnection *) priv->conn;
-  msg = tp_cm_message_new (base_conn, 2);
+  msg = tp_cm_message_new (conn, 2);
 
   DEBUG ("Received message from contact %u: %s", sender, text);
 
@@ -901,19 +666,5 @@ destroyable_iface_init (gpointer g_iface,
 #define IMPLEMENT(x) tp_svc_channel_interface_destroyable_implement_##x (\
     klass, rakia_text_channel_##x)
   IMPLEMENT(destroy);
-#undef IMPLEMENT
-}
-
-static void
-channel_iface_init(gpointer g_iface, gpointer iface_data)
-{
-  TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
-
-#define IMPLEMENT(x) tp_svc_channel_implement_##x (\
-      klass, rakia_text_channel_##x)
-  IMPLEMENT(close);
-  IMPLEMENT(get_channel_type);
-  IMPLEMENT(get_handle);
-  IMPLEMENT(get_interfaces);
 #undef IMPLEMENT
 }

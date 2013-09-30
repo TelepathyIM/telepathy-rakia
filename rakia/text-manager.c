@@ -277,26 +277,16 @@ rakia_text_manager_new_channel (RakiaTextManager *fac,
 {
   RakiaTextManagerPrivate *priv;
   RakiaTextChannel *chan;
-  gchar *object_path;
-  TpBaseConnection *conn;
   GSList *request_tokens;
 
   priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
-  conn = priv->conn;
-
-  object_path = g_strdup_printf ("%s/TextChannel%u",
-      tp_base_connection_get_object_path (conn), handle);
-
-  DEBUG ("object path %s", object_path);
 
   chan = g_object_new (RAKIA_TYPE_TEXT_CHANNEL,
                        "connection", priv->conn,
-                       "object-path", object_path,
                        "handle", handle,
                        "initiator-handle", initiator,
+                       "requested", (handle != initiator),
                        NULL);
-
-  g_free (object_path);
 
   g_signal_connect (chan, "closed", (GCallback) channel_closed, fac);
 
