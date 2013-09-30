@@ -118,7 +118,7 @@ priv_url_from_string_value (su_home_t *home, const GValue *value)
 
 static void
 rakia_create_handle_repos (TpBaseConnection *conn,
-                           TpHandleRepoIface *repos[NUM_TP_HANDLE_TYPES])
+                           TpHandleRepoIface *repos[TP_NUM_HANDLE_TYPES])
 {
   repos[TP_HANDLE_TYPE_CONTACT] =
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,

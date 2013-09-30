@@ -272,7 +272,7 @@ rakia_sip_session_class_init (RakiaSipSessionClass *klass)
 
   param_spec = g_param_spec_uint ("hold-state", "Local Hold State",
       "Is the call held or not",
-      0, NUM_TP_LOCAL_HOLD_STATES - 1,
+      0, TP_NUM_LOCAL_HOLD_STATES - 1,
       TP_LOCAL_HOLD_STATE_UNHELD,
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (object_class, PROP_HOLD_STATE, param_spec);

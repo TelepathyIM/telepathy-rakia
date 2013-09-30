@@ -81,7 +81,7 @@ typedef struct _RakiaCodecParamFormatting {
 static GRegex *fmtp_attr_regex = NULL;
 static GRegex *dtmf_events_regex = NULL;
 
-static GHashTable *codec_param_formats[NUM_TP_MEDIA_STREAM_TYPES];
+static GHashTable *codec_param_formats[TP_NUM_MEDIA_STREAM_TYPES];
 
 static void rakia_codec_param_formats_init (void);
 
@@ -393,7 +393,7 @@ rakia_codec_param_formats_init (void)
   else
     return;
 
-  for (i = 0; i < NUM_TP_MEDIA_STREAM_TYPES; ++i)
+  for (i = 0; i < TP_NUM_MEDIA_STREAM_TYPES; ++i)
     {
       /* XXX: we ignore deallocation of values for now */
       codec_param_formats[i] = g_hash_table_new (g_str_hash, g_str_equal);
