@@ -89,6 +89,20 @@ enum
   LAST_PROPERTY
 };
 
+static TpDBusPropertiesMixinPropImpl conn_aliasing_properties[] = {
+    { "AliasFlags", GUINT_TO_POINTER (0), NULL },
+    { NULL }
+};
+
+static void
+conn_aliasing_properties_getter (GObject *object,
+    GQuark interface,
+    GQuark name,
+    GValue *value,
+    gpointer getter_data)
+{
+  g_value_set_uint (value, GPOINTER_TO_UINT (getter_data));
+}
 
 static void
 priv_value_set_url_as_string (GValue *value, const url_t *url)
@@ -446,6 +460,14 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
   TpBaseConnectionClass *base_class = TP_BASE_CONNECTION_CLASS (klass);
   RakiaBaseConnectionClass *sip_class = RAKIA_BASE_CONNECTION_CLASS (klass);
   GParamSpec *param_spec;
+  static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+        { TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+          conn_aliasing_properties_getter,
+          NULL,
+          conn_aliasing_properties,
+        },
+        { NULL }
+  };
 
   /* Implement pure-virtual methods */
   sip_class->create_handle = rakia_connection_create_nua_handle;
@@ -467,6 +489,8 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
 
   object_class->set_property = rakia_connection_set_property;
   object_class->get_property = rakia_connection_get_property;
+
+  klass->properties_class.interfaces = prop_interfaces;
 
 #define INST_PROP(x) \
   g_object_class_install_property (object_class,  x, param_spec)
