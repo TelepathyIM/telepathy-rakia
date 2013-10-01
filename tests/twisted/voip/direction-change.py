@@ -155,7 +155,7 @@ class DirectionChange(calltest.CallTest):
         assertEquals(cs.CALL_SENDING_STATE_PENDING_STOP_SENDING,
                      o[1].args[0][self.remote_handle])
         assertEquals(self.self_handle, o[1].args[3][0])
-        assertEquals(cs.CALL_SCR_USER_REQUESTED, o[1].args[3][1])
+        assertEquals(cs.CALL_STATE_CHANGE_REASON_USER_REQUESTED, o[1].args[3][1])
         reinvite_event = o[2]
 
 
@@ -191,7 +191,7 @@ class DirectionChange(calltest.CallTest):
         assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND,
                      o.args[0][self.remote_handle])
         assertEquals(self.self_handle, o.args[3][0])
-        assertEquals(cs.CALL_SCR_USER_REQUESTED, o.args[3][1])
+        assertEquals(cs.CALL_STATE_CHANGE_REASON_USER_REQUESTED, o.args[3][1])
         
         self.context.options_ping(self.q)
         self.q.unforbid_events(invite_event)
@@ -244,7 +244,7 @@ class DirectionChange(calltest.CallTest):
         assertEquals(cs.CALL_SENDING_STATE_PENDING_STOP_SENDING,
                      o[1].args[0][self.remote_handle])
         assertEquals(self.self_handle, o[1].args[3][0])
-        assertEquals(cs.CALL_SCR_USER_REQUESTED, o[1].args[3][1])
+        assertEquals(cs.CALL_STATE_CHANGE_REASON_USER_REQUESTED, o[1].args[3][1])
         reinvite_event = o[2]
 
         self.context.check_call_sdp(reinvite_event.sip_message.body,
@@ -265,7 +265,7 @@ class DirectionChange(calltest.CallTest):
         assertEquals(cs.CALL_SENDING_STATE_NONE,
                      o[1].args[0][self.remote_handle])
         #assertEquals(self.remote_handle, o[1].args[3][0])
-        #assertEquals(cs.CALL_SCR_USER_REQUESTED, o[1].args[3][1])
+        #assertEquals(cs.CALL_STATE_CHANGE_REASON_USER_REQUESTED, o[1].args[3][1])
         
         content.stream.Media.CompleteReceivingStateChange(
             cs.CALL_STREAM_FLOW_STATE_STOPPED)
@@ -300,7 +300,7 @@ class DirectionChange(calltest.CallTest):
         assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND,
                      o[1].args[0][self.remote_handle])
         assertEquals(self.self_handle, o[1].args[3][0])
-        assertEquals(cs.CALL_SCR_USER_REQUESTED, o[1].args[3][1])
+        assertEquals(cs.CALL_STATE_CHANGE_REASON_USER_REQUESTED, o[1].args[3][1])
         reinvite_event = o[2]
 
         assertDoesNotContain('a=sendonly', reinvite_event.sip_message.body)
@@ -320,7 +320,7 @@ class DirectionChange(calltest.CallTest):
         assertEquals(cs.CALL_SENDING_STATE_SENDING,
                      o[1].args[0][self.remote_handle])
         #assertEquals(self.remote_handle, o[1].args[3][0])
-        #assertEquals(cs.CALL_SCR_USER_REQUESTED, o[1].args[3][1])
+        #assertEquals(cs.CALL_STATE_CHANGE_REASON_USER_REQUESTED, o[1].args[3][1])
 
 
     def stop_start_receiving_user_requested(self, content):
@@ -353,7 +353,7 @@ class DirectionChange(calltest.CallTest):
         assertEquals(cs.CALL_SENDING_STATE_PENDING_SEND,
                      o[1].args[0][self.remote_handle])
         assertEquals(self.self_handle, o[1].args[3][0])
-        assertEquals(cs.CALL_SCR_USER_REQUESTED, o[1].args[3][1])
+        assertEquals(cs.CALL_STATE_CHANGE_REASON_USER_REQUESTED, o[1].args[3][1])
         reinvite_event = o[2]
 
         assertDoesNotContain('a=sendonly', reinvite_event.sip_message.body)
@@ -439,13 +439,13 @@ class DirectionChange(calltest.CallTest):
 
         if receiving:
             self.contents[0].stream.Media.ReportReceivingFailure(
-                cs.CALL_SCR_MEDIA_ERROR, "", "")
+                cs.CALL_STATE_CHANGE_REASON_MEDIA_ERROR, "", "")
             events = self.stream_dbus_signal_event(
                 'SendingStateChanged',
                 args=[cs.CALL_STREAM_FLOW_STATE_PENDING_STOP])
         else:
              self.contents[0].stream.Media.ReportSendingFailure(
-                cs.CALL_SCR_MEDIA_ERROR, "", "")
+                cs.CALL_STATE_CHANGE_REASON_MEDIA_ERROR, "", "")
              events = self.stream_dbus_signal_event(
                  'ReceivingStateChanged',
                  args=[cs.CALL_STREAM_FLOW_STATE_PENDING_STOP])
@@ -504,7 +504,7 @@ class DirectionChange(calltest.CallTest):
         self.sending = False
 
         content.stream.Media.ReportSendingFailure(
-            cs.CALL_SCR_MEDIA_ERROR, "", "sending error")
+            cs.CALL_STATE_CHANGE_REASON_MEDIA_ERROR, "", "sending error")
 
         o = self.q.expect_many(
             EventPattern('dbus-signal', signal='SendingStateChanged',
@@ -540,7 +540,7 @@ class DirectionChange(calltest.CallTest):
                                                   'SendingState') == cs.CALL_STREAM_FLOW_STATE_STARTED
 
         content.stream.Media.ReportReceivingFailure(
-            cs.CALL_SCR_MEDIA_ERROR, "", "receiving error")
+            cs.CALL_STATE_CHANGE_REASON_MEDIA_ERROR, "", "receiving error")
 
         o = self.q.expect_many(
             EventPattern('dbus-signal', signal='ReceivingStateChanged',

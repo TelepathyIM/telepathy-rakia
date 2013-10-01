@@ -457,7 +457,7 @@ class CallTest:
             assertEquals(0, o[0].args[1])
             assertEquals(self.remote_handle, o[0].args[2][0])
         else:
-            self.chan.Call1.Hangup(cs.CALL_SCR_USER_REQUESTED, "",
+            self.chan.Call1.Hangup(cs.CALL_STATE_CHANGE_REASON_USER_REQUESTED, "",
                                    "User hangs up")
             ended_event, bye_event = self.q.expect_many(
                 EventPattern('dbus-signal', signal='CallStateChanged'),
@@ -465,7 +465,7 @@ class CallTest:
             # Check that we're the actor
             assertEquals(cs.CALL_STATE_ENDED, ended_event.args[0])
             assertEquals(0, ended_event.args[1])
-            assertEquals((self.self_handle, cs.CALL_SCR_USER_REQUESTED, "",
+            assertEquals((self.self_handle, cs.CALL_STATE_CHANGE_REASON_USER_REQUESTED, "",
                           "User hangs up"), ended_event.args[2])
     
             # For completeness, reply to the BYE.

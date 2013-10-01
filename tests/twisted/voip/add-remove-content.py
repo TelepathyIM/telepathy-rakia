@@ -134,7 +134,7 @@ class AddRemoveContent(calltest.CallTest):
                          path=self.chan.__dbus_object_path__))
         assertEquals(content.__dbus_object_path__, content_removed.args[0])
         assertEquals(self.self_handle, content_removed.args[1][0])
-        assertEquals(cs.CALL_SCR_USER_REQUESTED, content_removed.args[1][1])
+        assertEquals(cs.CALL_STATE_CHANGE_REASON_USER_REQUESTED, content_removed.args[1][1])
 
         self.medias[x] = (None, None)
         
