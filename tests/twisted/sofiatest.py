@@ -4,6 +4,7 @@ Telepathy-Rakia testing framework
 
 import servicetest
 from servicetest import (unwrap, Event)
+import constants as cs
 
 from twisted.protocols import sip
 from twisted.internet import reactor
@@ -107,8 +108,7 @@ def go(params=None, register_cb=default_register_cb, start=None):
     handler.data = {
         'bus': bus,
         'conn': conn,
-        'conn_iface': dbus.Interface(conn,
-            'org.freedesktop.Telepathy.Connection'),
+        'conn_iface': dbus.Interface(conn, cs.CONN),
         'sip': sip}
     handler.data['test'] = handler
     handler.data['sip'].test_handler = handler
