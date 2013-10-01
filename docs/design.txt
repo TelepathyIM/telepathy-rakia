@@ -38,7 +38,7 @@ Outbound calls
 --------------
 
 - client requests a channel with type of "StreamedMedia" with remote URI XXX
-  using the RequestChannel method (if:org.freedesktop.Telepathy.Connection)
+  using the RequestChannel method (if:im.telepathy1.Connection)
     - SIPMediaChannel (sipchan) and SIPMediaSession (sipsess) objects are created
     - 'sipsess' emits NewSessionHandler
     - SIPConnection emits NewChannel
