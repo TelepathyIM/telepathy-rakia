@@ -359,7 +359,7 @@ rakia_text_channel_close (TpBaseChannel *base)
  * rakia_text_channel_destroy
  *
  * Implements D-Bus method Destroy
- * on interface org.freedesktop.Telepathy.Channel.Interface.Destroyable
+ * on interface Channel.Interface.Destroyable
  */
 static void
 rakia_text_channel_destroy (TpSvcChannelInterfaceDestroyable *iface,

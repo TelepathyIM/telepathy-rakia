@@ -37,7 +37,7 @@
  *
  * Defines the function pointer signature for codec parameter formatters.
  * A formatter takes a codec parameter map as passed in
- * a org.freedesktop.Telepathy.Media.StreamHandler codec structure,
+ * a Media.StreamHandler codec structure,
  * and outputs its SDP representation, as per the value for an
  * <literal>a=fmtp</literal> attribute, into the string buffer @out.
  *

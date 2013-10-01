@@ -76,7 +76,7 @@ rakia_base_connection_init (RakiaBaseConnection *self)
   tp_contacts_mixin_init (object,
       G_STRUCT_OFFSET (RakiaBaseConnection, contacts_mixin));
 
-  /* org.freedesktop.Telepathy.Connection attributes */
+  /* Connection attributes */
   tp_base_connection_register_with_contacts_mixin (base);
 }
 
