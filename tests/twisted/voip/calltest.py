@@ -244,10 +244,10 @@ class CallTest:
                     cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_CALL,
                     cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
                     cs.TARGET_HANDLE: self.remote_handle,
-                    cs.INITIAL_AUDIO: self.initial_audio_content_name is not None,
-                    cs.INITIAL_AUDIO_NAME: self.initial_audio_content_name or "",
-                    cs.INITIAL_VIDEO: self.initial_video_content_name is not None,
-                    cs.INITIAL_VIDEO_NAME: self.initial_video_content_name or "",
+                    cs.CALL_INITIAL_AUDIO: self.initial_audio_content_name is not None,
+                    cs.CALL_INITIAL_AUDIO_NAME: self.initial_audio_content_name or "",
+                    cs.CALL_INITIAL_VIDEO: self.initial_video_content_name is not None,
+                    cs.CALL_INITIAL_VIDEO_NAME: self.initial_video_content_name or "",
                     })[0]
 
         nc = self.q.expect('dbus-signal', signal='NewChannels')

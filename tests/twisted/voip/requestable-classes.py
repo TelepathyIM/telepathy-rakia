@@ -40,13 +40,13 @@ def rccs(q, bus, conn, stream):
         fixed, allowed = media_class
 
         assertEquals(cs.HT_CONTACT, fixed[cs.TARGET_HANDLE_TYPE])
-        assert fixed.has_key(cs.INITIAL_AUDIO) or fixed.has_key(cs.INITIAL_VIDEO)
+        assert fixed.has_key(cs.CALL_INITIAL_AUDIO) or fixed.has_key(cs.CALL_INITIAL_VIDEO)
 
         expected_allowed = [
             cs.TARGET_ID, cs.TARGET_HANDLE,
-            cs.INITIAL_VIDEO, cs.INITIAL_AUDIO,
-            cs.INITIAL_VIDEO_NAME, cs.INITIAL_AUDIO_NAME,
-            cs.INITIAL_TRANSPORT,
+            cs.CALL_INITIAL_VIDEO, cs.CALL_INITIAL_AUDIO,
+            cs.CALL_INITIAL_VIDEO_NAME, cs.CALL_INITIAL_AUDIO_NAME,
+            cs.CALL_INITIAL_TRANSPORT,
             cs.DTMF_INITIAL_TONES,
             ]
 
