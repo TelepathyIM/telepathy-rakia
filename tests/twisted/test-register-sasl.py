@@ -5,6 +5,8 @@ Test SIP registration failure.
 import dbus
 
 from sofiatest import exec_test
+from servicetest import assertEquals
+import constants as cs
 
 def test(q, bus, conn, sip):
     conn.Connect()
@@ -14,13 +16,10 @@ def test(q, bus, conn, sip):
     
     nc = q.expect('dbus-signal', signal='NewChannels')
     (((path, props),),) = nc.args
-    assert props['org.freedesktop.Telepathy.Channel.ChannelType'] == \
-            'org.freedesktop.Telepathy.Channel.Type.ServerAuthentication'
-    assert props['org.freedesktop.Telepathy.Channel.Interface.SASLAuthentication.AvailableMechanisms'] == \
-            ['X-TELEPATHY-PASSWORD']
+    assertEquals(cs.CHANNEL_TYPE_SERVER_AUTHENTICATION, props[cs.CHANNEL_TYPE])
+    assertEquals(['X-TELEPATHY-PASSWORD'], props[cs.SASL_AVAILABLE_MECHANISMS])
     
-    chan = dbus.Interface(bus.get_object(conn._named_service, path),
-                          "org.freedesktop.Telepathy.Channel.Interface.SASLAuthentication")
+    chan = dbus.Interface(bus.get_object(conn._named_service, path), cs.CHANNEL_IFACE_SASL_AUTH)
     
     chan.StartMechanismWithData('X-TELEPATHY-PASSWORD', 'wrong password')
     chan.AcceptSASL()

@@ -9,8 +9,6 @@ from servicetest import assertEquals, sync_dbus
 from sofiatest import exec_test
 import constants as cs
 from config import DEBUGGING
-path = '/org/freedesktop/Telepathy/debug'
-iface = 'org.freedesktop.Telepathy.Debug'
 
 def test(q, bus, conn, stream):
     conn.Connect()
@@ -21,8 +19,8 @@ def test(q, bus, conn, stream):
     def new_message(timestamp, domain, level, string):
         messages.append((timestamp, domain, level, string))
 
-    debug = bus.get_object(conn.bus_name, path)
-    debug_iface = dbus.Interface(debug, iface)
+    debug = bus.get_object(conn.bus_name, cs.DEBUG_PATH)
+    debug_iface = dbus.Interface(debug, cs.DEBUG_IFACE)
     debug_iface.connect_to_signal('NewDebugMessage', new_message)
     props_iface = dbus.Interface(debug, cs.PROPERTIES_IFACE)
 
@@ -31,8 +29,8 @@ def test(q, bus, conn, stream):
     # Turn signalling on and generate some messages.
 
     assert len(messages) == 0
-    assert props_iface.Get(iface, 'Enabled') == False
-    props_iface.Set(iface, 'Enabled', True)
+    assert props_iface.Get(cs.DEBUG_IFACE, 'Enabled') == False
+    props_iface.Set(cs.DEBUG_IFACE, 'Enabled', True)
 
     channel_path = conn.RequestChannel(
         cs.CHANNEL_TYPE_TEXT, cs.HT_CONTACT, conn.GetSelfHandle(), True)
@@ -45,7 +43,7 @@ def test(q, bus, conn, stream):
 
     # Turn signalling off and check we don't get any more messages.
 
-    props_iface.Set(iface, 'Enabled', False)
+    props_iface.Set(cs.DEBUG_IFACE, 'Enabled', False)
     sync_dbus(bus, q, conn)
     snapshot = list(messages)
 
