@@ -17,13 +17,7 @@ def test(q, bus, conn, sip):
     protocols = unwrap(cm_prop_iface.Get(cs.CM, 'Protocols'))
     assertEquals(set(['sip']), set(protocols.keys()))
 
-    protocol_names = unwrap(cm_iface.ListProtocols())
-    assertEquals(set(['sip']), set(protocol_names))
-
-    cm_params = cm_iface.GetParameters('sip')
     local_props = protocols['sip']
-    local_params = local_props[cs.PROTOCOL + '.Parameters']
-    assertEquals(cm_params, local_params)
 
     proto = bus.get_object(cm.bus_name, cm.object_path + '/sip')
     proto_iface = dbus.Interface(proto, cs.PROTOCOL)
