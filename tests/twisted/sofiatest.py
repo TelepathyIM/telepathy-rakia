@@ -3,6 +3,7 @@ Telepathy-Rakia testing framework
 """
 
 import servicetest
+from servicetest import (unwrap, Event)
 
 from twisted.protocols import sip
 from twisted.internet import reactor
@@ -72,6 +73,22 @@ def prepare_test(event_func, register_cb, params=None):
     bus = dbus.SessionBus()
     conn = servicetest.make_connection(bus, event_func,
         'sofiasip', 'sip', actual_params)
+
+    bus.add_signal_receiver(
+        lambda *args, **kw:
+            event_func(
+                Event('dbus-signal',
+                    path=unwrap(kw['path']),
+                    signal=kw['member'], args=map(unwrap, args),
+                    interface=kw['interface'])),
+        None,       # signal name
+        None,       # interface
+        None,
+        path_keyword='path',
+        member_keyword='member',
+        interface_keyword='interface',
+        byte_arrays=True
+        )
 
     port = int(actual_params['port'])
     sip = SipProxy(host=actual_params['proxy-host'], port=port)
