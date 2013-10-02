@@ -13,17 +13,16 @@ def test(q, bus, conn, sip_proxy):
 
     self_handle = conn.Get(cs.CONN, 'SelfHandle', dbus_interface=cs.PROPERTIES_IFACE)
 
-    default_alias = conn.Aliasing.GetAliases([self_handle])[self_handle]
+    attrs = conn.Contacts.GetContactAttributes([self_handle], [cs.CONN_IFACE_ALIASING])
+    default_alias = attrs[self_handle][cs.CONN_IFACE_ALIASING + "/alias"]
 
     conn.Aliasing.SetAliases({self_handle: 'foo@bar.baz'})
 
     event = q.expect('dbus-signal', signal='AliasesChanged',
-        args=[[(self_handle, u'foo@bar.baz')]])
+            args=[{self_handle: u'foo@bar.baz'}])
 
     handle = conn.get_contact_handle_sync('sip:user@somewhere.com')
 
-    assert cs.CONN_IFACE_ALIASING in \
-        conn.Properties.Get(cs.CONN_IFACE_CONTACTS, "ContactAttributeInterfaces")
     attrs = conn.Contacts.GetContactAttributes([self_handle, handle],
 	[cs.CONN_IFACE_ALIASING])
     assert cs.CONN_IFACE_ALIASING + "/alias" in attrs[self_handle]
