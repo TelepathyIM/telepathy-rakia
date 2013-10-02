@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from servicetest import (unwrap, assertSameSets, assertEquals)
+from servicetest import (unwrap, assertSameSets, assertEquals, assertContains)
 from sofiatest import exec_test
 import constants as cs
 
@@ -29,8 +29,7 @@ def test_new_channel(q, bus, conn, target_uri, initiator_uri, requested):
             dbus_interface='org.freedesktop.DBus.Properties')
     assert text_props['ChannelType'] == cs.CHANNEL_TYPE_TEXT, text_props
     assert 'Interfaces' in text_props, text_props
-    assertSameSets((cs.CHANNEL_IFACE_MESSAGES, cs.CHANNEL_IFACE_DESTROYABLE),
-            text_props['Interfaces'])
+    assertContains(cs.CHANNEL_IFACE_DESTROYABLE, text_props['Interfaces'])
     assert 'TargetHandle' in text_props, text_props
     assert text_props['TargetHandle'] == handle, \
             (text_props, handle)
@@ -71,22 +70,31 @@ def test(q, bus, conn, sip):
 
     iface = dbus.Interface(requested_obj, cs.CHANNEL_TYPE_TEXT)
 
-    iface.Send(0, 'Hello')
+    msg = [ {'message-type': cs.MT_NORMAL },
+            {'content-type': 'text/plain',
+             'content': 'Hello' }]
+
+    iface.SendMessage(msg, 0)
 
     event = q.expect('sip-message', uri='sip:user@somewhere.com', body='Hello')
     sip.deliverResponse(sip.responseFromRequest(404, event.sip_message))
 
-    q.expect('dbus-signal', signal='SendError')
+    event = q.expect('dbus-signal', signal='MessageReceived')
+    msg = event.args[0]
+    assert msg[0]['message-type'] == cs.MT_DELIVERY_REPORT
+    assert msg[0]['delivery-status'] == cs.DELIVERY_STATUS_PERMANENTLY_FAILED
 
-    iface.Send(0, 'Hello Again')
+    msg = [ {'message-type': cs.MT_NORMAL },
+            {'content-type': 'text/plain',
+             'content': 'Hello Again' }]
+
+    iface.SendMessage(msg, 0)
 
     event = q.expect('sip-message', uri='sip:user@somewhere.com',
         body='Hello Again')
     sip.deliverResponse(sip.responseFromRequest(200, event.sip_message))
 
     ua_via = twisted.protocols.sip.parseViaHeader(event.headers['via'][0])
-
-    conn.ReleaseHandles(1, [handle])
 
     call_id = 'XYZ@localhost'
     send_message(sip, ua_via, 'Hi', call_id=call_id, time=1234567890)
@@ -121,16 +129,14 @@ def test(q, bus, conn, sip):
     # try with US ASCII and ISO 8859-1.
 
     send_message(sip, ua_via, u'straight ASCII'.encode('us-ascii'), encoding='us-ascii')
-    event = q.expect('dbus-signal', signal='Received')
-    assert event.args[5] == 'straight ASCII'
+    event = q.expect('dbus-signal', signal='MessageReceived')
+    assert event.args[0][1]['content'] == 'straight ASCII'
 
-    iface.AcknowledgePendingMessages([event.args[0]])
+    iface.AcknowledgePendingMessages([event.args[0][0]['pending-message-id']])
 
     send_message(sip, ua_via, u'Hyv\xe4!'.encode('iso-8859-1'), encoding='iso-8859-1')
-    event = q.expect('dbus-signal', signal='Received')
-    assert event.args[5] == u'Hyv\xe4!'
-
-    conn.ReleaseHandles(1, [handle])
+    event = q.expect('dbus-signal', signal='MessageReceived')
+    assert event.args[0][1]['content'] == u'Hyv\xe4!'
 
     iface = dbus.Interface(incoming_obj, cs.CHANNEL_IFACE_DESTROYABLE)
     iface.Destroy()
@@ -143,15 +149,15 @@ def test(q, bus, conn, sip):
 
     send_message(sip, ua_via, 'How are you doing now, old pal?',
                  sender=contact)
-    event = q.expect('dbus-signal', signal='Received', path=chan)
-    assert event.args[5] == 'How are you doing now, old pal?'
-    pending_msgs.append(tuple(event.args))
+    event = q.expect('dbus-signal', signal='MessageReceived', path=chan)
+    assert event.args[0][1]['content'] == 'How are you doing now, old pal?'
+    pending_msgs.append(event.args[0])
 
     send_message(sip, ua_via, 'I hope you can receive it',
                  sender=contact)
-    event = q.expect('dbus-signal', signal='Received')
-    assert event.args[5] == 'I hope you can receive it'
-    pending_msgs.append(tuple(event.args))
+    event = q.expect('dbus-signal', signal='MessageReceived')
+    assert event.args[0][1]['content'] == 'I hope you can receive it'
+    pending_msgs.append(event.args[0])
 
     # Don't acknowledge the last messages, close the channel so that it's reopened
     dbus.Interface(requested_obj, cs.CHANNEL).Close()
@@ -171,14 +177,17 @@ def test(q, bus, conn, sip):
 
     iface = dbus.Interface(requested_obj, cs.CHANNEL_TYPE_TEXT)
 
-    pending_res = iface.ListPendingMessages(False)
+    pending_res = requested_obj.Get(cs.CHANNEL_TYPE_TEXT, 'PendingMessages', dbus_interface=cs.PROPERTIES_IFACE)
     assert pending_msgs == pending_res[1:], (pending_msgs, unwrap(pending_res)[1:])
 
-    pending_res = iface.ListPendingMessages(True)
-    assert pending_msgs == pending_res[1:], (pending_msgs, unwrap(pending_res)[1:])
+    # ack them all
+    ids = []
+    for msg in pending_res:
+        ids.append(msg[0]['pending-message-id'])
+    iface.AcknowledgePendingMessages(ids)
 
     # There should be no pending messages any more
-    pending_res = iface.ListPendingMessages(False)
+    pending_res = requested_obj.Get(cs.CHANNEL_TYPE_TEXT, 'PendingMessages', dbus_interface=cs.PROPERTIES_IFACE)
     assert pending_res == [], pending_res
 
     del iface
@@ -234,8 +243,8 @@ def send_message(sip, destVia, body,
 
 def message_with_resqued(msg):
     l = list(msg)
-    l[4] = 8
-    return tuple(l)
+    l[0]['rescued'] = True
+    return list(l)
 
 if __name__ == '__main__':
     exec_test(test)
