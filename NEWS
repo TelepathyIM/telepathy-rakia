@@ -7,10 +7,18 @@ formerly known as Telepathy-SofiaSIP (most recent at the top).
 
 See also ChangeLog.
 
-telepathy-rakia 0.7.6 (UNRELEASED)
+telepathy-rakia 0.9.0 (UNRELEASED)
 ----------------------------------
 
-…
+...
+
+telepathy-rakia 0.8.0 (2013-10-02)
+----------------------------------
+
+The “Origin” release. This is a new stable branch, recommended for
+GNOME 3.10-based distributions.
+
+No code changes since 0.7.5.
 
 telepathy-rakia 0.7.5 (2013-09-10)
 ----------------------------------
