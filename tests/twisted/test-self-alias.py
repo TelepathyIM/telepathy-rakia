@@ -3,13 +3,9 @@
 #
 
 from sofiatest import exec_test
-from servicetest import tp_name_prefix
+import constants as cs
 
 import dbus
-
-TEXT_TYPE = tp_name_prefix + '.Channel.Type.Text'
-ALIASING_INTERFACE = tp_name_prefix + '.Connection.Interface.Aliasing'
-CONTACTS_INTERFACE = tp_name_prefix + '.Connection.Interface.Contacts'
 
 def test(q, bus, conn, sip_proxy):
     conn.Connect()
@@ -26,19 +22,19 @@ def test(q, bus, conn, sip_proxy):
 
     handle = conn.RequestHandles(1, ['sip:user@somewhere.com'])[0]
 
-    assert ALIASING_INTERFACE in \
-        conn.Properties.Get(CONTACTS_INTERFACE, "ContactAttributeInterfaces")
+    assert cs.CONN_IFACE_ALIASING in \
+        conn.Properties.Get(cs.CONN_IFACE_CONTACTS, "ContactAttributeInterfaces")
     attrs = conn.Contacts.GetContactAttributes([self_handle, handle],
-	[ALIASING_INTERFACE], False)
-    assert ALIASING_INTERFACE + "/alias" in attrs[self_handle]
-    assert attrs[self_handle][ALIASING_INTERFACE + "/alias"] == u'foo@bar.baz'
+	[cs.CONN_IFACE_ALIASING], False)
+    assert cs.CONN_IFACE_ALIASING + "/alias" in attrs[self_handle]
+    assert attrs[self_handle][cs.CONN_IFACE_ALIASING + "/alias"] == u'foo@bar.baz'
 
-    conn.RequestChannel(TEXT_TYPE, 1, handle, True)
+    conn.RequestChannel(cs.CHANNEL_TYPE_TEXT, 1, handle, True)
 
     event = q.expect('dbus-signal', signal='NewChannel')
 
     text_iface = dbus.Interface(bus.get_object(conn.bus_name, event.args[0]),
-                               TEXT_TYPE)
+            cs.CHANNEL_TYPE_TEXT)
     text_iface.Send(0, 'Check the display name in From')
 
     event = q.expect('sip-message')
