@@ -59,9 +59,8 @@ class CallTest:
         self.context = VoipTestContext(self.q, self.conn, self.bus,
                                        self.sip_proxy,
                                        'sip:testacc@127.0.0.1', self.peer)
-        self.self_handle = self.conn.GetSelfHandle()
-        self.remote_handle = self.conn.RequestHandles(1,
-                                                      [self.context.peer])[0]
+        self.self_handle = self.conn.Get(cs.CONN, 'SelfHandle', dbus_interface=cs.PROPERTIES_IFACE)
+        self.remote_handle = self.conn.get_contact_handle_sync(self.context.peer)
 
     def check_channel_props(self, props, initial):
         assertEquals(cs.CHANNEL_TYPE_CALL, props[cs.CHANNEL_TYPE])

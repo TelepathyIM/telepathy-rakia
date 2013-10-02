@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from servicetest import (unwrap, assertSameSets)
+from servicetest import (unwrap, assertSameSets, assertEquals)
 from sofiatest import exec_test
 import constants as cs
 
@@ -16,12 +16,14 @@ import uuid
 FROM_URL = 'sip:other.user@somewhere.else.com'
 
 def test_new_channel(q, bus, conn, target_uri, initiator_uri, requested):
-    event = q.expect('dbus-signal', signal='NewChannel')
-    assert (event.args[1] == cs.CHANNEL_TYPE_TEXT and event.args[2] == 1)
-    handle = event.args[3]
-    obj = bus.get_object(conn._named_service, event.args[0])
+    event = q.expect('dbus-signal', signal='NewChannels')
+    path, props = event.args[0][0]
+    assertEquals(cs.CHANNEL_TYPE_TEXT, props[cs.CHANNEL_TYPE])
+    assertEquals(cs.HT_CONTACT, props[cs.TARGET_HANDLE_TYPE])
+    handle = props[cs.TARGET_HANDLE]
+    obj = bus.get_object(conn._named_service, path)
 
-    initiator_handle = conn.RequestHandles(1, [initiator_uri])[0]
+    initiator_handle = conn.get_contact_handle_sync(initiator_uri)
 
     text_props = obj.GetAll(cs.CHANNEL,
             dbus_interface='org.freedesktop.DBus.Properties')
@@ -42,21 +44,22 @@ def test_new_channel(q, bus, conn, target_uri, initiator_uri, requested):
     assert 'Requested' in text_props, text_props
     assert text_props['Requested'] == requested, text_props
 
-    if initiator_handle != handle:
-        conn.ReleaseHandles(1, [initiator_handle])
-
     return obj, handle
 
 def test(q, bus, conn, sip):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
-    self_handle = conn.GetSelfHandle()
-    self_uri = conn.InspectHandles(1, [self_handle])[0]
+    self_handle = conn.Get(cs.CONN, 'SelfHandle', dbus_interface=cs.PROPERTIES_IFACE)
+    self_uri = conn.inspect_contact_sync(self_handle)
 
     contact = 'sip:user@somewhere.com'
-    handle = conn.RequestHandles(1, [contact])[0]
-    chan = conn.RequestChannel(cs.CHANNEL_TYPE_TEXT, 1, handle, True)
+    handle = conn.get_contact_handle_sync(contact)
+
+    chan, _ = conn.Requests.CreateChannel(
+            { cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
+                cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
+                cs.TARGET_HANDLE: handle })
 
     requested_obj, target_handle = test_new_channel (q, bus, conn,
         target_uri=contact,
@@ -95,7 +98,7 @@ def test(q, bus, conn, sip):
 
     iface = dbus.Interface(incoming_obj, cs.CHANNEL_TYPE_TEXT)
 
-    name = conn.InspectHandles(1, [handle])[0]
+    name = conn.inspect_contact_sync(handle)
     assert name == FROM_URL
 
     event = q.expect('dbus-signal', signal='MessageReceived')

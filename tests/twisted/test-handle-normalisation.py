@@ -31,8 +31,8 @@ def test(q, bus, conn, sip):
     orig = [ x[0] for x in tests ]
     expect = [ x[1] for x in tests ]
 
-    handles = conn.RequestHandles(1, orig)
-    names = conn.InspectHandles(1, handles)
+    handles = conn.get_contact_handles_sync(orig)
+    names = conn.inspect_contacts_sync(handles)
 
     for a,b in zip(expect, names):
         assertEquals(a, b)

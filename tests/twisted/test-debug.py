@@ -5,7 +5,7 @@ Test the debug message interface.
 
 import dbus
 
-from servicetest import assertEquals, sync_dbus
+from servicetest import assertEquals, sync_dbus, call_async
 from sofiatest import exec_test
 import constants as cs
 from config import DEBUGGING
@@ -32,9 +32,14 @@ def test(q, bus, conn, stream):
     assert props_iface.Get(cs.DEBUG_IFACE, 'Enabled') == False
     props_iface.Set(cs.DEBUG_IFACE, 'Enabled', True)
 
-    channel_path = conn.RequestChannel(
-        cs.CHANNEL_TYPE_TEXT, cs.HT_CONTACT, conn.GetSelfHandle(), True)
-    q.expect('dbus-signal', signal='NewChannel')
+    self_handle = conn.Get(cs.CONN, 'SelfHandle', dbus_interface=cs.PROPERTIES_IFACE)
+
+    channel_path, _ = conn.Requests.CreateChannel(
+            { cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
+                cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
+                cs.TARGET_HANDLE: self_handle })
+
+    q.expect('dbus-signal', signal='NewChannels')
 
     if DEBUGGING:
         assert len(messages) > 0
@@ -51,9 +56,12 @@ def test(q, bus, conn, stream):
     channel.Close(dbus_interface=cs.CHANNEL)
     q.expect('dbus-signal', signal='Closed')
 
-    conn.RequestChannel(
-        cs.CHANNEL_TYPE_TEXT, cs.HT_CONTACT, conn.GetSelfHandle(), True)
-    q.expect('dbus-signal', signal='NewChannel')
+    channel_path, _ = conn.Requests.CreateChannel(
+            { cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
+                cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
+                cs.TARGET_HANDLE: self_handle })
+
+    q.expect('dbus-signal', signal='NewChannels')
 
     assertEquals (snapshot, messages)
 

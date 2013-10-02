@@ -12,14 +12,11 @@ def test(q, bus, conn, stream):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
-    self_handle = conn.GetSelfHandle()
-    self_uri = conn.InspectHandles(1, [self_handle])[0]
+    self_handle = conn.Get(cs.CONN, 'SelfHandle', dbus_interface=cs.PROPERTIES_IFACE)
+    self_uri = conn.inspect_contact_sync(self_handle)
 
     uri = 'sip:foo@bar.com'
-    call_async(q, conn, 'RequestHandles', 1, [uri])
-
-    event = q.expect('dbus-return', method='RequestHandles')
-    foo_handle = event.value[0][0]
+    foo_handle = conn.get_contact_handle_sync(uri)
 
     properties = conn.GetAll(cs.CONN_IFACE_REQUESTS,
             dbus_interface=cs.PROPERTIES_IFACE)
@@ -36,9 +33,8 @@ def test(q, bus, conn, stream):
               cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
               cs.TARGET_HANDLE: foo_handle })
 
-    ret, old_sig, new_sig = q.expect_many(
+    ret, new_sig = q.expect_many(
         EventPattern('dbus-return', method='CreateChannel'),
-        EventPattern('dbus-signal', signal='NewChannel'),
         EventPattern('dbus-signal', signal='NewChannels'),
         )
 
@@ -51,12 +47,6 @@ def test(q, bus, conn, stream):
     assertEquals(True, emitted_props[cs.REQUESTED])
     assertEquals(self_handle, emitted_props[cs.INITIATOR_HANDLE])
     assertEquals(self_uri, emitted_props[cs.INITIATOR_ID])
-
-    assert old_sig.args[0] == ret.value[0]
-    assert old_sig.args[1] == cs.CHANNEL_TYPE_TEXT
-    assert old_sig.args[2] == cs.HT_CONTACT
-    assert old_sig.args[3] == foo_handle
-    assert old_sig.args[4] == True      # suppress handler
 
     assert len(new_sig.args) == 1
     assert len(new_sig.args[0]) == 1        # one channel
