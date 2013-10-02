@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from servicetest import (tp_name_prefix, tp_path_prefix, unwrap,
-        assertSameSets)
-from sofiatest import go, exec_test
+from servicetest import (unwrap, assertSameSets)
+from sofiatest import exec_test
 import constants as cs
 
 import twisted.protocols.sip
@@ -14,22 +13,19 @@ import uuid
 
 # Test message channels
 
-CHANNEL = tp_name_prefix + '.Channel'
-TEXT_TYPE = tp_name_prefix + '.Channel.Type.Text'
-
 FROM_URL = 'sip:other.user@somewhere.else.com'
 
 def test_new_channel(q, bus, conn, target_uri, initiator_uri, requested):
     event = q.expect('dbus-signal', signal='NewChannel')
-    assert (event.args[1] == TEXT_TYPE and event.args[2] == 1)
+    assert (event.args[1] == cs.CHANNEL_TYPE_TEXT and event.args[2] == 1)
     handle = event.args[3]
     obj = bus.get_object(conn._named_service, event.args[0])
 
     initiator_handle = conn.RequestHandles(1, [initiator_uri])[0]
 
-    text_props = obj.GetAll(CHANNEL,
+    text_props = obj.GetAll(cs.CHANNEL,
             dbus_interface='org.freedesktop.DBus.Properties')
-    assert text_props['ChannelType'] == TEXT_TYPE, text_props
+    assert text_props['ChannelType'] == cs.CHANNEL_TYPE_TEXT, text_props
     assert 'Interfaces' in text_props, text_props
     assertSameSets((cs.CHANNEL_IFACE_MESSAGES, cs.CHANNEL_IFACE_DESTROYABLE),
             text_props['Interfaces'])
@@ -60,7 +56,7 @@ def test(q, bus, conn, sip):
 
     contact = 'sip:user@somewhere.com'
     handle = conn.RequestHandles(1, [contact])[0]
-    chan = conn.RequestChannel(TEXT_TYPE, 1, handle, True)
+    chan = conn.RequestChannel(cs.CHANNEL_TYPE_TEXT, 1, handle, True)
 
     requested_obj, target_handle = test_new_channel (q, bus, conn,
         target_uri=contact,
@@ -70,7 +66,7 @@ def test(q, bus, conn, sip):
     assert requested_obj.object_path == chan, requested_obj.object_path
     assert target_handle == handle, (target_handle, handle)
 
-    iface = dbus.Interface(requested_obj, TEXT_TYPE)
+    iface = dbus.Interface(requested_obj, cs.CHANNEL_TYPE_TEXT)
 
     iface.Send(0, 'Hello')
 
@@ -97,7 +93,7 @@ def test(q, bus, conn, sip):
         initiator_uri=FROM_URL,
         requested=False)
 
-    iface = dbus.Interface(incoming_obj, TEXT_TYPE)
+    iface = dbus.Interface(incoming_obj, cs.CHANNEL_TYPE_TEXT)
 
     name = conn.InspectHandles(1, [handle])[0]
     assert name == FROM_URL
@@ -155,7 +151,7 @@ def test(q, bus, conn, sip):
     pending_msgs.append(tuple(event.args))
 
     # Don't acknowledge the last messages, close the channel so that it's reopened
-    dbus.Interface(requested_obj, CHANNEL).Close()
+    dbus.Interface(requested_obj, cs.CHANNEL).Close()
     del requested_obj
 
     event = q.expect('dbus-signal', signal='Closed', path=chan)
@@ -170,7 +166,7 @@ def test(q, bus, conn, sip):
     # The first message is the delivery report of the message we failed to
     # send so we'll skip it.
 
-    iface = dbus.Interface(requested_obj, TEXT_TYPE)
+    iface = dbus.Interface(requested_obj, cs.CHANNEL_TYPE_TEXT)
 
     pending_res = iface.ListPendingMessages(False)
     assert pending_msgs == pending_res[1:], (pending_msgs, unwrap(pending_res)[1:])
@@ -185,7 +181,7 @@ def test(q, bus, conn, sip):
     del iface
 
     # Hit also the code path for closing the channel with no pending messages
-    dbus.Interface(requested_obj, CHANNEL).Close()
+    dbus.Interface(requested_obj, cs.CHANNEL).Close()
     event = q.expect('dbus-signal', signal='Closed')
     del requested_obj
 
