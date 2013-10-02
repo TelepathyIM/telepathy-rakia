@@ -97,8 +97,8 @@ struct _RakiaSipMediaPrivate
   GPtrArray *local_candidates;
   gboolean local_candidates_prepared;
 
-  RakiaDirection direction;
-  RakiaDirection requested_direction;
+  TpMediaStreamDirection direction;
+  TpMediaStreamDirection requested_direction;
 
   gboolean hold_requested;
   gboolean created_locally;
@@ -357,7 +357,7 @@ priv_get_preferred_local_candidates (RakiaSipMedia *media,
 
 static void
 rakia_sip_media_set_direction (RakiaSipMedia *media,
-    RakiaDirection direction)
+    TpMediaStreamDirection direction)
 {
   RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
 
@@ -367,11 +367,11 @@ rakia_sip_media_set_direction (RakiaSipMedia *media,
 }
 
 
-static RakiaDirection
+static TpMediaStreamDirection
 priv_get_sdp_direction (RakiaSipMedia *media, gboolean authoritative)
 {
   RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
-  RakiaDirection direction = priv->requested_direction;
+  TpMediaStreamDirection direction = priv->requested_direction;
 
   DEBUG ("req: %s auth: %d remote: %p %s hold: %d",
       rakia_direction_to_string (direction),
@@ -385,7 +385,7 @@ priv_get_sdp_direction (RakiaSipMedia *media, gboolean authoritative)
 
   /* Don't allow send, only receive if a hold is requested */
   if (priv->hold_requested)
-    direction &= RAKIA_DIRECTION_SEND;
+    direction &= TP_MEDIA_STREAM_DIRECTION_SEND;
 
   if (!authoritative)
     rakia_sip_media_set_direction (media, direction);
@@ -421,16 +421,16 @@ rakia_sip_media_generate_sdp (RakiaSipMedia *media, GString *out,
 
   switch (priv_get_sdp_direction (media, authoritative))
     {
-    case RAKIA_DIRECTION_BIDIRECTIONAL:
+    case TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL:
       dirline = "";
       break;
-    case RAKIA_DIRECTION_SEND:
+    case TP_MEDIA_STREAM_DIRECTION_SEND:
       dirline = "a=sendonly\r\n";
       break;
-    case RAKIA_DIRECTION_RECEIVE:
+    case TP_MEDIA_STREAM_DIRECTION_RECEIVE:
       dirline = "a=recvonly\r\n";
       break;
-    case RAKIA_DIRECTION_NONE:
+    case TP_MEDIA_STREAM_DIRECTION_NONE:
       dirline = "a=inactive\r\n";
       break;
     default:
@@ -548,12 +548,12 @@ rakia_sip_candidate_free (RakiaSipCandidate *candidate)
 
 
 
-RakiaDirection
+TpMediaStreamDirection
 rakia_direction_from_remote_media (const sdp_media_t *media)
 {
   sdp_mode_t mode = media->m_mode;
-  return ((mode & sdp_recvonly)? RAKIA_DIRECTION_SEND : 0)
-       | ((mode & sdp_sendonly)? RAKIA_DIRECTION_RECEIVE : 0);
+  return ((mode & sdp_recvonly)? TP_MEDIA_STREAM_DIRECTION_SEND : 0)
+       | ((mode & sdp_sendonly)? TP_MEDIA_STREAM_DIRECTION_RECEIVE : 0);
 }
 
 
@@ -584,29 +584,29 @@ rakia_sdp_get_string_attribute (const sdp_attribute_t *attrs, const char *name)
 }
 
 
-RakiaDirection
+TpMediaStreamDirection
 rakia_sip_media_get_remote_direction (RakiaSipMedia *media)
 {
   RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
 
   if (priv->remote_media == NULL)
-    return RAKIA_DIRECTION_NONE;
+    return TP_MEDIA_STREAM_DIRECTION_NONE;
 
   return rakia_direction_from_remote_media (priv->remote_media);
 }
 
 
 static void
-priv_update_sending (RakiaSipMedia *media, RakiaDirection send_direction)
+priv_update_sending (RakiaSipMedia *media, TpMediaStreamDirection send_direction)
 {
   RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
-  RakiaDirection recv_direction;
+  TpMediaStreamDirection recv_direction;
 
   /* Only keep the receiving bit from the current direction */
-  recv_direction = priv->direction & RAKIA_DIRECTION_RECEIVE;
+  recv_direction = priv->direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE;
 
   /* And only the sending bit from the new direction */
-  send_direction &= RAKIA_DIRECTION_SEND;
+  send_direction &= TP_MEDIA_STREAM_DIRECTION_SEND;
 
   rakia_sip_media_set_direction (media, send_direction | recv_direction);
 }
@@ -614,7 +614,7 @@ priv_update_sending (RakiaSipMedia *media, RakiaDirection send_direction)
 
 void
 rakia_sip_media_set_requested_direction (RakiaSipMedia *media,
-    RakiaDirection direction)
+    TpMediaStreamDirection direction)
 {
   RakiaSipMediaPrivate *priv = RAKIA_SIP_MEDIA_GET_PRIVATE (media);
 
@@ -822,7 +822,7 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
   gboolean transport_changed = TRUE;
   gboolean codecs_changed = TRUE;
   guint new_direction;
-  RakiaDirection direction_up_mask;
+  TpMediaStreamDirection direction_up_mask;
 
   DEBUG ("enter");
 
@@ -874,7 +874,7 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
    */
   if (authoritative)
     direction_up_mask = priv->hold_requested ?
-        RAKIA_DIRECTION_SEND : RAKIA_DIRECTION_BIDIRECTIONAL;
+        TP_MEDIA_STREAM_DIRECTION_SEND : TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL;
   else
     direction_up_mask = 0;
 
@@ -901,7 +901,7 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
 
       /* Disable sending at this point if it will be disabled
        * accordingly to the new direction */
-      priv_update_sending (media, new_direction & RAKIA_DIRECTION_SEND);
+      priv_update_sending (media, new_direction & TP_MEDIA_STREAM_DIRECTION_SEND);
     }
 
   /* First add the new candidate, then update the codec set.
@@ -951,7 +951,7 @@ rakia_sip_media_set_remote_media (RakiaSipMedia *media,
   return TRUE;
 }
 
-RakiaDirection
+TpMediaStreamDirection
 rakia_sip_media_get_requested_direction (RakiaSipMedia *self)
 {
   return self->priv->requested_direction;
@@ -973,13 +973,13 @@ rakia_sip_media_is_ready (RakiaSipMedia *self)
 
   MEDIA_DEBUG (self, "is_ready, requested_recv: %d can_recv: %d "
       "local_cand_prep: %d local_codecs: %p local_inter_pending: %d",
-      priv->requested_direction & RAKIA_DIRECTION_RECEIVE,
+      priv->requested_direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE,
       priv->can_receive,
       self->priv->local_candidates_prepared,
       self->priv->local_codecs,
       priv->codec_intersect_pending);
 
-  if (priv->requested_direction & RAKIA_DIRECTION_RECEIVE &&
+  if (priv->requested_direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE &&
       !priv->can_receive &&
       !priv->hold_requested)
     return FALSE;
@@ -1105,7 +1105,7 @@ RakiaSipMedia *
 rakia_sip_media_new (RakiaSipSession *session,
     TpMediaStreamType media_type,
     const gchar *name,
-    RakiaDirection requested_direction,
+    TpMediaStreamDirection requested_direction,
     gboolean created_locally,
     gboolean hold_requested)
 {
@@ -1113,7 +1113,7 @@ rakia_sip_media_new (RakiaSipSession *session,
 
   g_return_val_if_fail (media_type == TP_MEDIA_STREAM_TYPE_VIDEO ||
       media_type == TP_MEDIA_STREAM_TYPE_AUDIO, NULL);
-  g_return_val_if_fail (requested_direction <= RAKIA_DIRECTION_BIDIRECTIONAL,
+  g_return_val_if_fail (requested_direction <= TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL,
       NULL);
 
   self = g_object_new (RAKIA_TYPE_SIP_MEDIA, NULL);
@@ -1159,7 +1159,7 @@ rakia_sip_media_codecs_rejected (RakiaSipMedia *media)
     }
 }
 
-RakiaDirection
+TpMediaStreamDirection
 rakia_sip_media_get_direction (RakiaSipMedia *media)
 {
   return media->priv->direction;
@@ -1186,7 +1186,7 @@ rakia_sip_media_get_hold_requested (RakiaSipMedia *media)
 gboolean
 rakia_sip_media_is_held (RakiaSipMedia *media)
 {
-  return !(media->priv->direction & RAKIA_DIRECTION_SEND);
+  return !(media->priv->direction & TP_MEDIA_STREAM_DIRECTION_SEND);
 }
 
 void
@@ -1217,17 +1217,17 @@ rakia_sip_media_has_remote_media (RakiaSipMedia *media)
 }
 
 const gchar *
-rakia_direction_to_string (RakiaDirection direction)
+rakia_direction_to_string (TpMediaStreamDirection direction)
 {
   switch (direction)
     {
-    case RAKIA_DIRECTION_NONE:
+    case TP_MEDIA_STREAM_DIRECTION_NONE:
       return "none";
-    case RAKIA_DIRECTION_SEND:
+    case TP_MEDIA_STREAM_DIRECTION_SEND:
       return "send";
-    case RAKIA_DIRECTION_RECEIVE:
+    case TP_MEDIA_STREAM_DIRECTION_RECEIVE:
       return "recv";
-    case RAKIA_DIRECTION_BIDIRECTIONAL:
+    case TP_MEDIA_STREAM_DIRECTION_BIDIRECTIONAL:
       return "bidi";
     default:
       g_warning ("Invalid direction %d", direction);

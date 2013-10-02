@@ -234,7 +234,7 @@ rakia_call_stream_constructed (GObject *object)
 
   /* Put the initial value */
   if (rakia_sip_media_get_requested_direction (priv->media) &
-      RAKIA_DIRECTION_RECEIVE)
+      TP_MEDIA_STREAM_DIRECTION_RECEIVE)
     tp_base_call_stream_update_remote_sending_state (bcs, contact,
         TP_SENDING_STATE_PENDING_SEND, 0,
         TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");
@@ -278,7 +278,7 @@ rakia_call_stream_report_sending_failure (TpBaseMediaCallStream *bmcs,
   RakiaCallStream *self = RAKIA_CALL_STREAM (bmcs);
   TpBaseCallStream *bcs = TP_BASE_CALL_STREAM (self);
   RakiaCallStreamPrivate *priv = self->priv;
-  RakiaDirection current_direction =
+  TpMediaStreamDirection current_direction =
       rakia_sip_media_get_requested_direction (priv->media);
   TpBaseChannel *bchan = TP_BASE_CHANNEL (priv->channel);
   TpHandle self_handle = tp_base_channel_get_self_handle (bchan);
@@ -286,11 +286,11 @@ rakia_call_stream_report_sending_failure (TpBaseMediaCallStream *bmcs,
   tp_base_call_stream_update_local_sending_state (bcs,
       TP_SENDING_STATE_NONE, self_handle, reason, dbus_reason, message);
 
-  if (!(current_direction & RAKIA_DIRECTION_SEND))
+  if (!(current_direction & TP_MEDIA_STREAM_DIRECTION_SEND))
     return;
 
   rakia_sip_media_set_requested_direction (priv->media,
-      current_direction & ~RAKIA_DIRECTION_SEND);
+      current_direction & ~TP_MEDIA_STREAM_DIRECTION_SEND);
 }
 
 static void
@@ -304,9 +304,9 @@ rakia_call_stream_report_receiving_failure (TpBaseMediaCallStream *bmcs,
   TpBaseCallStream *bcs = TP_BASE_CALL_STREAM (self);
   RakiaCallStreamPrivate *priv = self->priv;
   gboolean can_request_receiving;
-  RakiaDirection current_requested_direction =
+  TpMediaStreamDirection current_requested_direction =
       rakia_sip_media_get_requested_direction (priv->media);
-  RakiaDirection current_direction =
+  TpMediaStreamDirection current_direction =
       rakia_sip_media_get_direction (priv->media);
   TpBaseChannel *bchan = TP_BASE_CHANNEL (priv->channel);
 
@@ -320,10 +320,10 @@ rakia_call_stream_report_receiving_failure (TpBaseMediaCallStream *bmcs,
       return;
     }
 
-  if (!(current_requested_direction & RAKIA_DIRECTION_RECEIVE))
+  if (!(current_requested_direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE))
     return;
 
-  if (current_direction & RAKIA_DIRECTION_RECEIVE)
+  if (current_direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE)
     tp_base_call_stream_update_remote_sending_state (bcs,
         tp_base_channel_get_target_handle (bchan),
         TP_SENDING_STATE_PENDING_STOP_SENDING,
@@ -331,7 +331,7 @@ rakia_call_stream_report_receiving_failure (TpBaseMediaCallStream *bmcs,
         reason, dbus_reason, message);
 
   rakia_sip_media_set_requested_direction (priv->media,
-      current_requested_direction & ~RAKIA_DIRECTION_RECEIVE);
+      current_requested_direction & ~TP_MEDIA_STREAM_DIRECTION_RECEIVE);
 }
 
 static GPtrArray *
@@ -437,21 +437,21 @@ static void rakia_call_stream_request_receiving (
   RakiaCallStream *self = RAKIA_CALL_STREAM (stream);
   TpBaseCallStream *bcs = TP_BASE_CALL_STREAM (stream);
   RakiaCallStreamPrivate *priv = self->priv;
-  RakiaDirection current_requested_direction =
+  TpMediaStreamDirection current_requested_direction =
       rakia_sip_media_get_requested_direction (priv->media);
-  RakiaDirection current_direction =
+  TpMediaStreamDirection current_direction =
       rakia_sip_media_get_direction (priv->media);
   TpBaseChannel *bchan = TP_BASE_CHANNEL (priv->channel);
 
-  if ((!!(current_requested_direction & RAKIA_DIRECTION_RECEIVE)) == receive)
+  if ((!!(current_requested_direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE)) == receive)
     return;
 
   if (receive)
     {
       rakia_sip_media_set_requested_direction (priv->media,
-          current_requested_direction | RAKIA_DIRECTION_RECEIVE);
+          current_requested_direction | TP_MEDIA_STREAM_DIRECTION_RECEIVE);
 
-      if (current_direction & RAKIA_DIRECTION_RECEIVE)
+      if (current_direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE)
            tp_base_call_stream_update_remote_sending_state (bcs,
                tp_base_channel_get_target_handle (bchan),
                TP_SENDING_STATE_SENDING,
@@ -462,9 +462,9 @@ static void rakia_call_stream_request_receiving (
   else
     {
       rakia_sip_media_set_requested_direction (priv->media,
-          current_requested_direction & ~RAKIA_DIRECTION_RECEIVE);
+          current_requested_direction & ~TP_MEDIA_STREAM_DIRECTION_RECEIVE);
 
-      if (!(current_direction & RAKIA_DIRECTION_RECEIVE))
+      if (!(current_direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE))
         tp_base_call_stream_update_remote_sending_state (bcs,
             tp_base_channel_get_target_handle (bchan),
             TP_SENDING_STATE_NONE,
@@ -481,11 +481,11 @@ rakia_call_stream_set_sending (TpBaseMediaCallStream *stream,
 {
   RakiaCallStream *self = RAKIA_CALL_STREAM (stream);
   RakiaCallStreamPrivate *priv = self->priv;
-  RakiaDirection current_direction =
+  TpMediaStreamDirection current_direction =
       rakia_sip_media_get_requested_direction (priv->media);
   gboolean mutable_contents;
 
-  if (!!(current_direction & RAKIA_DIRECTION_SEND) == sending)
+  if (!!(current_direction & TP_MEDIA_STREAM_DIRECTION_SEND) == sending)
     return TRUE;
 
   /* Can't change the actual direction of a stream if we disable modifying
@@ -505,10 +505,10 @@ rakia_call_stream_set_sending (TpBaseMediaCallStream *stream,
 
   if (sending)
     rakia_sip_media_set_requested_direction (priv->media,
-        current_direction | RAKIA_DIRECTION_SEND);
+        current_direction | TP_MEDIA_STREAM_DIRECTION_SEND);
   else
     rakia_sip_media_set_requested_direction (priv->media,
-        current_direction & ~RAKIA_DIRECTION_SEND);
+        current_direction & ~TP_MEDIA_STREAM_DIRECTION_SEND);
 
   return TRUE;
 }
@@ -583,10 +583,10 @@ rakia_call_stream_update_direction (RakiaCallStream *self)
   TpBaseChannel *bchan = TP_BASE_CHANNEL (priv->channel);
   TpHandle contact = tp_base_channel_get_target_handle (bchan);
   TpHandle self_handle = tp_base_channel_get_self_handle (bchan);
-  RakiaDirection direction = rakia_sip_media_get_direction (priv->media);
-  RakiaDirection remote_direction =
+  TpMediaStreamDirection direction = rakia_sip_media_get_direction (priv->media);
+  TpMediaStreamDirection remote_direction =
       rakia_sip_media_get_remote_direction (priv->media);
-  RakiaDirection requested_direction =
+  TpMediaStreamDirection requested_direction =
       rakia_sip_media_get_requested_direction (priv->media);
   TpLocalHoldState hold_state =
       tp_base_media_call_channel_get_local_hold_state (
@@ -598,10 +598,10 @@ rakia_call_stream_update_direction (RakiaCallStream *self)
       rakia_direction_to_string (remote_direction),
       hold_state != TP_LOCAL_HOLD_STATE_UNHELD);
 
-  if ((direction & RAKIA_DIRECTION_SEND ||
+  if ((direction & TP_MEDIA_STREAM_DIRECTION_SEND ||
           !rakia_sip_media_has_remote_media (priv->media) ||
           hold_state != TP_LOCAL_HOLD_STATE_UNHELD) &&
-      requested_direction & RAKIA_DIRECTION_SEND)
+      requested_direction & TP_MEDIA_STREAM_DIRECTION_SEND)
     {
       tp_base_call_stream_update_local_sending_state (bcs,
           TP_SENDING_STATE_SENDING, self_handle,
@@ -609,7 +609,7 @@ rakia_call_stream_update_direction (RakiaCallStream *self)
       if (rakia_sip_media_has_remote_media (priv->media))
         tp_base_media_call_stream_set_local_sending (bmcs, TRUE);
     }
-  else if (remote_direction & RAKIA_DIRECTION_SEND)
+  else if (remote_direction & TP_MEDIA_STREAM_DIRECTION_SEND)
     {
       if (tp_base_call_stream_get_local_sending_state (bcs) !=
           TP_SENDING_STATE_SENDING)
@@ -626,13 +626,13 @@ rakia_call_stream_update_direction (RakiaCallStream *self)
     }
 
 
-  if ((direction & RAKIA_DIRECTION_RECEIVE) &&
-      (requested_direction & RAKIA_DIRECTION_RECEIVE))
+  if ((direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE) &&
+      (requested_direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE))
     tp_base_call_stream_update_remote_sending_state (bcs, contact,
         TP_SENDING_STATE_SENDING, 0,
         TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");
-  else if (!(direction & RAKIA_DIRECTION_RECEIVE) &&
-      !(requested_direction & RAKIA_DIRECTION_RECEIVE))
+  else if (!(direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE) &&
+      !(requested_direction & TP_MEDIA_STREAM_DIRECTION_RECEIVE))
     tp_base_call_stream_update_remote_sending_state (bcs, contact,
         TP_SENDING_STATE_NONE, 0,
         TP_CALL_STATE_CHANGE_REASON_PROGRESS_MADE, "", "");

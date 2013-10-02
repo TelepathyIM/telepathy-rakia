@@ -45,13 +45,6 @@ struct _RakiaSipMedia {
     RakiaSipMediaPrivate *priv;
 };
 
-typedef enum {
-    RAKIA_DIRECTION_NONE = 0,
-    RAKIA_DIRECTION_SEND = 1,
-    RAKIA_DIRECTION_RECEIVE = 2,
-    RAKIA_DIRECTION_BIDIRECTIONAL = 3,
-} RakiaDirection;
-
 typedef struct _RakiaSipCodecParam {
   gchar *name;
   gchar *value;
@@ -105,7 +98,7 @@ gboolean rakia_sip_media_is_ready (RakiaSipMedia *self);
 
 gboolean rakia_sip_media_is_codec_intersect_pending (RakiaSipMedia *self);
 
-RakiaDirection rakia_direction_from_remote_media (const sdp_media_t *media);
+TpMediaStreamDirection rakia_direction_from_remote_media (const sdp_media_t *media);
 
 void rakia_sip_media_local_updated (RakiaSipMedia *self); /* ?? */
 
@@ -116,7 +109,7 @@ gboolean rakia_sip_media_is_held (RakiaSipMedia *media);
 RakiaSipMedia *rakia_sip_media_new (RakiaSipSession *session,
     TpMediaStreamType media_type,
     const gchar *name,
-    RakiaDirection requested_direction,
+    TpMediaStreamDirection requested_direction,
     gboolean created_locally,
     gboolean hold_requested);
 
@@ -159,13 +152,13 @@ void rakia_sip_media_codecs_rejected (RakiaSipMedia *media);
 gboolean rakia_sip_media_is_created_locally (RakiaSipMedia *self);
 
 void rakia_sip_media_set_requested_direction (RakiaSipMedia *media,
-    RakiaDirection direction);
+    TpMediaStreamDirection direction);
 
-RakiaDirection rakia_sip_media_get_direction (RakiaSipMedia *media);
+TpMediaStreamDirection rakia_sip_media_get_direction (RakiaSipMedia *media);
 
-RakiaDirection rakia_sip_media_get_remote_direction (RakiaSipMedia *media);
+TpMediaStreamDirection rakia_sip_media_get_remote_direction (RakiaSipMedia *media);
 
-RakiaDirection rakia_sip_media_get_requested_direction (
+TpMediaStreamDirection rakia_sip_media_get_requested_direction (
     RakiaSipMedia *self);
 
 gboolean rakia_sip_media_get_hold_requested (RakiaSipMedia *media);
@@ -175,7 +168,7 @@ void rakia_sip_media_set_can_receive (RakiaSipMedia *media,
 
 gboolean rakia_sip_media_has_remote_media (RakiaSipMedia *media);
 
-const gchar *rakia_direction_to_string (RakiaDirection direction);
+const gchar *rakia_direction_to_string (TpMediaStreamDirection direction);
 
 G_END_DECLS
 

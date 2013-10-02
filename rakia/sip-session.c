@@ -876,7 +876,7 @@ static RakiaSipMedia *
 rakia_sip_session_add_media_internal (RakiaSipSession *self,
     TpMediaStreamType media_type,
     const gchar *name,
-    RakiaDirection direction,
+    TpMediaStreamDirection direction,
     const sdp_media_t *sdp_media,
     gboolean authoritative,
     gint slot)
@@ -939,7 +939,7 @@ RakiaSipMedia *
 rakia_sip_session_add_media (RakiaSipSession *self,
     TpMediaStreamType media_type,
     const gchar *name,
-    RakiaDirection direction)
+    TpMediaStreamDirection direction)
 {
   return rakia_sip_session_add_media_internal (self, media_type, name,
       direction, NULL, TRUE, -1);
@@ -961,9 +961,9 @@ priv_update_remote_hold (RakiaSipSession *self)
       media = g_ptr_array_index(priv->medias, i);
       if (media != NULL)
         {
-          if (rakia_sip_media_get_direction (media) & RAKIA_DIRECTION_SEND ||
+          if (rakia_sip_media_get_direction (media) & TP_MEDIA_STREAM_DIRECTION_SEND ||
               !(rakia_sip_media_get_requested_direction (media) &
-                  RAKIA_DIRECTION_SEND))
+                  TP_MEDIA_STREAM_DIRECTION_SEND))
             remote_held = FALSE;
 
           has_medias = TRUE;
@@ -1040,7 +1040,7 @@ priv_update_remote_media (RakiaSipSession *self, gboolean authoritative)
               NULL,
               /* Don't start sending unless requested by the user */
               rakia_direction_from_remote_media (sdp_media) &
-              RAKIA_DIRECTION_RECEIVE,
+              TP_MEDIA_STREAM_DIRECTION_RECEIVE,
               sdp_media, authoritative, i);
 
           if (media != NULL)
