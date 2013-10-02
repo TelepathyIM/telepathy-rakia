@@ -25,7 +25,7 @@ def test(q, bus, conn, sip_proxy):
     assert cs.CONN_IFACE_ALIASING in \
         conn.Properties.Get(cs.CONN_IFACE_CONTACTS, "ContactAttributeInterfaces")
     attrs = conn.Contacts.GetContactAttributes([self_handle, handle],
-	[cs.CONN_IFACE_ALIASING], False)
+	[cs.CONN_IFACE_ALIASING])
     assert cs.CONN_IFACE_ALIASING + "/alias" in attrs[self_handle]
     assert attrs[self_handle][cs.CONN_IFACE_ALIASING + "/alias"] == u'foo@bar.baz'
 
