@@ -382,7 +382,7 @@ class DirectionChange(calltest.CallTest):
 
 
     def hold(self):
-        self.chan.Hold.RequestHold(True)
+        self.chan.Hold1.RequestHold(True)
 
         events = self.stream_dbus_signal_event (
             'ReceivingStateChanged',
@@ -423,7 +423,7 @@ class DirectionChange(calltest.CallTest):
 
 
     def unhold_fail(self, receiving=True):
-        self.chan.Hold.RequestHold(False)
+        self.chan.Hold1.RequestHold(False)
 
 
         events = self.stream_dbus_signal_event (
@@ -459,7 +459,7 @@ class DirectionChange(calltest.CallTest):
 
 
     def unhold_succeed(self):
-        self.chan.Hold.RequestHold(False)
+        self.chan.Hold1.RequestHold(False)
 
         events = self.stream_dbus_signal_event (
             'ReceivingStateChanged',
