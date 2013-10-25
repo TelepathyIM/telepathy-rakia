@@ -473,7 +473,7 @@ static GStrv
 dup_authentication_types (TpBaseProtocol *base)
 {
   const gchar * const types[] = {
-    TP_IFACE_CHANNEL_INTERFACE_SASL_AUTHENTICATION,
+    TP_IFACE_CHANNEL_INTERFACE_SASL_AUTHENTICATION1,
     NULL
   };
 

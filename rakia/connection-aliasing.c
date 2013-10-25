@@ -81,7 +81,7 @@ rakia_connection_aliasing_get_type (void)
 
       g_type_interface_add_prerequisite (type, RAKIA_TYPE_BASE_CONNECTION);
       g_type_interface_add_prerequisite (type,
-          TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING);
+          TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING1);
     }
 
   return type;
@@ -142,7 +142,7 @@ conn_get_alias (TpBaseConnection *base,
 }
 
 static void
-rakia_connection_request_aliases (TpSvcConnectionInterfaceAliasing *iface,
+rakia_connection_request_aliases (TpSvcConnectionInterfaceAliasing1 *iface,
                                   const GArray *contacts,
                                   DBusGMethodInvocation *context)
 {
@@ -181,7 +181,7 @@ rakia_connection_request_aliases (TpSvcConnectionInterfaceAliasing *iface,
 
   res = (gchar **) g_array_free (aliases, FALSE);
 
-  tp_svc_connection_interface_aliasing_return_from_request_aliases (
+  tp_svc_connection_interface_aliasing1_return_from_request_aliases (
       context, (const gchar **) res);
 
   g_strfreev (res);
@@ -198,7 +198,7 @@ emit_self_alias_change (TpBaseConnection *base, const gchar *alias)
       GUINT_TO_POINTER (tp_base_connection_get_self_handle (base)),
       (gchar *) alias);
 
-  tp_svc_connection_interface_aliasing_emit_aliases_changed (base, change_data);
+  tp_svc_connection_interface_aliasing1_emit_aliases_changed (base, change_data);
 
   g_hash_table_unref (change_data);
 }
@@ -229,7 +229,7 @@ collapse_whitespace (const gchar *str, gchar **to_free)
 }
 
 static void
-rakia_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
+rakia_connection_set_aliases (TpSvcConnectionInterfaceAliasing1 *iface,
                               GHashTable *aliases,
                               DBusGMethodInvocation *context)
 {
@@ -277,7 +277,7 @@ rakia_connection_set_aliases (TpSvcConnectionInterfaceAliasing *iface,
   g_free (default_alias);
   g_free (to_free);
 
-  tp_svc_connection_interface_aliasing_return_from_set_aliases (context);
+  tp_svc_connection_interface_aliasing1_return_from_set_aliases (context);
 }
 
 static void
@@ -304,7 +304,7 @@ rakia_conn_aliasing_fill_contact_attributes (GObject *obj,
           conn_get_alias (base, contact_handles, handle));
 
       tp_contacts_mixin_set_contact_attribute (attributes_hash, handle,
-          TP_IFACE_CONNECTION_INTERFACE_ALIASING "/alias", val);
+          TP_IFACE_CONNECTION_INTERFACE_ALIASING1 "/alias", val);
     }
 }
 
@@ -312,7 +312,7 @@ void
 rakia_connection_aliasing_init (gpointer instance)
 {
   tp_contacts_mixin_add_contact_attributes_iface (G_OBJECT (instance),
-      TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+      TP_IFACE_CONNECTION_INTERFACE_ALIASING1,
       rakia_conn_aliasing_fill_contact_attributes);
 }
 
@@ -320,10 +320,10 @@ rakia_connection_aliasing_init (gpointer instance)
 void
 rakia_connection_aliasing_svc_iface_init (gpointer g_iface, gpointer iface_data)
 {
-  TpSvcConnectionInterfaceAliasingClass *klass =
-    (TpSvcConnectionInterfaceAliasingClass *) g_iface;
+  TpSvcConnectionInterfaceAliasing1Class *klass =
+    (TpSvcConnectionInterfaceAliasing1Class *) g_iface;
 
-#define IMPLEMENT(x) tp_svc_connection_interface_aliasing_implement_##x (\
+#define IMPLEMENT(x) tp_svc_connection_interface_aliasing1_implement_##x (\
     klass, rakia_connection_##x)
   IMPLEMENT(request_aliases);
   IMPLEMENT(set_aliases);

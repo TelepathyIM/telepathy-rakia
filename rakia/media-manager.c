@@ -290,15 +290,15 @@ new_call_channel (RakiaMediaManager *fac,
   if (request_properties != NULL)
     {
       initial_audio = tp_asv_get_boolean (request_properties,
-          TP_PROP_CHANNEL_TYPE_CALL_INITIAL_AUDIO, NULL);
+          TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_AUDIO, NULL);
       initial_video = tp_asv_get_boolean (request_properties,
-          TP_PROP_CHANNEL_TYPE_CALL_INITIAL_VIDEO, NULL);
+          TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_VIDEO, NULL);
       initial_audio_name = tp_asv_get_string (request_properties,
-          TP_PROP_CHANNEL_TYPE_CALL_INITIAL_AUDIO_NAME);
+          TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_AUDIO_NAME);
       initial_video_name = tp_asv_get_string (request_properties,
-          TP_PROP_CHANNEL_TYPE_CALL_INITIAL_VIDEO_NAME);
+          TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_VIDEO_NAME);
       dtmf_initial_tones = tp_asv_get_string (request_properties,
-          TP_PROP_CHANNEL_INTERFACE_DTMF_INITIAL_TONES);
+          TP_PROP_CHANNEL_INTERFACE_DTMF1_INITIAL_TONES);
     }
 
   g_object_get (priv->conn,
@@ -514,12 +514,12 @@ static const gchar * const media_channel_fixed_properties[] = {
 static const gchar * const named_channel_allowed_properties[] = {
     TP_PROP_CHANNEL_TARGET_HANDLE,
     TP_PROP_CHANNEL_TARGET_ID,
-    TP_PROP_CHANNEL_TYPE_CALL_INITIAL_AUDIO,
-    TP_PROP_CHANNEL_TYPE_CALL_INITIAL_VIDEO,
-    TP_PROP_CHANNEL_TYPE_CALL_INITIAL_AUDIO_NAME,
-    TP_PROP_CHANNEL_TYPE_CALL_INITIAL_VIDEO_NAME,
-    TP_PROP_CHANNEL_TYPE_CALL_INITIAL_TRANSPORT,
-    TP_PROP_CHANNEL_INTERFACE_DTMF_INITIAL_TONES,
+    TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_AUDIO,
+    TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_VIDEO,
+    TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_AUDIO_NAME,
+    TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_VIDEO_NAME,
+    TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_TRANSPORT,
+    TP_PROP_CHANNEL_INTERFACE_DTMF1_INITIAL_TONES,
     NULL
 };
 
@@ -539,7 +539,7 @@ rakia_media_manager_type_foreach_channel_class (GType type,
   GValue *value, *handle_type_value;
 
   value = tp_g_value_slice_new (G_TYPE_STRING);
-  g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_CALL);
+  g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_CALL1);
   g_hash_table_insert (table, TP_PROP_CHANNEL_CHANNEL_TYPE, value);
 
   handle_type_value = tp_g_value_slice_new (G_TYPE_UINT);
@@ -549,14 +549,14 @@ rakia_media_manager_type_foreach_channel_class (GType type,
 
   g_value_set_uint (handle_type_value, TP_HANDLE_TYPE_CONTACT);
 
-  g_hash_table_insert (table, TP_PROP_CHANNEL_TYPE_CALL_INITIAL_AUDIO,
+  g_hash_table_insert (table, TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_AUDIO,
       tp_g_value_slice_new_boolean (TRUE));
 
   func (type, table, named_channel_allowed_properties, user_data);
 
-  g_hash_table_remove (table, TP_PROP_CHANNEL_TYPE_CALL_INITIAL_AUDIO);
+  g_hash_table_remove (table, TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_AUDIO);
 
-  g_hash_table_insert (table, TP_PROP_CHANNEL_TYPE_CALL_INITIAL_VIDEO,
+  g_hash_table_insert (table, TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_VIDEO,
       tp_g_value_slice_new_boolean (TRUE));
 
   func (type, table, named_channel_allowed_properties, user_data);
@@ -608,14 +608,14 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
 
   if (tp_strdiff (tp_asv_get_string (request_properties,
           TP_PROP_CHANNEL_CHANNEL_TYPE),
-        TP_IFACE_CHANNEL_TYPE_CALL))
+        TP_IFACE_CHANNEL_TYPE_CALL1))
     return FALSE;
 
   if (tp_asv_get_boolean (request_properties,
-          TP_PROP_CHANNEL_TYPE_CALL_INITIAL_AUDIO, &valid) && valid)
+          TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_AUDIO, &valid) && valid)
     initial_audio = TRUE;
   if (tp_asv_get_boolean (request_properties,
-          TP_PROP_CHANNEL_TYPE_CALL_INITIAL_VIDEO, &valid) && valid)
+          TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_VIDEO, &valid) && valid)
     initial_audio = TRUE;
 
   if (!initial_audio && !initial_video)

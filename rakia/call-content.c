@@ -247,7 +247,7 @@ set_telepathy_codecs (RakiaCallContent *self, GHashTable *md_properties)
   RakiaCallContentPrivate *priv = self->priv;
   guint i;
   GPtrArray *tpcodecs = tp_asv_get_boxed (md_properties,
-      TP_PROP_CALL_CONTENT_MEDIA_DESCRIPTION_CODECS,
+      TP_PROP_CALL1_CONTENT_MEDIA_DESCRIPTION_CODECS,
       TP_ARRAY_TYPE_CODEC_LIST);
   GPtrArray *sipcodecs = g_ptr_array_new_with_free_func (
       (GDestroyNotify) rakia_sip_codec_free);
