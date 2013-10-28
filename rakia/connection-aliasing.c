@@ -304,7 +304,7 @@ rakia_conn_aliasing_fill_contact_attributes (GObject *obj,
           conn_get_alias (base, contact_handles, handle));
 
       tp_contacts_mixin_set_contact_attribute (attributes_hash, handle,
-          TP_IFACE_CONNECTION_INTERFACE_ALIASING1 "/alias", val);
+          TP_TOKEN_CONNECTION_INTERFACE_ALIASING1_ALIAS, val);
     }
 }
 
