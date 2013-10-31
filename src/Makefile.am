@@ -9,7 +9,7 @@
 # ----------------------------------------------------------------------
 # Automake options
 
-managerdir = $(datadir)/telepathy/managers
+managerdir = $(datadir)/telepathy-1/managers
 
 # ----------------------------------------------------------------------
 # Headers and libraries
