@@ -1,14 +1,14 @@
-.TH TELEPATHY-RAKIA "8" "February 2010" "Telepathy" "D-Bus services"
+.TH TELEPATHY-RAKIA-1 "8" "February 2010" "Telepathy" "D-Bus services"
 \" This man page was written by Simon McVittie for the Debian project,
 \" but may be used by others.
 \" Copyright © 2007-2010 Collabora Ltd. <http://www.collabora.co.uk/>
 \" It may be distributed under the same terms as telepathy-rakia itself.
 .SH NAME
-telepathy-rakia \- Telepathy connection manager for SIP
+telepathy-rakia-1 \- Telepathy connection manager for SIP
 .SH SYNOPSIS
-\fB@libexecdir@/telepathy\-rakia\fR
+\fB@libexecdir@/telepathy\-rakia\-1\fR
 .SH DESCRIPTION
-\fBtelepathy\-rakia\fR implements the Telepathy D-Bus specification for
+\fBtelepathy\-rakia\-1\fR implements the Telepathy D-Bus specification for
 the Session Initiation Protocol, allowing Telepathy clients like
 .BR empathy (1)
 to connect to Voice over IP providers that implement SIP.
@@ -30,7 +30,7 @@ may be prefixed with \fB+\fR to append messages to an existing file instead
 of overwriting it.
 .TP
 \fBRAKIA_PERSIST\fR
-May be set to any value to avoid telepathy-rakia's usual automatic exit
+May be set to any value to avoid telepathy\-rakia\-1's usual automatic exit
 when there have been no connections for a few seconds.
 .TP
 \fBTPORT_LOG\fR

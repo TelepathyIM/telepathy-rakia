@@ -26,7 +26,7 @@ ALL_LIBS = $(DBUS_LIBS) $(GLIB_LIBS) $(SOFIA_SIP_UA_LIBS) \
 # ----------------------------------------------------------------------
 # Build targets
 
-libexec_PROGRAMS = telepathy-rakia
+libexec_PROGRAMS = telepathy-rakia-1
 manager_DATA = rakia.manager
 noinst_PROGRAMS = write-mgr-file
 noinst_LTLIBRARIES = librakia-convenience.la
@@ -84,10 +84,10 @@ librakia_convenience_la_LIBADD = \
     $(top_builddir)/rakia/librakia.la \
     $(top_builddir)/extensions/librakia-extensions.la
 
-telepathy_rakia_SOURCES = \
+telepathy_rakia_1_SOURCES = \
     telepathy-rakia.c 
 
-telepathy_rakia_LDADD = librakia-convenience.la $(ALL_LIBS)
+telepathy_rakia_1_LDADD = librakia-convenience.la $(ALL_LIBS)
 
 write_mgr_file_SOURCES = \
     write-mgr-file.c 

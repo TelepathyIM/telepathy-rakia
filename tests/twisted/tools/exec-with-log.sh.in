@@ -18,4 +18,4 @@ if test -n "$RAKIA_TEST_VALGRIND"; then
 	RAKIA_WRAPPER="$RAKIA_WRAPPER --suppressions=@abs_top_srcdir@/tests/suppressions/rakia.supp"
 fi
 
-exec $RAKIA_WRAPPER @abs_top_builddir@/src/telepathy-rakia
+exec $RAKIA_WRAPPER @abs_top_builddir@/src/telepathy-rakia-1

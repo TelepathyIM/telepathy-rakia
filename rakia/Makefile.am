@@ -14,7 +14,7 @@ AM_CPPFLAGS = @GLIB_CFLAGS@ @TELEPATHY_GLIB_CFLAGS@ @SOFIA_SIP_UA_CFLAGS@ \
 AM_CFLAGS = $(ERROR_CFLAGS) $(COVERAGE_CFLAGS)
 AM_LDFLAGS = $(ERROR_LDFLAGS)
 
-rakia_includedir = $(includedir)/telepathy-rakia-0.7/rakia
+rakia_includedir = $(includedir)/telepathy-rakia-1/rakia
 
 rakia_include_HEADERS = \
 	base-connection.h \

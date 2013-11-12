@@ -79,9 +79,9 @@ GTKDOC_LIBS=
 EXTRA_DIST =
 
 # Man page
-man_MANS = telepathy-rakia.8
+man_MANS = telepathy-rakia-1.8
 CLEANFILES = $(man_MANS)
-EXTRA_DIST += telepathy-rakia.8.in
+EXTRA_DIST += telepathy-rakia-1.8.in
 
 %.8: %.8.in Makefile
 	sed -e 's,[@]libexecdir[@],@libexecdir@,' < $< > $@
