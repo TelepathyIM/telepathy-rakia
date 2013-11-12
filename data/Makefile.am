@@ -2,7 +2,7 @@
 BUILT_FILES = $(service_in_files:.service.in=.service)
 
 servicedir = $(datadir)/dbus-1/services
-service_in_files = im.telepathy1.ConnectionManager.sofiasip.service.in
+service_in_files = im.telepathy.v1.ConnectionManager.sofiasip.service.in
 service_DATA = $(BUILT_FILES)
 CLEANFILES = $(BUILT_FILES)
 

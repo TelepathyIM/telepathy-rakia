@@ -4,10 +4,10 @@ src/telepathy-rakia
 src/write-mgr-file
 extensions/_gen
 extensions/extensions.html
-data/im.telepathy1.ConnectionManager.*.service
+data/im.telepathy.v1.ConnectionManager.*.service
 docs/telepathy-rakia.8
 tests/twisted/tools/exec-with-log.sh
-tests/twisted/tools/im.telepathy1.ConnectionManager.*.service
+tests/twisted/tools/im.telepathy.v1.ConnectionManager.*.service
 tests/twisted/tools/rakia-testing.log
 tests/twisted/tools/tmp-session-bus.conf
 
