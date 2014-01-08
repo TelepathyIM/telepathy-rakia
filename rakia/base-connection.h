@@ -36,7 +36,6 @@ typedef struct _RakiaBaseConnectionPrivate RakiaBaseConnectionPrivate;
 
 struct _RakiaBaseConnectionClass {
   TpBaseConnectionClass parent_class;
-  TpContactsMixinClass contacts_mixin_class;
 
   nua_handle_t *(*create_handle) (RakiaBaseConnection *, TpHandle contact);
   void (*add_auth_handler) (RakiaBaseConnection *, RakiaEventTarget *);
@@ -44,7 +43,6 @@ struct _RakiaBaseConnectionClass {
 
 struct _RakiaBaseConnection {
   TpBaseConnection parent;
-  TpContactsMixin contacts_mixin;
   RakiaBaseConnectionPrivate *priv;
 };
 

@@ -58,27 +58,16 @@ static void event_target_iface_init (gpointer iface, gpointer data) {}
 
 G_DEFINE_TYPE_WITH_CODE (RakiaBaseConnection,
     rakia_base_connection, TP_TYPE_BASE_CONNECTION,
-    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS,
-        tp_contacts_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (RAKIA_TYPE_EVENT_TARGET, event_target_iface_init);
 );
 
 static void
 rakia_base_connection_init (RakiaBaseConnection *self)
 {
-  GObject *object = G_OBJECT (self);
-  TpBaseConnection *base = TP_BASE_CONNECTION (self);
-
   self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, RAKIA_TYPE_BASE_CONNECTION,
       RakiaBaseConnectionPrivate);
 
   self->priv->uris = g_hash_table_new_full (NULL, NULL, NULL, free);
-
-  tp_contacts_mixin_init (object,
-      G_STRUCT_OFFSET (RakiaBaseConnection, contacts_mixin));
-
-  /* Connection attributes */
-  tp_base_connection_register_with_contacts_mixin (base);
 }
 
 static void
@@ -191,9 +180,6 @@ rakia_base_connection_class_init (RakiaBaseConnectionClass *klass)
           "Sofia-SIP UA",
           "The UA object for Sofia-SIP",
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-
-  tp_contacts_mixin_class_init (object_class,
-      G_STRUCT_OFFSET(RakiaBaseConnectionClass, contacts_mixin_class));
 }
 
 nua_handle_t *

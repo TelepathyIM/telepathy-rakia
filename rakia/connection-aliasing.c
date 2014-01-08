@@ -280,42 +280,32 @@ rakia_connection_set_aliases (TpSvcConnectionInterfaceAliasing1 *iface,
   tp_svc_connection_interface_aliasing1_return_from_set_aliases (context);
 }
 
-static void
-rakia_conn_aliasing_fill_contact_attributes (GObject *obj,
-    const GArray *contacts, GHashTable *attributes_hash)
+gboolean
+rakia_conn_aliasing_fill_contact_attributes (TpBaseConnection *base,
+    const gchar *dbus_interface,
+    TpHandle handle,
+    TpContactAttributeMap *attributes)
 {
-  TpBaseConnection *base = TP_BASE_CONNECTION (obj);
-  TpHandleRepoIface *contact_handles;
-  guint i;
-
-  contact_handles = tp_base_connection_get_handles (base,
-      TP_HANDLE_TYPE_CONTACT);
-
-  for (i = 0; i < contacts->len; i++)
+  if (!tp_strdiff (dbus_interface, TP_IFACE_CONNECTION_INTERFACE_ALIASING1))
     {
-      TpHandle handle;
+      TpHandleRepoIface *contact_handles;
       GValue *val;
 
-      handle = g_array_index (contacts, TpHandle, i);
+      contact_handles = tp_base_connection_get_handles (base,
+          TP_HANDLE_TYPE_CONTACT);
 
       val = tp_g_value_slice_new (G_TYPE_STRING);
 
       g_value_take_string (val,
           conn_get_alias (base, contact_handles, handle));
 
-      tp_contacts_mixin_set_contact_attribute (attributes_hash, handle,
+      tp_contact_attribute_map_take_sliced_gvalue (attributes, handle,
           TP_TOKEN_CONNECTION_INTERFACE_ALIASING1_ALIAS, val);
+      return TRUE;
     }
-}
 
-void
-rakia_connection_aliasing_init (gpointer instance)
-{
-  tp_contacts_mixin_add_contact_attributes_iface (G_OBJECT (instance),
-      TP_IFACE_CONNECTION_INTERFACE_ALIASING1,
-      rakia_conn_aliasing_fill_contact_attributes);
+  return FALSE;
 }
-
 
 void
 rakia_connection_aliasing_svc_iface_init (gpointer g_iface, gpointer iface_data)

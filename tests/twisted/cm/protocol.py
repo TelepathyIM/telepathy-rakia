@@ -35,8 +35,6 @@ def test(q, bus, conn, sip):
     assertEquals('im-sip', proto_props['Icon'])
 
     assertContains(cs.CONN_IFACE_ALIASING, proto_props['ConnectionInterfaces'])
-    assertContains(cs.CONN_IFACE_CONTACTS, proto_props['ConnectionInterfaces'])
-    assertContains(cs.CONN_IFACE_REQUESTS, proto_props['ConnectionInterfaces'])
 
     assertEquals('sip:example@mit.edu',
         unwrap(proto_iface.NormalizeContact('example@MIT.Edu')))

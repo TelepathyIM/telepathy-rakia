@@ -170,8 +170,6 @@ rakia_connection_init (RakiaConnection *self)
   RakiaConnectionPrivate *priv = RAKIA_CONNECTION_GET_PRIVATE (self);
 
   priv->sofia_home = su_home_new(sizeof (su_home_t));
-
-  rakia_connection_aliasing_init (self);
 }
 
 static void
@@ -421,8 +419,6 @@ static gboolean rakia_connection_start_connecting (TpBaseConnection *base,
     GError **error);
 
 static const gchar *interfaces_always_present[] = {
-    TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
-    TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
     TP_IFACE_CONNECTION_INTERFACE_ALIASING1,
     NULL };
 
@@ -454,6 +450,20 @@ static void rakia_connection_add_auth_handler (RakiaBaseConnection *,
     RakiaEventTarget *);
 
 static void
+rakia_connection_fill_contact_attributes (TpBaseConnection *base,
+    const gchar *dbus_interface,
+    TpHandle handle,
+    TpContactAttributeMap *attributes)
+{
+  if (rakia_conn_aliasing_fill_contact_attributes (base,
+        dbus_interface, handle, attributes))
+    return;
+
+  TP_BASE_CONNECTION_CLASS (rakia_connection_parent_class)->
+    fill_contact_attributes (base, dbus_interface, handle, attributes);
+}
+
+static void
 rakia_connection_class_init (RakiaConnectionClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -481,6 +491,8 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
   base_class->start_connecting = rakia_connection_start_connecting;
   base_class->shut_down = rakia_connection_shut_down;
   base_class->get_interfaces_always_present = get_interfaces_always_present;
+  base_class->fill_contact_attributes =
+    rakia_connection_fill_contact_attributes;
 
   g_type_class_add_private (klass, sizeof (RakiaConnectionPrivate));
 
@@ -1027,8 +1039,6 @@ rakia_connection_finalize (GObject *obj)
   g_free (priv->extra_auth_password);
 
   g_free (priv->registrar_realm);
-
-  tp_contacts_mixin_finalize (obj);
 
   G_OBJECT_CLASS (rakia_connection_parent_class)->finalize (obj);
 }

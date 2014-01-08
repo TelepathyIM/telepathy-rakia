@@ -23,6 +23,8 @@
 
 #include <glib-object.h>
 
+#include <telepathy-glib/telepathy-glib.h>
+
 G_BEGIN_DECLS
 
 typedef struct _RakiaConnectionAliasing RakiaConnectionAliasing;
@@ -48,10 +50,13 @@ struct _RakiaConnectionAliasingInterface {
 
 GType rakia_connection_aliasing_get_type (void) G_GNUC_CONST;
 
-void rakia_connection_aliasing_init (gpointer instance);
-
 void rakia_connection_aliasing_svc_iface_init (gpointer g_iface,
     gpointer iface_data);
+
+gboolean rakia_conn_aliasing_fill_contact_attributes (TpBaseConnection *base,
+    const gchar *dbus_interface,
+    TpHandle handle,
+    TpContactAttributeMap *attributes);
 
 G_END_DECLS
 
