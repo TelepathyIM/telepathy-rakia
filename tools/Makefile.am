@@ -18,20 +18,27 @@ EXTRA_DIST = \
     identity.xsl \
     lcov.am \
     libglibcodegen.py \
+    libtpcodegen.py \
     telepathy.am
 
-CLEANFILES = libglibcodegen.pyc libglibcodegen.pyo $(noinst_SCRIPTS)
+CLEANFILES = \
+    libglibcodegen.pyc libglibcodegen.pyo \
+    libtpcodegen.pyc libtpcodegen.pyo \
+    $(noinst_SCRIPTS) \
+    $(NULL)
 
 all: $(EXTRA_DIST)
 
 glib-client-marshaller-gen.py: libglibcodegen.py
-	touch $@
+	$(AM_V_GEN)test -e ${srcdir}/$@ && touch ${srcdir}/$@
 glib-ginterface-gen.py: libglibcodegen.py
-	touch $@
+	$(AM_V_GEN)test -e ${srcdir}/$@ && touch ${srcdir}/$@
 glib-gtypes-generator.py: libglibcodegen.py
-	touch $@
+	$(AM_V_GEN)test -e ${srcdir}/$@ && touch ${srcdir}/$@
 glib-signals-marshal-gen.py: libglibcodegen.py
-	touch $@
+	$(AM_V_GEN)test -e ${srcdir}/$@ && touch ${srcdir}/$@
+libglibcodegen.py: libtpcodegen.py
+	$(AM_V_GEN)test -e ${srcdir}/$@ && touch ${srcdir}/$@
 
 TELEPATHY_GLIB_SRCDIR = $(top_srcdir)/../telepathy-glib
 maintainer-update-from-telepathy-glib:

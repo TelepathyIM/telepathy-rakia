@@ -34,6 +34,7 @@ nodist_librakia_extensions_la_SOURCES = \
     _gen/interfaces.h \
     _gen/interfaces-body.h \
     _gen/svc-channel.h \
+    _gen/svc-channel-gtk-doc.h \
     _gen/svc-channel.c
 
 BUILT_SOURCES = \
@@ -111,6 +112,8 @@ _gen/channel.xml: channel.xml $(wildcard *.xml)
 		$< > $@
 
 _gen/svc-channel.h: _gen/svc-channel.c
+	@: # do nothing, output as a side-effect
+_gen/svc-channel-gtk-doc.h: _gen/svc-channel.c
 	@: # do nothing, output as a side-effect
 _gen/svc-channel.c: _gen/channel.xml $(tools_dir)/glib-ginterface-gen.py
 	$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
