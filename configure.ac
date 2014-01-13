@@ -2,9 +2,9 @@ AC_PREREQ([2.60])
 
 m4_define([THIS_PACKAGE],[telepathy-rakia])
 m4_define([VERSION_MAJOR],[0])
-m4_define([VERSION_MINOR],[8])
-m4_define([VERSION_MICRO],[99])
-m4_define([VERSION_NANO],[1])
+m4_define([VERSION_MINOR],[99])
+m4_define([VERSION_MICRO],[6])
+m4_define([VERSION_NANO],[0])
 
 m4_define([BASE_VERSION],[VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO])
 m4_define([THIS_VERSION],
