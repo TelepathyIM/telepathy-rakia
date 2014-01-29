@@ -22,6 +22,7 @@ def test(q, bus, conn, stream):
             dbus_interface=cs.PROPERTIES_IFACE)
     assertEquals([], properties.get('Channels'))
 
+    properties = conn.GetAll(cs.CONN, dbus_interface=cs.PROPERTIES_IFACE)
     assertContains(
             ({ cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
                cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT },

@@ -27,8 +27,7 @@ def rccs(q, bus, conn, stream):
     a = q.expect('dbus-signal', signal='StatusChanged',
                  args=[cs.CONN_STATUS_CONNECTED, cs.CSR_REQUESTED])
 
-    rccs = conn.Properties.Get(cs.CONN_IFACE_REQUESTS,
-        'RequestableChannelClasses')
+    rccs = conn.Properties.Get(cs.CONN, 'RequestableChannelClasses')
 
     # Test Channel.Type.StreamedMedia
     media_classes = [ rcc for rcc in rccs
