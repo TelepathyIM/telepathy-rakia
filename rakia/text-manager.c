@@ -240,7 +240,7 @@ channel_closed (RakiaTextChannel *chan, gpointer user_data)
   TpHandle contact_handle;
   gboolean really_destroyed = TRUE;
 
-  tp_channel_manager_emit_channel_closed_for_object (self,
+  tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
       (TpExportableChannel *) chan);
 
   if (priv->channels == NULL)
@@ -260,7 +260,7 @@ channel_closed (RakiaTextChannel *chan, gpointer user_data)
     {
       DEBUG ("reopening channel with handle %u due to pending messages",
              contact_handle);
-      tp_channel_manager_emit_new_channel (self,
+      tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
           (TpExportableChannel *) chan, NULL);
     }
 }
@@ -298,7 +298,7 @@ rakia_text_manager_new_channel (RakiaTextManager *fac,
   else
     request_tokens = NULL;
 
-  tp_channel_manager_emit_new_channel (fac,
+  tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (fac),
       (TpExportableChannel *) chan, request_tokens);
 
   g_slist_free (request_tokens);
@@ -346,9 +346,9 @@ rakia_text_manager_type_foreach_channel_class (GType type,
 
 static gboolean
 rakia_text_manager_requestotron (RakiaTextManager *self,
-                                 gpointer request_token,
-                                 GHashTable *request_properties,
-                                 gboolean require_new)
+    TpChannelManagerRequest *request,
+    GHashTable *request_properties,
+    gboolean require_new)
 {
   RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (self);
   TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
@@ -381,7 +381,7 @@ rakia_text_manager_requestotron (RakiaTextManager *self,
     {
       rakia_text_manager_new_channel (self,
           handle, tp_base_connection_get_self_handle (base_conn),
-          request_token);
+          request);
       return TRUE;
     }
 
@@ -392,12 +392,12 @@ rakia_text_manager_requestotron (RakiaTextManager *self,
       goto error;
     }
 
-  tp_channel_manager_emit_request_already_satisfied (self, request_token,
-      channel);
+  tp_channel_manager_emit_request_already_satisfied (TP_CHANNEL_MANAGER (self),
+      request, channel);
   return TRUE;
 
 error:
-  tp_channel_manager_emit_request_failed (self, request_token,
+  tp_channel_manager_emit_request_failed (TP_CHANNEL_MANAGER (self), request,
       error->domain, error->code, error->message);
   g_error_free (error);
   return TRUE;
@@ -406,36 +406,23 @@ error:
 
 static gboolean
 rakia_text_manager_create_channel (TpChannelManager *manager,
-                                   gpointer request_token,
-                                   GHashTable *request_properties)
+    TpChannelManagerRequest *request,
+    GHashTable *request_properties)
 {
   RakiaTextManager *self = RAKIA_TEXT_MANAGER (manager);
 
-  return rakia_text_manager_requestotron (self, request_token,
+  return rakia_text_manager_requestotron (self, request,
       request_properties, TRUE);
 }
 
-
-static gboolean
-rakia_text_manager_request_channel (TpChannelManager *manager,
-                                    gpointer request_token,
-                                    GHashTable *request_properties)
-{
-  RakiaTextManager *self = RAKIA_TEXT_MANAGER (manager);
-
-  return rakia_text_manager_requestotron (self, request_token,
-      request_properties, FALSE);
-}
-
-
 static gboolean
 rakia_text_manager_ensure_channel (TpChannelManager *manager,
-                                   gpointer request_token,
-                                   GHashTable *request_properties)
+    TpChannelManagerRequest *request,
+    GHashTable *request_properties)
 {
   RakiaTextManager *self = RAKIA_TEXT_MANAGER (manager);
 
-  return rakia_text_manager_requestotron (self, request_token,
+  return rakia_text_manager_requestotron (self, request,
       request_properties, FALSE);
 }
 
@@ -625,6 +612,5 @@ channel_manager_iface_init (gpointer g_iface, gpointer iface_data)
   iface->type_foreach_channel_class =
     rakia_text_manager_type_foreach_channel_class;
   iface->create_channel = rakia_text_manager_create_channel;
-  iface->request_channel = rakia_text_manager_request_channel;
   iface->ensure_channel = rakia_text_manager_ensure_channel;
 }

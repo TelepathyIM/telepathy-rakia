@@ -248,7 +248,7 @@ call_channel_closed_cb (RakiaCallChannel *chan, gpointer user_data)
   RakiaMediaManager *fac = RAKIA_MEDIA_MANAGER (user_data);
   RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
-  tp_channel_manager_emit_channel_closed_for_object (fac,
+  tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (fac),
       TP_EXPORTABLE_CHANNEL (chan));
 
   if (priv->channels)
@@ -386,7 +386,7 @@ incoming_call_cb (RakiaSipSession *session,
   channel = new_call_channel (idata->fac, idata->handle, idata->handle, NULL,
       session);
 
-  tp_channel_manager_emit_new_channel (idata->fac,
+  tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (idata->fac),
       TP_EXPORTABLE_CHANNEL (channel), NULL);
 
   g_object_unref (session);
@@ -573,9 +573,9 @@ typedef enum
 
 static gboolean
 rakia_media_manager_requestotron (TpChannelManager *manager,
-                                  gpointer request_token,
-                                  GHashTable *request_properties,
-                                  RequestMethod method)
+    TpChannelManagerRequest *request,
+    GHashTable *request_properties,
+    RequestMethod method)
 {
   RakiaMediaManager *self = RAKIA_MEDIA_MANAGER (manager);
   RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (self);
@@ -660,8 +660,9 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
 
           if (peer == handle)
             {
-              tp_channel_manager_emit_request_already_satisfied (self,
-                  request_token, TP_EXPORTABLE_CHANNEL (channel));
+              tp_channel_manager_emit_request_already_satisfied (
+                  TP_CHANNEL_MANAGER (self), request,
+                  TP_EXPORTABLE_CHANNEL (channel));
               return TRUE;
             }
         }
@@ -672,44 +673,35 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
       request_properties, session);
   g_object_unref (session);
 
-  request_tokens = g_slist_prepend (NULL, request_token);
-  tp_channel_manager_emit_new_channel (self,
+  request_tokens = g_slist_prepend (NULL, request);
+  tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
       TP_EXPORTABLE_CHANNEL (channel), request_tokens);
   g_slist_free (request_tokens);
 
   return TRUE;
 
 error:
-  tp_channel_manager_emit_request_failed (self, request_token,
+  tp_channel_manager_emit_request_failed (TP_CHANNEL_MANAGER (self), request,
       error->domain, error->code, error->message);
   g_error_free (error);
   return TRUE;
 }
 
 static gboolean
-rakia_media_manager_request_channel (TpChannelManager *manager,
-                                     gpointer request_token,
-                                     GHashTable *request_properties)
-{
-  return rakia_media_manager_requestotron (manager, request_token,
-      request_properties, METHOD_REQUEST);
-}
-
-static gboolean
 rakia_media_manager_create_channel (TpChannelManager *manager,
-                                    gpointer request_token,
-                                    GHashTable *request_properties)
+    TpChannelManagerRequest *request,
+    GHashTable *request_properties)
 {
-  return rakia_media_manager_requestotron (manager, request_token,
+  return rakia_media_manager_requestotron (manager, request,
       request_properties, METHOD_CREATE);
 }
 
 static gboolean
 rakia_media_manager_ensure_channel (TpChannelManager *manager,
-                                    gpointer request_token,
-                                    GHashTable *request_properties)
+    TpChannelManagerRequest *request,
+    GHashTable *request_properties)
 {
-  return rakia_media_manager_requestotron (manager, request_token,
+  return rakia_media_manager_requestotron (manager, request,
       request_properties, METHOD_ENSURE);
 }
 
@@ -722,7 +714,6 @@ channel_manager_iface_init (gpointer g_iface,
   iface->foreach_channel = rakia_media_manager_foreach_channel;
   iface->type_foreach_channel_class =
     rakia_media_manager_type_foreach_channel_class;
-  iface->request_channel = rakia_media_manager_request_channel;
   iface->create_channel = rakia_media_manager_create_channel;
   iface->ensure_channel = rakia_media_manager_ensure_channel;
 }
