@@ -46,7 +46,7 @@ def rccs(q, bus, conn, stream):
             cs.CALL_INITIAL_VIDEO, cs.CALL_INITIAL_AUDIO,
             cs.CALL_INITIAL_VIDEO_NAME, cs.CALL_INITIAL_AUDIO_NAME,
             cs.CALL_INITIAL_TRANSPORT,
-            cs.DTMF_INITIAL_TONES,
+            cs.CALL_INITIAL_TONES,
             ]
 
         allowed.sort()

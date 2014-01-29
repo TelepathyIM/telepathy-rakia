@@ -298,7 +298,7 @@ new_call_channel (RakiaMediaManager *fac,
       initial_video_name = tp_asv_get_string (request_properties,
           TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_VIDEO_NAME);
       dtmf_initial_tones = tp_asv_get_string (request_properties,
-          TP_PROP_CHANNEL_INTERFACE_DTMF1_INITIAL_TONES);
+          TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_TONES);
     }
 
   g_object_get (priv->conn,
@@ -519,7 +519,7 @@ static const gchar * const named_channel_allowed_properties[] = {
     TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_AUDIO_NAME,
     TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_VIDEO_NAME,
     TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_TRANSPORT,
-    TP_PROP_CHANNEL_INTERFACE_DTMF1_INITIAL_TONES,
+    TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_TONES,
     NULL
 };
 
