@@ -14,8 +14,8 @@ def test(q, bus, conn, sip):
     
     q.expect('sip-register')
     
-    nc = q.expect('dbus-signal', signal='NewChannels')
-    (((path, props),),) = nc.args
+    nc = q.expect('dbus-signal', signal='NewChannel')
+    path, props = nc.args
     assertEquals(cs.CHANNEL_TYPE_SERVER_AUTHENTICATION, props[cs.CHANNEL_TYPE])
     assertEquals(['X-TELEPATHY-PASSWORD'], props[cs.SASL_AVAILABLE_MECHANISMS])
     

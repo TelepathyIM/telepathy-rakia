@@ -39,7 +39,7 @@ def test(q, bus, conn, stream):
                 cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
                 cs.TARGET_HANDLE: self_handle })
 
-    q.expect('dbus-signal', signal='NewChannels')
+    q.expect('dbus-signal', signal='NewChannel')
 
     if DEBUGGING:
         assert len(messages) > 0
@@ -61,7 +61,7 @@ def test(q, bus, conn, stream):
                 cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
                 cs.TARGET_HANDLE: self_handle })
 
-    q.expect('dbus-signal', signal='NewChannels')
+    q.expect('dbus-signal', signal='NewChannel')
 
     assertEquals (snapshot, messages)
 

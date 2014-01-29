@@ -249,12 +249,9 @@ class CallTest:
                     cs.CALL_INITIAL_VIDEO_NAME: self.initial_video_content_name or "",
                     })[0]
 
-        nc = self.q.expect('dbus-signal', signal='NewChannels')
+        nc = self.q.expect('dbus-signal', signal='NewChannel')
 
-        assertLength(1, nc.args)
-        assertLength(1, nc.args[0])       # one channel
-        assertLength(2, nc.args[0][0])    # two struct members
-        self.chan_path, props = nc.args[0][0]
+        self.chan_path, props = nc.args
         self.check_channel_props(props, True)
                 
         self.chan = wrap_channel(

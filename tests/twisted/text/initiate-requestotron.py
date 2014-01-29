@@ -35,7 +35,7 @@ def test(q, bus, conn, stream):
 
     ret, new_sig = q.expect_many(
         EventPattern('dbus-return', method='CreateChannel'),
-        EventPattern('dbus-signal', signal='NewChannels'),
+        EventPattern('dbus-signal', signal='NewChannel'),
         )
 
     assert len(ret.value) == 2
@@ -48,16 +48,13 @@ def test(q, bus, conn, stream):
     assertEquals(self_handle, emitted_props[cs.INITIATOR_HANDLE])
     assertEquals(self_uri, emitted_props[cs.INITIATOR_ID])
 
-    assert len(new_sig.args) == 1
-    assert len(new_sig.args[0]) == 1        # one channel
-    assert len(new_sig.args[0][0]) == 2     # two struct members
-    assert new_sig.args[0][0][0] == ret.value[0]
-    assert new_sig.args[0][0][1] == ret.value[1]
+    assert new_sig.args[0] == ret.value[0]
+    assert new_sig.args[1] == ret.value[1]
 
     properties = conn.GetAll(cs.CONN_IFACE_REQUESTS, dbus_interface=cs.PROPERTIES_IFACE)
 
-    assert new_sig.args[0][0] in properties['Channels'], \
-            (new_sig.args[0][0], properties['Channels'])
+    assert (new_sig.args[0], new_sig.args[1]) in properties['Channels'], \
+            (new_sig.args, properties['Channels'])
 
     conn.Disconnect()
     q.expect('dbus-signal', signal='StatusChanged', args=[2, 1])

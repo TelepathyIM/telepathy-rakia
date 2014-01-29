@@ -33,8 +33,8 @@ def test(q, bus, conn, sip_proxy):
               cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
               cs.TARGET_HANDLE: handle })
 
-    event = q.expect('dbus-signal', signal='NewChannels')
-    path, props = event.args[0][0]
+    event = q.expect('dbus-signal', signal='NewChannel')
+    path, props = event.args
 
     text_iface = dbus.Interface(bus.get_object(conn.bus_name, path),
             cs.CHANNEL_TYPE_TEXT)
