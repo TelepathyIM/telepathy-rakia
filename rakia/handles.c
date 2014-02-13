@@ -40,7 +40,7 @@ rakia_handle_ensure (TpBaseConnection *conn,
   g_return_val_if_fail (TP_IS_BASE_CONNECTION (conn), 0);
   g_return_val_if_fail (uri != NULL, 0);
 
-  repo = tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT);
+  repo = tp_base_connection_get_handles (conn, TP_ENTITY_TYPE_CONTACT);
 
   str = url_as_string (NULL, uri);
 
@@ -86,7 +86,7 @@ rakia_handle_inspect (TpBaseConnection *conn,
   g_return_val_if_fail (TP_IS_BASE_CONNECTION (conn), NULL);
   g_return_val_if_fail (handle != 0, NULL);
 
-  repo = tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT);
+  repo = tp_base_connection_get_handles (conn, TP_ENTITY_TYPE_CONTACT);
 
   return tp_handle_inspect (repo, handle);
 }

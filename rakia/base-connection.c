@@ -221,7 +221,7 @@ rakia_base_connection_handle_to_uri (RakiaBaseConnection *self,
   GError *error = NULL;
 
   repo = tp_base_connection_get_handles (TP_BASE_CONNECTION (self),
-      TP_HANDLE_TYPE_CONTACT);
+      TP_ENTITY_TYPE_CONTACT);
 
   if (!tp_handle_is_valid (repo, handle, &error))
     {

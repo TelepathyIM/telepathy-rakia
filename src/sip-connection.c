@@ -132,11 +132,11 @@ priv_url_from_string_value (su_home_t *home, const GValue *value)
 
 static void
 rakia_create_handle_repos (TpBaseConnection *conn,
-                           TpHandleRepoIface *repos[TP_NUM_HANDLE_TYPES])
+                           TpHandleRepoIface *repos[TP_NUM_ENTITY_TYPES])
 {
-  repos[TP_HANDLE_TYPE_CONTACT] =
+  repos[TP_ENTITY_TYPE_CONTACT] =
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,
-          "handle-type", TP_HANDLE_TYPE_CONTACT,
+          "handle-type", TP_ENTITY_TYPE_CONTACT,
           "normalize-function", rakia_handle_normalize,
           "default-normalize-context", conn,
           NULL);
@@ -1064,7 +1064,7 @@ rakia_connection_start_connecting (TpBaseConnection *base,
   g_assert (root != NULL);
   g_return_val_if_fail (priv->address != NULL, FALSE);
 
-  contact_repo = tp_base_connection_get_handles (base, TP_HANDLE_TYPE_CONTACT);
+  contact_repo = tp_base_connection_get_handles (base, TP_ENTITY_TYPE_CONTACT);
   self_handle = tp_handle_ensure (contact_repo, priv->address,
       NULL, error);
   if (self_handle == 0)

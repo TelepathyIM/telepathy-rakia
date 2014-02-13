@@ -64,7 +64,7 @@ class CallTest:
 
     def check_channel_props(self, props, initial):
         assertEquals(cs.CHANNEL_TYPE_CALL, props[cs.CHANNEL_TYPE])
-        assertEquals(cs.HT_CONTACT, props[cs.CHANNEL + '.TargetHandleType'])
+        assertEquals(cs.HT_CONTACT, props[cs.CHANNEL + '.TargetEntityType'])
         assertEquals(self.remote_handle, props[cs.CHANNEL + '.TargetHandle'])
         if self.incoming:
             assertEquals(self.remote_handle,

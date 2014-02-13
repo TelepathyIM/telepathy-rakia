@@ -33,8 +33,8 @@ def test_new_channel(q, bus, conn, target_uri, initiator_uri, requested):
     assert 'TargetHandle' in text_props, text_props
     assert text_props['TargetHandle'] == handle, \
             (text_props, handle)
-    assert 'TargetHandleType' in text_props, text_props
-    assert text_props['TargetHandleType'] == 1, text_props
+    assert 'TargetEntityType' in text_props, text_props
+    assert text_props['TargetEntityType'] == 1, text_props
     assert text_props['TargetID'] == target_uri, text_props
     assert text_props['InitiatorHandle'] == initiator_handle, \
             (text_props, initiator_handle)

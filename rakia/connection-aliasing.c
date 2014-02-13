@@ -156,7 +156,7 @@ rakia_connection_request_aliases (TpSvcConnectionInterfaceAliasing1 *iface,
   TP_BASE_CONNECTION_ERROR_IF_NOT_CONNECTED (base, context);
 
   contact_handles = tp_base_connection_get_handles (base,
-      TP_HANDLE_TYPE_CONTACT);
+      TP_ENTITY_TYPE_CONTACT);
 
   if (!tp_handles_are_valid (contact_handles, contacts, FALSE, &error))
     {
@@ -257,7 +257,7 @@ rakia_connection_set_aliases (TpSvcConnectionInterfaceAliasing1 *iface,
   alias = collapse_whitespace (alias, &to_free);
 
   contact_handles = tp_base_connection_get_handles (base,
-      TP_HANDLE_TYPE_CONTACT);
+      TP_ENTITY_TYPE_CONTACT);
   default_alias = conn_get_default_alias (base,
       contact_handles, self_handle);
 
@@ -292,7 +292,7 @@ rakia_conn_aliasing_fill_contact_attributes (TpBaseConnection *base,
       GValue *val;
 
       contact_handles = tp_base_connection_get_handles (base,
-          TP_HANDLE_TYPE_CONTACT);
+          TP_ENTITY_TYPE_CONTACT);
 
       val = tp_g_value_slice_new (G_TYPE_STRING);
 

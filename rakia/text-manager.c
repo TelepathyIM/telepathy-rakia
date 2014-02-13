@@ -309,7 +309,7 @@ rakia_text_manager_new_channel (RakiaTextManager *fac,
 
 static const gchar * const text_channel_fixed_properties[] = {
     TP_IFACE_CHANNEL ".ChannelType",
-    TP_IFACE_CHANNEL ".TargetHandleType",
+    TP_IFACE_CHANNEL ".TargetEntityType",
     NULL
 };
 
@@ -334,7 +334,7 @@ rakia_text_manager_type_foreach_channel_class (GType type,
       value);
 
   value = tp_g_value_slice_new (G_TYPE_UINT);
-  g_value_set_uint (value, TP_HANDLE_TYPE_CONTACT);
+  g_value_set_uint (value, TP_ENTITY_TYPE_CONTACT);
   g_hash_table_insert (table, (gchar *) text_channel_fixed_properties[1],
       value);
 
@@ -361,7 +361,7 @@ rakia_text_manager_requestotron (RakiaTextManager *self,
     return FALSE;
 
   if (tp_asv_get_uint32 (request_properties,
-        TP_IFACE_CHANNEL ".TargetHandleType", NULL) != TP_HANDLE_TYPE_CONTACT)
+        TP_IFACE_CHANNEL ".TargetEntityType", NULL) != TP_ENTITY_TYPE_CONTACT)
     return FALSE;
 
   /* validity already checked by TpBaseConnection */

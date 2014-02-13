@@ -225,7 +225,7 @@ rakia_text_channel_class_init(RakiaTextChannelClass *klass)
   static TpDBusPropertiesMixinPropImpl channel_props[] = {
       { "ChannelType", "channel-type", NULL },
       { "Interfaces", "interfaces", NULL },
-      { "TargetHandleType", "handle-type", NULL },
+      { "TargetEntityType", "handle-type", NULL },
       { "TargetHandle", "handle", NULL },
       { "TargetID", "target-id", NULL },
       { "InitiatorHandle", "initiator-handle", NULL },
@@ -255,7 +255,7 @@ rakia_text_channel_class_init(RakiaTextChannelClass *klass)
 
   base_class->channel_type = TP_IFACE_CHANNEL_TYPE_TEXT;
   base_class->get_interfaces = rakia_text_channel_get_interfaces;
-  base_class->target_handle_type = TP_HANDLE_TYPE_CONTACT;
+  base_class->target_entity_type = TP_ENTITY_TYPE_CONTACT;
   base_class->close = rakia_text_channel_close;
   base_class->fill_immutable_properties =
     rakia_text_channel_fill_immutable_properties;

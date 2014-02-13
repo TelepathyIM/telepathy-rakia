@@ -157,7 +157,7 @@ rakia_call_channel_class_init (
   object_class->finalize = rakia_call_channel_finalize;
 
 
-  base_channel_class->target_handle_type = TP_HANDLE_TYPE_CONTACT;
+  base_channel_class->target_entity_type = TP_ENTITY_TYPE_CONTACT;
   base_channel_class->get_object_path_suffix =
       rakia_call_channel_get_object_path_suffix;
   base_channel_class->close = rakia_call_channel_close;
