@@ -382,7 +382,7 @@ rakia_text_channel_send_message (GObject *object,
   RakiaTextPendingMessage *msg = NULL;
   nua_handle_t *msg_nh = NULL;
   GError *error = NULL;
-  const GHashTable *part;
+  GVariant *part;
   guint n_parts;
   const gchar *content_type;
   const gchar *text;
@@ -397,14 +397,15 @@ rakia_text_channel_send_message (GObject *object,
     goto fail; \
   } G_STMT_END
 
-  part = tp_message_peek (message, 0);
+  part = tp_message_dup_part (message, 0);
 
-  if (tp_asv_lookup (part, "message-type") != NULL)
+  if (tp_vardict_has_key (part, "message-type"))
     {
-      if (tp_asv_get_uint32 (part, "message-type", NULL) !=
+      if (tp_vardict_get_uint32 (part, "message-type", NULL) !=
           TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL)
         INVALID_ARGUMENT ("invalid message type");
     }
+  g_variant_unref (part);
 
   n_parts = tp_message_count_parts (message);
 
@@ -412,9 +413,9 @@ rakia_text_channel_send_message (GObject *object,
     INVALID_ARGUMENT ("message must contain exactly 1 part, not %u",
         (n_parts - 1));
 
-  part = tp_message_peek (message, 1);
-  content_type = tp_asv_get_string (part, "content-type");
-  text = tp_asv_get_string (part, "content");
+  part = tp_message_dup_part (message, 1);
+  content_type = tp_vardict_get_string (part, "content-type");
+  text = tp_vardict_get_string (part, "content");
 
   if (content_type == NULL || tp_strdiff (content_type, "text/plain"))
     INVALID_ARGUMENT ("message must be text/plain");
@@ -449,9 +450,11 @@ rakia_text_channel_send_message (GObject *object,
   g_queue_push_tail (priv->sending_messages, msg);
 
   DEBUG ("message queued for delivery");
+  g_variant_unref (part);
   return;
 
 fail:
+  g_variant_unref (part);
   g_assert (error != NULL);
   tp_message_mixin_sent (object, message, 0, NULL, error);
   g_error_free (error);
