@@ -89,7 +89,8 @@ class CallTest:
 
     def check_endpoint(self, content, endpoint_path):        
         endpoint = self.bus.get_object(self.conn.bus_name, endpoint_path)
-        endpoint_props = endpoint.GetAll(cs.CALL_STREAM_ENDPOINT)
+        endpoint_props = endpoint.GetAll(cs.CALL_STREAM_ENDPOINT,
+                dbus_interface=cs.PROPERTIES_IFACE)
         assertEquals(('',''), endpoint_props['RemoteCredentials'])
         assertEquals(self.context.get_remote_candidates_dbus(),
                      endpoint_props['RemoteCandidates'])
@@ -164,7 +165,8 @@ class CallTest:
         
         content = self.bus.get_object (self.conn.bus_name, content_path)
         
-        content_props = content.GetAll(cs.CALL_CONTENT)
+        content_props = content.GetAll(cs.CALL_CONTENT,
+                dbus_interface=cs.PROPERTIES_IFACE)
         if initial:
             assertEquals(cs.CALL_DISPOSITION_INITIAL,
             content_props['Disposition'])
@@ -183,7 +185,8 @@ class CallTest:
 
         content.media_type = content_props['Type']
 
-        cmedia_props = content.GetAll(cs.CALL_CONTENT_IFACE_MEDIA)
+        cmedia_props = content.GetAll(cs.CALL_CONTENT_IFACE_MEDIA,
+                dbus_interface=cs.PROPERTIES_IFACE)
         assertLength(0, cmedia_props['RemoteMediaDescriptions'])
         assertLength(0, cmedia_props['LocalMediaDescriptions'])
         if incoming:
@@ -202,7 +205,8 @@ class CallTest:
         if incoming:
             md = self.bus.get_object (self.conn.bus_name,
                                  cmedia_props['MediaDescriptionOffer'][0])
-            md.Accept(self.context.get_audio_md_dbus(self.remote_handle))
+            md.Accept(self.context.get_audio_md_dbus(self.remote_handle),
+                    dbus_interface=cs.CALL_CONTENT_MEDIA_DESCRIPTION)
             o = self.q.expect_many(
                 EventPattern('dbus-signal', signal='MediaDescriptionOfferDone'),
                 EventPattern('dbus-signal', signal='LocalMediaDescriptionChanged'),
@@ -275,10 +279,12 @@ class CallTest:
                     cs.CALL_STREAM_FLOW_STATE_STARTED)
 
                 mdo = c.Get(cs.CALL_CONTENT_IFACE_MEDIA,
-                            'MediaDescriptionOffer')
+                            'MediaDescriptionOffer',
+                            dbus_interface=cs.PROPERTIES_IFACE)
                 md = self.bus.get_object (self.conn.bus_name, mdo[0])
                 md.Accept(self.context.get_audio_md_dbus(
-                        self.remote_handle))
+                        self.remote_handle),
+                        dbus_interface=cs.CALL_CONTENT_MEDIA_DESCRIPTION)
 
                 self.q.expect_many(
                     EventPattern('dbus-signal', signal='MediaDescriptionOfferDone',
@@ -289,7 +295,8 @@ class CallTest:
                                  path=c.__dbus_object_path__))
 
                 mdo = c.Get(cs.CALL_CONTENT_IFACE_MEDIA,
-                            'MediaDescriptionOffer')
+                            'MediaDescriptionOffer',
+                            dbus_interface=cs.PROPERTIES_IFACE)
                 assertEquals(('/', {}), mdo)
 
                 self.add_candidates(c.stream)
@@ -392,7 +399,8 @@ class CallTest:
                     i.signal != 'NewMediaDescriptionOffer':
                 continue
             md = self.bus.get_object (self.conn.bus_name, i.args[0])
-            md.Accept(self.context.get_audio_md_dbus(self.remote_handle))
+            md.Accept(self.context.get_audio_md_dbus(self.remote_handle),
+                    dbus_interface=cs.CALL_CONTENT_MEDIA_DESCRIPTION)
 
         o = self.q.expect_many(
             # Call accepted
@@ -401,7 +409,8 @@ class CallTest:
         assertEquals(cs.CALL_STATE_ACCEPTED, o[0].args[0])
 
         for c in self.contents:
-            mdo = c.Get(cs.CALL_CONTENT_IFACE_MEDIA, 'MediaDescriptionOffer')
+            mdo = c.Get(cs.CALL_CONTENT_IFACE_MEDIA, 'MediaDescriptionOffer',
+                    dbus_interface=cs.PROPERTIES_IFACE)
             assertEquals(('/', {}), mdo)
 
 

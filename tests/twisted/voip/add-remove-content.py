@@ -25,9 +25,11 @@ class AddRemoveContent(calltest.CallTest):
         self.add_candidates(content.stream)
 
         md_path, _ = content.Get(cs.CALL_CONTENT_IFACE_MEDIA,
-                                 'MediaDescriptionOffer')
+                                 'MediaDescriptionOffer',
+                                 dbus_interface=cs.PROPERTIES_IFACE)
         md = self.bus.get_object (self.conn.bus_name, md_path)
-        md.Accept(self.context.get_audio_md_dbus(self.remote_handle))
+        md.Accept(self.context.get_audio_md_dbus(self.remote_handle),
+                dbus_interface=cs.CALL_CONTENT_MEDIA_DESCRIPTION)
         self.q.expect_many(
             EventPattern('dbus-signal', signal='MediaDescriptionOfferDone'),
             EventPattern('dbus-signal', signal='LocalMediaDescriptionChanged'),
@@ -81,9 +83,11 @@ class AddRemoveContent(calltest.CallTest):
         self.add_candidates(content.stream)
 
         md_path, _ = content.Get(cs.CALL_CONTENT_IFACE_MEDIA,
-                                 'MediaDescriptionOffer')
+                                 'MediaDescriptionOffer',
+                                 dbus_interface=cs.PROPERTIES_IFACE)
         md = self.bus.get_object (self.conn.bus_name, md_path)
-        md.Accept(self.context.get_audio_md_dbus(self.remote_handle))
+        md.Accept(self.context.get_audio_md_dbus(self.remote_handle),
+                dbus_interface=cs.CALL_CONTENT_MEDIA_DESCRIPTION)
         self.q.expect_many(
             EventPattern('dbus-signal', signal='MediaDescriptionOfferDone'),
             EventPattern('dbus-signal', signal='LocalMediaDescriptionChanged'),
@@ -126,7 +130,7 @@ class AddRemoveContent(calltest.CallTest):
     def remove_content_successful(self, x):
         content = self.contents[x]
         self.contents.remove(content)
-        content.Remove()
+        content.Remove(dbus_interface=cs.CALL_CONTENT)
 
         reinvite_event, content_removed = self.q.expect_many(
             EventPattern('sip-invite'),

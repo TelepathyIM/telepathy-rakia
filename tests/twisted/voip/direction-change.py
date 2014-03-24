@@ -583,7 +583,8 @@ class DirectionChange(calltest.CallTest):
 
         content = self.bus.get_object (self.conn.bus_name, content_path)
         
-        content_props = content.GetAll(cs.CALL_CONTENT)
+        content_props = content.GetAll(cs.CALL_CONTENT,
+                dbus_interface=cs.PROPERTIES_IFACE)
         assertEquals(cs.CALL_DISPOSITION_NONE, content_props['Disposition'])
         assertEquals('NewContent', content_props['Name'])
         assertEquals(cs.MEDIA_STREAM_TYPE_AUDIO, content_props['Type'])
@@ -611,10 +612,12 @@ class DirectionChange(calltest.CallTest):
                      smedia_props['ReceivingState'])
 
         mdo = content.Get(cs.CALL_CONTENT_IFACE_MEDIA,
-                          'MediaDescriptionOffer')
+                          'MediaDescriptionOffer',
+                          dbus_interface=cs.PROPERTIES_IFACE)
         md = self.bus.get_object (self.conn.bus_name, mdo[0])
         md.Accept(self.context.get_audio_md_dbus(
-                self.remote_handle))
+                self.remote_handle),
+                dbus_interface=cs.CALL_CONTENT_MEDIA_DESCRIPTION)
 
         self.add_candidates(stream)
 
@@ -630,7 +633,7 @@ class DirectionChange(calltest.CallTest):
         ack_cseq = "%s ACK" % reinvite_event.cseq.split()[0]
         self.q.expect('sip-ack', cseq=ack_cseq)
 
-        content.Remove()
+        content.Remove(dbus_interface=cs.CALL_CONTENT)
 
 
         reinvite_event = self.q.expect('sip-invite')
@@ -662,7 +665,8 @@ class DirectionChange(calltest.CallTest):
 
         content = self.bus.get_object (self.conn.bus_name, ca.args[0])
         
-        content_props = content.GetAll(cs.CALL_CONTENT)
+        content_props = content.GetAll(cs.CALL_CONTENT,
+                dbus_interface=cs.PROPERTIES_IFACE)
         assertEquals(cs.CALL_DISPOSITION_NONE, content_props['Disposition'])
         assertEquals(cs.MEDIA_STREAM_TYPE_AUDIO, content_props['Type'])
         
@@ -689,10 +693,12 @@ class DirectionChange(calltest.CallTest):
                      smedia_props['ReceivingState'])
 
         mdo = content.Get(cs.CALL_CONTENT_IFACE_MEDIA,
-                          'MediaDescriptionOffer')
+                          'MediaDescriptionOffer',
+                          dbus_interface=cs.PROPERTIES_IFACE)
         md = self.bus.get_object (self.conn.bus_name, mdo[0])
         md.Accept(self.context.get_audio_md_dbus(
-                self.remote_handle))
+                self.remote_handle),
+                dbus_interface=cs.CALL_CONTENT_MEDIA_DESCRIPTION)
 
         self.add_candidates(stream)
         
@@ -702,7 +708,7 @@ class DirectionChange(calltest.CallTest):
             [('audio', 'sendonly'), ('audio', 'inactive')])
         self.context.ack(acc.sip_message)
 
-        content.Remove()
+        content.Remove(dbus_interface=cs.CALL_CONTENT)
 
 
         reinvite_event = self.q.expect('sip-invite')
