@@ -144,7 +144,7 @@ conn_get_alias (TpBaseConnection *base,
 static void
 rakia_connection_request_aliases (TpSvcConnectionInterfaceAliasing1 *iface,
                                   const GArray *contacts,
-                                  DBusGMethodInvocation *context)
+                                  GDBusMethodInvocation *context)
 {
   TpBaseConnection *base = TP_BASE_CONNECTION (iface);
   TpHandleRepoIface *contact_handles;
@@ -231,7 +231,7 @@ collapse_whitespace (const gchar *str, gchar **to_free)
 static void
 rakia_connection_set_aliases (TpSvcConnectionInterfaceAliasing1 *iface,
                               GHashTable *aliases,
-                              DBusGMethodInvocation *context)
+                              GDBusMethodInvocation *context)
 {
   TpBaseConnection *base = TP_BASE_CONNECTION (iface);
   TpHandleRepoIface *contact_handles;

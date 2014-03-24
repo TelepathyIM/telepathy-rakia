@@ -361,7 +361,7 @@ rakia_text_channel_close (TpBaseChannel *base)
  */
 static void
 rakia_text_channel_destroy (TpSvcChannelInterfaceDestroyable1 *iface,
-                            DBusGMethodInvocation *context)
+                            GDBusMethodInvocation *context)
 {
   tp_message_mixin_clear ((GObject *) iface);
 
