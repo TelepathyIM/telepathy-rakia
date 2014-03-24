@@ -160,7 +160,7 @@ rakia_connection_request_aliases (TpSvcConnectionInterfaceAliasing1 *iface,
 
   if (!tp_handles_are_valid (contact_handles, contacts, FALSE, &error))
     {
-      dbus_g_method_return_error (context, error);
+      g_dbus_method_invocation_return_gerror (context, error);
       g_error_free (error);
       return;
     }
@@ -250,7 +250,7 @@ rakia_connection_set_aliases (TpSvcConnectionInterfaceAliasing1 *iface,
       /* One of the handles (if there are any) cannot be the self handle */
       GError err = { TP_ERROR, TP_ERROR_INVALID_ARGUMENT,
           "Cannot set aliases for any contact except self" };
-      dbus_g_method_return_error (context, &err);
+      g_dbus_method_invocation_return_gerror (context, &err);
       return;
     }
 
