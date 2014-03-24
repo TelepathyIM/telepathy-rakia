@@ -82,7 +82,7 @@ nodist_librakia_convenience_la_SOURCES = \
 
 librakia_convenience_la_LIBADD = \
     $(top_builddir)/rakia/librakia.la \
-    $(top_builddir)/extensions/librakia-extensions.la
+    $(NULL)
 
 telepathy_rakia_1_SOURCES = \
     telepathy-rakia.c 

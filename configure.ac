@@ -148,7 +148,6 @@ fi
 AC_CONFIG_FILES([
   Makefile
   rakia/Makefile
-  extensions/Makefile
   src/Makefile
   m4/Makefile
   data/Makefile
