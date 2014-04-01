@@ -520,7 +520,7 @@ media_remote_candidates_updated_cb (RakiaSipMedia *media, RakiaCallStream *self)
   TpBaseCallStream *bcs = TP_BASE_CALL_STREAM (self);
   TpBaseMediaCallStream *bmcs = TP_BASE_MEDIA_CALL_STREAM (self);
   GPtrArray *candidates = rakia_sip_media_get_remote_candidates (media);
-  TpDBusDaemon *bus = tp_base_connection_get_dbus_daemon (
+  GDBusConnection *bus = tp_base_connection_get_dbus_connection (
       tp_base_call_stream_get_connection (bcs));
   gchar *object_path;
   guint i;

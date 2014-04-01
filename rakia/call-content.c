@@ -152,7 +152,7 @@ rakia_call_content_constructed (GObject *object)
   if (creator == tp_base_channel_get_self_handle (bchan))
     {
       TpCallContentMediaDescription *md;
-      TpDBusDaemon *bus = tp_base_connection_get_dbus_daemon (
+      GDBusConnection *bus = tp_base_connection_get_dbus_connection (
           tp_base_call_content_get_connection (bcc));
 
       object_path = g_strdup_printf ("%s/InitialOffer",
@@ -328,7 +328,7 @@ media_remote_codecs_updated_cb (RakiaSipMedia *media, gboolean is_offer,
   GPtrArray *remote_codecs =
       rakia_sip_media_get_remote_codec_offer (priv->media);
   TpCallContentMediaDescription *md;
-  TpDBusDaemon *bus = tp_base_connection_get_dbus_daemon (
+  GDBusConnection *bus = tp_base_connection_get_dbus_connection (
       tp_base_call_content_get_connection (bcc));
   gchar *object_path;
   guint i, j;
