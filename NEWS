@@ -7,10 +7,18 @@ formerly known as Telepathy-SofiaSIP (most recent at the top).
 
 See also ChangeLog.
 
-telepathy-rakia 0.9.0 (UNRELEASED)
-----------------------------------
+telepathy-rakia 0.99.10 (2014-04-03)
+------------------------------------
 
-...
+The “you and whose army?” release.
+
+Incompatible changes:
+
+• Telepathy 1 D-Bus API
+
+Dependencies:
+
+• telepathy-glib 0.99.10
 
 telepathy-rakia 0.8.0 (2013-10-02)
 ----------------------------------
