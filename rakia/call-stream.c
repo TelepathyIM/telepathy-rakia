@@ -25,6 +25,8 @@
 
 #include "rakia/sip-media.h"
 
+#include <telepathy-glib/telepathy-glib-dbus.h>
+
 #define DEBUG_FLAG RAKIA_DEBUG_MEDIA
 #include "debug.h"
 
