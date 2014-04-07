@@ -536,18 +536,18 @@ rakia_media_manager_type_foreach_channel_class (GType type,
 {
   GHashTable *table = g_hash_table_new_full (g_str_hash, g_str_equal,
       NULL, (GDestroyNotify) tp_g_value_slice_free);
-  GValue *value, *handle_type_value;
+  GValue *value, *entity_type_value;
 
   value = tp_g_value_slice_new (G_TYPE_STRING);
   g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_CALL1);
   g_hash_table_insert (table, TP_PROP_CHANNEL_CHANNEL_TYPE, value);
 
-  handle_type_value = tp_g_value_slice_new (G_TYPE_UINT);
+  entity_type_value = tp_g_value_slice_new (G_TYPE_UINT);
   /* no uint value yet - we'll change it for each channel class */
   g_hash_table_insert (table, TP_PROP_CHANNEL_TARGET_ENTITY_TYPE,
-      handle_type_value);
+      entity_type_value);
 
-  g_value_set_uint (handle_type_value, TP_ENTITY_TYPE_CONTACT);
+  g_value_set_uint (entity_type_value, TP_ENTITY_TYPE_CONTACT);
 
   g_hash_table_insert (table, TP_PROP_CHANNEL_TYPE_CALL1_INITIAL_AUDIO,
       tp_g_value_slice_new_boolean (TRUE));
@@ -580,7 +580,7 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
   RakiaMediaManager *self = RAKIA_MEDIA_MANAGER (manager);
   RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (self);
   TpBaseConnection *conn = (TpBaseConnection *) priv->conn;
-  TpEntityType handle_type;
+  TpEntityType entity_type;
   TpHandle handle;
   RakiaSipSession *session;
   RakiaCallChannel *channel = NULL;
@@ -621,13 +621,13 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
   if (!initial_audio && !initial_video)
     return FALSE;
 
-  handle_type = tp_asv_get_uint32 (request_properties,
+  entity_type = tp_asv_get_uint32 (request_properties,
       TP_IFACE_CHANNEL ".TargetEntityType", NULL);
 
   handle = tp_asv_get_uint32 (request_properties,
       TP_IFACE_CHANNEL ".TargetHandle", NULL);
 
-  if (handle_type != TP_ENTITY_TYPE_CONTACT)
+  if (entity_type != TP_ENTITY_TYPE_CONTACT)
     return FALSE;
 
   g_assert (handle != 0);

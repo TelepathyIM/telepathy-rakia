@@ -136,7 +136,7 @@ rakia_create_handle_repos (TpBaseConnection *conn,
 {
   repos[TP_ENTITY_TYPE_CONTACT] =
       (TpHandleRepoIface *)g_object_new (TP_TYPE_DYNAMIC_HANDLE_REPO,
-          "handle-type", TP_ENTITY_TYPE_CONTACT,
+          "entity-type", TP_ENTITY_TYPE_CONTACT,
           "normalize-function", rakia_handle_normalize,
           "default-normalize-context", conn,
           NULL);

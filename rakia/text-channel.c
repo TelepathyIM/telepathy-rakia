@@ -67,7 +67,7 @@ enum
   PROP_CONNECTION = 1,
   PROP_OBJECT_PATH,
   PROP_CHANNEL_TYPE,
-  PROP_HANDLE_TYPE,
+  PROP_ENTITY_TYPE,
   PROP_HANDLE,
   PROP_TARGET_ID,
   PROP_INITIATOR_HANDLE,
@@ -225,7 +225,7 @@ rakia_text_channel_class_init(RakiaTextChannelClass *klass)
   static TpDBusPropertiesMixinPropImpl channel_props[] = {
       { "ChannelType", "channel-type", NULL },
       { "Interfaces", "interfaces", NULL },
-      { "TargetEntityType", "handle-type", NULL },
+      { "TargetEntityType", "entity-type", NULL },
       { "TargetHandle", "handle", NULL },
       { "TargetID", "target-id", NULL },
       { "InitiatorHandle", "initiator-handle", NULL },
