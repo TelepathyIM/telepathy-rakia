@@ -52,8 +52,6 @@
 
 G_DEFINE_TYPE_WITH_CODE (RakiaConnection, rakia_connection,
     RAKIA_TYPE_BASE_CONNECTION,
-    G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_DBUS_PROPERTIES,
-        tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING1,
         rakia_connection_aliasing_svc_iface_init);
     G_IMPLEMENT_INTERFACE (RAKIA_TYPE_CONNECTION_ALIASING, NULL);

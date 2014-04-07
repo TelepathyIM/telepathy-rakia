@@ -54,8 +54,6 @@ static void destroyable_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (RakiaTextChannel, rakia_text_channel, TP_TYPE_BASE_CHANNEL,
     G_IMPLEMENT_INTERFACE (RAKIA_TYPE_EVENT_TARGET, NULL);
-    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_DBUS_PROPERTIES,
-      tp_dbus_properties_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_TEXT,
       tp_message_mixin_iface_init);
     G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE1,
