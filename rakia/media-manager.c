@@ -254,7 +254,7 @@ call_channel_closed_cb (RakiaCallChannel *chan, gpointer user_data)
     }
 
   tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (fac),
-      TP_EXPORTABLE_CHANNEL (chan));
+      TP_BASE_CHANNEL (chan));
 }
 
 /**
@@ -387,7 +387,7 @@ incoming_call_cb (RakiaSipSession *session,
       session);
 
   tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (idata->fac),
-      TP_EXPORTABLE_CHANNEL (channel), NULL);
+      TP_BASE_CHANNEL (channel), NULL);
 
   g_object_unref (session);
   g_slice_free (struct InviteData, idata);
@@ -489,7 +489,7 @@ rakia_media_manager_constructed (GObject *object)
 
 static void
 rakia_media_manager_foreach_channel (TpChannelManager *manager,
-                                     TpExportableChannelFunc foreach,
+                                     TpBaseChannelFunc foreach,
                                      gpointer user_data)
 {
   RakiaMediaManager *fac = RAKIA_MEDIA_MANAGER (manager);
@@ -501,7 +501,7 @@ rakia_media_manager_foreach_channel (TpChannelManager *manager,
 
   for (i = 0; i < priv->channels->len; i++)
     {
-      TpExportableChannel *channel = TP_EXPORTABLE_CHANNEL (
+      TpBaseChannel *channel = TP_BASE_CHANNEL (
           g_ptr_array_index (priv->channels, i));
 
       foreach (channel, user_data);
@@ -665,7 +665,7 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
             {
               tp_channel_manager_emit_request_already_satisfied (
                   TP_CHANNEL_MANAGER (self), request,
-                  TP_EXPORTABLE_CHANNEL (channel));
+                  TP_BASE_CHANNEL (channel));
               return TRUE;
             }
         }
@@ -678,7 +678,7 @@ rakia_media_manager_requestotron (TpChannelManager *manager,
 
   request_tokens = g_slist_prepend (NULL, request);
   tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
-      TP_EXPORTABLE_CHANNEL (channel), request_tokens);
+      TP_BASE_CHANNEL (channel), request_tokens);
   g_slist_free (request_tokens);
 
   return TRUE;

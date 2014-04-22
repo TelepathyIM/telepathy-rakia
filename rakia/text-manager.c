@@ -198,7 +198,7 @@ rakia_text_manager_close_all (RakiaTextManager *fac)
 
 struct _ForeachData
 {
-  TpExportableChannelFunc func;
+  TpBaseChannelFunc func;
   gpointer user_data;
 };
 
@@ -206,14 +206,14 @@ static void
 _foreach_slave (gpointer key, gpointer value, gpointer user_data)
 {
   struct _ForeachData *data = (struct _ForeachData *)user_data;
-  TpExportableChannel *chan = TP_EXPORTABLE_CHANNEL (value);
+  TpBaseChannel *chan = TP_BASE_CHANNEL (value);
 
   data->func (chan, data->user_data);
 }
 
 static void
 rakia_text_manager_foreach_channel (TpChannelManager *manager,
-                                    TpExportableChannelFunc func,
+                                    TpBaseChannelFunc func,
                                     gpointer user_data)
 {
   RakiaTextManager *fac = RAKIA_TEXT_MANAGER (manager);
@@ -257,7 +257,7 @@ channel_closed (RakiaTextChannel *chan, gpointer user_data)
       g_hash_table_remove (priv->channels, GINT_TO_POINTER (contact_handle));
       tp_channel_manager_emit_channel_closed_for_object (
           TP_CHANNEL_MANAGER (self),
-          (TpExportableChannel *) chan);
+          (TpBaseChannel *) chan);
     }
   else
     {
@@ -265,9 +265,9 @@ channel_closed (RakiaTextChannel *chan, gpointer user_data)
              contact_handle);
       tp_channel_manager_emit_channel_closed_for_object (
           TP_CHANNEL_MANAGER (self),
-          (TpExportableChannel *) chan);
+          (TpBaseChannel *) chan);
       tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
-          (TpExportableChannel *) chan, NULL);
+          (TpBaseChannel *) chan, NULL);
     }
 }
 
@@ -305,7 +305,7 @@ rakia_text_manager_new_channel (RakiaTextManager *fac,
     request_tokens = NULL;
 
   tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (fac),
-      (TpExportableChannel *) chan, request_tokens);
+      (TpBaseChannel *) chan, request_tokens);
 
   g_slist_free (request_tokens);
 
@@ -360,7 +360,7 @@ rakia_text_manager_requestotron (RakiaTextManager *self,
   TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
   TpHandle handle;
   GError *error = NULL;
-  TpExportableChannel *channel;
+  TpBaseChannel *channel;
 
   if (tp_strdiff (tp_asv_get_string (request_properties,
           TP_IFACE_CHANNEL ".ChannelType"), TP_IFACE_CHANNEL_TYPE_TEXT))
