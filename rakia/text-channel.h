@@ -33,8 +33,6 @@ typedef struct _RakiaTextChannelClass RakiaTextChannelClass;
 
 struct _RakiaTextChannelClass {
     TpBaseChannelClass parent_class;
-
-    TpDBusPropertiesMixinClass dbus_props_class;
 };
 
 struct _RakiaTextChannel {

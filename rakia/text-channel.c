@@ -220,25 +220,6 @@ static void
 rakia_text_channel_class_init(RakiaTextChannelClass *klass)
 {
   TpBaseChannelClass *base_class = TP_BASE_CHANNEL_CLASS (klass);
-  static TpDBusPropertiesMixinPropImpl channel_props[] = {
-      { "ChannelType", "channel-type", NULL },
-      { "Interfaces", "interfaces", NULL },
-      { "TargetEntityType", "entity-type", NULL },
-      { "TargetHandle", "handle", NULL },
-      { "TargetID", "target-id", NULL },
-      { "InitiatorHandle", "initiator-handle", NULL },
-      { "InitiatorID", "initiator-id", NULL },
-      { "Requested", "requested", NULL },
-      { NULL }
-  };
-  static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
-      { TP_IFACE_CHANNEL,
-        tp_dbus_properties_mixin_getter_gobject_properties,
-        NULL,
-        channel_props,
-      },
-      { NULL }
-  };
 
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
@@ -259,11 +240,6 @@ rakia_text_channel_class_init(RakiaTextChannelClass *klass)
     rakia_text_channel_fill_immutable_properties;
   base_class->get_object_path_suffix =
     rakia_text_channel_get_object_path_suffix;
-
-  klass->dbus_props_class.interfaces =
-      prop_interfaces;
-  tp_dbus_properties_mixin_class_init (object_class,
-      G_STRUCT_OFFSET (RakiaTextChannelClass, dbus_props_class));
 
   tp_message_mixin_init_dbus_properties (object_class);
 }
