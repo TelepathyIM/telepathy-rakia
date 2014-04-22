@@ -220,6 +220,9 @@ rakia_text_manager_foreach_channel (TpChannelManager *manager,
   RakiaTextManagerPrivate *priv = RAKIA_TEXT_MANAGER_GET_PRIVATE (fac);
   struct _ForeachData data;
 
+  if (priv->channels == NULL)
+    return;
+
   data.func = func;
   data.user_data = user_data;
 

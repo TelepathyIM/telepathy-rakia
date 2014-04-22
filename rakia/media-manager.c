@@ -496,6 +496,9 @@ rakia_media_manager_foreach_channel (TpChannelManager *manager,
   RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
   guint i;
 
+  if (priv->channels == NULL)
+    return;
+
   for (i = 0; i < priv->channels->len; i++)
     {
       TpExportableChannel *channel = TP_EXPORTABLE_CHANNEL (
