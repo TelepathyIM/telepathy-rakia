@@ -418,17 +418,6 @@ identify_account (TpBaseProtocol *self G_GNUC_UNUSED,
   return g_strdup (account);
 }
 
-static GPtrArray *
-get_interfaces_array (TpBaseProtocol *self)
-{
-  GPtrArray *interfaces;
-
-  interfaces = TP_BASE_PROTOCOL_CLASS (
-      rakia_protocol_parent_class)->get_interfaces_array (self);
-
-  return interfaces;
-}
-
 static void
 get_connection_details (TpBaseProtocol *self,
     GStrv *connection_interfaces,
@@ -533,7 +522,6 @@ rakia_protocol_class_init (RakiaProtocolClass *klass)
   base_class->new_connection = new_connection;
   base_class->normalize_contact = normalize_contact;
   base_class->identify_account = identify_account;
-  base_class->get_interfaces_array = get_interfaces_array;
   base_class->get_connection_details = get_connection_details;
   base_class->dup_authentication_types = dup_authentication_types;
 
