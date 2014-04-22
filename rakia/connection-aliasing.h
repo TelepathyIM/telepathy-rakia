@@ -56,7 +56,7 @@ void rakia_connection_aliasing_svc_iface_init (gpointer g_iface,
 gboolean rakia_conn_aliasing_fill_contact_attributes (TpBaseConnection *base,
     const gchar *dbus_interface,
     TpHandle handle,
-    TpContactAttributeMap *attributes);
+    GVariantDict *attributes);
 
 G_END_DECLS
 

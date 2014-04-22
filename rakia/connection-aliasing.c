@@ -284,23 +284,21 @@ gboolean
 rakia_conn_aliasing_fill_contact_attributes (TpBaseConnection *base,
     const gchar *dbus_interface,
     TpHandle handle,
-    TpContactAttributeMap *attributes)
+    GVariantDict *attributes)
 {
   if (!tp_strdiff (dbus_interface, TP_IFACE_CONNECTION_INTERFACE_ALIASING1))
     {
       TpHandleRepoIface *contact_handles;
-      GValue *val;
+      gchar *alias;
 
       contact_handles = tp_base_connection_get_handles (base,
           TP_ENTITY_TYPE_CONTACT);
-
-      val = tp_g_value_slice_new (G_TYPE_STRING);
-
-      g_value_take_string (val,
-          conn_get_alias (base, contact_handles, handle));
-
-      tp_contact_attribute_map_take_sliced_gvalue (attributes, handle,
-          TP_TOKEN_CONNECTION_INTERFACE_ALIASING1_ALIAS, val);
+      alias = conn_get_alias (base, contact_handles, handle);
+      g_assert (alias != NULL);
+      g_variant_dict_insert_value (attributes,
+          TP_TOKEN_CONNECTION_INTERFACE_ALIASING1_ALIAS,
+          g_variant_new_string (alias));
+      g_free (alias);
       return TRUE;
     }
 

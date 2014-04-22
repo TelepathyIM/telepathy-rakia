@@ -451,7 +451,7 @@ static void
 rakia_connection_fill_contact_attributes (TpBaseConnection *base,
     const gchar *dbus_interface,
     TpHandle handle,
-    TpContactAttributeMap *attributes)
+    GVariantDict *attributes)
 {
   if (rakia_conn_aliasing_fill_contact_attributes (base,
         dbus_interface, handle, attributes))
