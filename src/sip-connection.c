@@ -468,14 +468,6 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
   TpBaseConnectionClass *base_class = TP_BASE_CONNECTION_CLASS (klass);
   RakiaBaseConnectionClass *sip_class = RAKIA_BASE_CONNECTION_CLASS (klass);
   GParamSpec *param_spec;
-  static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
-        { TP_IFACE_CONNECTION_INTERFACE_ALIASING1,
-          conn_aliasing_properties_getter,
-          NULL,
-          conn_aliasing_properties,
-        },
-        { NULL }
-  };
 
   /* Implement pure-virtual methods */
   sip_class->create_handle = rakia_connection_create_nua_handle;
@@ -499,8 +491,6 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
 
   object_class->set_property = rakia_connection_set_property;
   object_class->get_property = rakia_connection_get_property;
-
-  klass->properties_class.interfaces = prop_interfaces;
 
 #define INST_PROP(x) \
   g_object_class_install_property (object_class,  x, param_spec)
@@ -632,8 +622,10 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
 
 #undef INST_PROP
 
-  tp_dbus_properties_mixin_class_init (object_class,
-      G_STRUCT_OFFSET (RakiaConnectionClass, properties_class));
+  tp_dbus_properties_mixin_class_init (object_class, 0);
+  tp_dbus_properties_mixin_implement_interface (object_class,
+      TP_IFACE_QUARK_CONNECTION_INTERFACE_ALIASING1,
+      conn_aliasing_properties_getter, NULL, conn_aliasing_properties);
 }
 
 typedef struct {

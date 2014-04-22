@@ -43,7 +43,6 @@ typedef struct _RakiaConnectionPrivate RakiaConnectionPrivate;
 
 struct _RakiaConnectionClass {
     RakiaBaseConnectionClass parent_class;
-    TpDBusPropertiesMixinClass properties_class;
 };
 
 struct _RakiaConnection {
