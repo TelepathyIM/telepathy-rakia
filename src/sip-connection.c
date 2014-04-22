@@ -427,21 +427,6 @@ rakia_connection_get_implemented_interfaces (void)
   return interfaces_always_present;
 }
 
-static GPtrArray *
-get_interfaces_always_present (TpBaseConnection *base)
-{
-  GPtrArray *arr;
-  const gchar **iter;
-
-  arr = TP_BASE_CONNECTION_CLASS (
-      rakia_connection_parent_class)->get_interfaces_always_present (base);
-
-  for (iter = interfaces_always_present; *iter != NULL; iter++)
-    g_ptr_array_add (arr, (gchar *) *iter);
-
-  return arr;
-}
-
 static nua_handle_t *rakia_connection_create_nua_handle (RakiaBaseConnection *,
     TpHandle);
 static void rakia_connection_add_auth_handler (RakiaBaseConnection *,
@@ -459,6 +444,22 @@ rakia_connection_fill_contact_attributes (TpBaseConnection *base,
 
   TP_BASE_CONNECTION_CLASS (rakia_connection_parent_class)->
     fill_contact_attributes (base, dbus_interface, handle, attributes);
+}
+
+static void
+rakia_connection_constructed (GObject *object)
+{
+  void (*chain_up) (GObject *) =
+      G_OBJECT_CLASS (rakia_connection_parent_class)->constructed;
+  GDBusObjectSkeleton *skel = G_DBUS_OBJECT_SKELETON (object);
+  GDBusInterfaceSkeleton *iface;
+
+  chain_up (object);
+
+  iface = tp_svc_interface_skeleton_new (skel,
+      TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING1);
+  g_dbus_object_skeleton_add_interface (skel, iface);
+  g_object_unref (iface);
 }
 
 static void
@@ -480,12 +481,12 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
   base_class->disconnected = rakia_connection_disconnected;
   base_class->start_connecting = rakia_connection_start_connecting;
   base_class->shut_down = rakia_connection_shut_down;
-  base_class->get_interfaces_always_present = get_interfaces_always_present;
   base_class->fill_contact_attributes =
     rakia_connection_fill_contact_attributes;
 
   g_type_class_add_private (klass, sizeof (RakiaConnectionPrivate));
 
+  object_class->constructed = rakia_connection_constructed;
   object_class->dispose = rakia_connection_dispose;
   object_class->finalize = rakia_connection_finalize;
 
