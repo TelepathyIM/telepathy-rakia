@@ -243,9 +243,6 @@ channel_closed (RakiaTextChannel *chan, gpointer user_data)
   TpHandle contact_handle;
   gboolean really_destroyed = TRUE;
 
-  tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
-      (TpExportableChannel *) chan);
-
   if (priv->channels == NULL)
     return;
 
@@ -258,11 +255,17 @@ channel_closed (RakiaTextChannel *chan, gpointer user_data)
     {
       DEBUG ("removing text channel with handle %u", contact_handle);
       g_hash_table_remove (priv->channels, GINT_TO_POINTER (contact_handle));
+      tp_channel_manager_emit_channel_closed_for_object (
+          TP_CHANNEL_MANAGER (self),
+          (TpExportableChannel *) chan);
     }
   else
     {
       DEBUG ("reopening channel with handle %u due to pending messages",
              contact_handle);
+      tp_channel_manager_emit_channel_closed_for_object (
+          TP_CHANNEL_MANAGER (self),
+          (TpExportableChannel *) chan);
       tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
           (TpExportableChannel *) chan, NULL);
     }

@@ -248,13 +248,13 @@ call_channel_closed_cb (RakiaCallChannel *chan, gpointer user_data)
   RakiaMediaManager *fac = RAKIA_MEDIA_MANAGER (user_data);
   RakiaMediaManagerPrivate *priv = RAKIA_MEDIA_MANAGER_GET_PRIVATE (fac);
 
-  tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (fac),
-      TP_EXPORTABLE_CHANNEL (chan));
-
   if (priv->channels)
     {
       g_ptr_array_remove_fast (priv->channels, chan);
     }
+
+  tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (fac),
+      TP_EXPORTABLE_CHANNEL (chan));
 }
 
 /**
