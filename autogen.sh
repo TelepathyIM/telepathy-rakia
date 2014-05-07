@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-autoreconf -i -Wno-portability
+autoreconf -i -Wno-portability -f
 
 # Honor NOCONFIGURE for compatibility with gnome-autogen.sh
 if test x"$NOCONFIGURE" = x; then
