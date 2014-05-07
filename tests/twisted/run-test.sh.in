@@ -7,14 +7,16 @@ if test "x$CHECK_TWISTED_UNINSTALLED" = x; then
     exit 1
   fi
 
-  test_src="@rakiatestsdir@"
-  test_build="@rakiatestsdir@"
-  config_file="@rakiatestsdir@/twisted/tools/tmp-session-bus.conf"
+  G_TEST_SRCDIR="@rakiatestsdir@/twisted"
+  export G_TEST_SRCDIR
+  G_TEST_BUILDDIR="@rakiatestsdir@/twisted"
+  export G_TEST_BUILDDIR
+  config_file="${G_TEST_SRCDIR}/tools/tmp-session-bus.conf"
 
-  PYTHONPATH="@rakiatestsdir@/twisted"
+  PYTHONPATH="${G_TEST_SRCDIR}"
   export PYTHONPATH
 
-  RAKIA_TWISTED_PATH="@rakiatestsdir@/twisted"
+  RAKIA_TWISTED_PATH="${G_TEST_SRCDIR}"
   export RAKIA_TWISTED_PATH
 else
   if test -z "$RAKIA_ABS_TOP_SRCDIR"; then
@@ -26,31 +28,33 @@ else
     exit 1
   fi
 
-  test_src="${RAKIA_ABS_TOP_SRCDIR}/tests"
-  test_build="${RAKIA_ABS_TOP_BUILDDIR}/tests"
-  config_file="${test_build}/twisted/tools/tmp-session-bus.conf"
+  G_TEST_SRCDIR="${RAKIA_ABS_TOP_SRCDIR}/tests/twisted"
+  export G_TEST_SRCDIR
+  G_TEST_BUILDDIR="${RAKIA_ABS_TOP_BUILDDIR}/tests/twisted"
+  export G_TEST_BUILDDIR
+  config_file="${G_TEST_BUILDDIR}/tools/tmp-session-bus.conf"
 
-  PYTHONPATH="${test_src}/twisted:${test_build}/twisted"
+  PYTHONPATH="${G_TEST_SRCDIR}:${G_TEST_BUILDDIR}"
   export PYTHONPATH
 
-  RAKIA_TWISTED_PATH="${test_src}/twisted"
+  RAKIA_TWISTED_PATH="${G_TEST_SRCDIR}"
   export RAKIA_TWISTED_PATH
 fi
 
 if [ -n "$1" ] ; then
   list="$1"
 else
-  list=$(cat "${test_build}"/twisted/rakia-twisted-tests.list)
+  list=$(cat "${G_TEST_BUILDDIR}/rakia-twisted-tests.list")
 fi
 
 any_failed=0
 for i in $list ; do
   echo "Testing $i ..."
-  sh "${test_src}/twisted/tools/with-session-bus.sh" \
+  sh "${G_TEST_SRCDIR}/tools/with-session-bus.sh" \
     ${CHECK_TWISTED_SLEEP} \
     --config-file="${config_file}" \
     -- \
-    @TEST_PYTHON@ -u "${test_src}/twisted/$i"
+    @TEST_PYTHON@ -u "${G_TEST_SRCDIR}/$i"
   e=$?
   case "$e" in
     (0)
