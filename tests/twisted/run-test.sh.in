@@ -11,7 +11,6 @@ if test "x$CHECK_TWISTED_UNINSTALLED" = x; then
   export G_TEST_SRCDIR
   G_TEST_BUILDDIR="@rakiatestsdir@/twisted"
   export G_TEST_BUILDDIR
-  config_file="${G_TEST_SRCDIR}/tools/tmp-session-bus.conf"
 
   PYTHONPATH="${G_TEST_SRCDIR}"
   export PYTHONPATH
@@ -29,11 +28,12 @@ else
   export G_TEST_SRCDIR
   G_TEST_BUILDDIR="${RAKIA_ABS_TOP_BUILDDIR}/tests/twisted"
   export G_TEST_BUILDDIR
-  config_file="${G_TEST_BUILDDIR}/tools/tmp-session-bus.conf"
 
   PYTHONPATH="${G_TEST_SRCDIR}:${G_TEST_BUILDDIR}"
   export PYTHONPATH
 fi
+
+config_file="${G_TEST_BUILDDIR}/tools/tmp-session-bus.conf"
 
 if [ -n "$1" ] ; then
   list="$1"
