@@ -15,9 +15,6 @@ if test "x$CHECK_TWISTED_UNINSTALLED" = x; then
 
   PYTHONPATH="${G_TEST_SRCDIR}"
   export PYTHONPATH
-
-  RAKIA_TWISTED_PATH="${G_TEST_SRCDIR}"
-  export RAKIA_TWISTED_PATH
 else
   if test -z "$RAKIA_ABS_TOP_SRCDIR"; then
     echo "RAKIA_ABS_TOP_SRCDIR must be set" >&2
@@ -36,9 +33,6 @@ else
 
   PYTHONPATH="${G_TEST_SRCDIR}:${G_TEST_BUILDDIR}"
   export PYTHONPATH
-
-  RAKIA_TWISTED_PATH="${G_TEST_SRCDIR}"
-  export RAKIA_TWISTED_PATH
 fi
 
 if [ -n "$1" ] ; then
