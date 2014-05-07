@@ -46,12 +46,12 @@ config.py: Makefile
 		echo "DEBUGGING = $(DEBUGGING_PYBOOL)"; \
 	} > $@
 
-rakia-twisted-tests.list: Makefile
+twisted-tests.list: Makefile
 	$(AM_V_GEN)echo $(TWISTED_TESTS) > $@
 
 built_test_data = \
 	config.py \
-	rakia-twisted-tests.list \
+	twisted-tests.list \
 	$(NULL)
 
 built_test_scripts = \
