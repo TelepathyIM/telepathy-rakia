@@ -47,7 +47,7 @@ any_failed=0
 for i in $list ; do
   echo "Testing $i ..."
   sh "${test_src}/twisted/tools/with-session-bus.sh" \
-    ${RAKIA_TEST_SLEEP} \
+    ${CHECK_TWISTED_SLEEP} \
     --config-file="${config_file}" \
     -- \
     @TEST_PYTHON@ -u "${test_src}/twisted/$i"

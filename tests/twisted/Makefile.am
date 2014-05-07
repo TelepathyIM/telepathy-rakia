@@ -31,7 +31,7 @@ check-twisted: $(BUILT_SOURCES)
 	CHECK_TWISTED_UNINSTALLED=1 \
 	  RAKIA_ABS_TOP_SRCDIR=@abs_top_srcdir@ \
 	  RAKIA_ABS_TOP_BUILDDIR=@abs_top_builddir@ \
-	  RAKIA_TEST_SLEEP=$$rakia_test_sleep \
+	  CHECK_TWISTED_SLEEP=$$rakia_test_sleep \
 	  ./run-test.sh "$(TWISTED_TESTS)"
 
 if ENABLE_DEBUG
