@@ -2,20 +2,37 @@
 
 cd "@abs_top_builddir@/tests/twisted/tools"
 
-export RAKIA_DEBUG=all
-export TPORT_LOG=1
+if test -z "$CHECK_TWISTED_LOG_DIR"; then
+        echo "CHECK_TWISTED_LOG_DIR must be set"
+        exit 1
+fi
+
+RAKIA_DEBUG=all
+export RAKIA_DEBUG
+TPORT_LOG=1
+export TPORT_LOG
 G_MESSAGES_DEBUG=all
 export G_MESSAGES_DEBUG
 ulimit -c unlimited
-exec > rakia-testing.log 2>&1
+exec > "${CHECK_TWISTED_LOG_DIR}/rakia-testing.log" 2>&1
 
 if test -n "$RAKIA_TEST_VALGRIND"; then
-	export G_DEBUG=gc-friendly
-	export G_SLICE=always-malloc
-	RAKIA_WRAPPER="valgrind --leak-check=full"
-#	RAKIA_WRAPPER="$RAKIA_WRAPPER --gen-suppressions=all"
-	RAKIA_WRAPPER="$RAKIA_WRAPPER --suppressions=@abs_top_srcdir@/tests/suppressions/tp-glib.supp"
-	RAKIA_WRAPPER="$RAKIA_WRAPPER --suppressions=@abs_top_srcdir@/tests/suppressions/rakia.supp"
+        export G_DEBUG=${G_DEBUG:+"${G_DEBUG},"}gc-friendly
+        export G_SLICE=always-malloc
+        RAKIA_WRAPPER="valgrind --leak-check=full --num-callers=20"
+        RAKIA_WRAPPER="$RAKIA_WRAPPER --show-reachable=yes"
+        RAKIA_WRAPPER="$RAKIA_WRAPPER --gen-suppressions=all"
+        RAKIA_WRAPPER="$RAKIA_WRAPPER --child-silent-after-fork=yes"
+        RAKIA_WRAPPER="$RAKIA_WRAPPER --suppressions=@abs_top_srcdir@/tests/suppressions/tp-glib.supp"
+        RAKIA_WRAPPER="$RAKIA_WRAPPER --suppressions=@abs_top_srcdir@/tests/suppressions/rakia.supp"
+elif test -n "$RAKIA_TEST_REFDBG"; then
+        if test -z "$REFDBG_OPTIONS" ; then
+                export REFDBG_OPTIONS="btnum=10"
+        fi
+        if test -z "$RAKIA_WRAPPER" ; then
+                RAKIA_WRAPPER="refdbg"
+        fi
 fi
 
-exec $RAKIA_WRAPPER @abs_top_builddir@/src/telepathy-rakia-1
+export G_DEBUG=fatal-warnings" ${G_DEBUG}"
+exec @abs_top_builddir@/libtool --mode=execute $RAKIA_WRAPPER @abs_top_builddir@/src/telepathy-rakia-1
