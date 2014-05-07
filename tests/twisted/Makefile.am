@@ -28,7 +28,7 @@ check-twisted: $(BUILT_SOURCES)
 	else \
 		rakia_test_sleep=--sleep=$(CHECK_TWISTED_SLEEP); \
 	fi; \
-	RAKIA_TEST_UNINSTALLED=1 \
+	CHECK_TWISTED_UNINSTALLED=1 \
 	  RAKIA_ABS_TOP_SRCDIR=@abs_top_srcdir@ \
 	  RAKIA_ABS_TOP_BUILDDIR=@abs_top_builddir@ \
 	  RAKIA_TEST_SLEEP=$$rakia_test_sleep \
