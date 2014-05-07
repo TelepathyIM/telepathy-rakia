@@ -15,19 +15,14 @@ if test "x$CHECK_TWISTED_UNINSTALLED" = x; then
   PYTHONPATH="${G_TEST_SRCDIR}"
   export PYTHONPATH
 else
-  if test -z "$RAKIA_ABS_TOP_SRCDIR"; then
-    echo "RAKIA_ABS_TOP_SRCDIR must be set" >&2
+  if ! test -d "$G_TEST_SRCDIR"; then
+    echo "G_TEST_SRCDIR must be set and absolute" >&2
     exit 1
   fi
-  if test -z "$RAKIA_ABS_TOP_BUILDDIR"; then
-    echo "RAKIA_ABS_TOP_BUILDDIR must be set" >&2
+  if ! test -d "$G_TEST_BUILDDIR"; then
+    echo "G_TEST_BUILDDIR must be set and absolute" >&2
     exit 1
   fi
-
-  G_TEST_SRCDIR="${RAKIA_ABS_TOP_SRCDIR}/tests/twisted"
-  export G_TEST_SRCDIR
-  G_TEST_BUILDDIR="${RAKIA_ABS_TOP_BUILDDIR}/tests/twisted"
-  export G_TEST_BUILDDIR
 
   PYTHONPATH="${G_TEST_SRCDIR}:${G_TEST_BUILDDIR}"
   export PYTHONPATH
