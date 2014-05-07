@@ -145,6 +145,14 @@ else
   AM_CONDITIONAL([WANT_TWISTED_TESTS], false)
 fi
 
+AC_ARG_ENABLE([installed-tests],
+  [AC_HELP_STRING([--enable-installed-tests],
+    [enable as-installed regression tests])],
+  [],
+  [enable_installed_tests=no])
+AM_CONDITIONAL([ENABLE_INSTALLED_TESTS],
+  [test "x$enable_installed_tests" = xyes])
+
 AC_CONFIG_FILES([
   Makefile
   rakia/Makefile

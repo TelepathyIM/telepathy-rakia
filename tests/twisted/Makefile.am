@@ -49,33 +49,48 @@ config.py: Makefile
 rakia-twisted-tests.list: Makefile
 	$(AM_V_GEN)echo $(TWISTED_TESTS) > $@
 
-BUILT_SOURCES = \
+built_test_data = \
 	config.py \
 	rakia-twisted-tests.list \
+	$(NULL)
+
+built_test_scripts = \
 	run-test.sh \
 	$(NULL)
 
-# We don't really use rakiatestsdir yet - we only support uninstalled testing
-# so far - but I'm substituting it to keep the script more similar to Gabble's.
-# ${pkglibexecdir}/tests is what GNOME's InstalledTests goal recommends.
-#
-# Similarly, Gabble supports TEST_PYTHON differing from PYTHON for historical
-# reasons, but we don't do that here.
+BUILT_SOURCES = \
+	$(built_test_data) \
+	$(built_test_scripts) \
+	$(NULL)
+
+if ENABLE_INSTALLED_TESTS
+testsdir = ${datadir}/telepathy-rakia-1-tests
+twistedtestsdir = ${testsdir}/twisted
+nobase_dist_twistedtests_DATA = $(dist_test_data)
+twistedtests_DATA = $(built_test_data)
+twistedtests_SCRIPTS = $(built_test_scripts)
+endif
+
 run-test.sh: run-test.sh.in Makefile
 	$(AM_V_GEN)sed \
-			-e 's![@]rakiatestsdir[@]!${pkglibexecdir}/tests!' \
+			-e 's![@]rakiatestsdir[@]!${testsdir}!' \
 			-e 's![@]TEST_PYTHON[@]!$(PYTHON)!' \
 			< $< > $@.tmp && \
 		chmod +x $@.tmp && \
 		mv $@.tmp $@
 
-EXTRA_DIST = \
+dist_test_data = \
 	$(TWISTED_TESTS) \
 	constants.py \
-	run-test.sh.in \
 	sofiatest.py \
 	servicetest.py \
-	voip/voip_test.py
+	voip/voip_test.py \
+	$(NULL)
+
+EXTRA_DIST = \
+	$(dist_test_data) \
+	run-test.sh.in \
+	$(NULL)
 
 CLEANFILES = \
 	$(BUILT_SOURCES) \
