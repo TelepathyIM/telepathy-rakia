@@ -93,8 +93,8 @@ for t in $list ; do
   export XDG_CACHE_HOME
   XDG_CACHE_DIR="${tmp}/cache"
   export XDG_CACHE_DIR
-  IDLE_LOGFILE="${tmp}/cm.log"
-  export IDLE_LOGFILE
+  RAKIA_LOGFILE="${tmp}/cm.log"
+  export RAKIA_LOGFILE
 
   CHECK_TWISTED_VERBOSE=1
   export CHECK_TWISTED_VERBOSE
