@@ -41,9 +41,7 @@ static const GDebugKey rakia_debug_keys[] = {
 
 static GHashTable *flag_to_domains = NULL;
 
-#ifdef ENABLE_DEBUG
 static GString *sofia_log_buf = NULL;
-#endif
 
 static void rakia_sofia_log_close (void);
 
@@ -146,7 +144,6 @@ void rakia_log (RakiaDebugFlags flag,
 void
 rakia_sofia_log_handler (void *logdata, const char *format, va_list args)
 {
-#ifdef ENABLE_DEBUG
   if (G_UNLIKELY (sofia_log_buf == NULL))
     sofia_log_buf = g_string_sized_new (
         g_printf_string_upper_bound (format, args));
@@ -162,13 +159,11 @@ rakia_sofia_log_handler (void *logdata, const char *format, va_list args)
           sofia_log_buf->str);
       g_string_truncate (sofia_log_buf, 0);
     }
-#endif
 }
 
 static void
 rakia_sofia_log_close (void)
 {
-#ifdef ENABLE_DEBUG
   if (sofia_log_buf == NULL)
     return;
 
@@ -183,5 +178,4 @@ rakia_sofia_log_close (void)
 
   g_string_free (sofia_log_buf, TRUE);
   sofia_log_buf = NULL;
-#endif
 }

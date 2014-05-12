@@ -48,7 +48,7 @@ void rakia_sofia_log_handler (void *logdata, const char *format, va_list args);
 
 G_END_DECLS
 
-#if defined(ENABLE_DEBUG) && defined(DEBUG_FLAG)
+#if defined(DEBUG_FLAG)
 
 #define DEBUG(format, ...) \
   rakia_log(DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "%s: " format, \
@@ -60,12 +60,12 @@ G_END_DECLS
   rakia_log(DEBUG_FLAG, G_LOG_LEVEL_MESSAGE, "%s: " format, \
       G_STRFUNC, ##__VA_ARGS__)
 
-#else /* ENABLE_DEBUG && DEBUG_FLAG */
+#else
 
 #define DEBUG(format, ...) G_STMT_START { } G_STMT_END
 #define WARNING(format, ...) G_STMT_START { } G_STMT_END
 #define MESSAGE(format, ...) G_STMT_START { } G_STMT_END
 
-#endif /* ENABLE_DEBUG && DEBUG_FLAG */
+#endif
 
 #endif /* __DEBUG_H__ */

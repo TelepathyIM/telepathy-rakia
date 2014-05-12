@@ -56,9 +56,7 @@ main (int argc, char** argv)
   fatal_mask |= G_LOG_LEVEL_CRITICAL;
   g_log_set_always_fatal (fatal_mask);  
 
-#ifdef ENABLE_DEBUG
   rakia_debug_set_flags_from_env ();
-#endif
 
   if (g_getenv ("RAKIA_PERSIST") || g_getenv ("TPSIP_PERSIST"))
     {

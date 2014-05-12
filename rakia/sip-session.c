@@ -54,10 +54,6 @@ G_DEFINE_TYPE_WITH_CODE(RakiaSipSession,
     G_IMPLEMENT_INTERFACE (RAKIA_TYPE_EVENT_TARGET, event_target_init)
 )
 
-
-
-#ifdef ENABLE_DEBUG
-
 /**
  * Sip session states:
  * - created, objects created, local cand/codec query ongoing
@@ -91,14 +87,6 @@ static const char *const session_states[NUM_RAKIA_SIP_SESSION_STATES] =
 #define SESSION_MESSAGE(session, format, ...) \
   rakia_log (DEBUG_FLAG, G_LOG_LEVEL_MESSAGE, "%s [%-17s]: " format, \
       G_STRFUNC, session_states[(session)->priv->state],##__VA_ARGS__)
-
-#else /* !ENABLE_DEBUG */
-
-#define SESSION_DEBUG(session, format, ...) G_STMT_START { } G_STMT_END
-#define SESSION_MESSAGE(session, format, ...) G_STMT_START { } G_STMT_END
-
-#endif /* ENABLE_DEBUG */
-
 
 /* properties */
 enum
@@ -499,13 +487,11 @@ priv_save_event (RakiaSipSession *self)
 
   rakia_base_connection_save_event (priv->conn, priv->saved_event);
 
-#ifdef ENABLE_DEBUG
   {
     nua_event_data_t const *ev_data = nua_event_data (priv->saved_event);
     g_assert (ev_data != NULL);
     DEBUG("saved the last event: %s %hd %s", nua_event_name (ev_data->e_event), ev_data->e_status, ev_data->e_phrase);
   }
-#endif
 }
 
 static void

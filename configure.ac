@@ -75,15 +75,6 @@ if test "x$enable_fatal_warnings" = xyes; then
   TP_ADD_LINKER_FLAG([ERROR_LDFLAGS], [-Wl,--no-copy-dt-needed-entries])
 fi
 
-AC_ARG_ENABLE(debug,
-  AS_HELP_STRING([--disable-debug],[omit debug code]),
-    enable_debug=$enableval, enable_debug=yes )
-
-if test x$enable_debug = xyes; then
-  AC_DEFINE(ENABLE_DEBUG, [], [Enable debug code])
-fi
-AM_CONDITIONAL([ENABLE_DEBUG], [test "x$enable_debug" = xyes])
-
 AC_C_INLINE
 
 dnl GTK docs

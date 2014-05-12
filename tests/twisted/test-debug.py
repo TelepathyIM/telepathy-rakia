@@ -8,7 +8,6 @@ import dbus
 from servicetest import assertEquals, sync_dbus, call_async
 from sofiatest import exec_test
 import constants as cs
-from config import DEBUGGING
 
 def test(q, bus, conn, stream):
     conn.Connect()
@@ -41,10 +40,7 @@ def test(q, bus, conn, stream):
 
     q.expect('dbus-signal', signal='NewChannel')
 
-    if DEBUGGING:
-        assert len(messages) > 0
-    else:
-        assertEquals([], messages)
+    assert len(messages) > 0
 
     # Turn signalling off and check we don't get any more messages.
 

@@ -81,7 +81,6 @@ priv_r_unregister (int status,
 }
 #endif
 
-#ifdef ENABLE_DEBUG
 static void
 priv_r_get_params (int status,
                    nua_t *nua,
@@ -97,7 +96,6 @@ priv_r_get_params (int status,
   /* note: print contents of all tags to stdout */
   tl_print(stdout, "Sofia-SIP NUA stack parameters:\n", tags);
 }
-#endif
 
 /**
  * Callback for events delivered by the SIP stack.
@@ -120,11 +118,9 @@ rakia_base_connection_sofia_callback (nua_event_t event,
 
   switch (event)
     {
-#ifdef ENABLE_DEBUG
     case nua_r_get_params:
       priv_r_get_params (status, nua, nh, tags);
       return;
-#endif
     case nua_r_shutdown:
       priv_r_shutdown (status, nua);
       return;

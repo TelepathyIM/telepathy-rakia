@@ -34,16 +34,9 @@ check-twisted: $(BUILT_SOURCES)
 	  CHECK_TWISTED_SLEEP=$$rakia_test_sleep \
 	  ./run-test.sh "$(TWISTED_TESTS)"
 
-if ENABLE_DEBUG
-DEBUGGING_PYBOOL = True
-else
-DEBUGGING_PYBOOL = False
-endif
-
 config.py: Makefile
 	$(AM_V_GEN) { \
 		echo "PACKAGE_STRING = \"$(PACKAGE_STRING)\""; \
-		echo "DEBUGGING = $(DEBUGGING_PYBOOL)"; \
 	} > $@
 
 twisted-tests.list: Makefile

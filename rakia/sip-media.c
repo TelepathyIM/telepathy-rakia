@@ -39,9 +39,6 @@
 #include "rakia/codec-param-formats.h"
 #include "rakia/sip-session.h"
 
-
-#ifdef ENABLE_DEBUG
-
 #define MEDIA_DEBUG(media, format, ...) \
   rakia_log (DEBUG_FLAG, G_LOG_LEVEL_DEBUG, "media %s %p: " format, \
       priv_media_type_to_str ((media)->priv->media_type), (media),  \
@@ -51,14 +48,6 @@
   rakia_log (DEBUG_FLAG, G_LOG_LEVEL_MESSAGE, "media %s %p: " format, \
       priv_media_type_to_str ((media)->priv->media_type), (media), \
       ##__VA_ARGS__)
-
-#else
-
-#define MEDIA_DEBUG(media, format, ...) G_STMT_START { } G_STMT_END
-#define MEDIA_MESSAGE(media, format, ...) G_STMT_START { } G_STMT_END
-
-#endif
-
 
 /* The timeout for outstanding re-INVITE transactions in seconds.
  * Chosen to match the allowed cancellation timeout for proxies

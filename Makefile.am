@@ -26,7 +26,7 @@ SUBDIRS = \
 include tools/lcov.am
 LCOV_CHECK_ARGS = CHECK_TWISTED_SLEEP=6
 
-DISTCHECK_CONFIGURE_FLAGS = --disable-debug --enable-gtk-doc
+DISTCHECK_CONFIGURE_FLAGS = --enable-gtk-doc
 
 clean-local: lcov-clean
 
