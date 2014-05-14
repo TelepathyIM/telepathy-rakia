@@ -3,8 +3,8 @@ AC_PREREQ([2.60])
 m4_define([THIS_PACKAGE],[telepathy-rakia])
 m4_define([VERSION_MAJOR],[0])
 m4_define([VERSION_MINOR],[99])
-m4_define([VERSION_MICRO],[10])
-m4_define([VERSION_NANO],[1])
+m4_define([VERSION_MICRO],[11])
+m4_define([VERSION_NANO],[0])
 
 m4_define([BASE_VERSION],[VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO])
 m4_define([THIS_VERSION],
@@ -95,7 +95,7 @@ AC_DEFINE(TP_SEAL_ENABLE, [], [Prevent to use sealed variables])
 AC_DEFINE(TP_DISABLE_SINGLE_INCLUDE, [], [Disable single header include])
 AC_DEFINE([TP_VERSION_MIN_REQUIRED], [TP_VERSION_1_0], [Ignore post 1.0 deprecations])
 AC_DEFINE([TP_VERSION_MAX_ALLOWED], [TP_VERSION_1_0], [Prevent post 1.0 APIs])
-PKG_CHECK_MODULES([TELEPATHY_GLIB], [telepathy-glib-1 >= 0.99.10, telepathy-glib-1-dbus >= 0.99.10])
+PKG_CHECK_MODULES([TELEPATHY_GLIB], [telepathy-glib-1 >= 0.99.11, telepathy-glib-1-dbus >= 0.99.11])
 
 dnl Check for optional IP heartbeat support
 AC_ARG_WITH(iphb,
