@@ -623,7 +623,6 @@ rakia_connection_class_init (RakiaConnectionClass *klass)
 
 #undef INST_PROP
 
-  tp_dbus_properties_mixin_class_init (object_class, 0);
   tp_dbus_properties_mixin_implement_interface (object_class,
       TP_IFACE_QUARK_CONNECTION_INTERFACE_ALIASING1,
       conn_aliasing_properties_getter, NULL, conn_aliasing_properties);
