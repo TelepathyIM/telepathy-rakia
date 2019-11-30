@@ -619,8 +619,7 @@ class Generator(object):
             self.b('#include %s' % header)
         self.b('')
 
-        nodes = self.dom.getElementsByTagName('node')
-        nodes.sort(cmp_by_name)
+        nodes = sorted(self.dom.getElementsByTagName('node'))
 
         for node in nodes:
             self.do_node(node)
@@ -639,7 +638,7 @@ class Generator(object):
 
 
 def cmdline_error():
-    print """\
+    print("""\
 usage:
     gen-ginterface [OPTIONS] xmlfile Prefix_
 options:
@@ -659,7 +658,7 @@ options:
             void symbol (DBusGMethodInvocation *context)
         and return some sort of "not implemented" error via
             dbus_g_method_return_error (context, ...)
-"""
+""")
     sys.exit(1)
 
 
